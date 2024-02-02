@@ -13,3 +13,4 @@ Example use on the provided example with GNU gcc and g++:
 
 ## Todo
 * Avoid building up-to-date files (currently, the whole input module and its dependencies are rebuilt)
+* Win32 API support
