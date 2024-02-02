@@ -1,6 +1,6 @@
 # Builder
 
-Easy to use lightweight cross-platform build system.
+Easy to use lightweight build system.
 
 ## Prerequisites
 * C compiler supporting C99 standard
