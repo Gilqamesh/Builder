@@ -22,8 +22,8 @@ static void create_lib_module() {
     }
 
     lib_module = module__create();
-    module_file_t lib_file = module__add_file(lib_module, c_compiler_path);
     const char* lib_module_prefix_dir = "examples/multiple_compilers/lib";
+    module_file_t lib_file = module__add_file(lib_module, c_compiler_path, "%s/lib.c", lib_module_prefix_dir);
     module_file__append_cflag(lib_file, "-c %s/lib.c -o %s/lib.o", lib_module_prefix_dir, lib_module_prefix_dir);
     module__append_lflag(lib_module, "%s/lib.o", lib_module_prefix_dir);
     module__append_cflag(lib_module, "-I%s", lib_module_prefix_dir);
@@ -39,11 +39,11 @@ static void create_example_module() {
 
     example_module = module__create();
     const char* example_module_prefix_dir = "examples/multiple_compilers";
-    module_file_t example_c_file = module__add_file(example_module, c_compiler_path);
+    module_file_t example_c_file = module__add_file(example_module, c_compiler_path, "%s/example.c", example_module_prefix_dir);
     module_file__append_cflag(example_c_file, "-c %s/example.c -o %s/example_c.o", example_module_prefix_dir, example_module_prefix_dir);
     module__append_lflag(example_module, "%s/example_c.o", example_module_prefix_dir);
 
-    module_file_t example_cpp_file = module__add_file(example_module, cpp_compiler_path);
+    module_file_t example_cpp_file = module__add_file(example_module, cpp_compiler_path, "%s/example.cpp", example_module_prefix_dir);
     module_file__append_cflag(example_cpp_file, "-c %s/example.cpp -o %s/example_cpp.o", example_module_prefix_dir, example_module_prefix_dir);
     module__append_lflag(example_module, "%s/example_cpp.o", example_module_prefix_dir);
     module__append_lflag(example_module, "-o %s/example", example_module_prefix_dir);
