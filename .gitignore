@@ -1,0 +1,6 @@
+*.o
+build_multiple_compilers
+build_simple
+examples/simple/example
+examples/multiple_compilers/example
+.vscode/
