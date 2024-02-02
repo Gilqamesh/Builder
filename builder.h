@@ -30,9 +30,11 @@ void module__link(module_t self, const char* module_linker_path, int* optional_s
 
 typedef struct module_file* module_file_t;
 
-module_file_t module__add_file(module_t self, const char* file_compiler_path);
+module_file_t module__add_file(module_t self, const char* opt_file_compiler_path, const char* file_path_printf_format, ...);
 
 void module_file__prepend_cflag(module_file_t self, const char* cflag_printf_format, ...);
 void module_file__append_cflag(module_file_t self, const char* cflag_printf_format, ...);
+
+void module_file__add_dependency(module_file_t self, module_file_t file);
 
 #endif // BUILD_H
