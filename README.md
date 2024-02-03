@@ -31,7 +31,7 @@ Then in a separate terminal
 ```
 cd examples/shared_lib && LD_LIBRARY_PATH=. ./example
 ```
-Changes the files `example.c, shared_lib.c, shared_lib.h` are rebuilt and reloaded automatically.
+Changes in the files `example.c, shared_lib.c, shared_lib.h` are rebuilt and reloaded automatically.
 
 ## Todo
 * Win32 API support
