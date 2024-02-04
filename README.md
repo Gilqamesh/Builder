@@ -1,6 +1,6 @@
 # Builder
 
-Easy to use lightweight build system.
+Flexible, easy-to-use compiler agnostic lightweight build system.
 
 ## Prerequisites
 * C compiler supporting C99 standard
