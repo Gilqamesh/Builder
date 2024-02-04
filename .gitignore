@@ -1,9 +1,6 @@
 *.o
-build_multiple_compilers
-build_simple
-build_shared_lib
-examples/simple/example
-examples/multiple_compilers/example
-examples/shared_lib/example
-examples/shared_lib/libshared_lib.so
+*.so
+**/example
+**/build_example
+build_examples
 .vscode/

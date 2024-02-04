@@ -1,30 +1,40 @@
 #include "builder.h"
 
 #include <unistd.h>
+#include <time.h>
+#include <signal.h>
+#include <stdio.h>
+#include <stdlib.h>
+
+static const char* c_compiler_path = "/usr/bin/gcc";
+
+static const char* binary_name = "example";
 
 int main() {
+    module_t shared_lib_module = module__create();
+    module_file_t shared_lib_c_file  = module__add_file(shared_lib_module, c_compiler_path, "shared_lib.c");
+    module_file_t shared_lib_h_file  = module__add_file(shared_lib_module, 0, "shared_lib.h");
+    module_file_t shared_lib_so_file = module__add_file(shared_lib_module, 0, "libshared_lib.so");
+
+    module_file__add_dependency(shared_lib_c_file, shared_lib_h_file);
+    module_file__add_dependency(shared_lib_so_file, shared_lib_c_file);
+
+    module_file__append_cflag(shared_lib_c_file, "%s -o %s -fPIC -shared -g", module_file__path(shared_lib_c_file), module_file__path(shared_lib_so_file));
+
     module_t example_module = module__create();
 
-    const char* example_module_prefix_dir = "examples/shared_lib";
-    module_file_t example_file = module__add_file(example_module, "/usr/bin/gcc", "%s/example.c", example_module_prefix_dir);
-    module_file__append_cflag(example_file, "-c %s/example.c -o %s/example.o -g", example_module_prefix_dir, example_module_prefix_dir);
-    module__append_lflag(example_module, "%s/example.o -o %s/example", example_module_prefix_dir, example_module_prefix_dir);
+    module_file_t example_c_file = module__add_file(example_module, c_compiler_path, "example.c");
+    module_file_t example_o_file = module__add_file(example_module, 0, "example.o");
 
-    module_t shared_lib_module = module__create();
-    module_file_t shared_lib_file_c = module__add_file(shared_lib_module, "/usr/bin/gcc", "%s/shared_lib.c", example_module_prefix_dir);
-    module_file__append_cflag(shared_lib_file_c, "%s/shared_lib.c -o %s/libshared_lib.so -fPIC -shared", example_module_prefix_dir, example_module_prefix_dir, example_module_prefix_dir);
+    module_file__add_dependency(example_o_file, example_c_file);
 
-    module_file_t shared_lib_file_h = module__add_file(shared_lib_module, 0, "%s/shared_lib.h", example_module_prefix_dir);
-    module_file__add_dependency(shared_lib_file_c, shared_lib_file_h);
+    module_file__append_cflag(example_c_file, "-c %s -o %s -g", module_file__path(example_c_file), module_file__path(example_o_file));
 
-    while (1) {
-        module__compile_with_dependencies(example_module);
-        module__wait_for_compilation(example_module);
-        module__link(example_module, "/usr/bin/gcc", 0);
+    module__append_lflag(example_module, "%s -o %s", module_file__path(example_o_file), binary_name);
 
-        module__compile_with_dependencies(shared_lib_module);
-        module__wait_for_compilation(shared_lib_module);
-        
-        usleep(100000);
-    }
+    module__add_dependency(example_module, shared_lib_module);
+
+    module__rebuild_forever(example_module, c_compiler_path, 0, 0);
+
+    return 0;
 }

@@ -1,22 +1,38 @@
 #include "builder.h"
 
+#include <unistd.h>
+#include <stdio.h>
+
+static const char* binary_name = "example";
+
+static void module__execute(void* user_data) {
+    module_t self = (module_t) user_data;
+
+    printf("./%s\n", binary_name);
+    if (execl(binary_name, binary_name, 0) == -1) {
+        perror(0);
+    }
+}
+
 int main() {
-    module_t example_module = module__create();
+    const char* c_linker_path = "/usr/bin/gcc";
 
-    const char* example_module_prefix_dir = "examples/simple";
-    module_file_t example_file = module__add_file(example_module, "/usr/bin/gcc", "%s/example.c", example_module_prefix_dir);
-    module_file__append_cflag(example_file, "-c %s/example.c -o %s/example.o", example_module_prefix_dir, example_module_prefix_dir);
-    module__append_lflag(example_module, "%s/example.o -o %s/example", example_module_prefix_dir, example_module_prefix_dir);
-    module_file_t example_file_header = module__add_file(example_module, 0, "%s/example.h", example_module_prefix_dir);
-    module_file__add_dependency(example_file, example_file_header);
+    module_t example_module = module__create(0);
 
-    module__compile_with_dependencies(example_module);
-    module__wait_for_compilation(example_module);
+    module_file_t example_src_file    = module__add_file(example_module, c_linker_path, "example.c");
+    module_file_t example_file_header = module__add_file(example_module, 0, "example.h");
+    module_file_t example_ir_file     = module__add_file(example_module, 0, "example.o");
+    module_file_t example_bin_file    = module__add_file(example_module, 0, "%s", binary_name);
 
-    int link_result = 0;
-    module__link(example_module, "/usr/bin/gcc", &link_result);
+    module_file__append_cflag(example_src_file, "-c %s -o %s", module_file__path(example_src_file), module_file__path(example_ir_file));
 
-    module__destroy(example_module);
+    module__append_lflag(example_module, "%s -o %s", module_file__path(example_ir_file), module_file__path(example_bin_file));
 
-    return link_result;
+    module_file__add_dependency(example_src_file, example_file_header);
+    module_file__add_dependency(example_ir_file,  example_src_file);
+    module_file__add_dependency(example_bin_file, example_ir_file);
+
+    module__rebuild_forever(example_module, c_linker_path, &module__execute, example_module);
+
+    return 0;
 }
