@@ -9,7 +9,7 @@
 #include <time.h>
 
 static time_t shared_lib_load_time;
-static const char* shared_lib_path = "libshared_lib.so";
+static const char* shared_lib_path = "./libshared_lib.so";
 static void* shared_lib;
 typedef int (*get_dll_state_t)();
 static get_dll_state_t get_dll_state;
@@ -43,10 +43,9 @@ int main() {
             perror(0);
             exit(1);
         }
-        const time_t shared_lib_modified_time = shared_lib_info.st_mtime;
-        if (shared_lib_modified_time != shared_lib_load_time) {
+        if (shared_lib_info.st_mtime != shared_lib_load_time) {
             if (!reload_shared_lib()) {
-                shared_lib_load_time = shared_lib_modified_time;
+                shared_lib_load_time = shared_lib_info.st_mtime;
             }
         }
 
