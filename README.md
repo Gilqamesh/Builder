@@ -1,7 +1,5 @@
 # Builder
 
-Lightweight, easy-to-use live framework language for managing dependencies and executing build processes continuously to keep your programs up-to-date.
-
 ## Prerequisites
 * C compiler supporting C99 standard
 
