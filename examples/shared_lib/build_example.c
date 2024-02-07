@@ -1,40 +1,54 @@
 #include "builder.h"
 
-#include <unistd.h>
-#include <time.h>
-#include <signal.h>
 #include <stdio.h>
-#include <stdlib.h>
-
-static const char* c_compiler_path = "/usr/bin/gcc";
-
-static const char* binary_name = "example";
+#include <unistd.h>
 
 int main() {
-    module_t shared_lib_module = module__create();
-    module_file_t shared_lib_c_file  = module__add_file(shared_lib_module, c_compiler_path, "shared_lib.c");
-    module_file_t shared_lib_h_file  = module__add_file(shared_lib_module, 0, "shared_lib.h");
-    module_file_t shared_lib_so_file = module__add_file(shared_lib_module, 0, "libshared_lib.so");
+    builder__init();
 
-    module_file__add_dependency(shared_lib_c_file, shared_lib_h_file);
-    module_file__add_dependency(shared_lib_so_file, shared_lib_c_file);
+    obj_t c_compiler    = obj__file("/usr/bin/gcc");
+    obj_t c_linker      = obj__file("/usr/bin/gcc");
+    obj_t example_c     = obj__file("example.c");
+    obj_t example_o     = obj__file("example.o");
+    obj_t shared_lib_h  = obj__file("shared_lib.h");
+    obj_t shared_lib_c  = obj__file("shared_lib.c");
+    obj_t shared_lib_so = obj__file("libshared_lib.so");
+    obj_t example_bin   = obj__file("example");
 
-    module_file__append_cflag(shared_lib_c_file, "%s -o %s -fPIC -shared -g", module_file__path(shared_lib_c_file), module_file__path(shared_lib_so_file));
+    obj_t shared_lib_program =
+        obj__process(
+            obj__dependencies(c_linker, shared_lib_h, shared_lib_c, 0),
+            shared_lib_so,
+            "%s -g %s -o %s -fPIC -shared -Wall -Wextra -Werror 2>&1 | head -n 25", obj__file_path(c_linker), obj__file_path(shared_lib_c), obj__file_path(shared_lib_so)
+        );
 
-    module_t example_module = module__create();
+    obj_t program =
+        obj__process(
+            obj__process(
+                obj__dependencies(
+                    c_linker,
+                    obj__process(
+                        obj__dependencies(c_compiler, shared_lib_h, example_c, 0),
+                        example_o,
+                        "%s -g -c %s -o %s -Wall -Wextra -Werror 2>&1 | head -n 25", obj__file_path(c_compiler), obj__file_path(example_c), obj__file_path(example_o)
+                    ),
+                    0
+                ),
+                example_bin,
+                "%s %s -o %s | head -n 25", obj__file_path(c_linker), obj__file_path(example_o), obj__file_path(example_bin)
+            ),
+            0,
+            "./%s", obj__file_path(example_bin)
+        );
 
-    module_file_t example_c_file = module__add_file(example_module, c_compiler_path, "example.c");
-    module_file_t example_o_file = module__add_file(example_module, 0, "example.o");
+    obj__print(shared_lib_program);
+    obj__print(program);
 
-    module_file__add_dependency(example_o_file, example_c_file);
-
-    module_file__append_cflag(example_c_file, "-c %s -o %s -g", module_file__path(example_c_file), module_file__path(example_o_file));
-
-    module__append_lflag(example_module, "%s -o %s", module_file__path(example_o_file), binary_name);
-
-    module__add_dependency(example_module, shared_lib_module);
-
-    module__rebuild_forever(example_module, c_compiler_path, 0, 0);
+    while (1) {
+        obj__build(shared_lib_program);
+        obj__build(program);
+        usleep(250000);
+    }
 
     return 0;
 }

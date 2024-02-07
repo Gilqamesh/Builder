@@ -1,95 +1,61 @@
 #include "builder.h"
 
-#include <assert.h>
-#include <stdio.h>
 #include <unistd.h>
 
-static const char* c_compiler_path   = "/usr/bin/gcc";
-static const char* cpp_compiler_path = "/usr/bin/g++";
-static const char* cpp_linker_path   = "/usr/bin/g++";
-
-static module_t lib_module = 0;
-static module_t example_module = 0;
-static const char* binary_name = "example";
-
-static void create_lib_module();
-static void create_example_module();
-static void append_linked_libs(module_t module);
-
-static int linked_libs_top = 0;
-static char* linked_libs[16];
-
-static void create_lib_module() {
-    if (lib_module) {
-        return ;
-    }
-
-    lib_module = module__create();
-    const char* lib_module_prefix_dir = "lib";
-    module_file_t lib_src_file = module__add_file(lib_module, c_compiler_path, "%s/lib.c", lib_module_prefix_dir);
-    module_file_t lib_o_file   = module__add_file(lib_module, 0, "%s/lib.o", lib_module_prefix_dir);
-    module_file_t lib_h_file   = module__add_file(lib_module, 0, "%s/lib.h", lib_module_prefix_dir);
-
-    module_file__add_dependency(lib_src_file, lib_h_file);
-    module_file__add_dependency(lib_o_file, lib_src_file);
-
-    module_file__append_cflag(lib_src_file, "-c %s -o %s", module_file__path(lib_src_file), module_file__path(lib_o_file));
-
-    module__append_cflag(lib_module, "-I%s", lib_module_prefix_dir);
-    module__append_lflag(lib_module, "%s", module_file__path(lib_o_file));
-
-    assert(linked_libs_top < sizeof(linked_libs) / sizeof(linked_libs[0]));
-    linked_libs[linked_libs_top++] = "-lm";
-}
-
-static void create_example_module() {
-    if (example_module) {
-        return ;
-    }
-
-    example_module = module__create();
-    module_file_t example_c_file     = module__add_file(example_module, c_compiler_path, "example.c");
-    module_file_t example_o_file     = module__add_file(example_module, 0, "example.c.o");
-    module_file_t example_h_file     = module__add_file(example_module, 0, "example.c.o");
-    module_file_t example_cpp_file   = module__add_file(example_module, cpp_compiler_path, "example.cpp");
-    module_file_t example_cpp_o_file = module__add_file(example_module, 0, "example.cpp.o");
-
-    module_file__add_dependency(example_o_file, example_c_file);
-    module_file__add_dependency(example_c_file, example_h_file);
-    module_file__add_dependency(example_cpp_file, example_h_file);
-    module_file__add_dependency(example_cpp_o_file, example_cpp_file);
-
-    module_file__append_cflag(example_c_file, "-c %s -o %s", module_file__path(example_c_file), module_file__path(example_o_file));
-    module_file__append_cflag(example_cpp_file, "-c %s -o %s", module_file__path(example_cpp_file), module_file__path(example_cpp_o_file));
-
-    module__append_lflag(example_module, "%s %s -o %s", module_file__path(example_o_file), module_file__path(example_cpp_o_file), binary_name);
-
-    create_lib_module();
-    assert(lib_module);
-    module__add_dependency(example_module, lib_module);
-}
-
-static void append_linked_libs(module_t module) {
-    for (int linked_lib_index = 0; linked_lib_index < linked_libs_top; ++linked_lib_index) {
-        module__append_lflag(module, linked_libs[linked_lib_index]);
-    }
-}
-
-static void module__execute(void* user_data) {
-    module_t self = (module_t) user_data;
-
-    printf("./%s\n", binary_name);
-    if (execl(binary_name, binary_name, 0) == -1) {
-        perror(0);
-    }
-}
-
 int main() {
-    create_example_module();
+    builder__init();
 
-    append_linked_libs(example_module);
+    const char* lib_dir = "lib";
 
-    module__rebuild_forever(example_module, cpp_linker_path, &module__execute, example_module);
+    obj_t c_compiler    = obj__file("/usr/bin/gcc");
+    obj_t cpp_compiler  = obj__file("/usr/bin/g++");
+    obj_t cpp_linker    = obj__file("/usr/bin/g++");
+    obj_t example_h     = obj__file("example.h");
+    obj_t example_c     = obj__file("example.c");
+    obj_t example_o     = obj__file("example.o");
+    obj_t example_cpp   = obj__file("example.cpp");
+    obj_t example_cpp_o = obj__file("example.cpp.o");
+    obj_t lib_h         = obj__file("%s/lib.h", lib_dir);
+    obj_t lib_c         = obj__file("%s/lib.c", lib_dir);
+    obj_t lib_o         = obj__file("%s/lib.o", lib_dir);
+    obj_t example_bin   = obj__file("example");
+
+
+    obj_t program =
+        obj__process(
+            obj__process(
+                obj__dependencies(
+                    obj__process(
+                        obj__dependencies(c_compiler, example_h, example_c, 0),
+                        example_o,
+                        "%s -I%s -g -c %s -o %s -Wall -Wextra -Werror 2>&1 | head -n 25", obj__file_path(c_compiler), lib_dir, obj__file_path(example_c), obj__file_path(example_o)
+                    ),
+                    obj__process(
+                        obj__dependencies(cpp_compiler, lib_h, example_cpp, example_h, 0),
+                        example_cpp_o,
+                        "%s -I%s -g -c %s -o %s -Wall -Wextra -Werror 2>&1 | head -n 25", obj__file_path(cpp_compiler), lib_dir, obj__file_path(example_cpp), obj__file_path(example_cpp_o)
+                    ),
+                    obj__process(
+                        obj__dependencies(c_compiler, lib_h, lib_c, 0),
+                        lib_o,
+                        "%s -g -c %s -o %s -Wall -Wextra -Werror 2>&1 | head -n 25", obj__file_path(c_compiler), obj__file_path(lib_c), obj__file_path(lib_o)
+                    ),
+                    cpp_linker,
+                    0
+                ),
+                example_bin,
+                "%s %s %s %s -o %s | head -n 25", obj__file_path(cpp_linker), obj__file_path(lib_o), obj__file_path(example_o), obj__file_path(example_cpp_o), obj__file_path(example_bin)
+            ),
+            0,
+            "./%s", obj__file_path(example_bin)
+        );
+
+    obj__print(program);
+
+    while (1) {
+        obj__build(program);
+        usleep(250000);
+    }
 
     return 0;
 }

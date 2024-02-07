@@ -1,38 +1,38 @@
 #include "builder.h"
 
 #include <unistd.h>
-#include <stdio.h>
-
-static const char* binary_name = "example";
-
-static void module__execute(void* user_data) {
-    module_t self = (module_t) user_data;
-
-    printf("./%s\n", binary_name);
-    if (execl(binary_name, binary_name, 0) == -1) {
-        perror(0);
-    }
-}
 
 int main() {
-    const char* c_linker_path = "/usr/bin/gcc";
+    builder__init();
 
-    module_t example_module = module__create(0);
+    obj_t c_compiler  = obj__file("/usr/bin/gcc");
+    obj_t o_linker    = obj__file("/usr/bin/gcc");
+    obj_t example_h   = obj__file("example.h");
+    obj_t example_c   = obj__file("example.c");
+    obj_t example_o   = obj__file("example.o");
+    obj_t example_bin = obj__file("example");
 
-    module_file_t example_src_file    = module__add_file(example_module, c_linker_path, "example.c");
-    module_file_t example_file_header = module__add_file(example_module, 0, "example.h");
-    module_file_t example_ir_file     = module__add_file(example_module, 0, "example.o");
-    module_file_t example_bin_file    = module__add_file(example_module, 0, "%s", binary_name);
+    obj_t program =
+        obj__process(
+            obj__process(
+                obj__process(
+                    obj__dependencies(example_h, example_c, 0),
+                    example_o,
+                    "%s -g -c %s -o %s -Wall -Wextra -Werror 2>&1 | head -n 25", obj__file_path(c_compiler), obj__file_path(example_c), obj__file_path(example_o)
+                ),
+                example_bin,
+                "%s %s -o %s 2>&1 | head -n 25", obj__file_path(o_linker), obj__file_path(example_o), obj__file_path(example_bin)
+            ),
+            0,
+            "./%s", obj__file_path(example_bin)
+        );
 
-    module_file__append_cflag(example_src_file, "-c %s -o %s", module_file__path(example_src_file), module_file__path(example_ir_file));
+    obj__print(program);
 
-    module__append_lflag(example_module, "%s -o %s", module_file__path(example_ir_file), module_file__path(example_bin_file));
-
-    module_file__add_dependency(example_src_file, example_file_header);
-    module_file__add_dependency(example_ir_file,  example_src_file);
-    module_file__add_dependency(example_bin_file, example_ir_file);
-
-    module__rebuild_forever(example_module, c_linker_path, &module__execute, example_module);
+    while (1) {
+        obj__build(program);
+        usleep(100000);
+    }
 
     return 0;
 }

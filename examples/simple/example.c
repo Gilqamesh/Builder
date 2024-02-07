@@ -2,12 +2,12 @@
 
 #include <stdio.h>
 
-void do_stuff() {
+void greet() {
     printf("Hello from simple example!\n");
 }
 
 int main() {
-    do_stuff();
+    greet();
 
     return 0;
 }

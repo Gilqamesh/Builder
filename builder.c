@@ -1,7 +1,6 @@
 #include "builder.h"
 
 #include <stdlib.h>
-#include <stdint.h>
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
@@ -13,6 +12,10 @@
 #include <fcntl.h>
 #include <time.h>
 
+static size_t children_pid_top = 0;
+static pid_t  children_pid[256];
+
+#define ARRAY_SIZE(array) (sizeof(array)/sizeof((array)[0]))
 #define ARRAY_ENSURE_TOP(array_p, array_top, array_size) do { \
     if ((array_top) >= (array_size)) { \
         if ((array_size) == 0) { \
@@ -25,680 +28,360 @@
     } \
 } while (0)
 
-extern char** environ;
+struct obj {
+    int      dependencies_top;
+    int      dependencies_size;
+    obj_t*   dependencies;
 
-struct compiler {
-    const char*  path;
+    time_t   time;
+    
+    // used for anything, clear once done using it
+    int      transient_flag;
+
+    void     (*check)(obj_t self);
+    void     (*invoke)(obj_t self);
+    void     (*print)(obj_t self);
+    void     (*destroy)(obj_t self);
 };
 
-struct module_file {
-    char* file_path;
-    const char* opt_compiler_path;
+typedef struct obj_file {
+    struct obj base;
+    char*      path;
+} *obj_file_t;
 
-    uint32_t cflags_top;
-    uint32_t cflags_size;
-    char**   cflags;
+typedef struct obj_process {
+    struct obj base;
+    char*      cmd_line;
+    pid_t      pid;
+} *obj_process_t;
 
-    uint32_t       dependencies_top;
-    uint32_t       dependencies_size;
-    module_file_t* dependencies;
+static void obj__add_dependency(obj_t self, obj_t dependency);
+static void obj__check_for_cyclic_dependency(obj_t self);
+static int  obj__check_for_cyclic_dependency_helper(obj_t self);
+static void obj__print_helper(obj_t self, int depth);
 
-    /**
-     * 0  - hasn't been compiled yet
-     * >0 - compiling
-     * <0 - compiled
-    */
-    int32_t is_compiled;
+static void obj__check_process(obj_t self);
+static void obj__check_file(obj_t self);
 
-    /**
-     * 0 - file does not exist
-     * >0 - last modified time
-    */
-    time_t time_last_modified;
-    time_t time_last_compiled;
-};
+static void obj__invoke_process(obj_t self);
 
+static void obj__print_process(obj_t self);
+static void obj__print_file(obj_t self);
 
-struct module {
-    uint32_t       files_top;
-    uint32_t       files_size;
-    module_file_t* files;
+static void obj__destroy_process(obj_t self);
+static void obj__destroy_file(obj_t self);
 
-    uint32_t  dependencies_top;
-    uint32_t  dependencies_size;
-    module_t* dependencies;
+static void children_pid__signal_handler(int signal);
+static void children_pid__add_child(pid_t pid);
+static void children_pid__remove_child(pid_t pid);
 
-    uint32_t cflags_top;
-    uint32_t cflags_size;
-    char**   cflags;
-
-    uint32_t lflags_top;
-    uint32_t lflags_size;
-    char**   lflags;
-
-    /**
-     * Can be used for anything like circular dependency check
-     * 'transient_flag_is_used' must be cleared when done using it
-    */
-    int32_t transient_flag;
-    int32_t transient_flag_is_used;
-
-    time_t time_last_modified;
-    time_t time_last_linked;
-};
-
-static void module__files_update_last_modified(module_t self);
-static void module__compile(module_t self);
-static void module__wait_for_compilation(module_t self);
-static void module__vprepend_cflag(module_t self, const char* cflag_printf_format, va_list ap);
-static void module__vappend_cflag(module_t self, const char* cflag_printf_format, va_list ap);
-static void module__vprepend_lflag(module_t self, const char* lflag_printf_format, va_list ap);
-static void module__vappend_lflag(module_t self, const char* lflag_printf_format, va_list ap);
-static void module__collect_lflags(module_t self, module_t append_to, int32_t explore);
-static void module__collect_cflags(module_t self, module_file_t append_to, int32_t explore);
-
-static module_file_t module_file__create(const char* opt_compiler_path, const char* file_path_printf_format, va_list ap);
-static void module_file__destroy(module_file_t self);
-static void module_file__vprepend_cflag(module_file_t self, const char* cflag_printf_format, va_list ap);
-static void module_file__vappend_cflag(module_file_t self, const char* cflag_printf_format, va_list ap);
-static void module_file__update_last_modified(module_file_t self);
-
-static time_t time__current();
-
-static int32_t my_vasprintf(char** strp, const char* format, va_list ap);
-static int32_t my_asprintf(char** strp, const char* format, ...);
-
-static void module__files_update_last_modified(module_t self) {
-    for (uint32_t dependency_index = 0; dependency_index < self->dependencies_top; ++dependency_index) {
-        module_t dependency = self->dependencies[dependency_index];
-        module__files_update_last_modified(dependency);
-        if (dependency->time_last_modified > self->time_last_modified) {
-            self->time_last_modified = dependency->time_last_modified;
+static void obj__add_dependency(obj_t self, obj_t dependency) {    
+    if (dependency->transient_flag == 1) {
+        for (int dependency_index = 0; dependency_index < dependency->dependencies_top; ++dependency_index) {
+            obj_t dep = dependency->dependencies[dependency_index];
+            obj__add_dependency(self, dep);
         }
-    }
-
-    for (uint32_t file_index = 0; file_index < self->files_top; ++file_index) {
-        module_file_t module_file = self->files[file_index];
-        module_file__update_last_modified(module_file);
-        if (module_file->time_last_modified > self->time_last_modified) {
-            self->time_last_modified = module_file->time_last_modified;
-        }
-    }
-}
-
-static void module__compile(module_t self) {
-    for (uint32_t dependency_index = 0; dependency_index < self->dependencies_top; ++dependency_index) {
-        module_t dependency = self->dependencies[dependency_index];
-        module__compile(dependency);
-    }
-
-    for (uint32_t file_index = 0; file_index < self->files_top; ++file_index) {
-        module_file_t module_file = self->files[file_index];
-        
-        if (!module_file->opt_compiler_path) {
-            // does not need to be compiled
-            continue;
-        }
-
-        if (module_file->is_compiled > 0) {
-            // compiling -> nothing to do
-            continue ;
-        }
-
-        if (module_file->is_compiled < 0) {
-            // compiled -> check if any dependency has been modified since
-            if (module_file->time_last_modified <= module_file->time_last_compiled) {
-                continue ;
-            }
-        } else {
-            module_file__prepend_cflag(module_file, module_file->opt_compiler_path);
-            module__collect_cflags(self, module_file, 1);
-            module__collect_cflags(self, module_file, 0);
-        }
-
-        for (uint32_t cflag_index = 0; cflag_index < module_file->cflags_top - 1; ++cflag_index) {
-            printf("%s ", module_file->cflags[cflag_index]);
-        }
-        printf("\n");
-        pid_t pid = fork();
-        if (pid == -1) {
-            perror(0);
-            exit(EXIT_FAILURE);
-        }
-        if (pid == 0) {
-            execve(module_file->opt_compiler_path, (char* const*) module_file->cflags, environ);
-            perror(0);
-            exit(EXIT_FAILURE);
-        }
-
-        module_file->is_compiled = pid;
-        module_file->time_last_compiled = time__current();
-    }
-}
-
-static void module__wait_for_compilation(module_t self) {
-    for (uint32_t dependency_index = 0; dependency_index < self->dependencies_top; ++dependency_index) {
-        module_t dependency = self->dependencies[dependency_index];
-        module__wait_for_compilation(dependency);
-    }
-
-    for (uint32_t file_index = 0; file_index < self->files_top; ++file_index) {
-        module_file_t file = self->files[file_index];
-        if (file->is_compiled > 0) {
-            // currently compiling
-            pid_t file_pid = waitpid(file->is_compiled, 0, 0);
-            assert(file_pid == file->is_compiled);
-            // set to compiled
-            file->is_compiled = -1;
-        }
-    }
-}
-
-static void module__vprepend_cflag(module_t self, const char* cflag_printf_format, va_list ap) {
-    module__vappend_cflag(self, cflag_printf_format, ap);
-
-    assert(self->cflags_top >= 2);
-    char* tmp = self->cflags[self->cflags_top - 2];
-    for (uint32_t cflag_index = self->cflags_top - 2; cflag_index > 0; --cflag_index) {
-        self->lflags[cflag_index] = self->cflags[cflag_index - 1];
-    }
-    self->cflags[0] = tmp;
-}
-
-static void module__vappend_cflag(module_t self, const char* cflag_printf_format, va_list ap) {
-    char* str = 0;
-    my_vasprintf(&str, cflag_printf_format, ap);
-    assert(str);
-    uint32_t start_index = 0;
-    uint32_t end_index   = 0;
-    for (uint32_t str_index = 0; str[str_index]; ++str_index, ++end_index) {
-        if (str[str_index] == ' ') {
-            if (end_index != start_index) {
-                ARRAY_ENSURE_TOP(self->cflags, self->cflags_top, self->cflags_size);
-                self->cflags[self->cflags_top] = 0;
-                my_asprintf(&self->cflags[self->cflags_top - 1], "%.*s", end_index - start_index, str + start_index);
-                ++self->cflags_top;
-
-                start_index = end_index + 1;
-            } else {
-                ++start_index;
-            }
-        }
-    }
-    if (end_index != start_index) {
-        ARRAY_ENSURE_TOP(self->cflags, self->cflags_top, self->cflags_size);
-        self->cflags[self->cflags_top] = 0;
-        my_asprintf(&self->cflags[self->cflags_top - 1], "%.*s", end_index - start_index, str + start_index);
-        ++self->cflags_top;
-    }
-    free(str);
-}
-
-static void module__vprepend_lflag(module_t self, const char* lflag_printf_format, va_list ap) {
-    module__vappend_lflag(self, lflag_printf_format, ap);
-
-    assert(self->lflags_top >= 2);
-    char* tmp = self->lflags[self->lflags_top - 2];
-    for (uint32_t lflag_index = self->lflags_top - 2; lflag_index > 0; --lflag_index) {
-        self->lflags[lflag_index] = self->lflags[lflag_index - 1];
-    }
-    self->lflags[0] = tmp;
-}
-
-static void module__vappend_lflag(module_t self, const char* lflag_printf_format, va_list ap) {
-    char* str = 0;
-    my_vasprintf(&str, lflag_printf_format, ap);
-    assert(str);
-    uint32_t start_index = 0;
-    uint32_t end_index   = 0;
-    for (uint32_t str_index = 0; str[str_index]; ++str_index, ++end_index) {
-        if (str[str_index] == ' ') {
-            if (end_index != start_index) {
-                ARRAY_ENSURE_TOP(self->lflags, self->lflags_top, self->lflags_size);
-                self->lflags[self->lflags_top] = 0;
-                my_asprintf(&self->lflags[self->lflags_top - 1], "%.*s", end_index - start_index, str + start_index);
-                ++self->lflags_top;
-
-                start_index = end_index + 1;
-            } else {
-                ++start_index;
-            }
-        }
-    }
-    if (end_index != start_index) {
-        ARRAY_ENSURE_TOP(self->lflags, self->lflags_top, self->lflags_size);
-        self->lflags[self->lflags_top] = 0;
-        my_asprintf(&self->lflags[self->lflags_top - 1], "%.*s", end_index - start_index, str + start_index);
-        ++self->lflags_top;
-    }
-    free(str);
-}
-
-static void module__collect_lflags(module_t self, module_t append_to, int32_t explore) {
-    if (explore) {
-        if (self->transient_flag) {
-            return ;
-        }
-        assert(!self->transient_flag_is_used);
-        /**
-         * 1 - visited
-         * 0 - not visited
-        */
-        self->transient_flag = 1;
-        self->transient_flag_is_used = 1;
-
-        for (uint32_t dependency_index = 0; dependency_index < self->dependencies_top; ++dependency_index) {
-            module_t dependency = self->dependencies[dependency_index];
-            module__collect_lflags(dependency, append_to, explore);
-        }
-
-        for (size_t lflag_index = 0; lflag_index < self->lflags_top - 1; ++lflag_index) {
-            int32_t found = 0;
-            for (uint32_t append_to_lflag_index = 0; append_to_lflag_index < append_to->lflags_top - 1; ++append_to_lflag_index) {
-                if (strcmp(append_to->lflags[append_to_lflag_index], self->lflags[lflag_index]) == 0) {
-                    found = 1;
-                    break ;
-                }
-            }
-            if (!found) {
-                module__append_lflag(append_to, self->lflags[lflag_index]);
-            }
-        }
-    } else {
-        if (self->transient_flag == 0) {
-            return ;
-        }
-        assert(self->transient_flag_is_used);
-
-        for (uint32_t dependency_index = 0; dependency_index < self->dependencies_top; ++dependency_index) {
-            module_t dependency = self->dependencies[dependency_index];
-            module__collect_lflags(dependency, 0, explore);
-        }
-
-        self->transient_flag         = 0;
-        self->transient_flag_is_used = 0;
-    }
-}
-
-static void module__collect_cflags(module_t self, module_file_t append_to, int32_t explore) {
-    if (explore) {
-        if (self->transient_flag) {
-            return ;
-        }
-        assert(!self->transient_flag_is_used);
-        /**
-         * 1 - visited
-         * 0 - not visited
-        */
-        self->transient_flag = 1;
-        self->transient_flag_is_used = 1;
-
-        for (uint32_t dependency_index = 0; dependency_index < self->dependencies_top; ++dependency_index) {
-            module_t dependency = self->dependencies[dependency_index];
-            module__collect_cflags(dependency, append_to, explore);
-        }
-
-        for (size_t cflag_index = 0; cflag_index < self->cflags_top - 1; ++cflag_index) {
-            int32_t found = 0;
-            for (uint32_t append_to_cflag_index = 0; append_to_cflag_index < append_to->cflags_top - 1; ++append_to_cflag_index) {
-                if (strcmp(append_to->cflags[append_to_cflag_index], self->cflags[cflag_index]) == 0) {
-                    found = 1;
-                    break ;
-                }
-            }
-            if (!found) {
-                module_file__append_cflag(append_to, self->cflags[cflag_index]);
-            }
-        }
-    } else {
-        if (self->transient_flag == 0) {
-            return ;
-        }
-        assert(self->transient_flag_is_used);
-
-        for (uint32_t dependency_index = 0; dependency_index < self->dependencies_top; ++dependency_index) {
-            module_t dependency = self->dependencies[dependency_index];
-            module__collect_cflags(dependency, 0, explore);
-        }
-
-        self->transient_flag         = 0;
-        self->transient_flag_is_used = 0;
-    }
-}
-
-static module_file_t module_file__create(const char* opt_compiler_path, const char* file_path_printf_format, va_list ap) {
-    module_file_t result = calloc(1, sizeof(*result));
-    if (!result) {
-        return 0;
-    }
-
-    my_vasprintf(&result->file_path, file_path_printf_format, ap);
-    result->opt_compiler_path = opt_compiler_path;
-    module_file__update_last_modified(result);
-
-    ARRAY_ENSURE_TOP(result->cflags, result->cflags_top, result->cflags_size);
-    result->cflags[result->cflags_top++] = 0;
-
-    return result;
-}
-
-static void module_file__destroy(module_file_t self) {
-    if (self->file_path) {
-        free(self->file_path);
-    }
-
-    if (self->cflags) {
-        for (uint32_t cflag_index = 0; cflag_index < self->cflags_top; ++cflag_index) {
-            if (self->cflags[cflag_index]) {
-                free(self->cflags[cflag_index]);
-            }
-        }
-        free(self->cflags);
-    }
-
-    free(self);
-}
-
-static void module_file__vprepend_cflag(module_file_t self, const char* cflag_printf_format, va_list ap) {
-    module_file__vappend_cflag(self, cflag_printf_format, ap);
-
-    assert(self->cflags_top >= 2);
-    char* tmp = self->cflags[self->cflags_top - 2];
-    for (uint32_t cflag_index = self->cflags_top - 2; cflag_index > 0; --cflag_index) {
-        self->cflags[cflag_index] = self->cflags[cflag_index - 1];
-    }
-    self->cflags[0] = tmp;
-}
-
-static void module_file__vappend_cflag(module_file_t self, const char* cflag_printf_format, va_list ap) {
-    char* str = 0;
-    my_vasprintf(&str, cflag_printf_format, ap);
-    assert(str);
-    uint32_t start_index = 0;
-    uint32_t end_index   = 0;
-    for (uint32_t str_index = 0; str[str_index]; ++str_index, ++end_index) {
-        if (str[str_index] == ' ') {
-            if (end_index != start_index) {
-                ARRAY_ENSURE_TOP(self->cflags, self->cflags_top, self->cflags_size);
-                self->cflags[self->cflags_top] = 0;
-                my_asprintf(&self->cflags[self->cflags_top - 1], "%.*s", end_index - start_index, str + start_index);
-                ++self->cflags_top;
-
-                start_index = end_index + 1;
-            } else {
-                ++start_index;
-            }
-        }
-    }
-    if (end_index != start_index) {
-        ARRAY_ENSURE_TOP(self->cflags, self->cflags_top, self->cflags_size);
-        self->cflags[self->cflags_top] = 0;
-        my_asprintf(&self->cflags[self->cflags_top - 1], "%.*s", end_index - start_index, str + start_index);
-        ++self->cflags_top;
-    }
-    free(str);
-}
-
-static void module_file__update_last_modified(module_file_t self) {
-    struct stat file_info;
-    if (stat(self->file_path, &file_info) == -1) {
-        // file does not exist, might have been removed
-        self->time_last_modified = 0;
+        free(dependency);
         return ;
     }
 
-    // if (
-    //     self->time_last_modified > 0 &&
-    //     self->time_last_modified != file_info.st_mtime &&
-    //     file_info.st_mtime > self->time_last_compiled
-    // ) {
-    //     printf("File changed: %s\n", self->file_path);
-    // }
-
-    self->time_last_modified = file_info.st_mtime;
-    if (!self->opt_compiler_path) {
-        // does not have IR, thus compilation time is synched to its last modified time
-        self->time_last_compiled = self->time_last_modified;
-    }
-}
-
-static time_t time__current() {
-    return time(0);
-}
-
-static int32_t my_vasprintf(char** strp, const char* format, va_list ap) {
-    const uint32_t max_cflag_len = 256;
-    char* str = malloc(max_cflag_len);
-    const int32_t bytes_needed = vsnprintf(str, max_cflag_len, format, ap);
-    assert(bytes_needed >= 0);
-    assert(bytes_needed < (int32_t) max_cflag_len);
-    *strp = malloc(bytes_needed + 1);
-    strncpy(*strp, str, bytes_needed + 1);
-    free(str);
-
-    return bytes_needed;
-}
-
-static int32_t my_asprintf(char** strp, const char* format, ...) {
-    va_list ap;
-    va_start(ap, format);
-
-    int32_t result = my_vasprintf(strp, format, ap);
-
-    va_end(ap);
-
-    return result;
-}
-
-module_t module__create() {
-    module_t result = calloc(1, sizeof(*result));
-
-    ARRAY_ENSURE_TOP(result->cflags, result->cflags_top, result->cflags_size);
-    result->cflags[result->cflags_top++] = 0;
-    ARRAY_ENSURE_TOP(result->lflags, result->lflags_top, result->lflags_size);
-    result->lflags[result->lflags_top++] = 0;
-
-    return result;
-}
-
-void module__destroy(module_t self) {
-    if (self->files) {
-        for (uint32_t file_index = 0; file_index < self->files_top; ++file_index) {
-            module_file__destroy(self->files[file_index]);
-        }
-        free(self->files);
-    }
-
-    if (self->dependencies) {
-        free(self->dependencies);
-    }
-
-    if (self->cflags) {
-        for (uint32_t cflag_index = 0; cflag_index < self->cflags_top; ++cflag_index) {
-            if (self->cflags[cflag_index]) {
-                free(self->cflags[cflag_index]);
-            }
-        }
-        free(self->cflags);
-    }
-
-    if (self->lflags) {
-        for (uint32_t lflag_index = 0; lflag_index < self->lflags_top; ++lflag_index) {
-            if (self->lflags[lflag_index]) {
-                free(self->lflags[lflag_index]);
-            }
-        }
-        free(self->lflags);
-    }
-
-    free(self);
-}
-
-void module__prepend_cflag(module_t self, const char* cflag_printf_format, ...) {
-    va_list ap;
-    va_start(ap, cflag_printf_format);
-
-    module__vprepend_cflag(self, cflag_printf_format, ap);
-
-    va_end(ap);
-}
-
-void module__append_cflag(module_t self, const char* cflag_printf_format, ...) {
-    va_list ap;
-    va_start(ap, cflag_printf_format);
-
-    module__vappend_cflag(self, cflag_printf_format, ap);
-
-    va_end(ap);
-}
-
-void module__prepend_lflag(module_t self, const char* lflag_printf_format, ...) {
-    va_list ap;
-    va_start(ap, lflag_printf_format);
-
-    module__vprepend_lflag(self, lflag_printf_format, ap);
-
-    va_end(ap);
-}
-
-void module__append_lflag(module_t self, const char* lflag_printf_format, ...) {
-    va_list ap;
-    va_start(ap, lflag_printf_format);
-
-    module__vappend_lflag(self, lflag_printf_format, ap);
-
-    va_end(ap);
-}
-
-void module__add_dependency(module_t self, module_t dependency) {
-    for (uint32_t dependency_index = 0; dependency_index < self->dependencies_top; ++dependency_index) {
-        if (self->dependencies[dependency_index] == dependency) {
-            return ;
-        }
-    }
-
+    assert(self != dependency);
     ARRAY_ENSURE_TOP(self->dependencies, self->dependencies_top, self->dependencies_size);
     self->dependencies[self->dependencies_top++] = dependency;
+
+    if (self->transient_flag == 0) {
+        obj__check_for_cyclic_dependency(self);
+    }
 }
 
-void module__compile_with_dependencies(module_t self) {
-    module__files_update_last_modified(self);
-    module__compile(self);
-    module__wait_for_compilation(self);
+static void obj__check_for_cyclic_dependency(obj_t self) {
+    assert(self->transient_flag == 0);
+    if (obj__check_for_cyclic_dependency_helper(self)) {
+        obj__print(self);
+        assert(0);
+    }
 }
 
-void module__relink(module_t self, const char* linker_path, int* optional_status_code) {
-    if (self->time_last_modified <= self->time_last_linked) {
+static int obj__check_for_cyclic_dependency_helper(obj_t self) {
+    if (self->transient_flag) {
+        self->transient_flag = 0;
+        printf("Cyclic dependences detected between:\n");
+        return 1;
+    }
+    self->transient_flag = 1;
+
+    for (int dependency_index = 0; dependency_index < self->dependencies_top; ++dependency_index) {
+        obj_t dependency = self->dependencies[dependency_index];
+        if (obj__check_for_cyclic_dependency_helper(dependency)) {
+            self->transient_flag = 0;
+            printf("  ");
+            self->print(self);
+            return 1;
+        }
+    }
+
+    self->transient_flag = 0;
+    
+    return 0;
+}
+
+static void obj__print_helper(obj_t self, int depth) {
+    printf("%*c", depth * 2, ' ');
+    self->print(self);
+
+    if (self->transient_flag) {
         return ;
     }
 
-    module_t fake_module = module__create();
-    module__append_lflag(fake_module, "%s",  linker_path);
-    module__collect_lflags(self, fake_module, 1);
-    module__collect_lflags(self, fake_module, 0);
-    for (uint32_t arg_index = 0; arg_index < fake_module->lflags_top - 1; ++arg_index) {
-        printf("%s ", fake_module->lflags[arg_index]);
-    }
-    printf("\n");
+    self->transient_flag = 1;
 
-    pid_t pid = fork();
-    if (pid == -1) {
-        perror(0);
-        exit(EXIT_FAILURE);
-    }
-    if (pid == 0) {
-        execve(linker_path, (char* const*) fake_module->lflags, environ);
-        perror(0);
-        exit(EXIT_FAILURE);
-    }
-    waitpid(pid, optional_status_code, 0);
-    if (optional_status_code && WIFEXITED(*optional_status_code)) {
-        *optional_status_code = WEXITSTATUS(*optional_status_code);
+    for (int dependency_index = 0; dependency_index < self->dependencies_top; ++dependency_index) {
+        obj_t dependency = self->dependencies[dependency_index];
+        obj__print_helper(dependency, depth + 1);
     }
 
-    module__destroy(fake_module);
-
-    self->time_last_linked = time__current();
+    self->transient_flag = 0;
 }
 
-module_file_t module__add_file(module_t self, const char* opt_file_compiler_path, const char* file_path_printf_format, ...) {
-    va_list ap;
-    va_start(ap, file_path_printf_format);
-    module_file_t result = module_file__create(opt_file_compiler_path, file_path_printf_format, ap);
-    va_end(ap);
+static void obj__check_process(obj_t self) {
+    obj_process_t process = (obj_process_t) self;
+    if (process->pid > 0) {
+        int wstatus = -1;
+        pid_t file_pid = waitpid(process->pid, &wstatus, WNOHANG);
+        if (file_pid == -1) {
+            children_pid__remove_child(process->pid);
+            process->pid = 0;
+            perror(0);
+        } else if (file_pid > 0) {
+            assert(file_pid == process->pid);
+            children_pid__remove_child(process->pid);
+            if (WIFEXITED(wstatus)) {
+                wstatus = WEXITSTATUS(wstatus);
+                if (!wstatus) {
+                    self->time = time(0);
+                } else {
+                    printf("Process returned with %d status code\n", wstatus);
+                }
+            } else if (WIFSIGNALED(wstatus)) {
+                int sig = WTERMSIG(wstatus);
+                printf("Process was terminated by signal: %d %s\n", sig, strsignal(sig));
+            } else if (WIFSTOPPED(wstatus)) {
+                int sig = WSTOPSIG(wstatus);
+                printf("Process was stopped by signal: %d %s\n", sig, strsignal(sig));
+            } else if (WIFCONTINUED(wstatus)) {
+                printf("Process was continued by signal %d %s\n", SIGCONT, strsignal(SIGCONT));
+            }
+            process->pid = 0;
+        }
+    }
+}
 
+static void obj__check_file(obj_t self) {
+    struct stat file_info;
+    if (stat(((obj_file_t) self)->path, &file_info) == -1) {
+        return ;
+    }
+
+    if (self->time < file_info.st_mtime) {
+        self->time = file_info.st_mtime;
+    }
+}
+
+static void obj__invoke_process(obj_t self) {
+    obj_process_t process = (obj_process_t) self;
+    if (process->pid > 0) {
+        kill(process->pid, SIGTERM);
+        waitpid(process->pid, 0, 0);
+        children_pid__remove_child(process->pid);
+    }
+
+    process->pid = fork();
+    if (process->pid < 0) {
+        perror(0);
+        exit(1);
+    }
+    if (process->pid == 0) {
+        execl("/usr/bin/sh", "sh", "-c", process->cmd_line, NULL);
+        perror(0);
+        exit(1);
+    }
+    children_pid__add_child(process->pid);
+    self->print(self);
+
+}
+
+static void obj__print_process(obj_t self) {
+    obj_process_t process = (obj_process_t) self;
+    printf("/usr/bin/sh -c \"%s\"\n", process->cmd_line);
+}
+
+static void obj__print_file(obj_t self) {
+    obj_file_t file = (obj_file_t) self;
+    printf("%s\n", file->path);
+}
+
+static void obj__destroy_process(obj_t self) {
+    (void) self;
+    assert(0 && "todo: implement");
+}
+static void obj__destroy_file(obj_t self) {
+    (void) self;
+    assert(0 && "todo: implement");
+}
+
+static void children_pid__signal_handler(int signal) {
+    if (signal == SIGTERM) {
+        for (size_t i = 0; i < ARRAY_SIZE(children_pid); ++i) {
+            if (children_pid[i]) {
+                kill(children_pid[i], SIGTERM);
+                waitpid(children_pid[i], 0, 0);
+            }
+        }
+        exit(1);
+    }
+}
+
+static void children_pid__add_child(pid_t pid) {
+    assert(children_pid_top++ < ARRAY_SIZE(children_pid));
+    for (size_t i = 0; i < ARRAY_SIZE(children_pid); ++i) {
+        if (children_pid[i] == 0) {
+            children_pid[i] = pid;
+            break ;
+        }
+    }
+}
+
+static void children_pid__remove_child(pid_t pid) {
+    assert(children_pid_top-- > 0);
+    for (size_t i = 0; i < ARRAY_SIZE(children_pid); ++i) {
+        if (children_pid[i] == pid) {
+            children_pid[i] = 0;
+            break ;
+        }
+    }
+}
+
+void builder__init() {
+    struct sigaction act = { 0 };
+    act.sa_handler = &children_pid__signal_handler;
+    sigaction(SIGTERM, &act, 0);
+}
+
+obj_t obj__file(const char* path, ...) {
+    obj_file_t result = calloc(1, sizeof(*result));
     if (!result) {
         return 0;
     }
 
-    ARRAY_ENSURE_TOP(self->files, self->files_top, self->files_size);
-    self->files[self->files_top++] = result;
+    result->base.check   = &obj__check_file;
+    result->base.invoke  = &obj__check_file;
+    result->base.print   = &obj__print_file;
+    result->base.destroy = &obj__destroy_file;
+
+    assert(path);
+    va_list ap;
+    va_start(ap, path);
+    va_list ap_copy;
+    va_copy(ap_copy, ap);
+    int len = vsnprintf(0, 0, path, ap_copy);
+    assert(len >= 0);
+    va_end(ap_copy);
+    result->path = malloc(len + 1);
+    vsnprintf(result->path, len + 1, path, ap);
+    va_end(ap);
+
+    // result->base.check((obj_t) result);
+
+    return (obj_t) result;
+}
+
+const char* obj__file_path(obj_t self) {
+    return ((obj_file_t) self)->path;
+}
+
+obj_t obj__process(obj_t opt_dep_in, obj_t opt_dep_out, const char* cmd_line, ...) {
+    obj_process_t result = calloc(1, sizeof(*result));
+    if (!result) {
+        return 0;
+    }
+
+    result->base.check   = &obj__check_process;
+    result->base.invoke  = &obj__invoke_process;
+    result->base.print   = &obj__print_process;
+    result->base.destroy = &obj__destroy_process;
+
+    assert(cmd_line);
+    va_list ap;
+    va_start(ap, cmd_line);
+    va_list ap_copy;
+    va_copy(ap_copy, ap);
+    int len = vsnprintf(0, 0, cmd_line, ap_copy);
+    assert(len >= 0);
+    va_end(ap_copy);
+    result->cmd_line = malloc(len + 1);
+    vsnprintf(result->cmd_line, len + 1, cmd_line, ap);
+    va_end(ap);
+
+    if (opt_dep_out) {
+        obj__add_dependency(opt_dep_out, (obj_t) result);
+    }
+
+    if (opt_dep_in) {
+        obj__add_dependency((obj_t) result, opt_dep_in);
+    }
+
+    return opt_dep_out ? opt_dep_out : (obj_t) result;
+}
+
+void obj__destroy(obj_t self) {
+    self->destroy(self);
+}
+
+obj_t obj__dependencies(obj_t dep0, ... /*, 0*/) {
+    obj_t result = calloc(1, sizeof(*result));
+    result->transient_flag = 1;
+
+    obj_t dep = dep0;
+    obj__add_dependency(result, dep);
+
+    va_list ap;
+    va_start(ap, dep0);
+
+    dep = va_arg(ap, obj_t);
+    while (dep) {
+        obj__add_dependency(result, dep);
+        dep = va_arg(ap, obj_t);
+    }
+
+    va_end(ap);
 
     return result;
 }
 
-const char* module_file__path(module_file_t self) {
-    return self->file_path;
+void obj__print(obj_t self) {
+    printf("  ---==== Obj Graph ====---\n");
+    obj__print_helper(self, 0);
+    printf("  =============================\n");
 }
 
-void module_file__prepend_cflag(module_file_t self, const char* cflag_printf_format, ...) {
-    va_list ap;
-    va_start(ap, cflag_printf_format);
-
-    module_file__vprepend_cflag(self, cflag_printf_format, ap);
-
-    va_end(ap);
-}
-
-void module_file__append_cflag(module_file_t self, const char* cflag_printf_format, ...) {
-    va_list ap;
-    va_start(ap, cflag_printf_format);
-
-    module_file__vappend_cflag(self, cflag_printf_format, ap);
-
-    va_end(ap);
-}
-
-void module_file__add_dependency(module_file_t self, module_file_t file) {
-    for (uint32_t dependency_index = 0; dependency_index < self->dependencies_top; ++dependency_index) {
-        if (self->dependencies[dependency_index] == file) {
+void obj__build(obj_t self) {
+    time_t time = self->time;
+    for (int dependency_index = 0; dependency_index < self->dependencies_top; ++dependency_index) {
+        obj_t dependency = self->dependencies[dependency_index];
+        time_t prev_time = dependency->time;
+        obj__build(dependency);
+        if (dependency->time == 0) {
             return ;
+        }   
+
+        if (prev_time < dependency->time) {
+            time = dependency->time;
         }
     }
 
-    ARRAY_ENSURE_TOP(self->dependencies, self->dependencies_top, self->dependencies_size);
-    self->dependencies[self->dependencies_top++] = file;
-}
+    self->check(self);
 
-void module__rebuild_forever(module_t self, const char* linker_path, void (*opt_module__execute)(void*), void* user_data) {
-    time_t time_last_relink = self->time_last_linked;
-    pid_t child_pid = 0;
-    while (1) {
-        module__compile_with_dependencies(self);
-        module__relink(self, linker_path, 0);
-        if (time_last_relink != self->time_last_linked) {
-            time_last_relink = self->time_last_linked;
-
-            if (opt_module__execute) {
-                if (child_pid) {
-                    if (kill(child_pid, SIGKILL) < 0) {
-                        perror(0);
-                        exit(1);
-                    }
-                }
-                // if relinked, kill child and relaunch binary
-                child_pid = fork();
-                if (child_pid < 0) {
-                    perror(0);
-                    exit(1);
-                }
-                if (child_pid == 0) {
-                    opt_module__execute(user_data);
-                    exit(1);
-                }
-            }
-        }
-        
-        usleep(250000);
+    if (self->time < time) {
+        self->invoke(self);
     }
 }
