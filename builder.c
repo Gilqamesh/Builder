@@ -366,12 +366,14 @@ void obj__print(obj_t self) {
 
 void obj__build(obj_t self) {
     time_t time = self->time;
+    int dont_invoke = 0;
     for (int dependency_index = 0; dependency_index < self->dependencies_top; ++dependency_index) {
         obj_t dependency = self->dependencies[dependency_index];
         time_t prev_time = dependency->time;
         obj__build(dependency);
         if (dependency->time == 0) {
-            return ;
+            dont_invoke = 1;
+            continue ;
         }   
 
         if (prev_time < dependency->time) {
@@ -381,7 +383,7 @@ void obj__build(obj_t self) {
 
     self->check(self);
 
-    if (self->time < time) {
+    if (!dont_invoke && self->time < time) {
         self->invoke(self);
     }
 }
