@@ -1,4 +1,5 @@
 #include "builder.h"
+#include "builder_gfx.h"
 
 #include <stdint.h>
 #include <assert.h>
@@ -17,8 +18,7 @@ int main(int argc, char** argv) {
     const char* const supported_files[] = {
         "examples/simple",
         "examples/shared_lib",
-        "examples/multiple_compilers",
-        "examples/gfx"
+        "examples/multiple_compilers"
     };
 
     if (argc != 2) {
@@ -39,46 +39,65 @@ int main(int argc, char** argv) {
         fprintf(stderr, "Unsupported module: %s\n", target_dir);
         goto err_print_supported;
     }
-
-    const char* bin_name = "build_example";
-    obj_t c_compiler        = obj__file("/usr/bin/gcc");
-    obj_t o_linker          = obj__file("/usr/bin/gcc");
-    obj_t builder_h         = obj__file("builder.h");
-    obj_t builder_c         = obj__file("builder.c");
-    obj_t builder_o         = obj__file("builder.o");
-    obj_t build_example_c   = obj__file("%s/%s.c", found_dir, bin_name);
-    obj_t build_example_o   = obj__file("%s/%s.o", found_dir, bin_name);
-    obj_t build_example_bin = obj__file("%s/%s", found_dir, bin_name);
-
-    obj_t program =
-        obj__process(
-            obj__process(
-                obj__dependencies(
-                    obj__process(
-                        obj__dependencies(c_compiler, builder_h, builder_c, 0),
-                        builder_o,
-                        "%s -g -I. -c %s -o %s -Wall -Wextra -Werror 2>&1 | head -n 25", obj__file_path(c_compiler), obj__file_path(builder_c), obj__file_path(builder_o)
-                    ),
-                    obj__process(
-                        obj__dependencies(c_compiler, builder_h, build_example_c, 0),
-                        build_example_o,
-                        "%s -g -I. -c %s -o %s -Wall -Wextra -Werror 2>&1 | head -n 25", obj__file_path(c_compiler), obj__file_path(build_example_c), obj__file_path(build_example_o)
-                    ),
-                    0
-                ),
-                build_example_bin,
-                "%s %s %s -o %s 2>&1 | head -n 25", obj__file_path(o_linker), obj__file_path(builder_o), obj__file_path(build_example_o), obj__file_path(build_example_bin)
-            ),
-            0,
-            "cd %s && ./%s", found_dir, bin_name
-        );
     
-    obj__print(program);
+    const char* bin_name = "build_example";
+    obj_t engine_time       = obj__time();
+    obj_t oscillator_200ms  = obj__oscillator(engine_time, 200);
+    obj_t oscillator_10s    = obj__oscillator(engine_time, 10000);
+    obj_t c_compiler        = obj__file_modified(oscillator_10s,   "/usr/bin/gcc");
+    obj_t o_linker          = obj__file_modified(oscillator_10s,   "/usr/bin/gcc");
+    obj_t builder_h         = obj__file_modified(oscillator_200ms, "builder.h");
+    obj_t builder_c         = obj__file_modified(oscillator_200ms, "builder.c");
+    obj_t builder_o         = obj__file_modified(oscillator_200ms, "builder.o");
+    obj_t build_example_c   = obj__file_modified(oscillator_200ms, "%s/%s.c", found_dir, bin_name);
+    obj_t build_example_o   = obj__file_modified(oscillator_200ms, "%s/%s.o", found_dir, bin_name);
+    obj_t build_example_bin = obj__file_modified(oscillator_200ms, "%s/%s",   found_dir, bin_name);
+    obj_t builder_gfx_h     = obj__file_modified(oscillator_200ms, "builder_gfx.h");
+    obj_t builder_gfx_c     = obj__file_modified(oscillator_200ms, "builder_gfx.c");
+    obj_t builder_gfx_o     = obj__file_modified(oscillator_200ms, "builder_gfx.o");
 
-    while (1) {
-        obj__build(program);
-        usleep(100000);
-    }
+    obj__sh(
+        obj__sh(
+            obj__list(
+                obj__sh(
+                    obj__list(c_compiler, builder_h, builder_c, 0),
+                    builder_o,
+                    0,
+                    0,
+                    "%s -g -I. -c %s -o %s -Wall -Wextra -Werror", obj__file_modified_path(c_compiler), obj__file_modified_path(builder_c), obj__file_modified_path(builder_o)
+                ),
+                obj__sh(
+                    obj__list(c_compiler, builder_h, build_example_c, 0),
+                    build_example_o,
+                    0,
+                    0,
+                    "%s -g -I. -c %s -o %s -Wall -Wextra -Werror", obj__file_modified_path(c_compiler), obj__file_modified_path(build_example_c), obj__file_modified_path(build_example_o)
+                ),
+                obj__sh(
+                    obj__list(c_compiler, builder_h, builder_gfx_h, builder_gfx_c, 0),
+                    builder_gfx_o,
+                    0,
+                    0,
+                    "%s -g -I. -c %s -o %s -Wall -Wextra -Werror", obj__file_modified_path(c_compiler), obj__file_modified_path(builder_gfx_c), obj__file_modified_path(builder_gfx_o)
+                ),
+                0
+            ),
+            build_example_bin,
+            0,
+            0,
+            "%s %s %s %s -o %s libraylib.a -lm", obj__file_modified_path(o_linker), obj__file_modified_path(builder_o), obj__file_modified_path(build_example_o), obj__file_modified_path(builder_gfx_o), obj__file_modified_path(build_example_bin)
+        ),
+        0,
+        engine_time,
+        0,
+        "cd %s && ./%s", found_dir, bin_name
+    );
+    
+    // while (1) {
+    //     obj__run(engine_time);
+    //     usleep(10000);
+    // }
+    builder_gfx__exec(engine_time);
 
     return 0;
 
