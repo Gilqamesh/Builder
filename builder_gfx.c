@@ -22,7 +22,6 @@
 } while (0)
 
 typedef struct state {
-    const char* title;
     int width;
     int height;
     float zoom;
@@ -56,7 +55,7 @@ static int Rec_IsInside(Rectangle rec, Vector2 p) { return p.x >= rec.x && p.x <
 static void node__fill_set_transient_flag(obj_t node, int flag);
 static void nodes__push_all(obj_t node);
 
-static void init(obj_t node);
+static void init(obj_t node, obj_t title);
 
 static void update(double dt);
 static void update_node_as_drawn(obj_t node);
@@ -81,7 +80,11 @@ static Rectangle draw_node(obj_t node, Vector2 top_left_p) {
 
     switch (node->last_run_result) {
     case RUN_RESULT_NO_CHANGE: {
-        snprintf(buffer3, sizeof(buffer3), "no change");
+        if (node->time_ran > 0) {
+            snprintf(buffer3, sizeof(buffer3), "no change");
+        } else {
+            snprintf(buffer3, sizeof(buffer3), "-");
+        }
     } break ;
     case RUN_RESULT_SUCESSS: {
         snprintf(buffer3, sizeof(buffer3), "success");
@@ -91,9 +94,9 @@ static Rectangle draw_node(obj_t node, Vector2 top_left_p) {
     } break ;
     default: assert(0);
     }
-    if (node->number_of_times_ran_successfully > 0) {
-        snprintf(buffer5, sizeof(buffer5), "%.2fs", node->time_ran_successfully - builder__get_time_stamp_init());
-        time_t time_ran_successfully_t = (time_t) node->time_ran_successfully;
+    if (node->time_ran > 0) {
+        snprintf(buffer5, sizeof(buffer5), "%.2fs", node->time_ran - builder__get_time_stamp_init());
+        time_t time_ran_successfully_t = (time_t) node->time_ran;
         struct tm* t = localtime(&time_ran_successfully_t);
         snprintf(buffer6, sizeof(buffer6), "%02d/%02d/%d %02d:%02d:%02d", t->tm_mday, t->tm_mon + 1, t->tm_year + 1900, t->tm_hour, t->tm_min, t->tm_sec);
     } else {
@@ -104,8 +107,8 @@ static Rectangle draw_node(obj_t node, Vector2 top_left_p) {
         buffer4, sizeof(buffer4),
         "%s"
         "\nPid: %u"
-        "\nSuccessful run relative: %s"
-        "\nSuccessful run absolute: %s"
+        "\nRun relative: %s"
+        "\nRun absolute: %s"
         "\nLast run result: %s"
         "\nTotal runs: %lu"
         "\nSuccessful runs: %lu"
@@ -153,7 +156,7 @@ static Rectangle draw_node(obj_t node, Vector2 top_left_p) {
     }
 
     const double max_blink_periodicity = 0.15;
-    const double time_since_last_successful_run = builder__get_time_stamp() - node->time_ran_successfully;
+    const double time_since_last_successful_run = builder__get_time_stamp() - node->time_ran;
     if (node->is_running == IS_RUNNING || time_since_last_successful_run <= max_blink_periodicity) {
         node_color = PURPLE;
     }
@@ -223,13 +226,26 @@ static void node__fill_set_transient_flag(obj_t node, int flag) {
     }
 }
 
-static void init(obj_t node) {
+static void init(obj_t node, obj_t title) {
+    char title_buffer[256];
+    char program_description[128];
+    obj__describe_short(title, program_description, sizeof(program_description));
+    double program_version = 0.0;
+    for (size_t input_index = 0; input_index < title->inputs_top; ++input_index) {
+        obj_t input = title->inputs[input_index];
+        if (program_version < input->time_ran) {
+            program_version = input->time_ran;
+        }
+    }
+    time_t time_ran_successfully_t = (time_t) program_version;
+    struct tm* t = localtime(&time_ran_successfully_t);
+    snprintf(title_buffer, sizeof(title_buffer), "%02d/%02d/%d %02d:%02d:%02d, %s", t->tm_mday, t->tm_mon + 1, t->tm_year + 1900, t->tm_hour, t->tm_min, t->tm_sec, program_description);
+
     memset(&state, 0, sizeof(state));
 
     state.width = 2000;
     state.height = 1000;
-    state.title = "Sup";
-    InitWindow(state.width, state.height, state.title);
+    InitWindow(state.width, state.height, title_buffer);
     SetTargetFPS(60);
     state.movement_speed = 100.0;
     state.min_zoom = 0.3f;
@@ -547,8 +563,8 @@ static void destroy() {
     CloseWindow();
 }
 
-void builder_gfx__exec(obj_t obj) {
-    init(obj);
+void builder_gfx__exec(obj_t obj, obj_t title) {
+    init(obj, title);
 
     double time_prev = GetTime();
     double time_accumulated_between_builder_updates = 0.0;

@@ -26,7 +26,14 @@ obj_t obj__list(obj_t obj0, ... /*, 0*/);
 
 // Program methods
 
+// void obj__remove_input(obj_t self, obj_t what);
+// void obj__push_input(obj_t self, obj_t what);
+// void obj__remove_output(obj_t self, obj_t what);
+// void obj__push_output(obj_t self, obj_t what);
+
 void obj__run(obj_t self);
+void obj__describe_short(obj_t self, char* buffer, int buffer_size);
+void obj__describe_long(obj_t self, char* buffer, int buffer_size);
 
 // Obj definition
 
@@ -45,16 +52,18 @@ struct obj {
     void (*destroy)(obj_t self);
 
     /**
-     * =0 - never ran
-     * >0 - time of last run
+     * Todo: create time type
+     * Assertions:
+     *  - must be >=0
+     *  - time_t time_a = time(0)
+     *  - double time_b = builder__get_time_stamp()
+     *  - time_a ~= time_b
     */
-    double time_ran; // [s]
     /**
-     * =0 - never ran successfully
-     * >0 - last time of successful run
+     * =0 - ran at epoch
+     * >0 - time of successful run since epoch
     */
-    double time_ran_successfully; // [s]
-
+    double time_ran;
 
     enum {
         RUN_RESULT_NO_CHANGE,
@@ -68,6 +77,9 @@ struct obj {
     } is_running;
     obj_t  collector;
 
+    /**
+     * Since builder is running
+    */
     size_t number_of_times_ran_total;
     size_t number_of_times_ran_failed;
     size_t number_of_times_ran_successfully;
