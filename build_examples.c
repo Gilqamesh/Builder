@@ -56,6 +56,7 @@ int main(int argc, char** argv) {
     obj_t builder_gfx_c     = obj__file_modified(oscillator_200ms, "builder_gfx.c");
     obj_t builder_gfx_o     = obj__file_modified(oscillator_200ms, "builder_gfx.o");
 
+    obj_t program =
     obj__sh(
         obj__sh(
             obj__list(
@@ -92,12 +93,8 @@ int main(int argc, char** argv) {
         0,
         "cd %s && ./%s", found_dir, bin_name
     );
-    
-    // while (1) {
-    //     obj__run(engine_time);
-    //     usleep(10000);
-    // }
-    builder_gfx__exec(engine_time);
+
+    builder_gfx__exec(engine_time, program);
 
     return 0;
 

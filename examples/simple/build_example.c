@@ -16,6 +16,7 @@ int main() {
     obj_t example_o        = obj__file_modified(oscillator_400ms, "example.o");
     obj_t example_bin      = obj__file_modified(oscillator_400ms, "example");
 
+    obj_t program =
     obj__sh(
         obj__sh(
             obj__sh(
@@ -36,7 +37,7 @@ int main() {
         "./%s", obj__file_modified_path(example_bin)
     );
 
-    builder_gfx__exec(engine_time);
+    builder_gfx__exec(engine_time, program);
 
     return 0;
 }

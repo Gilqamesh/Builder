@@ -39,7 +39,6 @@ static void   async_obj__remove(obj_t self);
 typedef struct obj_file_modified {
     struct obj base;
     char*      path;
-    time_t     time_modified;
 } *obj_file_modified_t;
 
 typedef struct obj_sh {
@@ -55,7 +54,6 @@ typedef struct obj_oscillator {
 
 typedef struct obj_time {
     struct obj base;
-    double tick_resolution;
 } *obj_time_t;
 
 typedef struct obj_list {
@@ -206,24 +204,32 @@ static void obj__print_input_graph_helper(obj_t self, int depth) {
     self->transient_flag = 0;
 }
 
+static void obj__describe_time_stamp_prefix(obj_t self, char* buffer, int buffer_size) {
+    const double time_since_init = builder__get_time_stamp() - g_time_init;
+    snprintf(buffer, buffer_size, "%.2fs [%s%d] ", time_since_init, self->collector ? "~" : "", self->pid);
+}
+
 static void obj__wait_status_helper(obj_t self, int wstatus) {
     self->last_run_result = RUN_RESULT_FAILED;
+
+    char prefix[32];
+    obj__describe_time_stamp_prefix(self, prefix, sizeof(prefix));
     if (WIFEXITED(wstatus)) {
         wstatus = WEXITSTATUS(wstatus);
         if (self->success_status_code == wstatus) {
-            printf("[%s%d] finished successfully with status code: %d\n", self->collector ? "~" : "", self->pid, wstatus);
+            printf("%sfinished successfully with status code: %d\n", prefix, wstatus);
             self->last_run_result = RUN_RESULT_SUCESSS;
         } else {
-            printf("[%s%d] finished with failure status code: %d\n", self->collector ? "~" : "", self->pid, wstatus);
+            printf("%sfinished with failure status code: %d\n", prefix, wstatus);
         }
     } else if (WIFSIGNALED(wstatus)) {
         int sig = WTERMSIG(wstatus);
-        printf("[%s%d] was terminated by signal: %d %s\n", self->collector ? "~" : "", self->pid, sig, strsignal(sig));
+        printf("%swas terminated by signal: %d %s\n", prefix, sig, strsignal(sig));
     } else if (WIFSTOPPED(wstatus)) {
         int sig = WSTOPSIG(wstatus);
-        printf("[%s%d] was stopped by signal: %d %s\n", self->collector ? "~" : "", self->pid, sig, strsignal(sig));
+        printf("%swas stopped by signal: %d %s\n", prefix, sig, strsignal(sig));
     } else if (WIFCONTINUED(wstatus)) {
-        printf("[%s%d] was continued by signal %d %s\n", self->collector ? "~" : "", self->pid, SIGCONT, strsignal(SIGCONT));
+        printf("%swas continued by signal %d %s\n", prefix, SIGCONT, strsignal(SIGCONT));
     } else {
         assert(0);
     }
@@ -288,7 +294,7 @@ static void obj__wait_prefix_message(obj_t self) {
             obj__wait_prefix_message_helper(self->pid_pipe_stdout[0], prefix, prefix_len_prev);
         } else {
             pid_prev = self->pid;
-            snprintf(prefix, sizeof(prefix), "[%s%d] ", self->collector ? "~" : "", self->pid);
+            obj__describe_time_stamp_prefix(self, prefix, sizeof(prefix));
             prefix_len_prev = strlen(prefix);
             obj__wait_prefix_message_helper(self->pid_pipe_stdout[0], prefix, prefix_len_prev);
         }
@@ -297,7 +303,7 @@ static void obj__wait_prefix_message(obj_t self) {
             obj__wait_prefix_message_helper(self->pid_pipe_stderr[0], prefix, prefix_len_prev);
         } else {
             pid_prev = self->pid;
-            snprintf(prefix, sizeof(prefix), "[%s%d] ", self->collector ? "~" : "", self->pid);
+            obj__describe_time_stamp_prefix(self, prefix, sizeof(prefix));
             prefix_len_prev = strlen(prefix);
             obj__wait_prefix_message_helper(self->pid_pipe_stderr[0], prefix, prefix_len_prev);
         }
@@ -337,6 +343,7 @@ static void obj__wait_no_hang(obj_t self) {
 }
 
 static void obj__run_sh_sync(obj_t self) {
+    self->time_ran = builder__get_time_stamp();
     self->pid = fork();
     if (self->pid < 0) {
         perror(0);
@@ -361,8 +368,10 @@ static void obj__run_sh_sync(obj_t self) {
     }
 
     char buffer[256];
+    char prefix[32];
+    obj__describe_time_stamp_prefix(self, prefix, sizeof(prefix));
     self->describe_short(self, buffer, sizeof(buffer));
-    printf("%s\n", buffer);
+    printf("%s%s\n", prefix, buffer);
 
     obj__wait(self);
 }
@@ -385,6 +394,7 @@ static void obj__run_sh_async_start(obj_t self) {
         async_obj__remove(self);
     }
 
+    self->time_ran = builder__get_time_stamp();
     self->pid = fork();
 
     if (self->pid < 0) {
@@ -398,8 +408,10 @@ static void obj__run_sh_async_start(obj_t self) {
     }
 
     char buffer[256];
+    char prefix[32];
+    obj__describe_time_stamp_prefix(self, prefix, sizeof(prefix));
     self->describe_short(self, buffer, sizeof(buffer));
-    printf("%s\n", buffer);
+    printf("%s%s\n", prefix, buffer);
 
     async_obj__add(self);
 }
@@ -410,6 +422,7 @@ static void obj__run_sh(obj_t self, obj_t parent) {
             if (self->is_running) {
                 obj__run_sh_async_wait(self);
             }
+            // todo: check if should be rerun, some logic for this already exists in obj__timed_run
         } else {
             obj__run_sh_async_start(self);
         }
@@ -420,23 +433,21 @@ static void obj__run_sh(obj_t self, obj_t parent) {
 
 static void obj__run_file_modified(obj_t self, obj_t parent) {
     obj_file_modified_t file_modified = (obj_file_modified_t) self;
-
     (void) parent;
 
     struct stat file_info;
     if (stat(file_modified->path, &file_info) == -1) {
         self->last_run_result = RUN_RESULT_FAILED;
-    } else if (file_modified->time_modified == 0 || 0 < difftime(file_info.st_mtime, file_modified->time_modified)) {
+    } else if (self->time_ran == 0 || 0 < difftime(file_info.st_mtime, (time_t) self->time_ran)) {
         self->last_run_result = RUN_RESULT_SUCESSS;
-        file_modified->time_modified = file_info.st_mtime;
+        self->time_ran = (double) file_info.st_mtime;
     }
 }
 
 static void obj__run_oscillator(obj_t self, obj_t parent) {
-    (void) parent;
-
     obj_oscillator_t oscillator = (obj_oscillator_t) self;
-    if (self->time_ran_successfully == 0) {
+    if (self->time_ran == 0) {
+        self->time_ran = parent->time_ran;
         self->last_run_result = RUN_RESULT_SUCESSS;
         return ;
     }
@@ -444,15 +455,17 @@ static void obj__run_oscillator(obj_t self, obj_t parent) {
     const double periodicity_s = oscillator->periodicity_ms / 1000.0;
     const double minimum_periodicity_s = 0.1;
     if (periodicity_s < minimum_periodicity_s) {
+        self->time_ran = parent->time_ran;
         self->last_run_result = RUN_RESULT_SUCESSS;
         return ;
     }
 
     const double epsilon_s = minimum_periodicity_s / 10.0; // to avoid modding down a whole period
-    const double delta_time_last_successful_run_s = self->time_ran_successfully - g_time_init + epsilon_s;
+    const double delta_time_last_successful_run_s = self->time_ran - g_time_init + epsilon_s;
     const double last_successful_run_mod_s = delta_time_last_successful_run_s - fmod(delta_time_last_successful_run_s, periodicity_s);
     const double delta_time_current_s = builder__get_time_stamp() - g_time_init;
     if (last_successful_run_mod_s + periodicity_s < delta_time_current_s) {
+        self->time_ran = parent->time_ran;
         self->last_run_result = RUN_RESULT_SUCESSS;
     }
 }
@@ -461,6 +474,7 @@ static void obj__run_time(obj_t self, obj_t parent) {
     (void) parent;
 
     self->last_run_result = RUN_RESULT_SUCESSS;
+    self->time_ran = builder__get_time_stamp();
 }
 
 static void obj__run_list(obj_t self, obj_t parent) {
@@ -473,9 +487,7 @@ static void obj__describe_short_sh(obj_t self, char* buffer, int buffer_size) {
     obj_sh_t process = (obj_sh_t) self;
     snprintf(
         buffer, buffer_size,
-        "[%s%d] /usr/bin/sh -c \"%s\", expected status code: %d",
-        self->collector ? "~" : "",
-        self->pid,
+        "/usr/bin/sh -c \"%s\", expected status code: %d",
         process->cmd_line,
         self->success_status_code
     );
@@ -492,7 +504,7 @@ static void obj__describe_short_oscillator(obj_t self, char* buffer, int buffer_
 }
 
 static void obj__describe_short_time(obj_t self, char* buffer, int buffer_size) {
-    snprintf(buffer, buffer_size, "%.3lf", self->time_ran_successfully);
+    snprintf(buffer, buffer_size, "%.3lf", self->time_ran);
 }
 
 static void obj__describe_short_list(obj_t self, char* buffer, int buffer_size) {
@@ -538,10 +550,11 @@ static void obj__describe_long_sh(obj_t self, char* buffer, int buffer_size) {
 static void obj__describe_long_file_modified(obj_t self, char* buffer, int buffer_size) {
     obj_file_modified_t file = (obj_file_modified_t) self;
     static char buffer2[128];
-    if (file->time_modified == 0) {
+    if (self->time_ran == 0) {
         snprintf(buffer2, sizeof(buffer2), "Time modified: -");
     } else {
-        struct tm* t = localtime(&file->time_modified);
+        time_t time_ran_successfully_time_t = (time_t) self->time_ran;
+        struct tm* t = localtime(&time_ran_successfully_time_t);
         snprintf(buffer2, sizeof(buffer2), "Time modified: %02d/%02d/%d %02d:%02d:%02d", t->tm_mday, t->tm_mon + 1, t->tm_year + 1900, t->tm_hour, t->tm_min, t->tm_sec);
     }
     snprintf(
@@ -658,35 +671,19 @@ static void obj__timed_run(obj_t self, obj_t parent) {
         return ;
     }
 
-    double time_most_recent_successful_input = -INFINITY;
-    int found_failed_input = 0;
-    for (size_t input_index = 0; input_index < self->inputs_top; ++input_index) {
-        obj_t input = self->inputs[input_index];
-        if (input->last_run_result == RUN_RESULT_FAILED) {
-            found_failed_input = 1;
-        } else if (0 < input->number_of_times_ran_successfully) {
-            time_most_recent_successful_input = fmax(time_most_recent_successful_input, input->time_ran_successfully);
-        }
-    }
-
-    if (found_failed_input && self->last_run_result != RUN_RESULT_SUCESSS) {
-        return ;
-    }
-    
-    if (0 < self->inputs_top && 0 < self->outputs_top) {
-        int found_older_output_than_all_inputs = 0;
-        for (size_t output_index = 0; output_index < self->outputs_top; ++output_index) {
-            obj_t output = self->outputs[output_index];
-            if (
-                output->number_of_times_ran_successfully == 0 ||
-                output->time_ran_successfully < time_most_recent_successful_input
-            ) {
-                found_older_output_than_all_inputs = 1;
-                break ;
+    if (parent) {
+        if (self->outputs_top > 0) {
+            int found_older_output = 0;
+            for (size_t output_index = 0; output_index < self->outputs_top; ++output_index) {
+                obj_t output = self->outputs[output_index];
+                if (output->time_ran < parent->time_ran) {
+                    found_older_output = 1;
+                    break ;
+                }
             }
-        }
-        if (!found_older_output_than_all_inputs) {
-            return ;
+            if (!found_older_output) {
+                return ;
+            }
         }
     }
 
@@ -696,10 +693,9 @@ static void obj__timed_run(obj_t self, obj_t parent) {
             output->is_locked = 1;
         }
     }
-
+    
     self->last_run_result = RUN_RESULT_NO_CHANGE;
     self->run(self, parent);
-    self->time_ran = builder__get_time_stamp();
 
     if (self->collector && self->is_running == 0) {
         for (size_t output_index = 0; output_index < self->outputs_top; ++output_index) {
@@ -711,34 +707,34 @@ static void obj__timed_run(obj_t self, obj_t parent) {
     ++self->number_of_times_ran_total;
     switch (self->last_run_result) {
     case RUN_RESULT_NO_CHANGE: {
-        for (size_t output_index = 0; output_index < self->outputs_top; ++output_index) {
-            obj_t output = self->outputs[output_index];
-            if (
-                0 < self->number_of_times_ran_successfully &&
-                (output->number_of_times_ran_total == 0 ||
-                output->time_ran < self->time_ran_successfully)
-            ) {
-                obj__timed_run(output, self);
-            }
-        }
     } break ;
     case RUN_RESULT_SUCESSS: {
         ++self->number_of_times_ran_successfully;
-        self->time_ran_successfully = builder__get_time_stamp();
-        for (size_t output_index = 0; output_index < self->outputs_top; ++output_index) {
-            obj_t output = self->outputs[output_index];
-            obj__timed_run(output, self);
-        }
     } break ;
     case RUN_RESULT_FAILED: {
         ++self->number_of_times_ran_failed;
     } break ;
     default: assert(0);
     }
+
+    for (size_t output_index = 0; output_index < self->outputs_top; ++output_index) {
+        obj_t output = self->outputs[output_index];
+        if (output->time_ran < self->time_ran) {
+            obj__timed_run(output, self);
+        }
+    }
 }
 
 void obj__run(obj_t self) {
-    obj__timed_run(self, self);
+    obj__timed_run(self, 0);
+}
+
+void obj__describe_short(obj_t self, char* buffer, int buffer_size) {
+    self->describe_short(self, buffer, buffer_size);
+}
+
+void obj__describe_long(obj_t self, char* buffer, int buffer_size) {
+    self->describe_long(self, buffer, buffer_size);
 }
 
 static obj_t obj__alloc(size_t size) {
@@ -768,9 +764,9 @@ obj_t obj__file_modified(obj_t opt_inputs, const char* path, ...) {
     va_end(ap);
 
     obj__run((obj_t) result);
-    if (result->base.last_run_result == RUN_RESULT_SUCESSS) {
-        result->base.time_ran_successfully = (double) result->time_modified;
-    }
+    // if (result->base.last_run_result != RUN_RESULT_FAILED) {
+    //     ++result->base.number_of_times_ran_successfully;
+    // }
 
     if (opt_inputs) {
         obj__push_input((obj_t) result, opt_inputs);
