@@ -48,50 +48,98 @@ int main(int argc, char** argv) {
     obj_t o_linker          = obj__file_modified(oscillator_10s,   "/usr/bin/gcc");
     obj_t builder_h         = obj__file_modified(oscillator_200ms, "builder.h");
     obj_t builder_c         = obj__file_modified(oscillator_200ms, "builder.c");
-    obj_t builder_o         = obj__file_modified(oscillator_200ms, "builder.o");
+    obj_t builder_o = obj__file_modified(
+        obj__list(
+            obj__wait(
+                obj__list(
+                    obj__sh(
+                        obj__list(c_compiler, builder_h, builder_c, 0),
+                        0,
+                        "%s -g -I. -c %s -o builder.o -Wall -Wextra -Werror", obj__file_modified_path(c_compiler), obj__file_modified_path(builder_c)
+                    ),
+                    oscillator_200ms,
+                    0
+                ),
+                1
+            ),
+            oscillator_200ms,
+            0
+        ),
+        "builder.o"
+    );
+
     obj_t build_example_c   = obj__file_modified(oscillator_200ms, "%s/%s.c", found_dir, bin_name);
-    obj_t build_example_o   = obj__file_modified(oscillator_200ms, "%s/%s.o", found_dir, bin_name);
-    obj_t build_example_bin = obj__file_modified(oscillator_200ms, "%s/%s",   found_dir, bin_name);
+    obj_t build_example_o = obj__file_modified(
+        obj__list(
+            obj__wait(
+                obj__list(
+                    obj__sh(
+                        obj__list(c_compiler, builder_h, build_example_c, 0),
+                        0,
+                        "%s -g -I. -c %s -o %s/%s.o -Wall -Wextra -Werror", obj__file_modified_path(c_compiler), obj__file_modified_path(build_example_c), found_dir, bin_name
+                    ),
+                    oscillator_200ms,
+                    0
+                ),
+                1
+            ),
+            oscillator_200ms,
+            0
+        ),
+        "%s/%s.o", found_dir, bin_name
+    );
+    
     obj_t builder_gfx_h     = obj__file_modified(oscillator_200ms, "builder_gfx.h");
     obj_t builder_gfx_c     = obj__file_modified(oscillator_200ms, "builder_gfx.c");
-    obj_t builder_gfx_o     = obj__file_modified(oscillator_200ms, "builder_gfx.o");
-
-    obj_t program =
-    obj__sh(
-        obj__sh(
-            obj__list(
-                obj__sh(
-                    obj__list(c_compiler, builder_h, builder_c, 0),
-                    builder_o,
-                    0,
-                    0,
-                    "%s -g -I. -c %s -o %s -Wall -Wextra -Werror", obj__file_modified_path(c_compiler), obj__file_modified_path(builder_c), obj__file_modified_path(builder_o)
+    obj_t builder_gfx_o = obj__file_modified(
+        obj__list(
+            obj__wait(
+                obj__list(
+                    obj__sh(
+                        obj__list(c_compiler, builder_h, builder_gfx_h, builder_gfx_c, 0),
+                        0,
+                        "%s -g -I. -c %s -o builder_gfx.o -Wall -Wextra -Werror", obj__file_modified_path(c_compiler), obj__file_modified_path(builder_gfx_c)
+                    ),
+                    oscillator_200ms,
+                    0
                 ),
-                obj__sh(
-                    obj__list(c_compiler, builder_h, build_example_c, 0),
-                    build_example_o,
-                    0,
-                    0,
-                    "%s -g -I. -c %s -o %s -Wall -Wextra -Werror", obj__file_modified_path(c_compiler), obj__file_modified_path(build_example_c), obj__file_modified_path(build_example_o)
-                ),
-                obj__sh(
-                    obj__list(c_compiler, builder_h, builder_gfx_h, builder_gfx_c, 0),
-                    builder_gfx_o,
-                    0,
-                    0,
-                    "%s -g -I. -c %s -o %s -Wall -Wextra -Werror", obj__file_modified_path(c_compiler), obj__file_modified_path(builder_gfx_c), obj__file_modified_path(builder_gfx_o)
-                ),
-                0
+                1
             ),
-            build_example_bin,
-            0,
-            0,
-            "%s %s %s %s -o %s libraylib.a -lm", obj__file_modified_path(o_linker), obj__file_modified_path(builder_o), obj__file_modified_path(build_example_o), obj__file_modified_path(builder_gfx_o), obj__file_modified_path(build_example_bin)
+            oscillator_200ms,
+            0
         ),
-        0,
-        engine_time,
-        0,
-        "cd %s && ./%s", found_dir, bin_name
+        "builder_gfx.o"
+    );
+
+    obj_t build_example_bin = obj__file_modified(
+        obj__list(
+            obj__wait(
+                obj__list(
+                    obj__sh(
+                        obj__list(
+                            builder_o,
+                            build_example_o,
+                            builder_gfx_o,
+                            0
+                        ),
+                        0,
+                        "%s %s %s %s -o %s/%s libraylib.a -lm", obj__file_modified_path(o_linker), obj__file_modified_path(builder_o), obj__file_modified_path(build_example_o), obj__file_modified_path(builder_gfx_o), found_dir, bin_name
+                    ),
+                    oscillator_200ms,
+                    0
+                ),
+                1
+            ),
+            oscillator_200ms,
+            0
+        ),
+        "%s/%s", found_dir, bin_name
+    );
+
+    obj_t program = obj__sh(build_example_bin, 0, "cd %s && ./%s", found_dir, bin_name);
+    obj__wait(
+        obj__list(program, oscillator_200ms, 0),
+        0
     );
 
     builder_gfx__exec(engine_time, program);

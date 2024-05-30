@@ -71,62 +71,10 @@ static void destroy();
 
 static Rectangle draw_node(obj_t node, Vector2 top_left_p) {
     static char buffer[512];
-    node->describe_long(node, buffer, sizeof(buffer));
-
-    static char buffer3[16];
-    static char buffer4[512];
-    static char buffer5[32];
-    static char buffer6[128];
-
-    switch (node->last_run_result) {
-    case RUN_RESULT_NO_CHANGE: {
-        if (node->time_ran > 0) {
-            snprintf(buffer3, sizeof(buffer3), "no change");
-        } else {
-            snprintf(buffer3, sizeof(buffer3), "-");
-        }
-    } break ;
-    case RUN_RESULT_SUCESSS: {
-        snprintf(buffer3, sizeof(buffer3), "success");
-    } break ;
-    case RUN_RESULT_FAILED: {
-        snprintf(buffer3, sizeof(buffer3), "failed");
-    } break ;
-    default: assert(0);
-    }
-    if (node->time_ran > 0) {
-        snprintf(buffer5, sizeof(buffer5), "%.2fs", node->time_ran - builder__get_time_stamp_init());
-        time_t time_ran_successfully_t = (time_t) node->time_ran;
-        struct tm* t = localtime(&time_ran_successfully_t);
-        snprintf(buffer6, sizeof(buffer6), "%02d/%02d/%d %02d:%02d:%02d", t->tm_mday, t->tm_mon + 1, t->tm_year + 1900, t->tm_hour, t->tm_min, t->tm_sec);
-    } else {
-        snprintf(buffer5, sizeof(buffer5), "-");
-        snprintf(buffer6, sizeof(buffer6), "-");
-    }
-    int bytes_written = snprintf(
-        buffer4, sizeof(buffer4),
-        "%s"
-        "\nPid: %u"
-        "\nRun relative: %s"
-        "\nRun absolute: %s"
-        "\nLast run result: %s"
-        "\nTotal runs: %lu"
-        "\nSuccessful runs: %lu"
-        "\nFailed runs: %lu"
-        ,
-        buffer,
-        node->pid,
-        buffer5,
-        buffer6,
-        buffer3,
-        node->number_of_times_ran_total,
-        node->number_of_times_ran_successfully,
-        node->number_of_times_ran_failed
-    );
-    (void) bytes_written;
+    obj__describe_long(node, buffer, sizeof(buffer));
 
     const int font_size = 10;
-    Vector2 text_dims = MeasureTextEx(state.font, buffer4, font_size, 1.0f);
+    Vector2 text_dims = MeasureTextEx(state.font, buffer, font_size, 1.0f);
 
     Vector2 margin = {
         .x = 10.0f,
@@ -156,13 +104,13 @@ static Rectangle draw_node(obj_t node, Vector2 top_left_p) {
     }
 
     const double max_blink_periodicity = 0.15;
-    const double time_since_last_successful_run = builder__get_time_stamp() - node->time_ran;
-    if (node->is_running == IS_RUNNING || time_since_last_successful_run <= max_blink_periodicity) {
+    const double time_since_last_successful_run = builder__get_time_stamp() - node->time_ran_start;
+    if (node->time_ran_finish < node->time_ran_start || time_since_last_successful_run <= max_blink_periodicity) {
         node_color = PURPLE;
     }
 
     DrawRectangleLinesEx(node_rec, 1.0f, node_color);
-    DrawTextEx(state.font, buffer4, text_p, font_size, 1.0f, WHITE);
+    DrawTextEx(state.font, buffer, text_p, font_size, 1.0f, WHITE);
 
     state.running_average_node_dims.x = (state.running_average_node_dims.x * state.running_average_node_dims_top + node_rec.width) / (state.running_average_node_dims_top + 1);
     state.running_average_node_dims.y = (state.running_average_node_dims.y * state.running_average_node_dims_top + node_rec.height) / (state.running_average_node_dims_top + 1);
@@ -227,21 +175,21 @@ static void node__fill_set_transient_flag(obj_t node, int flag) {
 }
 
 static void init(obj_t node, obj_t title) {
+    memset(&state, 0, sizeof(state));
+
     char title_buffer[256];
     char program_description[128];
     obj__describe_short(title, program_description, sizeof(program_description));
     double program_version = 0.0;
     for (size_t input_index = 0; input_index < title->inputs_top; ++input_index) {
         obj_t input = title->inputs[input_index];
-        if (program_version < input->time_ran) {
-            program_version = input->time_ran;
+        if (program_version < input->time_ran_start) {
+            program_version = input->time_ran_start;
         }
     }
     time_t time_ran_successfully_t = (time_t) program_version;
     struct tm* t = localtime(&time_ran_successfully_t);
     snprintf(title_buffer, sizeof(title_buffer), "%02d/%02d/%d %02d:%02d:%02d, %s", t->tm_mday, t->tm_mon + 1, t->tm_year + 1900, t->tm_hour, t->tm_min, t->tm_sec, program_description);
-
-    memset(&state, 0, sizeof(state));
 
     state.width = 2000;
     state.height = 1000;
