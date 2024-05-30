@@ -13,28 +13,46 @@ int main() {
     obj_t o_linker         = obj__file_modified(oscillator_10s,   "/usr/bin/gcc");
     obj_t example_h        = obj__file_modified(oscillator_400ms, "example.h");
     obj_t example_c        = obj__file_modified(oscillator_400ms, "example.c");
-    obj_t example_o        = obj__file_modified(oscillator_400ms, "example.o");
-    obj_t example_bin      = obj__file_modified(oscillator_400ms, "example");
-
-    obj_t program =
-    obj__sh(
-        obj__sh(
-            obj__sh(
-                obj__list(example_h, example_c, 0),
-                example_o,
-                0,
-                0,
-                "%s -g -c %s -o %s -Wall -Wextra -Werror", obj__file_modified_path(c_compiler), obj__file_modified_path(example_c), obj__file_modified_path(example_o)
+    obj_t example_o = obj__file_modified(
+        obj__wait(
+            obj__list(
+                obj__sh(
+                    obj__list(example_h, example_c, 0),
+                    0,
+                    "%s -g -c %s -o example.o -Wall -Wextra -Werror", obj__file_modified_path(c_compiler), obj__file_modified_path(example_c)
+                ),
+                oscillator_400ms,
+                0
             ),
-            example_bin,
-            0,
-            0,
-            "%s %s -o %s", obj__file_modified_path(o_linker), obj__file_modified_path(example_o), obj__file_modified_path(example_bin)
+            0
         ),
-        0,
-        0,
+        "example.o"
+    );
+    obj_t example_bin = obj__file_modified(
+        obj__wait(
+            obj__list(
+                obj__sh(
+                    example_o,
+                    0,
+                    "%s %s -o example", obj__file_modified_path(o_linker), obj__file_modified_path(example_o)
+                ),
+                oscillator_400ms,
+                0
+            ),
+            0
+        ),
+        "example"
+    );
+
+    obj_t program = obj__sh(
+        example_bin,
         0,
         "./%s", obj__file_modified_path(example_bin)
+    );
+    
+    obj__wait(
+        program,
+        0
     );
 
     builder_gfx__exec(engine_time, program);

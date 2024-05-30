@@ -18,9 +18,10 @@ double builder__get_time_stamp_init();
 
 obj_t       obj__file_modified(obj_t opt_inputs, const char* path, ...);
 const char* obj__file_modified_path(obj_t self);
-obj_t obj__sh(obj_t opt_inputs, obj_t opt_outputs, obj_t collector_if_async, int success_status_code, const char* cmd_line, ...);
+obj_t obj__sh(obj_t opt_inputs, int success_status_code, const char* cmd_line, ...);
 obj_t obj__oscillator(obj_t input, double periodicity_ms);
 obj_t obj__time();
+obj_t obj__thread(obj_t input_to_thread);
 
 obj_t obj__list(obj_t obj0, ... /*, 0*/);
 
@@ -31,7 +32,7 @@ obj_t obj__list(obj_t obj0, ... /*, 0*/);
 // void obj__remove_output(obj_t self, obj_t what);
 // void obj__push_output(obj_t self, obj_t what);
 
-void obj__run(obj_t self);
+int  obj__run(obj_t self);
 void obj__describe_short(obj_t self, char* buffer, int buffer_size);
 void obj__describe_long(obj_t self, char* buffer, int buffer_size);
 
@@ -46,55 +47,31 @@ struct obj {
     size_t outputs_size;
     obj_t* outputs;
 
-    void (*run)(obj_t self, obj_t parent);
+    void (*run)(obj_t self);
     void (*describe_short)(obj_t self, char* buffer, int buffer_size); // couple characters in a single line
     void (*describe_long)(obj_t self, char* buffer, int buffer_size); // can be as long as necessary and multiline
     void (*destroy)(obj_t self);
 
     /**
-     * Todo: create time type
-     * Assertions:
-     *  - must be >=0
-     *  - time_t time_a = time(0)
-     *  - double time_b = builder__get_time_stamp()
-     *  - time_a ~= time_b
+     * Each program needs to set these via these setters
+     *  obj__set_start
+     *  obj__set_finish
+     *  obj__set_success
+     *  obj__set_fail
+     * 
+     * >=0 - time since epoch in seconds
     */
-    /**
-     * =0 - ran at epoch
-     * >0 - time of successful run since epoch
-    */
-    double time_ran;
-
-    enum {
-        RUN_RESULT_NO_CHANGE,
-        RUN_RESULT_SUCESSS,
-        RUN_RESULT_FAILED
-    } last_run_result;
-
-    enum {
-        NOT_RUNNING,
-        IS_RUNNING
-    } is_running;
-    obj_t  collector;
-
-    /**
-     * Since builder is running
-    */
+    double time_ran_success;
+    double time_ran_fail;
+    double time_ran_start;
+    double time_ran_finish;
     size_t number_of_times_ran_total;
     size_t number_of_times_ran_failed;
     size_t number_of_times_ran_successfully;
 
     /**
-     * <0 - undefined
-     * =0 - not locked
-     * >0 - locked for run
-    */
-    int is_locked;
-    
-    /**
-     * <0 - undefined
-     * =0 - not running
-     * >0 - running, must be async program
+     * =0 - no running process
+     * >0 - pid of running process
     */
     pid_t pid;
     int   pid_pipe_stdout[2];
