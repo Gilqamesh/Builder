@@ -104,8 +104,11 @@ static Rectangle draw_node(obj_t node, Vector2 top_left_p) {
     }
 
     const double max_blink_periodicity = 0.15;
-    const double time_since_last_successful_run = builder__get_time_stamp() - node->time_ran_start;
-    if (node->time_ran_finish < node->time_ran_start || time_since_last_successful_run <= max_blink_periodicity) {
+
+    struct attr attr = obj__get_attr(node);
+
+    const double time_since_last_successful_run = builder__get_time_stamp() - attr.time_start;
+    if (attr.is_running || time_since_last_successful_run <= max_blink_periodicity) {
         node_color = PURPLE;
     }
 
@@ -183,8 +186,9 @@ static void init(obj_t node, obj_t title) {
     double program_version = 0.0;
     for (size_t input_index = 0; input_index < title->inputs_top; ++input_index) {
         obj_t input = title->inputs[input_index];
-        if (program_version < input->time_ran_start) {
-            program_version = input->time_ran_start;
+        struct attr attr = obj__get_attr(input);
+        if (program_version < attr.time_start) {
+            program_version = attr.time_start;
         }
     }
     time_t time_ran_successfully_t = (time_t) program_version;

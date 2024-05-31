@@ -1,16 +1,19 @@
 #ifndef BUILD_H
 # define BUILD_H
 
+# define _GNU_SOURCE
 # include <stdarg.h>
 # include <stddef.h>
 # include <time.h>
+# include <pthread.h>
 
 typedef struct builder* builder_t;
 typedef struct obj* obj_t;
 
 // Module level
 
-void builder__init();
+int    builder__init();
+void   builder__deinit();
 double builder__get_time_stamp();
 double builder__get_time_stamp_init();
 
@@ -21,11 +24,13 @@ const char* obj__file_modified_path(obj_t self);
 obj_t obj__sh(obj_t opt_inputs, int success_status_code, const char* cmd_line, ...);
 obj_t obj__oscillator(obj_t input, double periodicity_ms);
 obj_t obj__time();
-obj_t obj__thread(obj_t input_to_thread);
+obj_t obj__thread(obj_t input_to_thread, obj_t collector);
 
 obj_t obj__list(obj_t obj0, ... /*, 0*/);
 
 // Program methods
+
+struct attr obj__get_attr(obj_t self);
 
 // void obj__remove_input(obj_t self, obj_t what);
 // void obj__push_input(obj_t self, obj_t what);
@@ -35,8 +40,6 @@ obj_t obj__list(obj_t obj0, ... /*, 0*/);
 int  obj__run(obj_t self);
 void obj__describe_short(obj_t self, char* buffer, int buffer_size);
 void obj__describe_long(obj_t self, char* buffer, int buffer_size);
-
-// Obj definition
 
 struct obj {
     size_t inputs_top;
@@ -52,41 +55,23 @@ struct obj {
     void (*describe_long)(obj_t self, char* buffer, int buffer_size); // can be as long as necessary and multiline
     void (*destroy)(obj_t self);
 
-    /**
-     * Each program needs to set these via these setters
-     *  obj__set_start
-     *  obj__set_finish
-     *  obj__set_success
-     *  obj__set_fail
-     * 
-     * >=0 - time since epoch in seconds
-    */
-    double time_ran_success;
-    double time_ran_fail;
-    double time_ran_start;
-    double time_ran_finish;
-    size_t number_of_times_ran_total;
-    size_t number_of_times_ran_failed;
-    size_t number_of_times_ran_successfully;
+    struct attr {
+        int    is_running;
+        double time_start; // [s] time since unix epoch
+        double time_success;
+        double time_fail;
+        double time_finish;
+        size_t n_run;
+        size_t n_success;
+        size_t n_fail;
+    } attr;
+    pthread_mutex_t mutex_attr;
 
-    /**
-     * =0 - no running process
-     * >0 - pid of running process
-    */
-    pid_t pid;
-    int   pid_pipe_stdout[2];
-    int   pid_pipe_stderr[2];
+    pthread_t thread;
+    obj_t     thread_watcher;
+    int       is_thread_watcher;
 
-    /**
-     * =0 - default success status code
-     * !0 - user defined success status code
-    */
-    int success_status_code;
-
-    /**
-     * Should be cleared to 0 after using it
-    */
-    int transient_flag;
+    int transient_flag; // Should be cleared to 0 after using it
 };
 
 #endif // BUILD_H
