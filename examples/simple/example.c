@@ -2,12 +2,16 @@
 
 #include <stdio.h>
 
+static int _;
+
 void greet() {
     printf("Hello from simple example!\n");
 }
 
-int main() {
-    greet();
+int get() {
+    return _;
+}
 
-    return 0;
+void set(int value) {
+    _ = value;
 }

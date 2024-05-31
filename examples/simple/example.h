@@ -1,6 +1,8 @@
 #ifndef EXAMPLE_H
 # define EXAMPLE_H
 
-void do_stuff();
+void greet();
+int get();
+void set(int value);
 
 #endif // EXAMPLE_H

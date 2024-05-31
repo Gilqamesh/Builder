@@ -1,11 +1,6 @@
-#include "builder.h"
-#include "builder_gfx.h"
+#include "simple.h"
 
-#include <unistd.h>
-
-int main() {
-    builder__init();
-
+obj_t obj__build_simple() {
     obj_t engine_time      = obj__time();
     obj_t oscillator_400ms = obj__oscillator(engine_time, 400);
     obj_t oscillator_10s   = obj__oscillator(engine_time, 10000);
@@ -41,8 +36,6 @@ int main() {
         0,
         "./%s", obj__file_modified_path(example_bin)
     );
-
-    builder_gfx__exec(engine_time, program);
-
-    return 0;
+    
+    return program;
 }

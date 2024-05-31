@@ -4,6 +4,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
+#include <math.h>
 
 #include <unistd.h>
 #include <signal.h>
@@ -11,8 +12,6 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <errno.h>
-
-#include <math.h>
 
 #define ARRAY_SIZE(array) (sizeof(array)/sizeof((array)[0]))
 #define ARRAY_ENSURE_TOP(array_p, array_top, array_size) do { \
@@ -27,8 +26,9 @@
     } \
 } while (0)
 
-static double g_tick_resolution;
-static double g_time_init;
+static double          g_tick_resolution;
+static double          g_time_init;
+static pthread_mutex_t g_mutex_print;
 
 static size_t async_obj_top;
 static obj_t  async_obj[256];
@@ -44,6 +44,10 @@ typedef struct obj_file_modified {
 typedef struct obj_sh {
     struct obj base;
     char*      cmd_line;
+    pid_t      pid;
+    int        success_status_code;
+    int        pid_pipe_stdout[2];
+    int        pid_pipe_stderr[2];
 } *obj_sh_t;
 
 typedef struct obj_oscillator {
@@ -56,60 +60,76 @@ typedef struct obj_time {
     struct obj base;
 } *obj_time_t;
 
-typedef struct obj_wait {
+typedef struct obj_thread {
     struct obj base;
-} *obj_wait_t;
+} *obj_thread_t;
 
 typedef struct obj_list {
     struct obj base;
 } *obj_list_t;
 
-static obj_t obj__alloc(size_t size);
-static void obj__push_input(obj_t self, obj_t input);
-static void obj__check_for_cyclic_input(obj_t self);
-static void obj__kill(obj_t self);
-static int  obj__read(obj_t self, char* buffer, int buffer_size);
-static void obj__describe_time_stamp_prefix(obj_t self, char* buffer, int buffer_size);
-static void obj__set_start(obj_t self, double time);
-static void obj__set_success(obj_t self, double time);
-static void obj__set_fail(obj_t self, double time);
-static void obj__set_finish(obj_t self, double time);
+static int  _prefix_lines(char* dst, int dst_size, const char* src, const char* prefix);
+
+static obj_t  obj__alloc(size_t size);
+static void   obj__destroy(obj_t self);
+static void   obj__push_input(obj_t self, obj_t input);
+static void   obj__check_for_cyclic_input(obj_t self);
+static void   obj__set_start(obj_t self, double time);
+static void   obj__set_success(obj_t self, double time);
+static void   obj__set_fail(obj_t self, double time);
+static void   obj__set_finish(obj_t self, double time);
+static void   obj__print(obj_t self, const char* format, ...);
 
 static void obj__run_sh(obj_t self);
 static void obj__run_file_modified(obj_t self);
 static void obj__run_oscillator(obj_t self);
 static void obj__run_time(obj_t self);
-static void obj__run_wait(obj_t self, int hang);
-static void obj__run_wait_no_hang(obj_t self);
-static void obj__run_wait_hang(obj_t self);
-static void obj__run_wait_impl(obj_t self, int hang);
+static void obj__run_thread(obj_t self);
 static void obj__run_list(obj_t self);
 
 static void obj__describe_short_sh(obj_t self, char* buffer, int buffer_size);
 static void obj__describe_short_file_modified(obj_t self, char* buffer, int buffer_size);
 static void obj__describe_short_oscillator(obj_t self, char* buffer, int buffer_size);
 static void obj__describe_short_time(obj_t self, char* buffer, int buffer_size);
-static void obj__describe_short_wait(obj_t self, char* buffer, int buffer_size);
+static void obj__describe_short_thread(obj_t self, char* buffer, int buffer_size);
 static void obj__describe_short_list(obj_t self, char* buffer, int buffer_size);
 
 static void obj__describe_long_sh(obj_t self, char* buffer, int buffer_size);
 static void obj__describe_long_file_modified(obj_t self, char* buffer, int buffer_size);
 static void obj__describe_long_oscillator(obj_t self, char* buffer, int buffer_size);
 static void obj__describe_long_time(obj_t self, char* buffer, int buffer_size);
-static void obj__describe_long_wait(obj_t self, char* buffer, int buffer_size);
+static void obj__describe_long_thread(obj_t self, char* buffer, int buffer_size);
 static void obj__describe_long_list(obj_t self, char* buffer, int buffer_size);
 
 static void obj__destroy_sh(obj_t self);
 static void obj__destroy_file_modified(obj_t self);
 static void obj__destroy_oscillator(obj_t self);
 static void obj__destroy_time(obj_t self);
-static void obj__destroy_wait(obj_t self);
+static void obj__destroy_thread(obj_t self);
 static void obj__destroy_list(obj_t self);
 
 static obj_t obj__alloc(size_t size) {
     obj_t result = calloc(1, size);
 
+    if (pthread_mutex_init(&result->mutex_attr, 0)) {
+        perror("pthread_mutex_init");
+        free(result);
+        return 0;
+    }
+
     return result;
+}
+
+static void obj__destroy(obj_t self) {
+    self->destroy(self);
+
+    if (self->thread_watcher) {
+        // todo: implement
+        // if (self->attr.is_running) {
+        //     // obj__thread_kill(self);
+        // }
+    }
+    pthread_mutex_destroy(&self->mutex_attr);
 }
 
 static void obj__push_input(obj_t self, obj_t input) {
@@ -170,9 +190,7 @@ static void obj__push_input(obj_t self, obj_t input) {
 }
 
 static void obj__print_input_graph_helper(obj_t self, int depth) {
-    char buffer[256];
-    self->describe_short(self, buffer, sizeof(buffer));
-    printf("%s\n", buffer);
+    obj__print(self, "");
 
     if (self->transient_flag) {
         return ;
@@ -191,7 +209,7 @@ static void obj__print_input_graph_helper(obj_t self, int depth) {
 static int obj__check_for_cyclic_input_helper(obj_t self) {
     if (self->transient_flag) {
         self->transient_flag = 0;
-        printf("Cyclic input detected between:\n");
+        obj__print(self, "Cyclic input detected between:\n");
         return 1;
     }
     self->transient_flag = 1;
@@ -200,9 +218,7 @@ static int obj__check_for_cyclic_input_helper(obj_t self) {
         obj_t input = self->inputs[input_index];
         if (obj__check_for_cyclic_input_helper(input)) {
             self->transient_flag = 0;
-            char buffer[256];
-            self->describe_short(self, buffer, sizeof(buffer));
-            printf("%s\n", buffer);
+            obj__print(self, "");
             return 1;
         }
     }
@@ -220,162 +236,219 @@ static void obj__check_for_cyclic_input(obj_t self) {
     }
 }
 
-static void obj__describe_time_stamp_prefix(obj_t self, char* buffer, int buffer_size) {
-    const double time_since_init = builder__get_time_stamp() - g_time_init;
-    snprintf(buffer, buffer_size, "%.2fs [%d] ", time_since_init, self->pid);
-}
-
-static void obj__kill(obj_t self) {
-    if (self->pid > 0) {
-        assert(self->time_ran_finish <= self->time_ran_start);
-
-        if (kill(self->pid, SIGTERM) == -1) {
-            printf("kill failed, %s\n", strerror(errno));
-        }
-        // if (self->time_ran_finish < self->time_ran_start) {
-        //     if (kill(self->pid, SIGKILL) == -1) {
-        //         printf("kill failed, %s\n", strerror(errno));
-        //     }
-        // }
-        
-        const double time_cur = builder__get_time_stamp();
-        obj__set_fail(self, time_cur);
-        obj__set_finish(self, time_cur);
-    }
-}
-
-static int obj__read_helper(int fd, char* buffer, int buffer_size, char* prefix) {
-    if (buffer_size < 2) {
+static int _prefix_lines(char* dst, int dst_size, const char* src, const char* prefix) {
+    if (dst_size < 2) {
         return 0;
     }
-    buffer[0] = '\0';
+    dst[0] = '\0';
 
-    static char local_buffer[1024];
-    ssize_t read_bytes = read(fd, local_buffer, sizeof(local_buffer) - 1);
-    if (read_bytes == -1) {
-        if (errno == EAGAIN) {
-            return 0;
-        } else {
-            int bytes_read = snprintf(
-                buffer,
-                buffer_size,
-                "%s%s\n",
-                prefix,
-                strerror(errno)
-            );
-            if (bytes_read < 0) {
-                perror(0);
-                exit(1);
-            }
-            return bytes_read < buffer_size - 1 ? bytes_read : buffer_size - 1;
-        }
-    } else if (read_bytes == 0) {
-        return 0;
-    }
-
-    local_buffer[read_bytes] = '\0';
-
-    size_t local_buffer_index = 0;
+    size_t src_index = 0;
     int is_line_prefixed = 0;
-    int buffer_index = 0;
-    while (local_buffer[local_buffer_index]) {
+    int dst_index = 0;
+    while (src[src_index]) {
         if (!is_line_prefixed) {
             int bytes_written = snprintf(
-                buffer,
-                buffer_size - buffer_index,
+                dst + dst_index,
+                dst_size - dst_index,
                 "%s",
                 prefix
             );
             if (bytes_written < 0) {
-                break ;
+                dprintf(STDOUT_FILENO, "snprintf failed\n");
+                kill(getpid(), SIGTERM);
+                exit(1);
             }
-            buffer_index += bytes_written;
+            dst_index += bytes_written;
             is_line_prefixed = 1;
         }
-        if (local_buffer[local_buffer_index] == '\n') {
+        if (src[src_index] == '\n') {
             is_line_prefixed = 0;
         }
         
-        if (buffer_size <= buffer_index) {
+        if (dst_size <= dst_index) {
             break ;
         }
-        buffer[buffer_index++] = local_buffer[local_buffer_index++];
+        dst[dst_index++] = src[src_index++];
     }
 
-    if (buffer_size <= buffer_index) {
-        buffer_index = buffer_size;        
+    if (dst_size < dst_index + 2) {
+        dst_index = dst_size - 2;
     }
+    dst[dst_index] = '\n';
+    dst[dst_index + 1] = '\0';
 
-    buffer[buffer_index - 1] = '\0';
-    buffer[buffer_index - 2] = '\n';
 
-    return buffer_index - 1;
+    return dst_index - 1;
 }
 
-static int obj__read(obj_t self, char* buffer, int buffer_size) {
-    static pid_t pid_prev;
-    static int prefix_len_prev;
-    static char prefix[256];
-    int bytes_read = 0;
-    if (self->pid > 0) {
-        if (pid_prev == self->pid) {
-            snprintf(prefix, sizeof(prefix), "%*s", prefix_len_prev, "");
-            bytes_read = obj__read_helper(self->pid_pipe_stdout[0], buffer, buffer_size, prefix);
-        } else {
-            obj__describe_time_stamp_prefix(self, prefix, sizeof(prefix));
-            prefix_len_prev = strlen(prefix);
-            bytes_read = obj__read_helper(self->pid_pipe_stdout[0], buffer, buffer_size, prefix);
-        }
-        if (pid_prev == self->pid) {
-            snprintf(prefix, sizeof(prefix), "%*s", prefix_len_prev, "");
-            bytes_read = obj__read_helper(self->pid_pipe_stderr[0], buffer, buffer_size, prefix);
-        } else {
-            obj__describe_time_stamp_prefix(self, prefix, sizeof(prefix));
-            prefix_len_prev = strlen(prefix);
-            bytes_read = obj__read_helper(self->pid_pipe_stderr[0], buffer, buffer_size, prefix);
-        }
+static void obj__set_start(obj_t self, double time) {
+    pthread_mutex_lock(&self->mutex_attr);
+    self->attr.time_start = time;
+    self->attr.is_running = 1;
+    ++self->attr.n_run;
+    async_obj__add(self);
+    pthread_mutex_unlock(&self->mutex_attr);
+}
+
+static void obj__set_success(obj_t self, double time) {
+    pthread_mutex_lock(&self->mutex_attr);
+    self->attr.time_success = time;
+    ++self->attr.n_success;
+    pthread_mutex_unlock(&self->mutex_attr);
+}
+
+static void obj__set_fail(obj_t self, double time) {
+    pthread_mutex_lock(&self->mutex_attr);
+    self->attr.time_fail = time;
+    ++self->attr.n_fail;
+    pthread_mutex_unlock(&self->mutex_attr);
+}
+
+static void obj__set_finish(obj_t self, double time) {
+    pthread_mutex_lock(&self->mutex_attr);
+    self->attr.time_finish = time;
+    self->attr.is_running = 0;
+    async_obj__remove(self);
+    pthread_mutex_unlock(&self->mutex_attr);
+}
+
+static void obj__print(obj_t self, const char* format, ...) {
+    static char buffer[4096];
+    static char buffer2[4096];
+
+    pthread_mutex_lock(&g_mutex_print);
+
+    self->describe_short(self, buffer, sizeof(buffer));
+    printf("%.3fs [%d] %s\n", builder__get_time_stamp() - g_time_init, gettid(), buffer);
+
+    va_list ap;
+    va_start(ap, format);
+    int read_bytes = vsnprintf(buffer, sizeof(buffer), format, ap);
+    va_end(ap);
+    if (read_bytes == -1) {
+        dprintf(STDOUT_FILENO, "vsnprintf failed");
+        pthread_mutex_unlock(&g_mutex_print);
+        kill(getpid(), SIGTERM);
+        return ;
     }
 
-    pid_prev = self->pid;
+    if (0 < read_bytes && 0 < _prefix_lines(buffer2, sizeof(buffer2), buffer, "    ")) {
+        printf("%s", buffer2);
+    }
 
-    return bytes_read;
+    pthread_mutex_unlock(&g_mutex_print);
 }
 
 static void obj__run_sh(obj_t self) {
     obj__set_start(self, builder__get_time_stamp());
 
-    // assert(self->pid == 0);
-    self->pid = fork();
+    obj_sh_t sh = (obj_sh_t) self;
 
-    if (self->pid < 0) {
+    if (0 < sh->pid) {
+        if (kill(sh->pid, SIGTERM)) {
+            perror("kill");
+        }
+    }
+
+    sh->pid = fork();
+
+    if (sh->pid < 0) {
         perror(0);
         exit(1);
     }
-    if (self->pid == 0) {
-        close(self->pid_pipe_stdout[0]);
-        if (dup2(self->pid_pipe_stdout[1], STDOUT_FILENO) == -1) {
+    if (sh->pid == 0) {
+        close(sh->pid_pipe_stdout[0]);
+        if (dup2(sh->pid_pipe_stdout[1], STDOUT_FILENO) == -1) {
             perror(0);
             exit(1);
         }
-        close(self->pid_pipe_stdout[1]);
-        close(self->pid_pipe_stderr[0]);
-        if (dup2(self->pid_pipe_stderr[1], STDERR_FILENO) == -1) {
+        close(sh->pid_pipe_stdout[1]);
+        close(sh->pid_pipe_stderr[0]);
+        if (dup2(sh->pid_pipe_stderr[1], STDERR_FILENO) == -1) {
             perror(0);
             exit(1);
         }
-        close(self->pid_pipe_stderr[1]);
-        execl("/usr/bin/sh", "sh", "-c", ((obj_sh_t) self)->cmd_line, NULL);
+        close(sh->pid_pipe_stderr[1]);
+        execl("/usr/bin/sh", "sh", "-c", sh->cmd_line, NULL);
         perror(0);
         exit(1);
     }
 
-    char buffer[256];
-    char prefix[32];
-    obj__describe_time_stamp_prefix(self, prefix, sizeof(prefix));
-    self->describe_short(self, buffer, sizeof(buffer));
-    printf("%s%s\n", prefix, buffer);
+    char buffer[4096];
+    char buffer2[4096];
+    obj__print(self, "");
 
-    async_obj__add(self);
+    int process_finished = 0;
+    while (!process_finished) {
+        usleep(200000);
+
+        int wstatus = -1;
+        pid_t waited_pid = waitpid(sh->pid, &wstatus, WNOHANG);
+
+        ssize_t read_bytes = read(sh->pid_pipe_stdout[0], buffer, sizeof(buffer) - 1);
+        if (0 < read_bytes) {
+            buffer[read_bytes] = '\0';
+            if (0 < _prefix_lines(buffer2, sizeof(buffer2), buffer, "    ")) {
+                obj__print(self, buffer2);
+            }
+        }
+        read_bytes = read(sh->pid_pipe_stderr[0], buffer, sizeof(buffer) - 1);
+        if (0 < read_bytes) {
+            buffer[read_bytes] = '\0';
+            if (0 < _prefix_lines(buffer2, sizeof(buffer2), buffer, "    ")) {
+                obj__print(self, buffer2);
+            }
+        }
+        
+        if (waited_pid == -1) {
+            process_finished = 1;
+            obj__set_fail(self, builder__get_time_stamp());
+        } else if (waited_pid > 0) {
+            assert(waited_pid == sh->pid);
+            if (WIFEXITED(wstatus)) {
+                wstatus = WEXITSTATUS(wstatus);
+                if (sh->success_status_code == wstatus) {
+                    process_finished = 1;
+                    obj__set_success(self, builder__get_time_stamp());
+                    obj__print(self, "finished successfully with status code: %d", wstatus);
+                } else {
+                    process_finished = 1;
+                    obj__set_fail(self, builder__get_time_stamp());
+                    obj__print(self, "finished with failure status code: %d", wstatus);
+                }
+            } else if (WIFSIGNALED(wstatus)) {
+                int sig = WTERMSIG(wstatus);
+                obj__print(self, "was terminated by signal: %d %s", sig, strsignal(sig));
+            } else if (WIFSTOPPED(wstatus)) {
+                int sig = WSTOPSIG(wstatus);
+                obj__print(self, "was stopped by signal: %d %s", sig, strsignal(sig));
+            } else if (WIFCONTINUED(wstatus)) {
+                obj__print(self, "was continued by signal %d %s", SIGCONT, strsignal(SIGCONT));
+            } else {
+                assert(0);
+            }
+            process_finished = 1;
+        }
+    }
+
+    ssize_t read_bytes = read(sh->pid_pipe_stdout[0], buffer, sizeof(buffer) - 1);
+    if (0 < read_bytes) {
+        buffer[read_bytes] = '\0';
+        if (0 < _prefix_lines(buffer2, sizeof(buffer2), buffer, "    ")) {
+            obj__print(self, buffer2);
+        }
+    }
+    read_bytes = read(sh->pid_pipe_stderr[0], buffer, sizeof(buffer) - 1);
+    if (0 < read_bytes) {
+        buffer[read_bytes] = '\0';
+        if (0 < _prefix_lines(buffer2, sizeof(buffer2), buffer, "    ")) {
+            obj__print(self, buffer2);
+        }
+    }
+
+    sh->pid = 0;
+
+    obj__set_finish(self, builder__get_time_stamp());
 }
 
 static void obj__run_file_modified(obj_t self) {
@@ -387,20 +460,26 @@ static void obj__run_file_modified(obj_t self) {
         obj__set_start(self, time_cur);
         obj__set_fail(self, time_cur);
         obj__set_finish(self, time_cur);
-    } else if (self->time_ran_success == 0 || 0 < difftime(file_info.st_mtime, (time_t) self->time_ran_success)) {
-        const double time_modified = (double) file_info.st_mtime;
-        obj__set_start(self, time_modified);
-        obj__set_success(self, time_modified);
-        obj__set_finish(self, time_modified);
+    } else {
+        struct attr attr = obj__get_attr(self);
+        if (attr.time_success == 0.0 || 0 < difftime(file_info.st_mtime, (time_t) attr.time_success)) {
+            const double time_modified = (double) file_info.st_mtime;
+            obj__set_start(self, time_modified);
+            obj__set_success(self, time_modified);
+            obj__set_finish(self, time_modified);
+        }
     }
 }
 
 static void obj__run_oscillator(obj_t self) {
     const double time_cur = builder__get_time_stamp();
+
     obj__set_start(self, time_cur);
 
+    struct attr attr = obj__get_attr(self);
+
     obj_oscillator_t oscillator = (obj_oscillator_t) self;
-    if (self->time_ran_success == 0) {
+    if (attr.time_success == 0.0) {
         obj__set_success(self, time_cur);
         obj__set_finish(self, time_cur);
         return ;
@@ -415,13 +494,13 @@ static void obj__run_oscillator(obj_t self) {
     }
 
     const double epsilon_s = minimum_periodicity_s / 10.0; // to avoid modding down a whole period
-    const double delta_time_last_successful_run_s = self->time_ran_success - g_time_init + epsilon_s;
+    const double delta_time_last_successful_run_s = attr.time_success - g_time_init + epsilon_s;
     const double last_successful_run_mod_s = delta_time_last_successful_run_s - fmod(delta_time_last_successful_run_s, periodicity_s);
     const double delta_time_current_s = builder__get_time_stamp() - g_time_init;
     if (last_successful_run_mod_s + periodicity_s < delta_time_current_s) {
         obj__set_success(self, time_cur);
+        obj__set_finish(self, time_cur);
     }
-    obj__set_finish(self, time_cur);
 }
 
 static void obj__run_time(obj_t self) {
@@ -431,70 +510,56 @@ static void obj__run_time(obj_t self) {
     obj__set_finish(self, time_cur);
 }
 
-static void obj__run_wait_impl(obj_t self, int hang) {
-    assert(self->pid > 0);
-    int wstatus = -1;
-    pid_t waited_pid = waitpid(self->pid, &wstatus, hang ? 0 : WNOHANG);
-    static char buffer[1024];
-    int bytes_read = obj__read(self, buffer, sizeof(buffer));
-    if (0 < bytes_read) {
-        printf("%s", buffer);
-    }
-    if (waited_pid == -1) {
-        const double time_cur = builder__get_time_stamp();
-        obj__set_fail(self, time_cur);
-        obj__set_finish(self, time_cur);
-    } else if (waited_pid > 0) {
-        assert(waited_pid == self->pid);
-        char prefix[32];
-        obj__describe_time_stamp_prefix(self, prefix, sizeof(prefix));
-        if (WIFEXITED(wstatus)) {
-            wstatus = WEXITSTATUS(wstatus);
-            if (self->success_status_code == wstatus) {
-                obj__set_success(self, builder__get_time_stamp());
-                printf("%sfinished successfully with status code: %d\n", prefix, wstatus);
-            } else {
-                obj__set_fail(self, builder__get_time_stamp());
-                printf("%sfinished with failure status code: %d\n", prefix, wstatus);
-            }
-        } else if (WIFSIGNALED(wstatus)) {
-            int sig = WTERMSIG(wstatus);
-            printf("%swas terminated by signal: %d %s\n", prefix, sig, strsignal(sig));
-        } else if (WIFSTOPPED(wstatus)) {
-            int sig = WSTOPSIG(wstatus);
-            printf("%swas stopped by signal: %d %s\n", prefix, sig, strsignal(sig));
-        } else if (WIFCONTINUED(wstatus)) {
-            printf("%swas continued by signal %d %s\n", prefix, SIGCONT, strsignal(SIGCONT));
-        } else {
-            assert(0);
-        }
-        obj__set_finish(self, builder__get_time_stamp());
-    }
+static void* thread_worker_routine(void* data) {
+    obj_t obj = (obj_t) data;
+
+    obj->run(obj);
+
+    return data;
 }
 
-static void obj__run_wait(obj_t self, int hang) {
-    for (size_t input_index = 0; input_index < self->inputs_top; ++input_index) {
-        obj_t input = self->inputs[input_index];
-        if (input->time_ran_finish < input->time_ran_start) {
-            obj__run_wait_impl(input, hang);
-        }
+static void obj__run_thread(obj_t self) {
+    struct attr attr = obj__get_attr(self);
+    if (!attr.is_running) {
+        return ;
     }
 
+    const double time_cur = builder__get_time_stamp();
+
+    int found_running_output = 0;
+    int found_non_successful_output = 0;
     for (size_t output_index = 0; output_index < self->outputs_top; ++output_index) {
-        obj_t output = self->outputs[output_index];
-        self->time_ran_start = fmax(self->time_ran_start, output->time_ran_start);
-        self->time_ran_success = fmax(self->time_ran_success, output->time_ran_success);
-        self->time_ran_fail = fmax(self->time_ran_fail, output->time_ran_fail);
-        self->time_ran_finish = fmax(self->time_ran_finish, output->time_ran_finish);
+        obj_t output = (obj_t) self->outputs[output_index];
+        struct attr attr_output_prev = obj__get_attr(output);
+        if (attr_output_prev.is_running) {
+            int tryjoin_result = pthread_tryjoin_np(output->thread, 0);
+            if (!tryjoin_result) {
+                struct attr attr_output_cur = obj__get_attr(output);
+                if (attr_output_cur.time_success <= attr_output_cur.time_fail) {
+                    found_non_successful_output = 1;
+                }
+                obj__set_finish(output, time_cur);
+            } else if (tryjoin_result == EBUSY) {
+                found_running_output = 1;
+            } else {
+                perror("pthread_tryjoin_np");
+                kill(getpid(), SIGTERM);
+            }
+        } else {
+            if (attr_output_prev.time_success <= attr_output_prev.time_fail) {
+                found_non_successful_output = 1;
+            }
+        }
     }
-}
 
-static void obj__run_wait_no_hang(obj_t self) {
-    obj__run_wait(self, 0);
-}
-
-static void obj__run_wait_hang(obj_t self) {
-    obj__run_wait(self, 1);
+    if (!found_running_output) {
+        if (found_non_successful_output) {
+            obj__set_fail(self, time_cur);
+        } else {
+            obj__set_success(self, time_cur);
+        }
+        obj__set_finish(self, time_cur);
+    }
 }
 
 static void obj__run_list(obj_t self) {
@@ -503,12 +568,13 @@ static void obj__run_list(obj_t self) {
 }
 
 static void obj__describe_short_sh(obj_t self, char* buffer, int buffer_size) {
-    obj_sh_t process = (obj_sh_t) self;
+    obj_sh_t sh = (obj_sh_t) self;
     snprintf(
         buffer, buffer_size,
-        "/usr/bin/sh -c \"%s\", expected status code: %d",
-        process->cmd_line,
-        self->success_status_code
+        "/usr/bin/sh -c \"%s\", pid: %d, expected status code: %d",
+        sh->cmd_line,
+        sh->pid,
+        sh->success_status_code
     );
 }
 
@@ -523,12 +589,13 @@ static void obj__describe_short_oscillator(obj_t self, char* buffer, int buffer_
 }
 
 static void obj__describe_short_time(obj_t self, char* buffer, int buffer_size) {
-    snprintf(buffer, buffer_size, "%.3lf", self->time_ran_success);
-}
-
-static void obj__describe_short_wait(obj_t self, char* buffer, int buffer_size) {
     (void) self;
     snprintf(buffer, buffer_size, "TIME");
+}
+
+static void obj__describe_short_thread(obj_t self, char* buffer, int buffer_size) {
+    (void) self;
+    snprintf(buffer, buffer_size, "THREAD");
 }
 
 static void obj__describe_short_list(obj_t self, char* buffer, int buffer_size) {
@@ -538,38 +605,21 @@ static void obj__describe_short_list(obj_t self, char* buffer, int buffer_size) 
     (void) buffer_size;
 }
 
-static void obj__destroy(obj_t self) {
-    if (self->pid > 0) {
-        obj__kill(self);
-        self->pid = 0;
-    }
-    if (self->pid_pipe_stderr[0]) {
-        close(self->pid_pipe_stderr[0]);
-        self->pid_pipe_stderr[0] = 0;
-    }
-    if (self->pid_pipe_stderr[1]) {
-        close(self->pid_pipe_stderr[1]);
-        self->pid_pipe_stderr[1] = 0;
-    }
-    if (self->pid_pipe_stdout[0]) {
-        close(self->pid_pipe_stdout[0]);
-        self->pid_pipe_stdout[0] = 0;
-    }
-    if (self->pid_pipe_stdout[1]) {
-        close(self->pid_pipe_stdout[1]);
-        self->pid_pipe_stdout[1] = 0;
-    }
-    self->destroy(self);
-}
-
 static void obj__describe_long_sh(obj_t self, char* buffer, int buffer_size) {
-    obj_sh_t process = (obj_sh_t) self;
+    obj_sh_t sh = (obj_sh_t) self;
     snprintf(buffer, buffer_size,
         "SH"
+        "\nPid:%d"
+        "\nFDs:"
+        "\n stdout -> r %d  w %d"
+        "\n stderr -> r %d  w %d"
         "\n%s"
         "\nExpected status code: %d",
-        process->cmd_line,
-        self->success_status_code
+        sh->pid,
+        sh->pid_pipe_stdout[0], sh->pid_pipe_stdout[1],
+        sh->pid_pipe_stderr[0], sh->pid_pipe_stderr[1],
+        sh->cmd_line,
+        sh->success_status_code
     );
 }
 
@@ -593,9 +643,9 @@ static void obj__describe_long_time(obj_t self, char* buffer, int buffer_size) {
     snprintf(buffer, buffer_size, "TIME");
 }
 
-static void obj__describe_long_wait(obj_t self, char* buffer, int buffer_size) {
+static void obj__describe_long_thread(obj_t self, char* buffer, int buffer_size) {
     (void) self;
-    snprintf(buffer, buffer_size, "WAIT");
+    snprintf(buffer, buffer_size, "THREAD");
 }
 
 static void obj__describe_long_list(obj_t self, char* buffer, int buffer_size) {
@@ -606,11 +656,26 @@ static void obj__describe_long_list(obj_t self, char* buffer, int buffer_size) {
 }
 
 static void obj__destroy_sh(obj_t self) {
-    (void) self;
-    obj_sh_t obj_sh = (obj_sh_t) self;
-    if (obj_sh->cmd_line) {
-        free(obj_sh->cmd_line);
-        obj_sh->cmd_line = 0;
+    obj_sh_t sh = (obj_sh_t) self;
+    if (sh->cmd_line) {
+        free(sh->cmd_line);
+        sh->cmd_line = 0;
+    }
+    if (sh->pid_pipe_stderr[0]) {
+        close(sh->pid_pipe_stderr[0]);
+        sh->pid_pipe_stderr[0] = 0;
+    }
+    if (sh->pid_pipe_stderr[1]) {
+        close(sh->pid_pipe_stderr[1]);
+        sh->pid_pipe_stderr[1] = 0;
+    }
+    if (sh->pid_pipe_stdout[0]) {
+        close(sh->pid_pipe_stdout[0]);
+        sh->pid_pipe_stdout[0] = 0;
+    }
+    if (sh->pid_pipe_stdout[1]) {
+        close(sh->pid_pipe_stdout[1]);
+        sh->pid_pipe_stdout[1] = 0;
     }
 }
 
@@ -626,7 +691,7 @@ static void obj__destroy_time(obj_t self) {
     (void) self;
 }
 
-static void obj__destroy_wait(obj_t self) {
+static void obj__destroy_thread(obj_t self) {
     (void) self;
 }
 
@@ -650,26 +715,26 @@ static void async_obj__signal_handler(int signal) {
 }
 
 static void async_obj__add(obj_t self) {
-    assert(async_obj_top++ < ARRAY_SIZE(async_obj));
     for (size_t i = 0; i < ARRAY_SIZE(async_obj); ++i) {
         if (async_obj[i] == 0) {
             async_obj[i] = self;
+            assert(async_obj_top++ < ARRAY_SIZE(async_obj));
             break ;
         }
     }
 }
 
 static void async_obj__remove(obj_t self) {
-    assert(async_obj_top-- > 0);
     for (size_t i = 0; i < ARRAY_SIZE(async_obj); ++i) {
         if (async_obj[i] == self) {
             async_obj[i] = 0;
+            assert(async_obj_top-- > 0);
             break ;
         }
     }
 }
 
-void builder__init() {
+int builder__init() {
     struct sigaction act = { 0 };
     act.sa_handler = &async_obj__signal_handler;
     sigaction(SIGTERM, &act, 0);
@@ -679,6 +744,16 @@ void builder__init() {
     g_tick_resolution = (double) t.tv_sec + t.tv_nsec / 1000000000.0;
 
     g_time_init = builder__get_time_stamp();
+
+    if (pthread_mutex_init(&g_mutex_print, 0)) {
+        return 1;
+    }
+
+    return 0;
+}
+
+void builder__deinit() {
+    pthread_mutex_destroy(&g_mutex_print);
 }
 
 double builder__get_time_stamp() {
@@ -691,89 +766,121 @@ double builder__get_time_stamp_init() {
     return g_time_init;
 }
 
-static void obj__set_start(obj_t self, double time) {
-    self->time_ran_start = time;
-    ++self->number_of_times_ran_total;
-    async_obj__add(self);
+struct attr obj__get_attr(obj_t self) {
+    struct attr result;
+    pthread_mutex_lock(&self->mutex_attr);
+    memcpy(&result, &self->attr, sizeof(self->attr));
+    pthread_mutex_unlock(&self->mutex_attr);
+    return result;
 }
 
-static void obj__set_finish(obj_t self, double time) {
-    self->time_ran_finish = time;
-    self->pid = 0;
-    async_obj__remove(self);
-}
+static void obj__run_helper(obj_t self, obj_t caller) {
+    obj_t thread_watcher = self->thread_watcher;
 
-static void obj__set_success(obj_t self, double time) {
-    self->time_ran_success = time;
-    ++self->number_of_times_ran_successfully;
-}
+    struct attr attr_prev = obj__get_attr(self);
 
-static void obj__set_fail(obj_t self, double time) {
-    self->time_ran_fail = time;
-    ++self->number_of_times_ran_failed;
-}
-
-static void obj__run_helper(obj_t self) {
-    double time_input = 0.0;
-    for (size_t input_index = 0; input_index < self->inputs_top; ++input_index) {
-        obj_t input = self->inputs[input_index];
-        if (input->time_ran_success < input->time_ran_fail) {
-            return ;
-        }
-        time_input = fmax(time_input, fmax(input->time_ran_start, input->time_ran_success));
-    }
-    
-    if (0.0 < time_input && 0 < self->outputs_top) {
-        int found_older_output = 0;
+    if (thread_watcher && caller == thread_watcher) {
+        assert(!attr_prev.is_running);
+        assert(attr_prev.time_fail < attr_prev.time_success);
         for (size_t output_index = 0; output_index < self->outputs_top; ++output_index) {
             obj_t output = self->outputs[output_index];
-            if (fmax(output->time_ran_start, output->time_ran_success) < time_input) {
-                found_older_output = 1;
-                break ;
+            struct attr attr_output = obj__get_attr(output);
+            if (attr_output.time_start < attr_prev.time_success) {
+                obj__run_helper(output, self);
             }
         }
-        if (!found_older_output) {
+        return ;
+    }
+    
+    if (0 < self->inputs_top) {
+        double time_most_successful_input = 0.0;
+        for (size_t input_index = 0; input_index < self->inputs_top; ++input_index) {
+            obj_t input = self->inputs[input_index];
+            if (input == thread_watcher) {
+                continue ;
+            }
+            struct attr attr_input = obj__get_attr(input);
+            if (attr_input.time_success < attr_input.time_fail) {
+                return ;
+            }
+            time_most_successful_input = fmax(time_most_successful_input, attr_input.time_success);
+        }
+
+        if (time_most_successful_input <= attr_prev.time_start) {
             return ;
+        }
+
+        if (0 < self->outputs_top) {
+            double time_least_successful_output = INFINITY;
+            for (size_t output_index = 0; output_index < self->outputs_top; ++output_index) {
+                obj_t output = self->outputs[output_index];
+                struct attr attr_output = obj__get_attr(output);
+                time_least_successful_output = fmin(time_least_successful_output, attr_output.time_success);
+            }
+            if (time_most_successful_input <= time_least_successful_output) {
+                return ;
+            }
         }
     }
 
-    obj__kill(self);
-    // self->time_ran_start = ;
-    self->run(self);
+    if (thread_watcher) {
+        const double time_cur = builder__get_time_stamp();
+        obj__set_start(thread_watcher, time_cur);
+        for (size_t output_index = 0; output_index < thread_watcher->outputs_top; ++output_index) {
+            obj_t output = thread_watcher->outputs[output_index];
+            struct attr attr_output_prev = obj__get_attr(output);
+            if (attr_output_prev.is_running) {
+                if (pthread_cancel(output->thread)) {
+                    perror("pthread_cancel");
+                }
+                void* thread_result = 0;
+                int join_result = pthread_join(output->thread, &thread_result);
+                if (join_result) {
+                    perror("pthread_join");
+                } else {
+                    if (thread_result == PTHREAD_CANCELED) {
+                        // obj__set_fail(output, builder__get_time_stamp());
+                    } else {
+                        assert(thread_result == output);
+                    }
+                }
+                obj__set_finish(output, time_cur);
+            }
+            struct attr attr_output_cur = obj__get_attr(output);
+            assert(!attr_output_cur.is_running);
+            obj__set_start(output, time_cur);
+            if (pthread_create(&output->thread, 0, thread_worker_routine, output)) {
+                perror("pthread_create");
+                kill(getpid(), SIGTERM);
+                exit(1);
+            }
+        }
+    } else {
+        self->run(self);
 
-    // backpropagate our time to inputs
+        struct attr attr__cur = obj__get_attr(self);
 
-    if (
-        self->time_ran_success < self->time_ran_fail ||
-        self->time_ran_start == 0.0
-    ) {
-        return ;
-    }
+        if (
+            attr__cur.is_running ||
+            attr__cur.time_success <= attr__cur.time_fail
+        ) {
+            return ;
+        }
 
-    const double time_self = fmax(self->time_ran_success, self->time_ran_start);
-    for (size_t output_index = 0; output_index < self->outputs_top; ++output_index) {
-        obj_t output = self->outputs[output_index];
-        if (fmax(output->time_ran_start, output->time_ran_success) < time_self) {
-            obj__run_helper(output);
+        for (size_t output_index = 0; output_index < self->outputs_top; ++output_index) {
+            obj_t output = self->outputs[output_index];
+            struct attr attr_output = obj__get_attr(output);
+            if (attr_output.time_start < attr__cur.time_success) {
+                obj__run_helper(output, self);
+            }
         }
     }
 }
 
 int obj__run(obj_t self) {
-    obj__run_helper(self);
-    if (self->time_ran_start == 0.0) {
-        return 1;
-    } else {
-        if (self->time_ran_success < self->time_ran_fail) {
-            return 1;
-        } else if (self->time_ran_fail < self->time_ran_success) {
-            return 0;
-        } else if (self->time_ran_start <= self->time_ran_finish) {
-            return 1;
-        } else {
-            return 1;
-        }
-    }
+    obj__run_helper(self, 0);
+    struct attr attr = obj__get_attr(self);
+    return attr.is_running;
 }
 
 void obj__describe_short(obj_t self, char* buffer, int buffer_size) {
@@ -784,69 +891,70 @@ void obj__describe_long(obj_t self, char* buffer, int buffer_size) {
     char self_describe_long[512];
     self->describe_long(self, self_describe_long, sizeof(self_describe_long));
 
+    struct attr attr = obj__get_attr(self);
+
     char run_status[32];
-    if (self->time_ran_start == 0.0) {
-        snprintf(run_status, sizeof(run_status), "Did not run");
+    if (attr.is_running) {
+        snprintf(run_status, sizeof(run_status), "Running");
     } else {
-        if (self->time_ran_success < self->time_ran_fail) {
+        if (attr.time_success < attr.time_fail) {
             snprintf(run_status, sizeof(run_status), "Failed");
-        } else if (self->time_ran_fail < self->time_ran_success) {
+        } else if (attr.time_fail < attr.time_success) {
             snprintf(run_status, sizeof(run_status), "Succeeded");
-        } else if (self->time_ran_start <= self->time_ran_finish) {
-            snprintf(run_status, sizeof(run_status), "Finished");
+        } else if (attr.time_start == 0.0) {
+            snprintf(run_status, sizeof(run_status), "Never ran");
         } else {
-            snprintf(run_status, sizeof(run_status), "Running");
+            snprintf(run_status, sizeof(run_status), "Ran, but no result");
         }
     }
     char abs_time_run_success[128];
     char rel_time_run_success[128];
-    if (self->time_ran_success == 0) {
+    if (attr.time_success == 0) {
         snprintf(abs_time_run_success, sizeof(abs_time_run_success), "-");
         snprintf(rel_time_run_success, sizeof(rel_time_run_success), "-");
     } else {
-        time_t time_ran_successfully_time_t = (time_t) self->time_ran_success;
+        time_t time_ran_successfully_time_t = (time_t) attr.time_success;
         struct tm* t = localtime(&time_ran_successfully_time_t);
         snprintf(abs_time_run_success, sizeof(abs_time_run_success), "%02d/%02d/%d %02d:%02d:%02d", t->tm_mday, t->tm_mon + 1, t->tm_year + 1900, t->tm_hour, t->tm_min, t->tm_sec);
-        snprintf(rel_time_run_success, sizeof(rel_time_run_success), "%.2lf", self->time_ran_success - builder__get_time_stamp_init());
+        snprintf(rel_time_run_success, sizeof(rel_time_run_success), "%.2lf", attr.time_success - builder__get_time_stamp_init());
     }
     char abs_time_run_fail[128];
     char rel_time_run_fail[128];
-    if (self->time_ran_fail == 0) {
+    if (attr.time_fail == 0) {
         snprintf(abs_time_run_fail, sizeof(abs_time_run_fail), "-");
         snprintf(rel_time_run_fail, sizeof(rel_time_run_fail), "-");
     } else {
-        time_t time_ran_successfully_time_t = (time_t) self->time_ran_fail;
+        time_t time_ran_successfully_time_t = (time_t) attr.time_fail;
         struct tm* t = localtime(&time_ran_successfully_time_t);
         snprintf(abs_time_run_fail, sizeof(abs_time_run_fail), "%02d/%02d/%d %02d:%02d:%02d", t->tm_mday, t->tm_mon + 1, t->tm_year + 1900, t->tm_hour, t->tm_min, t->tm_sec);
-        snprintf(rel_time_run_fail, sizeof(rel_time_run_fail), "%.2lf", self->time_ran_fail - builder__get_time_stamp_init());
+        snprintf(rel_time_run_fail, sizeof(rel_time_run_fail), "%.2lf", attr.time_fail - builder__get_time_stamp_init());
     }
     char abs_time_run_start[128];
     char rel_time_run_start[128];
-    if (self->time_ran_start == 0) {
+    if (attr.time_start == 0) {
         snprintf(abs_time_run_start, sizeof(abs_time_run_start), "-");
         snprintf(rel_time_run_start, sizeof(rel_time_run_start), "-");
     } else {
-        time_t time_ran_successfully_time_t = (time_t) self->time_ran_start;
+        time_t time_ran_successfully_time_t = (time_t) attr.time_start;
         struct tm* t = localtime(&time_ran_successfully_time_t);
         snprintf(abs_time_run_start, sizeof(abs_time_run_start), "%02d/%02d/%d %02d:%02d:%02d", t->tm_mday, t->tm_mon + 1, t->tm_year + 1900, t->tm_hour, t->tm_min, t->tm_sec);
-        snprintf(rel_time_run_start, sizeof(rel_time_run_start), "%.2lf", self->time_ran_start - builder__get_time_stamp_init());
+        snprintf(rel_time_run_start, sizeof(rel_time_run_start), "%.2lf", attr.time_start - builder__get_time_stamp_init());
     }
     char abs_time_run_finish[128];
     char rel_time_run_finish[128];
-    if (self->time_ran_finish == 0) {
+    if (attr.time_finish == 0) {
         snprintf(abs_time_run_finish, sizeof(abs_time_run_finish), "-");
         snprintf(rel_time_run_finish, sizeof(rel_time_run_finish), "-");
     } else {
-        time_t time_ran_successfully_time_t = (time_t) self->time_ran_finish;
+        time_t time_ran_successfully_time_t = (time_t) attr.time_finish;
         struct tm* t = localtime(&time_ran_successfully_time_t);
         snprintf(abs_time_run_finish, sizeof(abs_time_run_finish), "%02d/%02d/%d %02d:%02d:%02d", t->tm_mday, t->tm_mon + 1, t->tm_year + 1900, t->tm_hour, t->tm_min, t->tm_sec);
-        snprintf(rel_time_run_finish, sizeof(rel_time_run_finish), "%.2lf", self->time_ran_finish - builder__get_time_stamp_init());
+        snprintf(rel_time_run_finish, sizeof(rel_time_run_finish), "%.2lf", attr.time_finish - builder__get_time_stamp_init());
     }
 
     snprintf(
         buffer, buffer_size,
         "%s"
-        "\nPid: %u"
         "\nStatus: %s"
         "\nAbsolute times:"
         "\n  success: %s"
@@ -862,7 +970,6 @@ void obj__describe_long(obj_t self, char* buffer, int buffer_size) {
         "\nSuccessful runs: %lu"
         "\nFailed runs:     %lu",
         self_describe_long,
-        self->pid,
         run_status,
         abs_time_run_success,
         abs_time_run_fail,
@@ -872,9 +979,9 @@ void obj__describe_long(obj_t self, char* buffer, int buffer_size) {
         rel_time_run_fail,
         rel_time_run_start,
         rel_time_run_finish,
-        self->number_of_times_ran_total,
-        self->number_of_times_ran_successfully,
-        self->number_of_times_ran_failed
+        attr.n_run,
+        attr.n_success,
+        attr.n_fail
     );
 }
 
@@ -919,12 +1026,8 @@ obj_t obj__sh(obj_t opt_inputs, int success_status_code, const char* cmd_line, .
     result->base.describe_long  = &obj__describe_long_sh;
     result->base.destroy        = &obj__destroy_sh;
 
-    result->base.success_status_code = success_status_code;
+    result->success_status_code = success_status_code;
 
-    if (!cmd_line) {
-        int dbg = 0;
-        ++dbg;
-    }
     assert(cmd_line);
     va_list ap;
     va_start(ap, cmd_line);
@@ -941,22 +1044,22 @@ obj_t obj__sh(obj_t opt_inputs, int success_status_code, const char* cmd_line, .
         obj__push_input((obj_t) result, opt_inputs);
     }
 
-    if (pipe(result->base.pid_pipe_stdout) == -1) {
+    if (pipe(result->pid_pipe_stdout) == -1) {
         perror(0);
         obj__destroy((obj_t) result);
         return 0;
     }
-    if (pipe(result->base.pid_pipe_stderr) == -1) {
+    if (pipe(result->pid_pipe_stderr) == -1) {
         perror(0);
         obj__destroy((obj_t) result);
         return 0;
     }
-    if (fcntl(result->base.pid_pipe_stdout[0], F_SETFL, fcntl(result->base.pid_pipe_stdout[0], F_GETFL) | O_NONBLOCK) == -1) {
+    if (fcntl(result->pid_pipe_stdout[0], F_SETFL, fcntl(result->pid_pipe_stdout[0], F_GETFL) | O_NONBLOCK) == -1) {
         perror(0);
         obj__destroy((obj_t) result);
         return 0;
     }
-    if (fcntl(result->base.pid_pipe_stderr[0], F_SETFL, fcntl(result->base.pid_pipe_stderr[0], F_GETFL) | O_NONBLOCK) == -1) {
+    if (fcntl(result->pid_pipe_stderr[0], F_SETFL, fcntl(result->pid_pipe_stderr[0], F_GETFL) | O_NONBLOCK) == -1) {
         perror(0);
         obj__destroy((obj_t) result);
         return 0;
@@ -991,19 +1094,24 @@ obj_t obj__time() {
     return (obj_t) result;
 }
 
-obj_t obj__wait(obj_t input, int hang) {
-    obj_wait_t result = (obj_wait_t) obj__alloc(sizeof(*result));
+obj_t obj__thread(obj_t input_to_thread, obj_t collector) {
+    obj_thread_t result = (obj_thread_t) obj__alloc(sizeof(*result));
 
-    result->base.run = hang ? &obj__run_wait_hang : &obj__run_wait_no_hang;
-    result->base.describe_short = &obj__describe_short_wait;
-    result->base.describe_long = &obj__describe_long_wait;
-    result->base.destroy = &obj__destroy_wait;
+    assert(!input_to_thread->thread_watcher && "input already has a thread");
 
-    if (input) {
-        obj__push_input((obj_t) result, input);
-    }
+    result->base.run            = &obj__run_thread;
+    result->base.describe_short = &obj__describe_short_thread;
+    result->base.describe_long  = &obj__describe_long_thread;
+    result->base.destroy        = &obj__destroy_thread;
 
-    return (obj_t) result;
+    result->base.is_thread_watcher = 1;
+
+    obj__push_input((obj_t) result, collector);
+    obj__push_input(input_to_thread, (obj_t) result);
+
+    input_to_thread->thread_watcher = (obj_t) result;
+
+    return input_to_thread;
 }
 
 obj_t obj__list(obj_t obj0, ... /*, 0*/) {
