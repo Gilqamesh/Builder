@@ -1,8 +1,8 @@
-#ifndef BUILDER_GFX_H
-# define BUILDER_GFX_H
+#ifndef OBJ_PRESENT_H
+# define OBJ_PRESENT_H
 
 # include "builder.h"
 
-void builder_gfx__exec(obj_t obj, obj_t title);
+obj_t obj__present();
 
-#endif // BUILDER_GFX_H
+#endif // OBJ_PRESENT_H

@@ -1,8 +1,8 @@
-#ifndef SIMPLE_H
-# define SIMPLE_H
+#ifndef EXAMPLE_H
+# define EXAMPLE_H
 
 # include "builder.h"
 
-obj_t obj__build_simple();
+obj_t obj__greet();
 
-#endif // SIMPLE_H
+#endif // EXAMPLE_H

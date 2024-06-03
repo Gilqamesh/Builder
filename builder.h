@@ -17,20 +17,43 @@ void   builder__deinit();
 double builder__get_time_stamp();
 double builder__get_time_stamp_init();
 
-// Program types
+obj_t obj__alloc(size_t size);
+void  obj__destroy(obj_t self);
+
+void obj__print(obj_t self, const char* format, ...);
+void obj__push_input(obj_t self, obj_t input);
+
+extern size_t objects_top;
+extern size_t objects_size;
+extern obj_t* objects;
+
+extern obj_t engine_time;
+extern obj_t oscillator_200ms;
+extern obj_t oscillator_10s;
+extern obj_t c_compiler;
+extern obj_t builder_h;
+extern obj_t builder_c;
+extern obj_t builder_o;
+
+// Example program types
 
 obj_t       obj__file_modified(obj_t opt_inputs, const char* path, ...);
 const char* obj__file_modified_path(obj_t self);
-obj_t obj__sh(obj_t opt_inputs, int success_status_code, const char* cmd_line, ...);
+obj_t obj__exec(obj_t opt_inputs, const char* cmd_line, ...);
 obj_t obj__oscillator(obj_t input, double periodicity_ms);
 obj_t obj__time();
-obj_t obj__thread(obj_t input_to_thread, obj_t collector);
+obj_t obj__thread(obj_t obj_to_thread, obj_t collector);
+obj_t obj__process(obj_t obj_to_create_process_for, int success_status_code, obj_t collector);
 
 obj_t obj__list(obj_t obj0, ... /*, 0*/);
 
 // Program methods
 
 struct attr obj__get_attr(obj_t self);
+void obj__set_start(obj_t self, double time);
+void obj__set_success(obj_t self, double time);
+void obj__set_fail(obj_t self, double time);
+void obj__set_finish(obj_t self, double time);
 
 // void obj__remove_input(obj_t self, obj_t what);
 // void obj__push_input(obj_t self, obj_t what);
@@ -67,9 +90,10 @@ struct obj {
     } attr;
     pthread_mutex_t mutex_attr;
 
-    pthread_t thread;
-    obj_t     thread_watcher;
-    int       is_thread_watcher;
+    // remove this when objects are type tagged
+    int   is_thread;
+    int   is_process;
+    obj_t obj_proxy; // necessary because it doesn't want to interfere the program's inputs/outputs
 
     int transient_flag; // Should be cleared to 0 after using it
 };

@@ -1,41 +1,45 @@
 #include "simple.h"
 
-obj_t obj__build_simple() {
-    obj_t engine_time      = obj__time();
-    obj_t oscillator_400ms = obj__oscillator(engine_time, 400);
-    obj_t oscillator_10s   = obj__oscillator(engine_time, 10000);
-    obj_t c_compiler       = obj__file_modified(oscillator_10s,   "/usr/bin/gcc");
-    obj_t o_linker         = obj__file_modified(oscillator_10s,   "/usr/bin/gcc");
-    obj_t example_h        = obj__file_modified(oscillator_400ms, "example.h");
-    obj_t example_c        = obj__file_modified(oscillator_400ms, "example.c");
-    obj_t example_o = obj__file_modified(
-        obj__thread(
-            obj__sh(
-                obj__list(example_h, example_c, 0),
-                0,
-                "%s -g -c %s -o example.o -Wall -Wextra -Werror", obj__file_modified_path(c_compiler), obj__file_modified_path(example_c)
-            ),
-            oscillator_400ms
-        ),
-        "example.o"
-    );
-    obj_t example_bin = obj__file_modified(
-        obj__thread(
-            obj__sh(
-                example_o,
-                0,
-                "%s %s -o example", obj__file_modified_path(o_linker), obj__file_modified_path(example_o)
-            ),
-            oscillator_400ms
-        ),
-        "example"
-    );
+#include <stdio.h>
 
-    obj_t program = obj__sh(
-        example_bin,
-        0,
-        "./%s", obj__file_modified_path(example_bin)
-    );
-    
-    return program;
+typedef struct obj_greet {
+    struct obj base;
+} *obj_greet_t;
+
+static void obj__run_greet(obj_t self);
+static void obj__describe_short_greet(obj_t self, char* buffer, int buffer_size);
+static void obj__describe_long_greet(obj_t self, char* buffer, int buffer_size);
+static void obj__destroy_greet(obj_t self);
+
+static void obj__run_greet(obj_t self) {
+    const double time_cur = builder__get_time_stamp();
+    obj__set_start(self, time_cur);
+    obj__print(self, "Hello from example!");
+    obj__set_success(self, time_cur);
+    obj__set_finish(self, time_cur);
+}
+
+static void obj__describe_short_greet(obj_t self, char* buffer, int buffer_size) {
+    (void) self;
+    snprintf(buffer, buffer_size, "GREET");
+}
+
+static void obj__describe_long_greet(obj_t self, char* buffer, int buffer_size) {
+    (void) self;
+    snprintf(buffer, buffer_size, "GREET");
+}
+
+static void obj__destroy_greet(obj_t self) {
+    (void) self;
+}
+
+obj_t obj__greet() {
+    obj_greet_t result = (obj_greet_t) obj__alloc(sizeof(*result));
+
+    result->base.run            = &obj__run_greet;
+    result->base.describe_short = &obj__describe_short_greet;
+    result->base.describe_long  = &obj__describe_long_greet;
+    result->base.destroy        = &obj__destroy_greet;
+
+    return (obj_t) result;
 }
