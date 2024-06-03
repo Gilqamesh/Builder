@@ -21,7 +21,18 @@
     } \
 } while (0)
 
-typedef struct state {
+static float Vector2_Dot(Vector2 v, Vector2 w) { return v.x * w.x + v.y * w.y; }
+static float Vector2_Len(Vector2 v) { return sqrtf(Vector2_Dot(v, v)); }
+static Vector2 Vector2_Normalize(Vector2 v) { float len = Vector2_Len(v); v.x /= len; v.y /= len; return v; }
+static Vector2 Vector2_Scale(Vector2 v, float f) { v.x *= f; v.y *= f; return v; }
+static Vector2 Vector2_Add(Vector2 v, Vector2 w) { v.x += w.x; v.y += w.y; return v; }
+static Vector2 Vector2_Sub(Vector2 v, Vector2 w) { v.x -= w.x; v.y -= w.y; return v; }
+
+static int Rec_IsInside(Rectangle rec, Vector2 p) { return p.x >= rec.x && p.x <= rec.x + rec.width && p.y >= rec.y && p.y <= rec.y + rec.height; }
+
+typedef struct obj_present {
+    struct obj base;
+
     int width;
     int height;
     float zoom;
@@ -36,45 +47,31 @@ typedef struct state {
     Vector2 average_node_dims;
     Vector2 running_average_node_dims;
     size_t  running_average_node_dims_top;
+} *obj_present_t;
 
-    size_t nodes_size;
-    size_t nodes_top;
-    obj_t* nodes;
-} state_t;
-static state_t state;
+static void obj__present_update(obj_t self, double dt);
+static void obj__present_update_node_as_drawn(obj_t self, obj_t node);
+static void obj__present_update_reset_camera(obj_t self);
 
-static float Vector2_Dot(Vector2 v, Vector2 w) { return v.x * w.x + v.y * w.y; }
-static float Vector2_Len(Vector2 v) { return sqrtf(Vector2_Dot(v, v)); }
-static Vector2 Vector2_Normalize(Vector2 v) { float len = Vector2_Len(v); v.x /= len; v.y /= len; return v; }
-static Vector2 Vector2_Scale(Vector2 v, float f) { v.x *= f; v.y *= f; return v; }
-static Vector2 Vector2_Add(Vector2 v, Vector2 w) { v.x += w.x; v.y += w.y; return v; }
-static Vector2 Vector2_Sub(Vector2 v, Vector2 w) { v.x -= w.x; v.y -= w.y; return v; }
+static void      obj__present_draw(obj_t self);
+static Rectangle obj__present_draw_node(obj_t self, obj_t node, Vector2 top_left_p);
+static void      obj__present_draw_wire(obj_t self, Vector2 from, Vector2 to);
+static void      obj__present_draw_scene(obj_t self);
+static void      obj__present_draw_overlay(obj_t self);
 
-static int Rec_IsInside(Rectangle rec, Vector2 p) { return p.x >= rec.x && p.x <= rec.x + rec.width && p.y >= rec.y && p.y <= rec.y + rec.height; }
+static void obj__run_present(obj_t self);
+static void obj__describe_short_present(obj_t self, char* buffer, int buffer_size);
+static void obj__describe_long_present(obj_t self, char* buffer, int buffer_size);
+static void obj__destroy_present(obj_t self);
 
-static void node__fill_set_transient_flag(obj_t node, int flag);
-static void nodes__push_all(obj_t node);
+static Rectangle obj__present_draw_node(obj_t self, obj_t node, Vector2 top_left_p) {
+    obj_present_t present = (obj_present_t) self;
 
-static void init(obj_t node, obj_t title);
-
-static void update(double dt);
-static void update_node_as_drawn(obj_t node);
-static void update_reset_camera();
-
-static void      draw();
-static Rectangle draw_node(obj_t node, Vector2 top_left_p);
-static void      draw_wire(Vector2 from, Vector2 to);
-static void      draw_scene();
-static void      draw_overlay();
-
-static void destroy();
-
-static Rectangle draw_node(obj_t node, Vector2 top_left_p) {
     static char buffer[512];
     obj__describe_long(node, buffer, sizeof(buffer));
 
     const int font_size = 10;
-    Vector2 text_dims = MeasureTextEx(state.font, buffer, font_size, 1.0f);
+    Vector2 text_dims = MeasureTextEx(present->font, buffer, font_size, 1.0f);
 
     Vector2 margin = {
         .x = 10.0f,
@@ -94,12 +91,14 @@ static Rectangle draw_node(obj_t node, Vector2 top_left_p) {
 
     Color node_color = YELLOW;
     Vector2 mp_screen = GetMousePosition();
-    Vector2 mp_world = GetScreenToWorld2D(mp_screen, state.camera);
+    Vector2 mp_world = GetScreenToWorld2D(mp_screen, present->camera);
     if (Rec_IsInside(node_rec, mp_world)) {
         node_color = RED;
         DrawRectangleLinesEx(node_rec, 1.0f, RED);
         if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
-            update_node_as_drawn(node);
+            obj__present_update_node_as_drawn(self, node);
+        } else if (IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)) {
+            obj__run(node);
         }
     }
 
@@ -113,155 +112,95 @@ static Rectangle draw_node(obj_t node, Vector2 top_left_p) {
     }
 
     DrawRectangleLinesEx(node_rec, 1.0f, node_color);
-    DrawTextEx(state.font, buffer, text_p, font_size, 1.0f, WHITE);
+    DrawTextEx(present->font, buffer, text_p, font_size, 1.0f, WHITE);
 
-    state.running_average_node_dims.x = (state.running_average_node_dims.x * state.running_average_node_dims_top + node_rec.width) / (state.running_average_node_dims_top + 1);
-    state.running_average_node_dims.y = (state.running_average_node_dims.y * state.running_average_node_dims_top + node_rec.height) / (state.running_average_node_dims_top + 1);
-    ++state.running_average_node_dims_top;
+    present->running_average_node_dims.x = (present->running_average_node_dims.x * present->running_average_node_dims_top + node_rec.width) / (present->running_average_node_dims_top + 1);
+    present->running_average_node_dims.y = (present->running_average_node_dims.y * present->running_average_node_dims_top + node_rec.height) / (present->running_average_node_dims_top + 1);
+    ++present->running_average_node_dims_top;
 
     return node_rec;
 }
 
-static void update_node_as_drawn(obj_t node) {
-    state.drawn_node = node;
-    update_reset_camera(&state);
+static void obj__present_update_node_as_drawn(obj_t self, obj_t node) {
+    obj_present_t present = (obj_present_t) self;
+
+    present->drawn_node = node;
+    obj__present_update_reset_camera(self);
     if (node) {
-        if (state.drawn_node->outputs_top == 0 && state.drawn_node->inputs_top > 0) {
-            state.camera.offset.y = state.height / 6.0f;
-        } else if (state.drawn_node->outputs_top > 0 && state.drawn_node->inputs == 0) {
-            state.camera.offset.y = state.height * 4.0f / 6.0f;
+        if (present->drawn_node->outputs_top == 0 && present->drawn_node->inputs_top > 0) {
+            present->camera.offset.y = present->height / 6.0f;
+        } else if (present->drawn_node->outputs_top > 0 && present->drawn_node->inputs == 0) {
+            present->camera.offset.y = present->height * 4.0f / 6.0f;
         }
     }
 }
 
-static void update_reset_camera() {
-    memset(&state.camera, 0, sizeof(state.camera));
+static void obj__present_update_reset_camera(obj_t self) {
+    obj_present_t present = (obj_present_t) self;
 
-    state.camera.zoom = 2.0f;
-    state.camera.offset.x = state.width / 2.0f;
-    state.camera.offset.y = state.height / 2.0f;
+    memset(&present->camera, 0, sizeof(present->camera));
+
+    present->camera.zoom = 2.0f;
+    present->camera.offset.x = present->width / 2.0f;
+    present->camera.offset.y = present->height / 2.0f;
 }
 
-static void nodes__push_all(obj_t node) {
-    if (node->transient_flag) {
-        return ;
-    }
-    node->transient_flag = 1;
+static void obj__present_update(obj_t self, double dt) {
+    obj_present_t present = (obj_present_t) self;
 
-    ARRAY_ENSURE_TOP(state.nodes, state.nodes_top, state.nodes_size);
-    state.nodes[state.nodes_top++] = node;
-
-    for (size_t input_index = 0; input_index < node->inputs_top; ++input_index) {
-        obj_t input = node->inputs[input_index];
-        nodes__push_all(input);
-    }
-    for (size_t output_index = 0; output_index < node->outputs_top; ++output_index) {
-        obj_t output = node->outputs[output_index];
-        nodes__push_all(output);
-    }
-}
-
-static void node__fill_set_transient_flag(obj_t node, int flag) {
-    if (node->transient_flag == flag) {
-        return ;
-    }
-    node->transient_flag = flag;
-
-    for (size_t input_index = 0; input_index < node->inputs_top; ++input_index) {
-        obj_t input = node->inputs[input_index];
-        node__fill_set_transient_flag(input, flag);
-    }
-    for (size_t output_index = 0; output_index < node->outputs_top; ++output_index) {
-        obj_t output = node->outputs[output_index];
-        node__fill_set_transient_flag(output, flag);
-    }
-}
-
-static void init(obj_t node, obj_t title) {
-    memset(&state, 0, sizeof(state));
-
-    char title_buffer[256];
-    char program_description[128];
-    obj__describe_short(title, program_description, sizeof(program_description));
-    double program_version = 0.0;
-    for (size_t input_index = 0; input_index < title->inputs_top; ++input_index) {
-        obj_t input = title->inputs[input_index];
-        struct attr attr = obj__get_attr(input);
-        if (program_version < attr.time_start) {
-            program_version = attr.time_start;
-        }
-    }
-    time_t time_ran_successfully_t = (time_t) program_version;
-    struct tm* t = localtime(&time_ran_successfully_t);
-    snprintf(title_buffer, sizeof(title_buffer), "%02d/%02d/%d %02d:%02d:%02d, %s", t->tm_mday, t->tm_mon + 1, t->tm_year + 1900, t->tm_hour, t->tm_min, t->tm_sec, program_description);
-
-    state.width = 2000;
-    state.height = 1000;
-    InitWindow(state.width, state.height, title_buffer);
-    SetTargetFPS(60);
-    state.movement_speed = 100.0;
-    state.min_zoom = 0.3f;
-    state.max_zoom = 14.0f;
-
-    nodes__push_all(node);
-    node__fill_set_transient_flag(node, 0);
-
-    update_reset_camera();
-
-    state.font = LoadFont("/usr/share/fonts/liberation-mono/LiberationMono-Regular.ttf");
-    update_node_as_drawn(node);
-}
-
-static void update(double dt) {
-    state.average_node_dims = state.running_average_node_dims;
-    state.running_average_node_dims = (Vector2){ 0 };
-    state.running_average_node_dims_top = 0;
+    present->average_node_dims = present->running_average_node_dims;
+    present->running_average_node_dims = (Vector2){ 0 };
+    present->running_average_node_dims_top = 0;
 
     float mouse_wheel = GetMouseWheelMove();
     if (mouse_wheel > 0.0f) {
-        state.camera.zoom = 1.15f * state.camera.zoom;
+        present->camera.zoom = 1.15f * present->camera.zoom;
     }
     else if (mouse_wheel < 0.0f) {
-        state.camera.zoom = 0.9f * state.camera.zoom;
+        present->camera.zoom = 0.9f * present->camera.zoom;
     }
 
-    if (state.camera.zoom < state.min_zoom) {
-        state.camera.zoom = state.min_zoom;
+    if (present->camera.zoom < present->min_zoom) {
+        present->camera.zoom = present->min_zoom;
     }
-    if (state.camera.zoom > state.max_zoom) {
-        state.camera.zoom = state.max_zoom;
+    if (present->camera.zoom > present->max_zoom) {
+        present->camera.zoom = present->max_zoom;
     }
 
-    const float relative_zoom = state.camera.zoom / state.max_zoom;
-    const float speed = state.movement_speed * dt / relative_zoom;
+    const float relative_zoom = present->camera.zoom / present->max_zoom;
+    const float speed = present->movement_speed * dt / relative_zoom;
     if (IsKeyDown(KEY_D)) {
-        state.camera.target.x += speed;
+        present->camera.target.x += speed;
     }
     if (IsKeyDown(KEY_A)) {
-        state.camera.target.x -= speed;
+        present->camera.target.x -= speed;
     }
     if (IsKeyDown(KEY_W)) {
-        state.camera.target.y -= speed;
+        present->camera.target.y -= speed;
     }
     if (IsKeyDown(KEY_S)) {
-        state.camera.target.y += speed;
+        present->camera.target.y += speed;
     }
 }
 
-static void draw() {
+static void obj__present_draw(obj_t self) {
+    obj_present_t present = (obj_present_t) self;
+    
     BeginDrawing();
     ClearBackground(BLACK);
     
-    BeginMode2D(state.camera);
-    draw_scene();
+    BeginMode2D(present->camera);
+    obj__present_draw_scene(self);
     EndMode2D();
 
-    draw_overlay();
+    obj__present_draw_overlay(self);
 
     EndDrawing();
 }
 
-static void draw_wire(Vector2 from, Vector2 to) {
+static void obj__present_draw_wire(obj_t self, Vector2 from, Vector2 to) {
+    obj_present_t present = (obj_present_t) self;
+
     const float wire_thickness = 1.5f;
     const float electron_radius = wire_thickness / 2;
     const Color electron_color = GREEN;
@@ -273,14 +212,14 @@ static void draw_wire(Vector2 from, Vector2 to) {
     DrawLineEx(from, to, wire_thickness, wire_color);
 
     double t_end = fabsf(target_vector.x) > 0.01 ? (to.x - from.x) / target_vector.x : (to.y - from.y) / target_vector.y;
-    double t_next = fmod(state.time_cur * time_scale, t_end);
+    double t_next = fmod(present->time_cur * time_scale, t_end);
     Vector2 next = Vector2_Add(from, Vector2_Scale(target_vector, t_next));
     while (t_next > 0.0) {
         DrawCircleV(next, electron_radius, electron_color);
         t_next -= electron_span;
         next = Vector2_Add(from, Vector2_Scale(target_vector, t_next));
     }
-    t_next = fmod(state.time_cur * time_scale, t_end) + electron_span;
+    t_next = fmod(present->time_cur * time_scale, t_end) + electron_span;
     next = Vector2_Add(from, Vector2_Scale(target_vector, t_next));
     while (t_next < t_end) {
         DrawCircleV(next, electron_radius, electron_color);
@@ -289,17 +228,19 @@ static void draw_wire(Vector2 from, Vector2 to) {
     }
 }
 
-static void draw_scene() {
-    if (!state.drawn_node) {
+static void obj__present_draw_scene(obj_t self) {
+    obj_present_t present = (obj_present_t) self;
+
+    if (!present->drawn_node) {
         return ;
     }
 
     const Vector2 drawn_node_p = {
-        .x = -state.average_node_dims.x / 2.0f,
-        .y = -state.average_node_dims.y / 2.0f
+        .x = -present->average_node_dims.x / 2.0f,
+        .y = -present->average_node_dims.y / 2.0f
     };
 
-    Rectangle node_rec = draw_node(state.drawn_node, drawn_node_p);
+    Rectangle node_rec = obj__present_draw_node(self, present->drawn_node, drawn_node_p);
     
     Vector2 input_line_end = {
         node_rec.x + node_rec.width / 2,
@@ -314,9 +255,9 @@ static void draw_scene() {
     const float output_horizontal_spacing = horizontal_wire_extension_len + 50.0f;
     const float input_horizontal_spacing = horizontal_wire_extension_len + 50.0f;
 
-    float total_input_horizontal_space_expected = state.drawn_node->inputs_top * average_node_width_expected;
-    if (state.drawn_node->inputs_top > 1) {
-        total_input_horizontal_space_expected += input_horizontal_spacing * state.drawn_node->inputs_top - 1;
+    float total_input_horizontal_space_expected = present->drawn_node->inputs_top * average_node_width_expected;
+    if (present->drawn_node->inputs_top > 1) {
+        total_input_horizontal_space_expected += input_horizontal_spacing * present->drawn_node->inputs_top - 1;
     }
 
     Vector2 input_top_left_p_cur = {
@@ -324,9 +265,9 @@ static void draw_scene() {
         .y = node_rec.y + node_rec.height + 100.0f
     };
 
-    for (size_t input_index = 0; input_index < state.drawn_node->inputs_top; ++input_index) {
-        obj_t input = state.drawn_node->inputs[input_index];
-        Rectangle input_rec = draw_node(input, input_top_left_p_cur);
+    for (size_t input_index = 0; input_index < present->drawn_node->inputs_top; ++input_index) {
+        obj_t input = present->drawn_node->inputs[input_index];
+        Rectangle input_rec = obj__present_draw_node(self, input, input_top_left_p_cur);
         if (input_rec.width == 0.0f && input_rec.height == 0.0f) {
             continue ;
         }
@@ -338,7 +279,7 @@ static void draw_scene() {
             input_rec.y,
         };
         
-        draw_wire(input_line_start, input_line_end);
+        obj__present_draw_wire(self, input_line_start, input_line_end);
 
         if (input->outputs_top > 1) {
             const Vector2 start_p = {
@@ -355,8 +296,8 @@ static void draw_scene() {
             }
             for (size_t output_index = 0; output_index < input->outputs_top; ++output_index) {
                 obj_t output_of_input = input->outputs[output_index];
-                if (output_of_input != state.drawn_node) {
-                    draw_wire(start_p, end_p);
+                if (output_of_input != present->drawn_node) {
+                    obj__present_draw_wire(self, start_p, end_p);
                     end_p.y += vertical_increment;
                 }
             }
@@ -376,7 +317,7 @@ static void draw_scene() {
                 start_p.x -= vertical_wire_extension_span_width / 2.0f;
             }
             for (size_t input_index = 0; input_index < input->inputs_top; ++input_index) {
-                draw_wire(start_p, end_p);
+                obj__present_draw_wire(self, start_p, end_p);
                 start_p.x += horizontal_increment;
             }
         }
@@ -387,9 +328,9 @@ static void draw_scene() {
         node_rec.y,
     };
 
-    float total_output_horizontal_space_expected = state.drawn_node->outputs_top * average_node_width_expected;
-    if (state.drawn_node->outputs_top > 1) {
-        total_output_horizontal_space_expected += output_horizontal_spacing * state.drawn_node->outputs_top - 1;
+    float total_output_horizontal_space_expected = present->drawn_node->outputs_top * average_node_width_expected;
+    if (present->drawn_node->outputs_top > 1) {
+        total_output_horizontal_space_expected += output_horizontal_spacing * present->drawn_node->outputs_top - 1;
     }
 
     Vector2 output_top_left_p_cur = {
@@ -397,9 +338,9 @@ static void draw_scene() {
         .y = node_rec.y - 300.0f
     };
 
-    for (size_t output_index = 0; output_index < state.drawn_node->outputs_top; ++output_index) {
-        obj_t output = state.drawn_node->outputs[output_index];
-        Rectangle output_rec = draw_node(output, output_top_left_p_cur);
+    for (size_t output_index = 0; output_index < present->drawn_node->outputs_top; ++output_index) {
+        obj_t output = present->drawn_node->outputs[output_index];
+        Rectangle output_rec = obj__present_draw_node(self, output, output_top_left_p_cur);
         if (output_rec.width == 0.0f && output_rec.height == 0.0f) {
             continue ;
         }
@@ -411,7 +352,7 @@ static void draw_scene() {
             output_rec.y + output_rec.height,
         };
 
-        draw_wire(output_line_start, output_line_end);
+        obj__present_draw_wire(self, output_line_start, output_line_end);
 
         if (output->inputs_top > 1) {
             const Vector2 end_p = {
@@ -428,8 +369,8 @@ static void draw_scene() {
             }
             for (size_t input_index = 0; input_index < output->inputs_top; ++input_index) {
                 obj_t input_of_output = output->inputs[input_index];
-                if (input_of_output != state.drawn_node) {
-                    draw_wire(start_p, end_p);
+                if (input_of_output != present->drawn_node) {
+                    obj__present_draw_wire(self, start_p, end_p);
                     start_p.y += vertical_increment;
                 }
             }
@@ -449,14 +390,16 @@ static void draw_scene() {
                 end_p.x -= vertical_wire_extension_span_width / 2.0f;
             }
             for (size_t output_index = 0; output_index < output->outputs_top; ++output_index) {
-                draw_wire(start_p, end_p);
+                obj__present_draw_wire(self, start_p, end_p);
                 end_p.x += horizontal_increment;
             }
         }
     }
 }
 
-static void draw_overlay() {
+static void obj__present_draw_overlay(obj_t self) {
+    obj_present_t present = (obj_present_t) self;
+
     char text[128];
     const float font_size = 24.0f;
     const float font_spacing = 1.0f;
@@ -468,10 +411,10 @@ static void draw_overlay() {
     Vector2 graph_rec_p = margin;
     const Vector2 mp = GetMousePosition();
     float biggest_text_rec_height = 0.0f;
-    for (size_t node_index = 0; node_index < state.nodes_top; ++node_index) {
-        obj_t node = state.nodes[node_index];
+    for (size_t node_index = 0; node_index < objects_top; ++node_index) {
+        obj_t node = objects[node_index];
         snprintf(text, sizeof(text), "%lu", node_index);
-        Vector2 text_dims = MeasureTextEx(state.font, text, font_size, font_spacing);
+        Vector2 text_dims = MeasureTextEx(present->font, text, font_size, font_spacing);
         Rectangle text_rec = {
             graph_rec_p.x,
             graph_rec_p.y,
@@ -488,35 +431,50 @@ static void draw_overlay() {
         };
         int is_hovered = Rec_IsInside(text_rec, mp);
         if (is_hovered && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
-            update_node_as_drawn(node);
+            obj__present_update_node_as_drawn(self, node);
         }
 
-        Color rec_color = is_hovered || node == state.drawn_node ? RED : YELLOW;
+        Color rec_color = is_hovered || node == present->drawn_node ? RED : YELLOW;
         DrawRectangleLinesEx(text_rec, 1.0f, rec_color);
-        DrawTextEx(state.font, text, font_p, font_size, font_spacing, WHITE);
+        DrawTextEx(present->font, text, font_p, font_size, font_spacing, WHITE);
         graph_rec_p.x += text_rec.width + 10.0f;
-        if (graph_rec_p.x + text_rec.width >= state.width) {
+        if (graph_rec_p.x + text_rec.width >= present->width) {
             graph_rec_p.x = margin.x;
             graph_rec_p.y += biggest_text_rec_height + margin.y;
             biggest_text_rec_height = 0.0f;
         }
     }
 
-    snprintf(text, sizeof(text), "Time: %.2fs", state.time_cur);
-    Vector2 current_time_p_text_dims = MeasureTextEx(state.font, text, font_size, font_spacing);
+    snprintf(text, sizeof(text), "Time: %.2fs", present->time_cur);
+    Vector2 current_time_p_text_dims = MeasureTextEx(present->font, text, font_size, font_spacing);
     Vector2 current_time_p = {
         .x = margin.x,
-        .y = state.height - current_time_p_text_dims.y - margin.y
+        .y = present->height - current_time_p_text_dims.y - margin.y
     };
-    DrawTextEx(state.font, text, current_time_p, font_size, font_spacing, WHITE);
+    DrawTextEx(present->font, text, current_time_p, font_size, font_spacing, WHITE);
 }
 
-static void destroy() {
-    CloseWindow();
-}
+static void obj__run_present(obj_t self) {
+    obj_present_t present = (obj_present_t) self;
 
-void builder_gfx__exec(obj_t obj, obj_t title) {
-    init(obj, title);
+    obj__set_start(self, builder__get_time_stamp());
+
+    char title_buffer[256];
+    obj__describe_short(self, title_buffer, sizeof(title_buffer));
+
+    present->width = 2000;
+    present->height = 1000;
+    InitWindow(present->width, present->height, title_buffer);
+    SetTargetFPS(60);
+    present->movement_speed = 100.0;
+    present->min_zoom = 0.3f;
+    present->max_zoom = 14.0f;
+
+    obj__present_update_reset_camera(self);
+
+    present->font = LoadFont("/usr/share/fonts/liberation-mono/LiberationMono-Regular.ttf");
+    obj__present_update_node_as_drawn(self, self);
+
 
     double time_prev = GetTime();
     double time_accumulated_between_builder_updates = 0.0;
@@ -524,17 +482,65 @@ void builder_gfx__exec(obj_t obj, obj_t title) {
         double time_cur = GetTime();
         const double dt = time_cur - time_prev;
         time_prev = time_cur;
-        state.time_cur = time_cur;
+        present->time_cur = time_cur;
 
         time_accumulated_between_builder_updates += dt;
         if (time_accumulated_between_builder_updates > 0.1) {
             time_accumulated_between_builder_updates -= 0.1;
-            obj__run(obj);
+            obj__run(engine_time);
         }
         
-        update(dt);
-        draw();
+        obj__present_update(self, dt);
+        obj__present_draw(self);
     }
 
-    destroy();
+    obj__set_success(self, builder__get_time_stamp());
+    obj__set_finish(self, builder__get_time_stamp());
+
+    CloseWindow();
+}
+
+static void obj__describe_short_present(obj_t self, char* buffer, int buffer_size) {
+    (void) self;
+    snprintf(buffer, buffer_size, "PRESENT");
+}
+
+static void obj__describe_long_present(obj_t self, char* buffer, int buffer_size) {
+    (void) self;
+    snprintf(buffer, buffer_size, "PRESENT");
+}
+
+static void obj__destroy_present(obj_t self) {
+    (void) self;
+}
+
+obj_t obj__present() {
+    obj_present_t result = (obj_present_t) obj__alloc(sizeof(*result));
+
+    result->base.run            = &obj__run_present;
+    result->base.describe_short = &obj__describe_short_present;
+    result->base.describe_long  = &obj__describe_long_present;
+    result->base.destroy        = &obj__destroy_present;
+
+    // obj_t builder_gfx_h = obj__file_modified(oscillator_200ms, "builder_gfx.h");
+    // obj_t builder_gfx_c = obj__file_modified(oscillator_200ms, "builder_gfx.c");
+    // obj_t builder_gfx_o = obj__file_modified(
+    //     obj__list(
+    //         obj__fork(
+    //             obj__exec(
+    //                 obj__list(c_compiler, builder_h, builder_gfx_h, builder_gfx_c, 0),
+    //                 "%s -g -I. -c %s -o builder_gfx.o -Wall -Wextra -Werror", obj__file_modified_path(c_compiler), obj__file_modified_path(builder_gfx_c)
+    //             ),
+    //             0,
+    //             oscillator_200ms
+    //         ),
+    //         oscillator_200ms,
+    //         0
+    //     ),
+    //     "builder_gfx.o"
+    // );
+
+    // obj__push_input((obj_t) result, builder_gfx_o);
+
+    return obj__fork((obj_t) result, 0, oscillator_200ms);
 }
