@@ -1,5 +1,7 @@
 #include "builder.h"
 
+#include "ipc/proc.h"
+
 #include <stdlib.h>
 #include <assert.h>
 #include <stdio.h>
@@ -28,27 +30,38 @@
     } \
 } while (0)
 
-obj_t engine_time;
-obj_t oscillator_200ms;
-obj_t oscillator_10s;
-obj_t c_compiler;
-obj_t builder_h;
-obj_t builder_c;
-obj_t builder_o;
+struct {
+    // proc_t          proc;
+    
+    obj_t           engine_time;
+    obj_t           oscillator_200ms;
+    obj_t           oscillator_10s;
+    obj_t           c_compiler;
+    obj_t           builder_h;
+    obj_t           builder_c;
+    obj_t           builder_o;
 
-static double          g_tick_resolution;
-static double          g_time_init;
-static pthread_mutex_t g_mutex_print;
+    double          g_tick_resolution;
+    double          g_time_init;
+
+    pthread_mutex_t g_mutex_print;
+
+    struct {
+        shared_mem_t memory;
+        sem_t        sem;
+        msg_queue_t  msg_queue;
+    } shared;
+
+    size_t objects_top;
+    size_t objects_size;
+    obj_t* objects;
+} _;
 
 static size_t async_obj_top;
 static obj_t  async_obj[256];
 static void   async_obj__signal_handler(int signal);
 static void   async_obj__add(obj_t self);
 static void   async_obj__remove(obj_t self);
-
-size_t objects_top;
-size_t objects_size;
-obj_t* objects;
 
 typedef struct obj_file_modified {
     struct obj base;

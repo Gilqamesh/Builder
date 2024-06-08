@@ -9,30 +9,48 @@
 # include <stddef.h>
 # include <stdarg.h>
 
+// Any process has access to these
+
+int    shared__init(size_t shared_memory_size);
+void   shared__deinit();
+
+size_t shared__read(char* buffer, size_t buffer_size);
+void   shared__write(const char* format, ...);
+
+void*  shared__alloc(size_t size);
+void*  shared__calloc(size_t);
+void*  shared__realloc(void* old_ptr, size_t new_size);
+void   shared__free(void* ptr);
+
+// use when reading/writing to shared memory
+void   shared__lock();
+void   shared__unlock();
+
+void   shared__print();
+
+// Processes are allocated from the shared memory pool
 typedef struct proc {
-    int          has_parent;
-    pid_t        pid_child;
-    shared_mem_t shared_memory;
-    sem_t        sem;
-    msg_queue_t  msg_queue;
+    uint8_t          key_id;
+    int              is_taken;
+    struct proc*     parent;
+    int              proc_depth; // n of parents
+    size_t           children_size;
+    size_t           children_top;
+    struct proc**    children;
+    pid_t            pid;
+    struct msg_queue msg_queue;
 } *proc_t;
 
-proc_t proc__create(proc_t parent);
+proc_t proc__create(int (*fn)(proc_t));
 void   proc__destroy(proc_t self);
 
-int    proc__run(proc_t self, void (*fn)(proc_t));
+proc_t proc__get_current();
+
 size_t proc__read(proc_t self, char* buffer, size_t buffer_size);
 void   proc__write(proc_t self, const char* format, ...);
+void   proc__vwrite(proc_t self, const char* format, va_list ap);
 int    proc__wait(proc_t self, int hang);
 
-void*  proc__alloc(proc_t self, size_t size);
-void*  proc__calloc(proc_t self, size_t);
-void*  proc__realloc(proc_t self, void* old_ptr, size_t new_size);
-void   proc__free(proc_t self, void* ptr);
-
-void   proc__lock_shared(proc_t self);
-void   proc__unlock_shared(proc_t self);
-
-void   proc__print_shared(proc_t self);
+void   proc__print(proc_t self);
 
 #endif // PROC_H
