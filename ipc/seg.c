@@ -97,7 +97,13 @@ static seg_t seg__first_fit(memory_slice_t memory, size_t requested_seg_size);
 // */
 // static seg_t seg__best_fit(memory_slice_t memory, size_t requested_seg_size);
 
+#include <signal.h>
 seg_tag_t seg__head(seg_t seg) {
+    if (!seg) {
+        raise(SIGTRAP);
+        int bp = 0;
+        ++bp;
+    }
     assert(seg);
 
     return (seg_tag_t) seg;
@@ -655,10 +661,19 @@ void* seg__realloc(memory_slice_t memory, void* data, size_t new_size) {
 }
 
 void seg__free(memory_slice_t memory, void* ptr) {
+    if (!ptr) {
+        int dbg = 0;
+        ++dbg;
+    }
+    assert(ptr);
     seg__internal_free(memory, seg__data_to_seg(ptr));
 }
 
 static seg_t seg__internal_free(memory_slice_t memory, seg_t seg) {
+    if (seg__is_available(seg)) {
+        int dbg = 0;
+        ++dbg;
+    }
     assert(!seg__is_available(seg));
     seg_state__available(memory, seg, true);
 

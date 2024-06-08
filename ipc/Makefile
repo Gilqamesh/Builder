@@ -17,7 +17,7 @@ all: $(STATIC_LIB)
 
 .phony: clean
 clean:
-	rm $(OBJ) $(STATIC_LIB)
+	- rm $(OBJ) $(STATIC_LIB) 2>/dev/null
 
 .phony: re
 re: clean

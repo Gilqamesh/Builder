@@ -3,14 +3,17 @@
 
 # include <stddef.h>
 # include <stdarg.h>
+# include <stdint.h>
+
+# include "sem.h"
 
 typedef struct msg_queue {
     int id;
+    struct sem sem;
 } *msg_queue_t;
 
-msg_queue_t msg_queue__create();
+int msg_queue__create(msg_queue_t self, uint8_t nonnull_key_id);
 void msg_queue__destroy(msg_queue_t self);
-void msg_queue__destroy_from_child(msg_queue_t self);
 
 /**
  * Not thread-safe

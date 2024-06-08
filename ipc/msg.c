@@ -7,46 +7,49 @@
 #include <string.h>
 #include <unistd.h>
 
-msg_queue_t msg_queue__create() {
+int msg_queue__create(msg_queue_t self, uint8_t nonnull_key_id) {
     char buffer[256];
 
     ssize_t bytes_read = readlink("/proc/self/exe", buffer, sizeof(buffer));
     if (bytes_read < 0) {
         perror("readlink");
-        return 0;
+        return 1;
     }
     if (sizeof(buffer) <= (size_t) bytes_read) {
         // truncation
-        return 0;
+        return 1;
     }
     buffer[bytes_read] = '\0';
-    key_t key = ftok(buffer, 1);
+    key_t key = ftok(buffer, nonnull_key_id);
     if (key < 0) {
         perror("ftok");
-        return 0;
+        return 1;
     }
 
-    int msg_queue = msgget(key, 0666 | IPC_CREAT);
-    if (msg_queue < 0) {
+    self->id = msgget(key, 0666 | IPC_CREAT);
+    if (self->id < 0) {
         perror("msgget");
-        return 0;
+        return 1;
     }
 
-    msg_queue_t result = calloc(1, sizeof(*result));
-    result->id = msg_queue;
+    if (sem__create(&self->sem, nonnull_key_id)) {
+        msg_queue__destroy(self);
+        return 1;
+    }
+    if (sem__set(&self->sem, 1)) {
+        msg_queue__destroy(self);
+        return 1;
+    }
 
-    return result;
+    return 0;
 }
 
 void msg_queue__destroy(msg_queue_t self) {
     if (0 < self->id && msgctl(self->id, IPC_RMID, 0) < 0) {
         perror("msgctl");
     }
-    free(self);
-}
 
-void msg_queue__destroy_from_child(msg_queue_t self) {
-    free(self);
+    sem__destroy(&self->sem);
 }
 
 struct msg_buffer {
@@ -60,7 +63,11 @@ size_t msg_queue__read(msg_queue_t self, char* buffer, size_t buffer_size) {
     static struct msg_buffer msg_buffer = {
         .type = 0
     };
+
+    sem__dec(&self->sem);
     ssize_t msgrcv_result = msgrcv(self->id, &msg_buffer, sizeof(msg_buffer.buffer), msg_buffer.type, MSG_NOERROR | IPC_NOWAIT);
+    sem__inc(&self->sem);
+
     if (msgrcv_result < 0) {
         if (errno != ENOMSG) {
             perror("msgrcv");
@@ -90,9 +97,11 @@ void msg_queue__vwrite(msg_queue_t self, const char* format, va_list ap) {
         return ;
     }
 
+    sem__dec(&self->sem);
     if (msgsnd(self->id, &msg_buffer, sizeof(msg_buffer.buffer), 0) != 0) {
         perror("msgsnd");
     }
+    sem__inc(&self->sem);
 }
 
 void msg_queue__print(msg_queue_t self) {
