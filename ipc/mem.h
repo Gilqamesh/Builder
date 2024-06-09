@@ -7,6 +7,10 @@
 # include "seg.h"
 # include "sem.h"
 
+/**
+ * All operations are atomic
+*/
+
 typedef struct shared_mem {
     int id;
     struct sem sem;
@@ -23,11 +27,6 @@ void* shared_mem__malloc(shared_mem_t self, size_t size);
 void* shared_mem__calloc(shared_mem_t self, size_t size);
 void* shared_mem__realloc(shared_mem_t self, void* old_ptr, size_t new_size);
 void  shared_mem__free(shared_mem_t self, void* ptr);
-
-void* shared_mem__locked_malloc(shared_mem_t self, size_t size);
-void* shared_mem__locked_calloc(shared_mem_t self, size_t size);
-void* shared_mem__locked_realloc(shared_mem_t self, void* old_ptr, size_t new_size);
-void  shared_mem__locked_free(shared_mem_t self, void* ptr);
 
 void shared_mem__lock(shared_mem_t self);
 void shared_mem__unlock(shared_mem_t self);

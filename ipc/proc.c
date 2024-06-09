@@ -8,9 +8,7 @@
 #include <string.h>
 
 static struct {
-    struct {
-        proc_t proc_cur;
-    } transient;
+    proc_t proc_cur;
 
     struct {
         struct shared_mem memory;
@@ -31,7 +29,7 @@ static void cleanup_signal_handler(int signal) {
 }
 
 static void cleanup_before_exit() {
-    if (_.shared.process && _.transient.proc_cur == &_.shared.process->main_proc) {
+    if (_.shared.process && _.proc_cur == &_.shared.process->main_proc) {
         shared__deinit();
     }
 }
@@ -60,7 +58,7 @@ int shared__init(size_t shared_memory_size) {
         return 1;
     }
 
-    _.shared.process = shared_mem__calloc(&_.shared.memory, sizeof(*_.shared.process));
+    _.shared.process = shared__calloc(sizeof(*_.shared.process));
     if (!_.shared.process) {
         shared__deinit();
         return 1;
@@ -73,7 +71,7 @@ int shared__init(size_t shared_memory_size) {
         shared__deinit();
         return 1;
     }
-    _.transient.proc_cur = main_proc;
+    _.proc_cur = main_proc;
 
     for (size_t proc_index = 0; proc_index < sizeof(_.shared.process->child_procs) / sizeof(_.shared.process->child_procs[0]); ++proc_index) {
         _.shared.process->child_procs[proc_index].key_id = proc_index + key_id;
@@ -96,18 +94,32 @@ void shared__deinit() {
     }
 }
 
-size_t shared__read(char* buffer, size_t buffer_size) {
+size_t shared__read(void* buffer, size_t buffer_size) {
     return proc__read(&_.shared.process->main_proc, buffer, buffer_size);
 }
 
-void shared__write(const char* format, ...) {
-    va_list ap;
-    va_start(ap, format);
-    proc__vwrite(&_.shared.process->main_proc, format, ap);
-    va_end(ap);
+size_t shared__read_str(char* buffer, size_t buffer_size) {
+    return proc__read_str(&_.shared.process->main_proc, buffer, buffer_size);
 }
 
-void* shared__alloc(size_t size) {
+size_t shared__write(void* buffer, size_t buffer_size) {
+    return proc__write(&_.shared.process->main_proc, buffer, buffer_size);
+}
+
+size_t shared__write_str(const char* format, ...) {
+    va_list ap;
+    va_start(ap, format);
+    size_t result = shared__vwrite_str(format, ap);
+    va_end(ap);
+
+    return result;
+}
+
+size_t shared__vwrite_str(const char* format, va_list ap) {
+    return proc__vwrite_str(&_.shared.process->main_proc, format, ap);
+}
+
+void* shared__malloc(size_t size) {
     return shared_mem__malloc(&_.shared.memory, size);
 }
 
@@ -136,7 +148,7 @@ void shared__print() {
     proc__print(&_.shared.process->main_proc);
 }
 
-proc_t proc__create(int (*fn)(proc_t)) {
+proc_t proc__create(int (*fn)(void*), void* data) {
     shared__lock();
 
     proc_t result = 0;
@@ -168,19 +180,19 @@ proc_t proc__create(int (*fn)(proc_t)) {
         perror("fork");
         goto err;
     } else if (pid == 0) {
-        _.transient.proc_cur = result;
+        _.proc_cur = result;
         shared__lock();
         shared__unlock();
 
         ++result->proc_depth;
-        exit(fn(result));
+        exit(fn(data));
     }
     result->pid = pid;
 
     if (parent) {
         if (parent->children_size <= parent->children_top) {
             parent->children_size = parent->children_size == 0 ? 4 : parent->children_size << 1;
-            parent->children = shared_mem__locked_realloc(&_.shared.memory, parent->children, parent->children_size * sizeof(*parent->children));
+            parent->children = shared_mem__realloc(&_.shared.memory, parent->children, parent->children_size * sizeof(*parent->children));
             if (!parent->children) {
                 goto err;
             }
@@ -198,30 +210,6 @@ err:
     return 0;
 }
 
-static void proc__destroy_locked(proc_t self) {
-    if (0 < self->pid) {
-        if (kill(self->pid, SIGTERM) < 0) {
-            perror("kill");
-        }
-        waitpid(self->pid, 0, WNOHANG);
-        self->pid = 0;
-    }
-
-    msg_queue__destroy(&self->msg_queue);
-    self->is_taken = 0;
-
-    for (size_t child_index = 0; child_index < self->children_top; ++child_index) {
-        proc__destroy_locked(self->children[child_index]);
-    }
-
-    if (self->children) {
-        shared_mem__locked_free(&_.shared.memory, self->children);
-        self->children_top = 0;
-        self->children_size = 0;
-        self->children = 0;
-    }
-}
-
 void proc__destroy(proc_t self) {
     shared__lock();
 
@@ -230,6 +218,9 @@ void proc__destroy(proc_t self) {
         shared__unlock();
         return ;
     }
+
+    self->is_taken = 0;
+    msg_queue__destroy(&self->msg_queue);
 
     // remove from parent
     if (self->parent) {
@@ -244,77 +235,139 @@ void proc__destroy(proc_t self) {
                 break ;
             }
         }
+        self->parent = 0;
     }
 
-    proc__destroy_locked(self);
+    if (0 < self->pid) {
+        if (kill(self->pid, SIGTERM) < 0) {
+            perror("kill");
+        }
+        waitpid(self->pid, 0, WNOHANG);
+        self->pid = 0;
+    }
+
+    for (size_t child_index = 0; child_index < self->children_top; ++child_index) {
+        proc__destroy(self->children[child_index]);
+    }
+
+    if (self->children) {
+        shared_mem__free(&_.shared.memory, self->children);
+        self->children_top = 0;
+        self->children_size = 0;
+        self->children = 0;
+    }
 
     shared__unlock();
 }
 
 proc_t proc__get_current() {
-    return _.transient.proc_cur;
+    return _.proc_cur;
 }
 
-size_t proc__read(proc_t self, char* buffer, size_t buffer_size) {
-    return msg_queue__read(&self->msg_queue, buffer, buffer_size);
+size_t proc__read(proc_t self, void* buffer, size_t buffer_size) {
+    shared__lock();
+
+    size_t result = msg_queue__read(&self->msg_queue, buffer, buffer_size);
+
+    shared__unlock();
+
+    return result;
 }
 
-void proc__write(proc_t self, const char* format, ...) {
+size_t proc__read_str(proc_t self, char* buffer, size_t buffer_size) {
+    shared__lock();
+
+    size_t result = msg_queue__read_str(&self->msg_queue, buffer, buffer_size);
+
+    shared__unlock();
+
+    return result;
+}
+
+size_t proc__write(proc_t self, void* buffer, size_t buffer_size) {
+    shared__lock();
+
+    size_t result = msg_queue__write(&self->msg_queue, buffer, buffer_size);
+
+    shared__unlock();
+
+    return result;
+}
+
+size_t proc__write_str(proc_t self, const char* format, ...) {
+    shared__lock();
+
     va_list ap;
     va_start(ap, format);
-    msg_queue__vwrite(&self->msg_queue, format, ap);
+    size_t result = msg_queue__vwrite_str(&self->msg_queue, format, ap);
     va_end(ap);
+
+    shared__unlock();
+
+    return result;
 }
 
-void proc__vwrite(proc_t self, const char* format, va_list ap) {
-    msg_queue__vwrite(&self->msg_queue, format, ap);
+size_t proc__vwrite_str(proc_t self, const char* format, va_list ap) {
+    shared__lock();
+
+    size_t result = msg_queue__vwrite_str(&self->msg_queue, format, ap);
+
+    shared__unlock();
+
+    return result;
 }
 
 int proc__wait(proc_t self, int hang) {
     shared__lock();
-    pid_t pid = self->pid;
-    shared__unlock();
 
-    if (pid == 0) {
+    if (self->pid == 0) {
         // no child process to wait for
+        shared__unlock();
         return 0;
     }
 
     int result = 0;
     int wstatus = 0;
-    pid_t waited_pid = waitpid(pid, &wstatus, hang ? 0 : WNOHANG);
+    pid_t waited_pid = waitpid(self->pid, &wstatus, hang ? 0 : WNOHANG);
     if (waited_pid < 0) {
         perror("waitpid");
-        shared__lock();
         self->pid = 0;
-        shared__unlock();
     } else if (0 < waited_pid) {
-        assert(waited_pid == pid);
+        assert(waited_pid == self->pid);
         if (WIFEXITED(wstatus)) {
             wstatus = WEXITSTATUS(wstatus);
-            proc__write(self, "terminated normally, exit status code: %d", wstatus);
+            proc__write_str(self, "terminated normally, exit status code: %d", wstatus);
+            result = wstatus;
+            assert(result >= 0);
         } else if (WIFSIGNALED(wstatus)) {
+            result = -2;
             int sig = WTERMSIG(wstatus);
-            proc__write(self, "terminated by signal: %s", strsignal(sig));
+            proc__write_str(self, "terminated by signal: %s", strsignal(sig));
         } else if (WIFSTOPPED(wstatus)) {
+            result = -3;
             int sig = WSTOPSIG(wstatus);
-            proc__write(self, "stopped by signal: %s", strsignal(sig));
+            proc__write_str(self, "stopped by signal: %s", strsignal(sig));
         } else if (WIFCONTINUED(wstatus)) {
-            proc__write(self, "continued by signal: %s", strsignal(SIGCONT));
+            result = -4;
+            proc__write_str(self, "continued by signal: %s", strsignal(SIGCONT));
         } else {
             assert(0);
         }
-        shared__lock();
         self->pid = 0;
-        shared__unlock();
+        
     } else {
-        // still running
-        return result = 1;
+        result = -1;
     }
+
+    shared__unlock();
 
     return result;
 }
 
 void proc__print(proc_t self) {
+    shared__lock();
+
     msg_queue__print(&self->msg_queue);
+
+    shared__unlock();
 }

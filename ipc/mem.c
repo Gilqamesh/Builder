@@ -53,10 +53,6 @@ int shared_mem__create(shared_mem_t self, size_t size, uint8_t nonnull_key_id) {
         shared_mem__destroy(self);
         return 1;
     }
-    if (sem__set(&self->sem, 1)) {
-        shared_mem__destroy(self);
-        return 1;
-    }
 
     return 0;
 }
@@ -80,58 +76,42 @@ int shared_mem__map_to_address_space(shared_mem_t self) {
 }
 
 void* shared_mem__malloc(shared_mem_t self, size_t size) {
-    sem__dec(&self->sem);
+    sem__lock(&self->sem);
     void* result = seg__malloc(self->memory_slice, size);
-    sem__inc(&self->sem);
+    sem__unlock(&self->sem);
     return result;
 }
 
 void* shared_mem__calloc(shared_mem_t self, size_t size) {
-    sem__dec(&self->sem);
+    sem__lock(&self->sem);
     void* result = seg__calloc(self->memory_slice, size);
-    sem__inc(&self->sem);
+    sem__unlock(&self->sem);
     return result;
 }
 
 void* shared_mem__realloc(shared_mem_t self, void* old_ptr, size_t new_size) {
-    sem__dec(&self->sem);
+    sem__lock(&self->sem);
     void* result = seg__realloc(self->memory_slice, old_ptr, new_size);
-    sem__inc(&self->sem);
+    sem__unlock(&self->sem);
     return result;
 }
 
 void shared_mem__free(shared_mem_t self, void* ptr) {
-    sem__dec(&self->sem);
+    sem__lock(&self->sem);
     seg__free(self->memory_slice, ptr);
-    sem__inc(&self->sem);
-}
-
-void* shared_mem__locked_malloc(shared_mem_t self, size_t size) {
-    return seg__malloc(self->memory_slice, size);
-}
-
-void* shared_mem__locked_calloc(shared_mem_t self, size_t size) {
-    return seg__calloc(self->memory_slice, size);
-}
-
-void* shared_mem__locked_realloc(shared_mem_t self, void* old_ptr, size_t new_size) {
-    return seg__realloc(self->memory_slice, old_ptr, new_size);
-}
-
-void shared_mem__locked_free(shared_mem_t self, void* ptr) {
-    seg__free(self->memory_slice, ptr);
+    sem__unlock(&self->sem);
 }
 
 void shared_mem__lock(shared_mem_t self) {
-    sem__dec(&self->sem);
+    sem__lock(&self->sem);
 }
 
 void shared_mem__unlock(shared_mem_t self) {
-    sem__inc(&self->sem);
+    sem__unlock(&self->sem);
 }
 
 void shared_mem__print(shared_mem_t self) {
-    sem__dec(&self->sem);
+    sem__lock(&self->sem);
     seg__for_each(self->memory_slice, &seg__print);
-    sem__inc(&self->sem);
+    sem__unlock(&self->sem);
 }

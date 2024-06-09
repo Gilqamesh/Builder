@@ -17,7 +17,11 @@ void   builder__deinit();
 double builder__get_time_stamp();
 double builder__get_time_stamp_init();
 
+void builder__lock();
+void builder__unlock();
+
 obj_t obj__alloc(size_t size);
+obj_t obj__alloc_locked(size_t size);
 void  obj__destroy(obj_t self);
 
 void obj__print(obj_t self, const char* format, ...);
@@ -88,10 +92,8 @@ struct obj {
         size_t n_success;
         size_t n_fail;
     } attr;
-    pthread_mutex_t mutex_attr;
 
     // remove this when objects are type tagged
-    int   is_thread;
     int   is_process;
     obj_t obj_proxy; // necessary because it doesn't want to interfere the program's inputs/outputs
 
