@@ -14,25 +14,10 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <errno.h>
-#include <sys/ipc.h> 
-#include <sys/msg.h> 
 
 #define ARRAY_SIZE(array) (sizeof(array)/sizeof((array)[0]))
-#define ARRAY_ENSURE_TOP(array_p, array_top, array_size) do { \
-    if ((array_top) >= (array_size)) { \
-        if ((array_size) == 0) { \
-            (array_size) = 8; \
-            (array_p) = malloc((array_size) * sizeof(*(array_p))); \
-        } else { \
-            (array_size) <<= 1; \
-            (array_p) = realloc((array_p), (array_size) * sizeof(*(array_p))); \
-            } \
-    } \
-} while (0)
 
-struct {
-    // proc_t          proc;
-    
+static struct {
     obj_t           engine_time;
     obj_t           oscillator_200ms;
     obj_t           oscillator_10s;
@@ -44,24 +29,12 @@ struct {
     double          g_tick_resolution;
     double          g_time_init;
 
-    pthread_mutex_t g_mutex_print;
-
-    struct {
-        shared_mem_t memory;
-        sem_t        sem;
-        msg_queue_t  msg_queue;
-    } shared;
-
+    // shared stuff
+    // objects live in the main process
     size_t objects_top;
     size_t objects_size;
     obj_t* objects;
-} _;
-
-static size_t async_obj_top;
-static obj_t  async_obj[256];
-static void   async_obj__signal_handler(int signal);
-static void   async_obj__add(obj_t self);
-static void   async_obj__remove(obj_t self);
+} *_;
 
 typedef struct obj_file_modified {
     struct obj base;
@@ -83,42 +56,15 @@ typedef struct obj_time {
     struct obj base;
 } *obj_time_t;
 
-typedef struct obj_thread {
-    struct obj base;
-    pthread_t  thread;
-} *obj_thread_t;
-
-struct process_msg_buffer {
-    long type;
-    char buffer[4096];
-};
-
-typedef struct process {
-    pid_t pid;
-    int   msg_queue;
-} *process_t;
-
-static process_t process__create();
-static void      process__destroy(process_t self);
-static int       process__run(process_t self, void (*process_fn)(void*), void* data);
-static size_t    process__read(process_t self, char* buffer, size_t buffer_size);
-static void      process__write(process_t self, const char* fmt, ...);
-static int       process__try_wait(process_t self);
-
 typedef struct obj_process {
     struct obj base;
-    pthread_t  thread;
-    pid_t      pid;
+    proc_t     proc;
     int        success_status_code;
-    int        msg_queue;
-    process_t  process;
 } *obj_process_t;
 
 typedef struct obj_list {
     struct obj base;
 } *obj_list_t;
-
-static int  _prefix_lines(char* dst, int dst_size, const char* src, const char* prefix);
 
 static void obj__check_for_cyclic_input(obj_t self);
 static void obj__start_proxy(obj_t self);
@@ -127,7 +73,6 @@ static void obj__run_exec(obj_t self);
 static void obj__run_file_modified(obj_t self);
 static void obj__run_oscillator(obj_t self);
 static void obj__run_time(obj_t self);
-static void obj__run_thread(obj_t self);
 static void obj__run_process(obj_t self);
 static void obj__run_list(obj_t self);
 
@@ -135,7 +80,6 @@ static void obj__describe_short_exec(obj_t self, char* buffer, int buffer_size);
 static void obj__describe_short_file_modified(obj_t self, char* buffer, int buffer_size);
 static void obj__describe_short_oscillator(obj_t self, char* buffer, int buffer_size);
 static void obj__describe_short_time(obj_t self, char* buffer, int buffer_size);
-static void obj__describe_short_thread(obj_t self, char* buffer, int buffer_size);
 static void obj__describe_short_process(obj_t self, char* buffer, int buffer_size);
 static void obj__describe_short_list(obj_t self, char* buffer, int buffer_size);
 
@@ -143,7 +87,6 @@ static void obj__describe_long_exec(obj_t self, char* buffer, int buffer_size);
 static void obj__describe_long_file_modified(obj_t self, char* buffer, int buffer_size);
 static void obj__describe_long_oscillator(obj_t self, char* buffer, int buffer_size);
 static void obj__describe_long_time(obj_t self, char* buffer, int buffer_size);
-static void obj__describe_long_thread(obj_t self, char* buffer, int buffer_size);
 static void obj__describe_long_process(obj_t self, char* buffer, int buffer_size);
 static void obj__describe_long_list(obj_t self, char* buffer, int buffer_size);
 
@@ -151,111 +94,8 @@ static void obj__destroy_exec(obj_t self);
 static void obj__destroy_file_modified(obj_t self);
 static void obj__destroy_oscillator(obj_t self);
 static void obj__destroy_time(obj_t self);
-static void obj__destroy_thread(obj_t self);
 static void obj__destroy_process(obj_t self);
 static void obj__destroy_list(obj_t self);
-
-static process_t process__create() {
-    process_t result = calloc(1, sizeof(*result));
-    if (!result) {
-        return 0;
-    }
-
-    static int ftok_key;
-    char buffer[256];
-    if (readlink("/proc/self/exe", buffer, sizeof(buffer)) < 0) {
-        perror("readlink");
-        process__destroy(result);
-        return 0;
-    }
-
-    ++ftok_key;
-    assert(0 < (ftok_key & 255));
-    key_t key = ftok(buffer, ftok_key);
-    if (key < 0) {
-        perror("ftok");
-        process__destroy(result);
-        return 0;
-    }
-
-    result->msg_queue = msgget(key, 0666 | IPC_CREAT);
-    if (result->msg_queue < 0) {
-        perror("msgget");
-        process__destroy(result);
-        return 0;
-    }
-
-    return result;
-}
-
-static void process__destroy(process_t self) {
-    free(self);
-}
-
-static int process__run(process_t self, void (*process_fn)(void*), void* data) {
-    if (0 < self->pid) {
-        if (kill(self->pid, SIGTERM) < 0) {
-            perror("kill");
-            return 1;
-        }
-    };
-    self->pid = fork();
-    if (self->pid < 0) {
-        perror("fork");
-        return 1;
-    } else if (self->pid == 0) {
-        process_fn(data);
-        process__destroy(self);
-        exit(0);
-    }
-
-    return 0;
-}
-
-static size_t process__read(process_t self, char* buffer, size_t buffer_size) {
-    struct process_msg_buffer msg_buffer = {
-        .type = 0
-    };
-    ssize_t result = msgrcv(self->msg_queue, &msg_buffer, sizeof(msg_buffer.buffer), msg_buffer.type, MSG_NOERROR | IPC_NOWAIT);
-    if (result < 0) {
-        if (errno != ENOMSG) {
-            perror("msgrcv");
-        }
-        return 0;
-    } else {
-        size_t bytes_to_copy = buffer_size - 1 < result ? buffer_size - 1: result;
-        memcpy(buffer, msg_buffer.buffer, bytes_to_copy);
-        buffer[bytes_to_copy] = '\0';
-        return bytes_to_copy;
-    }
-}
-
-static void process__write(process_t self, const char* fmt, ...) {
-    struct process_msg_buffer msg_buffer = {
-        .type = 1
-    };
-    va_list ap;
-    va_start(ap, fmt);
-    int bytes_written = vsnprintf(msg_buffer.buffer, sizeof(msg_buffer.buffer), fmt, ap);
-    va_end(ap);
-    if (msgsnd(self->msg_queue, &msg_buffer, bytes_written, 0) != 0) {
-        perror("msgsnd");
-    }
-}
-
-static int process__try_wait(process_t self) {
-    assert(0 < self->pid);
-    pid_t pid = waitpid(self->pid, 0, WNOHANG);
-    if (pid < 0) {
-        perror("waitpid");
-        exit(1);
-    }
-    if (0 < pid) {
-        assert(pid == self->pid);
-        return 0;
-    }
-    return 1;
-}
 
 static void obj__print_input_graph_helper(obj_t self, int depth) {
     obj__print(self, "");
@@ -302,51 +142,6 @@ static void obj__check_for_cyclic_input(obj_t self) {
         obj__print_input_graph_helper(self, 0);
         assert(0);
     }
-}
-
-static int _prefix_lines(char* dst, int dst_size, const char* src, const char* prefix) {
-    if (dst_size < 2) {
-        return 0;
-    }
-    dst[0] = '\0';
-
-    size_t src_index = 0;
-    int is_line_prefixed = 0;
-    int dst_index = 0;
-    while (src[src_index]) {
-        if (!is_line_prefixed) {
-            int bytes_written = snprintf(
-                dst + dst_index,
-                dst_size - dst_index,
-                "%s",
-                prefix
-            );
-            if (bytes_written < 0) {
-                dprintf(STDOUT_FILENO, "snprintf failed\n");
-                kill(getpid(), SIGTERM);
-                exit(1);
-            }
-            dst_index += bytes_written;
-            is_line_prefixed = 1;
-        }
-        if (src[src_index] == '\n') {
-            is_line_prefixed = 0;
-        }
-        
-        if (dst_size <= dst_index) {
-            break ;
-        }
-        dst[dst_index++] = src[src_index++];
-    }
-
-    if (dst_size < dst_index + 2) {
-        dst_index = dst_size - 2;
-    }
-    dst[dst_index] = '\n';
-    dst[dst_index + 1] = '\0';
-
-
-    return dst_index - 1;
 }
 
 static void obj__run_exec(obj_t self) {
@@ -418,18 +213,9 @@ static void obj__run_time(obj_t self) {
     obj__set_finish(self, time_cur);
 }
 
-static void* obj__run_thread_routine(void* data) {
+static void obj__process_child_fn(void* data) {
     obj_t self = (obj_t) data;
-
-    for (size_t output_index = 0; output_index < self->outputs_top; ++output_index) {
-        obj_t output = self->outputs[output_index];
-        output->run(output);
-    }
-
-    return data;
-}
-
-static void obj__process_child_fn(obj_t self) {
+    
     // need new memory locks
     for (size_t output_index = 0; output_index < self->outputs_top; ++output_index) {
         obj_t output = self->outputs[output_index];
@@ -442,42 +228,15 @@ static void obj__process_child_fn(obj_t self) {
 
 static void obj__start_proxy(obj_t self) {
     const double time_cur = builder__get_time_stamp();
+
+
     struct attr attr = obj__get_attr(self);
-    if (self->is_thread) {
-        obj_thread_t obj_thread = (obj_thread_t) self;
-        if (attr.is_running) {
-            obj__set_finish(self, time_cur);
-            if (pthread_cancel(obj_thread->thread)) {
-                perror("pthread_cancel");
-            }
-            void* thread_result = 0;
-            int join_result = pthread_join(obj_thread->thread, &thread_result);
-            if (join_result) {
-                perror("pthread_join");
-            } else {
-                if (thread_result == PTHREAD_CANCELED) {
-                    // obj__set_fail(output, builder__get_time_stamp());
-                } else {
-                    assert(thread_result == obj_thread);
-                }
-            }
-            for (size_t output_index = 0; output_index < self->outputs_top; ++output_index) {
-                obj_t output = self->outputs[output_index];
-                struct attr attr_output = obj__get_attr(output);
-                if (attr_output.is_running) {
-                    obj__set_finish(output, time_cur);
-                }
-            }
-        }
-        obj__set_start(self, time_cur);
-        if (pthread_create(&obj_thread->thread, 0, obj__run_thread_routine, obj_thread)) {
-            perror("pthread_create");
-            kill(getpid(), SIGTERM);
-            exit(1);
-        }
-    } else if (self->is_process) {
+
+    if (self->is_process) {
         obj_process_t obj_process = (obj_process_t) self;
-        if (attr.is_running) {
+        if (obj_process->proc) {
+            // what if we destroy child processes here?
+            proc__destroy_locked(obj_process->proc);
             obj__set_finish(self, time_cur);
             for (size_t output_index = 0; output_index < self->outputs_top; ++output_index) {
                 obj_t output = self->outputs[output_index];
@@ -489,9 +248,8 @@ static void obj__start_proxy(obj_t self) {
             obj_t output = self->outputs[output_index];
             obj__set_start(output, time_cur);
         }
-        if (!process__run(obj_process->process, &obj__process_child_fn, obj_process)) {
-            obj__print(self, "");
-        } else {
+        obj_process->proc = proc__create(&obj__process_child_fn, self);
+        if (!obj_process->proc) {
             obj__set_fail(self, time_cur);
             obj__set_finish(self, time_cur);
         }
@@ -500,116 +258,43 @@ static void obj__start_proxy(obj_t self) {
     }
 }
 
-static void obj__run_thread(obj_t self) {
-    struct attr attr = obj__get_attr(self);
-    if (!attr.is_running) {
-        return ;
-    }
-
-    obj_thread_t thread = (obj_thread_t) self;
-
-    const double time_cur = builder__get_time_stamp();
-
-    int tryjoin_result = pthread_tryjoin_np(thread->thread, 0);
-    if (!tryjoin_result) {
-        if (attr.time_success <= attr.time_fail) {
-            obj__set_fail(self, time_cur);
-        } else {
-            obj__set_success(self, time_cur);
-        }
-        obj__set_finish(self, time_cur);
-    } else if (tryjoin_result == EBUSY) {
-        // still running
-    } else {
-        perror("pthread_tryjoin_np");
-        kill(getpid(), SIGTERM);
-    }
-}
-
 static void obj__run_process(obj_t self) {
-    struct attr attr = obj__get_attr(self);
-    if (!attr.is_running) {
-        return ;
-    }
+    shared__lock();
 
     obj_process_t obj_process = (obj_process_t) self;
-
-    if (obj_process->pid == 0) {
-        // we are in the child process
+    if (!obj_process->proc) {
+        shared__unlock();
         return ;
     }
 
-    char buffer[4096];
-    if (0 < process__read(obj_process->process, buffer, sizeof(buffer))) {
+    char buffer[256];
+    if (proc__read(obj_process->proc, buffer, sizeof(buffer))) {
+        printf("%s\n", buffer);
     }
-    // char buffer2[4096];
-    // ssize_t read_bytes = read(obj_process->pid_pipe_stdout[0], buffer, sizeof(buffer) - 1);
-    // if (0 < read_bytes) {
-    //     buffer[read_bytes] = '\0';
-    //     if (0 < _prefix_lines(buffer2, sizeof(buffer2), buffer, "    ")) {
-    //         obj__print(self, buffer2);
-    //     }
-    // }
-    // read_bytes = read(obj_process->pid_pipe_stderr[0], buffer, sizeof(buffer) - 1);
-    // if (0 < read_bytes) {
-    //     buffer[read_bytes] = '\0';
-    //     if (0 < _prefix_lines(buffer2, sizeof(buffer2), buffer, "    ")) {
-    //         obj__print(self, buffer2);
-    //     }
-    // }
 
-    int wstatus = -1;
-    assert(obj_process->pid);
-    pid_t waited_pid = waitpid(obj_process->pid, &wstatus, WNOHANG);
-    
-    const double time_cur = builder__get_time_stamp();
-    if (waited_pid == -1) {
-        obj__set_fail(self, time_cur);
-        obj__set_finish(self, time_cur);
-        for (size_t output_index = 0; output_index < self->outputs_top; ++output_index) {
-            obj_t output = self->outputs[output_index];
-            obj__set_finish(output, time_cur);
-        }
-        obj_process->pid = 0;
-    } else if (waited_pid > 0) {
-        assert(waited_pid == obj_process->pid);
-        obj__set_finish(self, time_cur);
-        for (size_t output_index = 0; output_index < self->outputs_top; ++output_index) {
-            obj_t output = self->outputs[output_index];
-            obj__set_finish(output, time_cur);
-        }
-        obj_process->pid = 0;
-        if (WIFEXITED(wstatus)) {
-            wstatus = WEXITSTATUS(wstatus);
-            if (obj_process->success_status_code == wstatus) {
-                for (size_t output_index = 0; output_index < self->outputs_top; ++output_index) {
-                    obj_t output = self->outputs[output_index];
-                    obj__set_success(output, time_cur);
-                }
-                obj__set_success(self, time_cur);
-                obj__print(self, "finished successfully with status code: %d", wstatus);
-            } else {
-                for (size_t output_index = 0; output_index < self->outputs_top; ++output_index) {
-                    obj_t output = self->outputs[output_index];
-                    obj__set_fail(output, time_cur);
-                }
-                obj__set_fail(self, time_cur);
-                obj__print(self, "finished with failure status code: %d", wstatus);
-            }
-        } else if (WIFSIGNALED(wstatus)) {
-            int sig = WTERMSIG(wstatus);
-            obj__print(self, "was terminated by signal: %d %s", sig, strsignal(sig));
-        } else if (WIFSTOPPED(wstatus)) {
-            int sig = WSTOPSIG(wstatus);
-            obj__print(self, "was stopped by signal: %d %s", sig, strsignal(sig));
-        } else if (WIFCONTINUED(wstatus)) {
-            obj__print(self, "was continued by signal %d %s", SIGCONT, strsignal(SIGCONT));
-        } else {
-            assert(0);
-        }
+    int wstatus = proc__wait(obj_process->proc, 0);
+    if (wstatus == -4) {
+        // continued, do nothing
+    } else if (wstatus == -3) {
+        // stopped, do nothing
+    } else if (wstatus == -2) {
+        // terminated by signal, do nothing
+    } else if (wstatus == -1) {
+        // still running, do nothing
     } else {
-        // still running
+        assert(0 <= wstatus);
+        const double time_cur = builder__get_time_stamp();
+        obj__set_finish(self, time_cur);
+        if (obj_process->success_status_code == wstatus) {
+            obj__set_success(self, time_cur);
+        } else {
+            obj__set_fail(self, time_cur);
+        }
+        proc__destroy_locked(obj_process->proc);
+        obj_process->proc = 0;
     }
+
+    shared__unlock();
 }
 
 static void obj__run_list(obj_t self) {
@@ -639,11 +324,6 @@ static void obj__describe_short_oscillator(obj_t self, char* buffer, int buffer_
 static void obj__describe_short_time(obj_t self, char* buffer, int buffer_size) {
     (void) self;
     snprintf(buffer, buffer_size, "TIME");
-}
-
-static void obj__describe_short_thread(obj_t self, char* buffer, int buffer_size) {
-    (void) self;
-    snprintf(buffer, buffer_size, "THREAD");
 }
 
 static void obj__describe_short_process(obj_t self, char* buffer, int buffer_size) {
@@ -685,11 +365,6 @@ static void obj__describe_long_oscillator(obj_t self, char* buffer, int buffer_s
 static void obj__describe_long_time(obj_t self, char* buffer, int buffer_size) {
     (void) self;
     snprintf(buffer, buffer_size, "TIME");
-}
-
-static void obj__describe_long_thread(obj_t self, char* buffer, int buffer_size) {
-    (void) self;
-    snprintf(buffer, buffer_size, "THREAD");
 }
 
 static void obj__describe_long_process(obj_t self, char* buffer, int buffer_size) {
@@ -736,10 +411,6 @@ static void obj__destroy_time(obj_t self) {
     (void) self;
 }
 
-static void obj__destroy_thread(obj_t self) {
-    (void) self;
-}
-
 static void obj__destroy_process(obj_t self) {
     obj_process_t obj_process = (obj_process_t) self;
 
@@ -772,58 +443,24 @@ static void obj__destroy_list(obj_t self) {
     (void) self;
 }
 
-static void async_obj__signal_handler(int signal) {
-    if (signal == SIGTERM) {
-        for (size_t i = 0; i < ARRAY_SIZE(async_obj); ++i) {
-            obj_t obj = async_obj[i];
-            if (obj) {
-                obj__destroy(obj);
-            }
-        }
-        exit(1);
-    } else {
-        printf("%d %s\n", signal, strsignal(signal));
-        assert(0 && "Signal is unhandled.");
-    }
-}
-
-static void async_obj__add(obj_t self) {
-    for (size_t i = 0; i < ARRAY_SIZE(async_obj); ++i) {
-        if (async_obj[i] == 0) {
-            async_obj[i] = self;
-            assert(async_obj_top++ < ARRAY_SIZE(async_obj));
-            break ;
-        }
-    }
-}
-
-static void async_obj__remove(obj_t self) {
-    for (size_t i = 0; i < ARRAY_SIZE(async_obj); ++i) {
-        if (async_obj[i] == self) {
-            async_obj[i] = 0;
-            assert(async_obj_top-- > 0);
-            break ;
-        }
-    }
-}
-
 int builder__init() {
-    struct sigaction act = { 0 };
-    act.sa_handler = &async_obj__signal_handler;
-    sigaction(SIGTERM, &act, 0);
-
-    struct timespec t;
-    clock_getres(CLOCK_REALTIME, &t);
-    g_tick_resolution = (double) t.tv_sec + t.tv_nsec / 1000000000.0;
-
-    g_time_init = builder__get_time_stamp();
-
-    if (pthread_mutex_init(&g_mutex_print, 0)) {
+    if (shared__init(1024 * 64)) {
         return 1;
     }
 
-    engine_time      = obj__time();
-    oscillator_200ms = obj__oscillator(engine_time, 200);
+    _ = shared__calloc(sizeof(*_));
+    if (!_) {
+        shared__deinit();
+        return 1;
+    }
+
+    struct timespec t;
+    clock_getres(CLOCK_REALTIME, &t);
+    _->g_tick_resolution = (double) t.tv_sec + t.tv_nsec / 1000000000.0;
+    _->g_time_init = builder__get_time_stamp();
+
+    _->engine_time      = obj__time();
+    _->oscillator_200ms = obj__oscillator(_->engine_time, 200);
     // oscillator_10s   = obj__oscillator(engine_time, 10000);
     // c_compiler       = obj__file_modified(oscillator_10s, "/usr/bin/gcc");
 
@@ -849,30 +486,51 @@ int builder__init() {
 }
 
 void builder__deinit() {
-    pthread_mutex_destroy(&g_mutex_print);
+    // not necessary to free shared
+    shared__deinit();
 }
 
 double builder__get_time_stamp() {
     struct timespec t;
     clock_gettime(CLOCK_REALTIME, &t);
-    return (t.tv_sec * 1000000000 + t.tv_nsec) * g_tick_resolution;
+    return (t.tv_sec * 1000000000 + t.tv_nsec) * _->g_tick_resolution;
 }
 
 double builder__get_time_stamp_init() {
-    return g_time_init;
+    return _->g_time_init;
+}
+
+void builder__lock() {
+    share__locked();
+    share__unlock();
+}
+
+void builder__unlock() {
 }
 
 obj_t obj__alloc(size_t size) {
-    obj_t result = calloc(1, size);
+    shared__lock();
 
-    ARRAY_ENSURE_TOP(objects, objects_top, objects_size);
-    objects[objects_top++] = result;
+    obj_t result = obj__alloc_locked(size);
+ 
+    shared__unlock();
 
-    if (pthread_mutex_init(&result->mutex_attr, 0)) {
-        perror("pthread_mutex_init");
-        free(result);
-        return 0;
+    return result;
+}
+
+obj_t obj__alloc_locked(size_t size) {
+   obj_t result = shared__calloc_locked(size);
+
+    if (_->objects_size <= _->objects_top) {
+        if (_->objects_size == 0) {
+            _->objects_size = 8;
+            _->objects = shared__calloc_locked(_->objects_size * sizeof(*_->objects));
+        } else {
+            _->objects_size <<= 1;
+            _->objects = shared__realloc_locked(_->objects, _->objects_size * sizeof(*_->objects));
+        }
     }
+    _->objects[_->objects_top++] = result;
 
     // if (builder_o) {
     //     obj__push_input((obj_t) result, builder_o);
@@ -882,6 +540,8 @@ obj_t obj__alloc(size_t size) {
 }
 
 void obj__destroy(obj_t self) {
+    shared__lock();
+
     for (size_t object_index = 0; object_index < objects_top; ++object_index) {
         if (objects[object_index] == self) {
             while (object_index < objects_top - 1) {
@@ -894,44 +554,10 @@ void obj__destroy(obj_t self) {
 
     self->destroy(self);
 
-    if (self->obj_proxy) {
-        // todo: implement
-        // if (self->attr.is_running) {
-        //     // obj__thread_kill(self);
-        // }
-    }
-    pthread_mutex_destroy(&self->mutex_attr);
+    shared__unlock();
 }
 
-void obj__print(obj_t self, const char* format, ...) {
-    static char buffer[4096];
-    static char buffer2[4096];
-
-    pthread_mutex_lock(&g_mutex_print);
-
-    self->describe_short(self, buffer, sizeof(buffer));
-    printf("%.3fs [%d] %s\n", builder__get_time_stamp() - g_time_init, gettid(), buffer);
-
-    va_list ap;
-    va_start(ap, format);
-    int read_bytes = vsnprintf(buffer, sizeof(buffer), format, ap);
-    va_end(ap);
-    if (read_bytes == -1) {
-        dprintf(STDOUT_FILENO, "vsnprintf failed");
-        pthread_mutex_unlock(&g_mutex_print);
-        kill(getpid(), SIGTERM);
-        return ;
-    }
-
-    if (0 < read_bytes && 0 < _prefix_lines(buffer2, sizeof(buffer2), buffer, "    ")) {
-        printf("%s", buffer2);
-        fflush(stdout);
-    }
-
-    pthread_mutex_unlock(&g_mutex_print);
-}
-
-void obj__push_input(obj_t self, obj_t input) {
+static void obj__push_input_locked(obj_t self, obj_t input) {
     assert(!(self->transient_flag == 2 && input->transient_flag == 2) && "cant compose lists");
 
     if (self->transient_flag == 2) {
@@ -988,6 +614,12 @@ void obj__push_input(obj_t self, obj_t input) {
     obj__check_for_cyclic_input(self);
 }
 
+void obj__push_input(obj_t self, obj_t input) {
+    shared__lock();
+    obj__push_input_locked(self, input);
+    shared__unlock();
+}
+
 struct attr obj__get_attr(obj_t self) {
     struct attr result;
     pthread_mutex_lock(&self->mutex_attr);
@@ -1001,7 +633,6 @@ void obj__set_start(obj_t self, double time) {
     self->attr.time_start = time;
     self->attr.is_running = 1;
     ++self->attr.n_run;
-    async_obj__add(self);
     pthread_mutex_unlock(&self->mutex_attr);
 }
 
@@ -1023,7 +654,6 @@ void obj__set_finish(obj_t self, double time) {
     pthread_mutex_lock(&self->mutex_attr);
     self->attr.time_finish = time;
     self->attr.is_running = 0;
-    async_obj__remove(self);
     pthread_mutex_unlock(&self->mutex_attr);
 }
 

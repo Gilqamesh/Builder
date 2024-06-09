@@ -9,20 +9,27 @@
 # include <stddef.h>
 # include <stdarg.h>
 
-// Any process has access to these
+/**
+ * All of these operations are atomic across processes, but it's necessary to lock/unlock when readin/writing into shared memory
+ * Proc:   creating new processes, read/write messages in between each other's msg queue
+ * Shared: allocate, read/write into shared memory pool, send/write messages into global msg queue
+*/ 
 
 int    shared__init(size_t shared_memory_size);
-void   shared__deinit();
+void   shared__deinit(); // automatically frees unfreed memory
 
-size_t shared__read(char* buffer, size_t buffer_size);
-void   shared__write(const char* format, ...);
+size_t shared__read(void* buffer, size_t buffer_size);
+size_t shared__read_str(char* buffer, size_t buffer_size);
+size_t shared__write(void* buffer, size_t buffer_size);
+size_t shared__write_str(const char* format, ...);
+size_t shared__vwrite_str(const char* format, va_list ap);
 
-void*  shared__alloc(size_t size);
-void*  shared__calloc(size_t);
+void*  shared__malloc(size_t size);
+void*  shared__calloc(size_t size);
 void*  shared__realloc(void* old_ptr, size_t new_size);
 void   shared__free(void* ptr);
 
-// use when reading/writing to shared memory
+// Use these when reading/writing into shared memory
 void   shared__lock();
 void   shared__unlock();
 
@@ -41,15 +48,25 @@ typedef struct proc {
     struct msg_queue msg_queue;
 } *proc_t;
 
-proc_t proc__create(int (*fn)(proc_t));
+proc_t proc__create(int (*fn)(void*), void*);
 void   proc__destroy(proc_t self);
 
 proc_t proc__get_current();
 
-size_t proc__read(proc_t self, char* buffer, size_t buffer_size);
-void   proc__write(proc_t self, const char* format, ...);
-void   proc__vwrite(proc_t self, const char* format, va_list ap);
-int    proc__wait(proc_t self, int hang);
+size_t proc__read(proc_t self, void* buffer, size_t buffer_size);
+size_t proc__read_str(proc_t self, char* buffer, size_t buffer_size);
+size_t proc__write(proc_t self, void* buffer, size_t buffer_size);
+size_t proc__write_str(proc_t self, const char* format, ...);
+size_t proc__vwrite_str(proc_t self, const char* format, va_list ap);
+/**
+ * @return
+ *  -4  - continued by signal
+ *  -3  - stopped by signal
+ *  -2  - terminated by signal
+ *  -1  - still running
+ *  >=0 - return status code
+*/
+int    proc__wait(proc_t self, int hang);;
 
 void   proc__print(proc_t self);
 

@@ -5,24 +5,20 @@
 
 typedef struct sem {
     int id;
+    int ref_count;
 } *sem_t;
 
 int sem__create(sem_t self, uint8_t nonnull_key_id);
 void sem__destroy(sem_t self);
 
-void sem__inc(sem_t self);
-void sem__dec(sem_t self);
+void sem__lock(sem_t self);
+void sem__unlock(sem_t self);
 
-int sem__set(sem_t self, int value);
+int sem__val(sem_t self); // -1 on failure, otherwise the value of the sem
+int sem__zcnt(sem_t self); // -1 on failure, otherwise the n of processes waiting for zero
+int sem__ncnt(sem_t self); // -1 on failure, otherwise the n of processes waiting for increment
+int sem__pid(sem_t self); // -1 on failure, otherwise the pid of last process that modified the sem
 
-/**
- * Returns -1 on failure, otherwise the value of the semaphore
-*/
-int sem__get(sem_t self);
-
-/**
- * Prints useful information about the semaphore
-*/
-int sem__print(sem_t self);
+void sem__print(sem_t self);
 
 #endif // SEM_H
