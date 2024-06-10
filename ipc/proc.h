@@ -19,7 +19,7 @@ int    shared__init(size_t shared_memory_size);
 void   shared__deinit(); // automatically frees unfreed memory
 
 size_t shared__read(void* buffer, size_t buffer_size);
-size_t shared__read_str(char* buffer, size_t buffer_size);
+size_t shared__read_str(char* buffer, size_t buffer_size); // null-terminates
 size_t shared__write(void* buffer, size_t buffer_size);
 size_t shared__write_str(const char* format, ...);
 size_t shared__vwrite_str(const char* format, va_list ap);
@@ -27,6 +27,7 @@ size_t shared__vwrite_str(const char* format, va_list ap);
 void*  shared__malloc(size_t size);
 void*  shared__calloc(size_t size);
 void*  shared__realloc(void* old_ptr, size_t new_size);
+void*  shared__recalloc(void* old_ptr, size_t new_size);
 void   shared__free(void* ptr);
 
 // Use these when reading/writing into shared memory
@@ -54,7 +55,7 @@ void   proc__destroy(proc_t self);
 proc_t proc__get_current();
 
 size_t proc__read(proc_t self, void* buffer, size_t buffer_size);
-size_t proc__read_str(proc_t self, char* buffer, size_t buffer_size);
+size_t proc__read_str(proc_t self, char* buffer, size_t buffer_size); // null-terminates
 size_t proc__write(proc_t self, void* buffer, size_t buffer_size);
 size_t proc__write_str(proc_t self, const char* format, ...);
 size_t proc__vwrite_str(proc_t self, const char* format, va_list ap);
@@ -66,7 +67,7 @@ size_t proc__vwrite_str(proc_t self, const char* format, va_list ap);
  *  -1  - still running
  *  >=0 - return status code
 */
-int    proc__wait(proc_t self, int hang);;
+int    proc__wait(proc_t self, int hang); // read possible termination message with proc__read_str
 
 void   proc__print(proc_t self);
 

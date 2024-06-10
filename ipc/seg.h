@@ -19,6 +19,7 @@ bool seg__init(memory_slice_t memory);
 void* seg__malloc(memory_slice_t memory, size_t size);
 void* seg__calloc(memory_slice_t memory, size_t size);
 void* seg__realloc(memory_slice_t memory, void* ptr, size_t new_size);
+void* seg__recalloc(memory_slice_t memory, void* ptr, size_t new_size);
 void  seg__free(memory_slice_t memory, void* ptr);
 
 // @brief prints segment

@@ -75,6 +75,10 @@ int shared_mem__map_to_address_space(shared_mem_t self) {
     return 0;
 }
 
+void shared_mem__reset_ref_counter(shared_mem_t self) {
+    sem__reset_ref_counter(&self->sem);
+}
+
 void* shared_mem__malloc(shared_mem_t self, size_t size) {
     sem__lock(&self->sem);
     void* result = seg__malloc(self->memory_slice, size);
@@ -96,6 +100,13 @@ void* shared_mem__realloc(shared_mem_t self, void* old_ptr, size_t new_size) {
     return result;
 }
 
+void* shared_mem__recalloc(shared_mem_t self, void* old_ptr, size_t new_size) {
+    sem__lock(&self->sem);
+    void* result = seg__recalloc(self->memory_slice, old_ptr, new_size);
+    sem__unlock(&self->sem);
+    return result;
+}
+
 void shared_mem__free(shared_mem_t self, void* ptr) {
     sem__lock(&self->sem);
     seg__free(self->memory_slice, ptr);
@@ -112,6 +123,7 @@ void shared_mem__unlock(shared_mem_t self) {
 
 void shared_mem__print(shared_mem_t self) {
     sem__lock(&self->sem);
+    printf("Shared memory info:\n");
     seg__for_each(self->memory_slice, &seg__print);
     sem__unlock(&self->sem);
 }

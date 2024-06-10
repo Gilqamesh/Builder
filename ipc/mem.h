@@ -20,12 +20,13 @@ typedef struct shared_mem {
 int shared_mem__create(shared_mem_t self, size_t size, uint8_t nonnull_key_id);
 void shared_mem__destroy(shared_mem_t self);
 
-// No need to call after fork, as child process inherits shared mem
-int shared_mem__map_to_address_space(shared_mem_t self);
+int shared_mem__map_to_address_space(shared_mem_t self); // No need to call after fork, as child process inherits shared mem
+void shared_mem__reset_ref_counter(shared_mem_t self); // In new process, reset ref counter to keep operations atomic
 
 void* shared_mem__malloc(shared_mem_t self, size_t size);
 void* shared_mem__calloc(shared_mem_t self, size_t size);
 void* shared_mem__realloc(shared_mem_t self, void* old_ptr, size_t new_size);
+void* shared_mem__recalloc(shared_mem_t self, void* old_ptr, size_t new_size);
 void  shared_mem__free(shared_mem_t self, void* ptr);
 
 void shared_mem__lock(shared_mem_t self);

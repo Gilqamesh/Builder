@@ -69,8 +69,9 @@ size_t msg_queue__read(msg_queue_t self, void* buffer, size_t buffer_size) {
             perror("msgrcv");
         }
     } else {
-        bytes_read = buffer_size < (size_t) msgrcv_result ? buffer_size: (size_t) msgrcv_result;
-        memcpy(buffer, g_msg_buffer.buffer, bytes_read);
+        bytes_read = msgrcv_result;
+        size_t bytes_to_cpy = buffer_size < (size_t) msgrcv_result ? buffer_size: (size_t) msgrcv_result;
+        memcpy(buffer, g_msg_buffer.buffer, bytes_to_cpy);
     }
 
     sem__unlock(&self->sem);
@@ -90,10 +91,11 @@ size_t msg_queue__read_str(msg_queue_t self, char* buffer, size_t buffer_size) {
         if (errno != ENOMSG) {
             perror("msgrcv");
         }
-    } else {
-        bytes_read = buffer_size - 1 < (size_t) msgrcv_result ? buffer_size - 1 : (size_t) msgrcv_result;
-        memcpy(buffer, g_msg_buffer.buffer, bytes_read);
-        buffer[bytes_read] = '\0';
+    } else if (0 < buffer_size) {
+        bytes_read = msgrcv_result;
+        size_t bytes_to_cpy = buffer_size - 1 < (size_t) msgrcv_result ? buffer_size - 1 : (size_t) msgrcv_result;
+        memcpy(buffer, g_msg_buffer.buffer, bytes_to_cpy);
+        buffer[bytes_to_cpy] = '\0';
     }
 
     sem__unlock(&self->sem);
@@ -204,12 +206,12 @@ void msg_queue__print(msg_queue_t self) {
         msg_info.msg_perm.gid,
         msg_info.msg_perm.cuid,
         msg_info.msg_perm.cgid,
-        msg_info.msg_perm.mode & 0400,
-        msg_info.msg_perm.mode & 0200,
-        msg_info.msg_perm.mode & 0040,
-        msg_info.msg_perm.mode & 0020,
-        msg_info.msg_perm.mode & 0004,
-        msg_info.msg_perm.mode & 0002,
+        (msg_info.msg_perm.mode & 0400) != 0,
+        (msg_info.msg_perm.mode & 0200) != 0,
+        (msg_info.msg_perm.mode & 0040) != 0,
+        (msg_info.msg_perm.mode & 0020) != 0,
+        (msg_info.msg_perm.mode & 0004) != 0,
+        (msg_info.msg_perm.mode & 0002) != 0,
         msg_info.msg_perm.__seq,
         st->tm_mday, st->tm_mon + 1, st->tm_year + 1900, st->tm_hour, st->tm_min, st->tm_sec,
         rt->tm_mday, rt->tm_mon + 1, rt->tm_year + 1900, rt->tm_hour, rt->tm_min, rt->tm_sec,
