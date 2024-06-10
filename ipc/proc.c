@@ -6,18 +6,16 @@
 #include <assert.h>
 #include <wait.h>
 #include <string.h>
+#include <errno.h>
 
 static struct {
     proc_t proc_cur;
+    struct shared_mem memory;
 
     struct {
-        struct shared_mem memory;
-        struct {
-            // todo: bitfield, could also just store this in the proc obj
-            struct proc main_proc;
-            struct proc child_procs[192];
-        } *process;
-    } shared;
+        struct proc main_proc;
+        struct proc child_procs[192];
+    } *shared;
 } _;
 
 static void cleanup_signal_handler(int signal);
@@ -29,7 +27,7 @@ static void cleanup_signal_handler(int signal) {
 }
 
 static void cleanup_before_exit() {
-    if (_.shared.process && _.proc_cur == &_.shared.process->main_proc) {
+    if (_.shared && _.proc_cur == &_.shared->main_proc) {
         shared__deinit();
     }
 }
@@ -54,17 +52,17 @@ int shared__init(size_t shared_memory_size) {
 
     uint8_t key_id = 1;
 
-    if (shared_mem__create(&_.shared.memory, shared_memory_size + sizeof(*_.shared.process), key_id++)) {
+    if (shared_mem__create(&_.memory, shared_memory_size + sizeof(*_.shared), key_id++)) {
         return 1;
     }
 
-    _.shared.process = shared__calloc(sizeof(*_.shared.process));
-    if (!_.shared.process) {
+    _.shared = shared__calloc(sizeof(*_.shared));
+    if (!_.shared) {
         shared__deinit();
         return 1;
     }
 
-    proc_t main_proc = &_.shared.process->main_proc;
+    proc_t main_proc = &_.shared->main_proc;
     main_proc->key_id = key_id++;
     main_proc->is_taken = 1;
     if (msg_queue__create(&main_proc->msg_queue, main_proc->key_id)) {
@@ -73,37 +71,37 @@ int shared__init(size_t shared_memory_size) {
     }
     _.proc_cur = main_proc;
 
-    for (size_t proc_index = 0; proc_index < sizeof(_.shared.process->child_procs) / sizeof(_.shared.process->child_procs[0]); ++proc_index) {
-        _.shared.process->child_procs[proc_index].key_id = proc_index + key_id;
+    for (size_t proc_index = 0; proc_index < sizeof(_.shared->child_procs) / sizeof(_.shared->child_procs[0]); ++proc_index) {
+        _.shared->child_procs[proc_index].key_id = proc_index + key_id;
     }
 
     return 0;
 }
 
 void shared__deinit() {
-    if (_.shared.process) {
-        proc__destroy(&_.shared.process->main_proc);
-        shared_mem__free(&_.shared.memory, _.shared.process);
-        _.shared.process = 0;
+    if (_.shared) {
+        proc__destroy(&_.shared->main_proc);
+        shared_mem__free(&_.memory, _.shared);
+        _.shared = 0;
     }
 
-    if (_.shared.memory.memory_slice.memory) {
-        shared_mem__print(&_.shared.memory);
-        shared_mem__destroy(&_.shared.memory);
-        _.shared.memory.memory_slice.memory = 0;
+    if (_.memory.memory_slice.memory) {
+        shared_mem__print(&_.memory);
+        shared_mem__destroy(&_.memory);
+        _.memory.memory_slice.memory = 0;
     }
 }
 
 size_t shared__read(void* buffer, size_t buffer_size) {
-    return proc__read(&_.shared.process->main_proc, buffer, buffer_size);
+    return proc__read(&_.shared->main_proc, buffer, buffer_size);
 }
 
 size_t shared__read_str(char* buffer, size_t buffer_size) {
-    return proc__read_str(&_.shared.process->main_proc, buffer, buffer_size);
+    return proc__read_str(&_.shared->main_proc, buffer, buffer_size);
 }
 
 size_t shared__write(void* buffer, size_t buffer_size) {
-    return proc__write(&_.shared.process->main_proc, buffer, buffer_size);
+    return proc__write(&_.shared->main_proc, buffer, buffer_size);
 }
 
 size_t shared__write_str(const char* format, ...) {
@@ -116,36 +114,40 @@ size_t shared__write_str(const char* format, ...) {
 }
 
 size_t shared__vwrite_str(const char* format, va_list ap) {
-    return proc__vwrite_str(&_.shared.process->main_proc, format, ap);
+    return proc__vwrite_str(&_.shared->main_proc, format, ap);
 }
 
 void* shared__malloc(size_t size) {
-    return shared_mem__malloc(&_.shared.memory, size);
+    return shared_mem__malloc(&_.memory, size);
 }
 
 void* shared__calloc(size_t size) {
-    return shared_mem__calloc(&_.shared.memory, size);
+    return shared_mem__calloc(&_.memory, size);
 }
 
 void* shared__realloc(void* old_ptr, size_t new_size) {
-    return shared_mem__realloc(&_.shared.memory, old_ptr, new_size);
+    return shared_mem__realloc(&_.memory, old_ptr, new_size);
+}
+
+void* shared__recalloc(void* old_ptr, size_t new_size) {
+    return shared_mem__recalloc(&_.memory, old_ptr, new_size);
 }
 
 void shared__free(void* ptr) {
-    return shared_mem__free(&_.shared.memory, ptr);
+    return shared_mem__free(&_.memory, ptr);
 }
 
 void shared__lock() {
-    shared_mem__lock(&_.shared.memory);
+    shared_mem__lock(&_.memory);
 }
 
 void shared__unlock() {
-    shared_mem__unlock(&_.shared.memory);
+    shared_mem__unlock(&_.memory);
 }
 
 void shared__print() {
-    shared_mem__print(&_.shared.memory);
-    proc__print(&_.shared.process->main_proc);
+    shared_mem__print(&_.memory);
+    proc__print(&_.shared->main_proc);
 }
 
 proc_t proc__create(int (*fn)(void*), void* data) {
@@ -154,10 +156,10 @@ proc_t proc__create(int (*fn)(void*), void* data) {
     proc_t result = 0;
 
     // look for available key
-    for (size_t proc_index = 0; proc_index < sizeof(_.shared.process->child_procs) / sizeof(_.shared.process->child_procs[0]); ++proc_index) {
-        if (!_.shared.process->child_procs[proc_index].is_taken) {
-            _.shared.process->child_procs[proc_index].is_taken = 1;
-            result = &_.shared.process->child_procs[proc_index];
+    for (size_t proc_index = 0; proc_index < sizeof(_.shared->child_procs) / sizeof(_.shared->child_procs[0]); ++proc_index) {
+        if (!_.shared->child_procs[proc_index].is_taken) {
+            _.shared->child_procs[proc_index].is_taken = 1;
+            result = &_.shared->child_procs[proc_index];
             break ;
         }
     }
@@ -169,7 +171,7 @@ proc_t proc__create(int (*fn)(void*), void* data) {
     proc_t parent = proc__get_current();
 
     result->parent = parent;
-    result->proc_depth = parent ? parent->proc_depth : 0;
+    result->proc_depth = parent ? parent->proc_depth + 1 : 1;
 
     if (msg_queue__create(&result->msg_queue, result->key_id)) {
         goto err;
@@ -180,11 +182,11 @@ proc_t proc__create(int (*fn)(void*), void* data) {
         perror("fork");
         goto err;
     } else if (pid == 0) {
+        shared_mem__reset_ref_counter(&_.memory);
         _.proc_cur = result;
         shared__lock();
         shared__unlock();
 
-        ++result->proc_depth;
         exit(fn(data));
     }
     result->pid = pid;
@@ -192,7 +194,7 @@ proc_t proc__create(int (*fn)(void*), void* data) {
     if (parent) {
         if (parent->children_size <= parent->children_top) {
             parent->children_size = parent->children_size == 0 ? 4 : parent->children_size << 1;
-            parent->children = shared_mem__realloc(&_.shared.memory, parent->children, parent->children_size * sizeof(*parent->children));
+            parent->children = shared_mem__realloc(&_.memory, parent->children, parent->children_size * sizeof(*parent->children));
             if (!parent->children) {
                 goto err;
             }
@@ -213,14 +215,19 @@ err:
 void proc__destroy(proc_t self) {
     shared__lock();
 
-    // already destroyed
     if (!self->is_taken) {
         shared__unlock();
         return ;
     }
 
+    assert(getpid() != self->pid && "only our parent should be able to destroy us");
+
+    self->proc_depth = 0;
     self->is_taken = 0;
-    msg_queue__destroy(&self->msg_queue);
+    if (self->msg_queue.id) {
+        msg_queue__destroy(&self->msg_queue);
+        self->msg_queue.id = 0;
+    }
 
     // remove from parent
     if (self->parent) {
@@ -242,7 +249,9 @@ void proc__destroy(proc_t self) {
         if (kill(self->pid, SIGTERM) < 0) {
             perror("kill");
         }
-        waitpid(self->pid, 0, WNOHANG);
+        if (waitpid(self->pid, 0, 0) < 0) {
+            perror("waitpid");
+        }
         self->pid = 0;
     }
 
@@ -251,7 +260,7 @@ void proc__destroy(proc_t self) {
     }
 
     if (self->children) {
-        shared_mem__free(&_.shared.memory, self->children);
+        shared_mem__free(&_.memory, self->children);
         self->children_top = 0;
         self->children_size = 0;
         self->children = 0;
@@ -267,6 +276,10 @@ proc_t proc__get_current() {
 size_t proc__read(proc_t self, void* buffer, size_t buffer_size) {
     shared__lock();
 
+    if (!self->is_taken) {
+        shared__unlock();
+    }
+
     size_t result = msg_queue__read(&self->msg_queue, buffer, buffer_size);
 
     shared__unlock();
@@ -276,6 +289,10 @@ size_t proc__read(proc_t self, void* buffer, size_t buffer_size) {
 
 size_t proc__read_str(proc_t self, char* buffer, size_t buffer_size) {
     shared__lock();
+
+    if (!self->is_taken) {
+        shared__unlock();
+    }
 
     size_t result = msg_queue__read_str(&self->msg_queue, buffer, buffer_size);
 
@@ -287,6 +304,10 @@ size_t proc__read_str(proc_t self, char* buffer, size_t buffer_size) {
 size_t proc__write(proc_t self, void* buffer, size_t buffer_size) {
     shared__lock();
 
+    if (!self->is_taken) {
+        shared__unlock();
+    }
+
     size_t result = msg_queue__write(&self->msg_queue, buffer, buffer_size);
 
     shared__unlock();
@@ -296,6 +317,10 @@ size_t proc__write(proc_t self, void* buffer, size_t buffer_size) {
 
 size_t proc__write_str(proc_t self, const char* format, ...) {
     shared__lock();
+
+    if (!self->is_taken) {
+        shared__unlock();
+    }
 
     va_list ap;
     va_start(ap, format);
@@ -310,6 +335,10 @@ size_t proc__write_str(proc_t self, const char* format, ...) {
 size_t proc__vwrite_str(proc_t self, const char* format, va_list ap) {
     shared__lock();
 
+    if (!self->is_taken) {
+        shared__unlock();
+    }
+
     size_t result = msg_queue__vwrite_str(&self->msg_queue, format, ap);
 
     shared__unlock();
@@ -320,17 +349,23 @@ size_t proc__vwrite_str(proc_t self, const char* format, va_list ap) {
 int proc__wait(proc_t self, int hang) {
     shared__lock();
 
+    if (!self->is_taken) {
+        shared__unlock();
+    }
+
     if (self->pid == 0) {
         // no child process to wait for
         shared__unlock();
         return 0;
     }
 
-    int result = 0;
+    assert(getpid() != self->pid && "we are the child process, why are we waiting for ourself?");
+    
+int result = 0;
     int wstatus = 0;
     pid_t waited_pid = waitpid(self->pid, &wstatus, hang ? 0 : WNOHANG);
     if (waited_pid < 0) {
-        perror("waitpid");
+        proc__write_str(self, "waitpid: %s", strerror(errno));
         self->pid = 0;
     } else if (0 < waited_pid) {
         assert(waited_pid == self->pid);
@@ -354,7 +389,6 @@ int proc__wait(proc_t self, int hang) {
             assert(0);
         }
         self->pid = 0;
-        
     } else {
         result = -1;
     }
@@ -366,6 +400,10 @@ int proc__wait(proc_t self, int hang) {
 
 void proc__print(proc_t self) {
     shared__lock();
+
+    if (!self->is_taken) {
+        shared__unlock();
+    }
 
     msg_queue__print(&self->msg_queue);
 

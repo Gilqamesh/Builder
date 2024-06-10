@@ -11,6 +11,8 @@ typedef struct sem {
 int sem__create(sem_t self, uint8_t nonnull_key_id);
 void sem__destroy(sem_t self);
 
+void sem__reset_ref_counter(sem_t self); // in new process to keep the sem atomic, reset its ref counter
+
 void sem__lock(sem_t self);
 void sem__unlock(sem_t self);
 

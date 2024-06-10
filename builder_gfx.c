@@ -104,10 +104,8 @@ static Rectangle obj__present_draw_node(obj_t self, obj_t node, Vector2 top_left
 
     const double max_blink_periodicity = 0.15;
 
-    struct attr attr = obj__get_attr(node);
-
-    const double time_since_last_successful_run = builder__get_time_stamp() - attr.time_start;
-    if (attr.is_running || time_since_last_successful_run <= max_blink_periodicity) {
+    const double time_since_last_successful_run = builder__get_time_stamp() - node->time_start;
+    if (node->is_running || time_since_last_successful_run <= max_blink_periodicity) {
         node_color = PURPLE;
     }
 
@@ -411,8 +409,8 @@ static void obj__present_draw_overlay(obj_t self) {
     Vector2 graph_rec_p = margin;
     const Vector2 mp = GetMousePosition();
     float biggest_text_rec_height = 0.0f;
-    for (size_t node_index = 0; node_index < objects_top; ++node_index) {
-        obj_t node = objects[node_index];
+    for (size_t node_index = 0; node_index < _->objects_top; ++node_index) {
+        obj_t node = _->objects[node_index];
         snprintf(text, sizeof(text), "%lu", node_index);
         Vector2 text_dims = MeasureTextEx(present->font, text, font_size, font_spacing);
         Rectangle text_rec = {
@@ -475,21 +473,13 @@ static void obj__run_present(obj_t self) {
     present->font = LoadFont("/usr/share/fonts/liberation-mono/LiberationMono-Regular.ttf");
     obj__present_update_node_as_drawn(self, self);
 
-
-    double time_prev = GetTime();
-    double time_accumulated_between_builder_updates = 0.0;
+    double time_prev = builder__get_time_stamp() - builder__get_time_stamp_init();
     while (!WindowShouldClose()) {
-        double time_cur = GetTime();
+        double time_cur = builder__get_time_stamp() - builder__get_time_stamp_init();
         const double dt = time_cur - time_prev;
         time_prev = time_cur;
         present->time_cur = time_cur;
 
-        time_accumulated_between_builder_updates += dt;
-        if (time_accumulated_between_builder_updates > 0.1) {
-            time_accumulated_between_builder_updates -= 0.1;
-            obj__run(engine_time);
-        }
-        
         obj__present_update(self, dt);
         obj__present_draw(self);
     }
@@ -526,7 +516,7 @@ obj_t obj__present() {
     // obj_t builder_gfx_c = obj__file_modified(oscillator_200ms, "builder_gfx.c");
     // obj_t builder_gfx_o = obj__file_modified(
     //     obj__list(
-    //         obj__fork(
+    //         obj__process(
     //             obj__exec(
     //                 obj__list(c_compiler, builder_h, builder_gfx_h, builder_gfx_c, 0),
     //                 "%s -g -I. -c %s -o builder_gfx.o -Wall -Wextra -Werror", obj__file_modified_path(c_compiler), obj__file_modified_path(builder_gfx_c)
@@ -542,5 +532,5 @@ obj_t obj__present() {
 
     // obj__push_input((obj_t) result, builder_gfx_o);
 
-    return obj__fork((obj_t) result, 0, oscillator_200ms);
+    return obj__process((obj_t) result, 0, _->oscillator_200ms);
 }

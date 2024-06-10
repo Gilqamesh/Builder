@@ -43,11 +43,15 @@ void sem__destroy(sem_t self) {
     }
 }
 
+void sem__reset_ref_counter(sem_t self) {
+    self->ref_count = 0;
+}
+
 void sem__lock(sem_t self) {
     if (self->ref_count == 0) {
         struct sembuf sb[2] = {
             [0] = {
-                .sem_flg = SEM_UNDO,
+                .sem_flg = 0,
                 .sem_num = 0,
                 .sem_op  = 0
             },
@@ -71,11 +75,15 @@ void sem__lock(sem_t self) {
 void sem__unlock(sem_t self) {
     if (self->ref_count == 1) {
         struct sembuf sb = {
-            .sem_flg = SEM_UNDO,
+            .sem_flg = 0,
             .sem_num = 0,
             .sem_op  = -1
         };
         while (semop(self->id, &sb, 1)) {
+            if (1000 < sem__val(self)) {
+                int dbg = 0;
+                ++dbg;
+            }
             if (errno == EINTR) {
                 continue ;
             }

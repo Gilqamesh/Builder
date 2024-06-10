@@ -604,16 +604,16 @@ void* seg__calloc(memory_slice_t memory, size_t size) {
     return result;
 }
 
-void* seg__realloc(memory_slice_t memory, void* data, size_t new_size) {
+void* seg__realloc(memory_slice_t memory, void* ptr, size_t new_size) {
     assert(new_size != 0);
 
     seg_t seg = 0;
 
-    if (!data) {
+    if (!ptr) {
         return seg__malloc(memory, new_size);
     }
 
-    seg = seg__data_to_seg(data);
+    seg = seg__data_to_seg(ptr);
     assert(!seg__is_available(seg));
 
     size_t old_data_size = seg__data_size(seg);
@@ -638,17 +638,76 @@ void* seg__realloc(memory_slice_t memory, void* data, size_t new_size) {
         // todo: copy and free before looking for sequential fit
 
         // malloc new seg
-        seg_t new_seg = seg__malloc(memory, new_size);
-        if (!new_seg) {
+        void* new_data = seg__malloc(memory, new_size);
+        if (!new_data) {
             return 0;
         }
 
-        // copy data to new seg
-        seg__copy_data(new_seg, seg, seg__data_size(seg));
+        // copy ptr to new seg
+        seg__copy_data(seg__data_to_seg(new_data), seg, seg__data_size(seg));
         // free seg
         seg__internal_free(memory, seg);
 
-        return seg__seg_to_data(new_seg);
+        return new_data;
+    } else if (new_size < old_data_size) {
+        // detach the unnecessary segment
+        seg = seg__detach(memory, seg, seg__data_size_to_seg_size(new_size));
+        return seg__seg_to_data(seg);
+    } else {
+        return seg__seg_to_data(seg);
+    }
+
+    assert(false);
+}
+
+void* seg__recalloc(memory_slice_t memory, void* ptr, size_t new_size) {
+    assert(new_size != 0);
+
+    seg_t seg = 0;
+
+    if (!ptr) {
+        return seg__malloc(memory, new_size);
+    }
+
+    seg = seg__data_to_seg(ptr);
+    assert(!seg__is_available(seg));
+
+    size_t old_data_size = seg__data_size(seg);
+    if (old_data_size < new_size) {
+        // coal if it would satisfy the request
+        size_t coal_data_size = seg__seg_size_to_data_size(seg__check_coal_size(memory, seg));
+
+        size_t required_seg_size = seg__data_size_to_seg_size(new_size);
+        size_t coal_seg_size = seg__data_size_to_seg_size(coal_data_size);
+
+        bool is_coal_big_enough = coal_data_size >= new_size;
+        bool is_coal_bigger_than_smallest_seg = is_coal_big_enough && (coal_seg_size - required_seg_size > seg__data_size_to_seg_size(0));
+
+        if (is_coal_bigger_than_smallest_seg) {
+            seg = seg__coal(memory, seg);
+
+            // detach the unnecessary segment
+            seg = seg__detach(memory, seg, seg__data_size_to_seg_size(new_size));
+            return seg__seg_to_data(seg);
+        }
+
+        // todo: copy and free before looking for sequential fit
+
+        // malloc new seg
+        void* new_data = seg__malloc(memory, new_size);
+        if (!new_data) {
+            return 0;
+        }
+
+        // copy ptr to new seg
+        seg__copy_data(seg__data_to_seg(new_data), seg, seg__data_size(seg));
+        // zero out rest of the memory
+        memset((uint8_t*) new_data + old_data_size, 0, new_size - old_data_size);
+
+        // free seg
+        seg__internal_free(memory, seg);
+
+        return new_data;
     } else if (new_size < old_data_size) {
         // detach the unnecessary segment
         seg = seg__detach(memory, seg, seg__data_size_to_seg_size(new_size));
