@@ -35,7 +35,6 @@ typedef struct obj_present {
 
     int width;
     int height;
-    float zoom;
     float min_zoom;
     float max_zoom;
     float movement_speed;
@@ -44,79 +43,91 @@ typedef struct obj_present {
     double time_cur;
     obj_t drawn_node;
 
-    Vector2 average_node_dims;
-    Vector2 running_average_node_dims;
-    size_t  running_average_node_dims_top;
+    RenderTexture2D scene_render_texture;
+    RenderTexture2D overlay_render_texture;
 } *obj_present_t;
 
 static void obj__present_update(obj_t self, double dt);
 static void obj__present_update_node_as_drawn(obj_t self, obj_t node);
 static void obj__present_update_reset_camera(obj_t self);
 
-static void      obj__present_draw(obj_t self);
-static Rectangle obj__present_draw_node(obj_t self, obj_t node, Vector2 top_left_p);
-static void      obj__present_draw_wire(obj_t self, Vector2 from, Vector2 to);
-static void      obj__present_draw_scene(obj_t self);
-static void      obj__present_draw_overlay(obj_t self);
+static void obj__present_draw(obj_t self);
+static void obj__present_draw_node(obj_t self, obj_t node, Rectangle rec, int depth);
+static void obj__present_draw_scene(obj_t self);
+static void obj__present_draw_overlay(obj_t self);
 
 static void obj__run_present(obj_t self);
 static void obj__describe_short_present(obj_t self, char* buffer, int buffer_size);
 static void obj__describe_long_present(obj_t self, char* buffer, int buffer_size);
 static void obj__destroy_present(obj_t self);
 
-static Rectangle obj__present_draw_node(obj_t self, obj_t node, Vector2 top_left_p) {
+static void obj__present_draw_node(obj_t self, obj_t node, Rectangle rec, int depth) {
     obj_present_t present = (obj_present_t) self;
 
     static char buffer[512];
     obj__describe_long(node, buffer, sizeof(buffer));
 
-    const int font_size = 10;
+    float font_size = 10.0f;
+    const float font_size_min = 5.0f;
+    // fit rec as best as we can
     Vector2 text_dims = MeasureTextEx(present->font, buffer, font_size, 1.0f);
-
-    Vector2 margin = {
-        .x = 10.0f,
-        .y = 5.0f
-    };
-    Rectangle node_rec = {
-        .x = top_left_p.x,
-        .y = top_left_p.y,
-        .width = text_dims.x + margin.x,
-        .height = text_dims.y + margin.y
-    };
-    
-    Vector2 text_p = {
-        .x = top_left_p.x + (node_rec.width - text_dims.x) / 2,
-        .y = top_left_p.y + (node_rec.height - text_dims.y) / 2
-    };
+    while (
+        text_dims.x < rec.width &&
+        text_dims.y < rec.height
+    ) {
+        font_size += 1.0f;
+        text_dims = MeasureTextEx(present->font, buffer, font_size, 1.0f);
+    }
+    while (
+        font_size_min < font_size &&
+        (rec.width < text_dims.x ||
+        rec.height < text_dims.y)
+    ) {
+        font_size -= 1.0f;
+        text_dims = MeasureTextEx(present->font, buffer, font_size, 1.0f);
+    }
+    if (font_size_min < font_size) {
+        // Vector2 text_p = {
+        //     .x = rec.x + (rec.width - text_dims.x) / 2.0f,
+        //     .y = rec.y + (rec.height - text_dims.y) / 2.0f
+        // };
+        // DrawTextEx(present->font, buffer, text_p, font_size, 1.0f, WHITE);
+    } else {
+        // todo: describe short
+    }
 
     Color node_color = YELLOW;
     Vector2 mp_screen = GetMousePosition();
     Vector2 mp_world = GetScreenToWorld2D(mp_screen, present->camera);
-    if (Rec_IsInside(node_rec, mp_world)) {
+    if (Rec_IsInside(rec, mp_world)) {
         node_color = RED;
-        DrawRectangleLinesEx(node_rec, 1.0f, RED);
         if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
             obj__present_update_node_as_drawn(self, node);
         } else if (IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)) {
             obj__run(node);
         }
     }
-
     const double max_blink_periodicity = 0.15;
-
     const double time_since_last_successful_run = builder__get_time_stamp() - node->time_start;
     if (node->is_running || time_since_last_successful_run <= max_blink_periodicity) {
         node_color = PURPLE;
     }
-
-    DrawRectangleLinesEx(node_rec, 1.0f, node_color);
-    DrawTextEx(present->font, buffer, text_p, font_size, 1.0f, WHITE);
-
-    present->running_average_node_dims.x = (present->running_average_node_dims.x * present->running_average_node_dims_top + node_rec.width) / (present->running_average_node_dims_top + 1);
-    present->running_average_node_dims.y = (present->running_average_node_dims.y * present->running_average_node_dims_top + node_rec.height) / (present->running_average_node_dims_top + 1);
-    ++present->running_average_node_dims_top;
-
-    return node_rec;
+    
+    const float line_thickness_min = 0.7f;
+    const float line_thickness_max = 10.0f;
+    float line_thickness = present->max_zoom * 0.2f / present->camera.zoom;
+    if (line_thickness < line_thickness_min) {
+        line_thickness = line_thickness_min;
+    }
+    if (line_thickness_max < line_thickness) {
+        line_thickness = line_thickness_max;
+    }
+    if (5 < depth) {
+        node_color.a = 0;
+    } else {
+        node_color.a = 255 - (unsigned char) (((float) depth / 5.0f) * 255.0f);
+    }
+    DrawRectangleLinesEx(rec, line_thickness, node_color);
 }
 
 static void obj__present_update_node_as_drawn(obj_t self, obj_t node) {
@@ -124,13 +135,6 @@ static void obj__present_update_node_as_drawn(obj_t self, obj_t node) {
 
     present->drawn_node = node;
     obj__present_update_reset_camera(self);
-    if (node) {
-        if (present->drawn_node->outputs_top == 0 && present->drawn_node->inputs_top > 0) {
-            present->camera.offset.y = present->height / 6.0f;
-        } else if (present->drawn_node->outputs_top > 0 && present->drawn_node->inputs == 0) {
-            present->camera.offset.y = present->height * 4.0f / 6.0f;
-        }
-    }
 }
 
 static void obj__present_update_reset_camera(obj_t self) {
@@ -138,17 +142,13 @@ static void obj__present_update_reset_camera(obj_t self) {
 
     memset(&present->camera, 0, sizeof(present->camera));
 
-    present->camera.zoom = 2.0f;
+    present->camera.zoom = 1.0f;
     present->camera.offset.x = present->width / 2.0f;
     present->camera.offset.y = present->height / 2.0f;
 }
 
 static void obj__present_update(obj_t self, double dt) {
     obj_present_t present = (obj_present_t) self;
-
-    present->average_node_dims = present->running_average_node_dims;
-    present->running_average_node_dims = (Vector2){ 0 };
-    present->running_average_node_dims_top = 0;
 
     float mouse_wheel = GetMouseWheelMove();
     if (mouse_wheel > 0.0f) {
@@ -183,46 +183,96 @@ static void obj__present_update(obj_t self, double dt) {
 
 static void obj__present_draw(obj_t self) {
     obj_present_t present = (obj_present_t) self;
-    
-    BeginDrawing();
-    ClearBackground(BLACK);
-    
-    BeginMode2D(present->camera);
+
     obj__present_draw_scene(self);
+    obj__present_draw_overlay(self);
+
+    BeginDrawing();
+
+    ClearBackground(BLACK);
+
+    BeginMode2D(present->camera);
+    DrawTexturePro(
+        present->scene_render_texture.texture,
+        (Rectangle){ 0, 0, (float) present->scene_render_texture.texture.width, (float) -present->scene_render_texture.texture.height },
+        (Rectangle){ 0, 0, present->width, present->height },
+        (Vector2) { present->width / 2, present->height / 2 },
+        0,
+        WHITE
+    );
     EndMode2D();
 
-    obj__present_draw_overlay(self);
+    DrawTexturePro(
+        present->overlay_render_texture.texture,
+        (Rectangle){ 0, 0, (float) present->overlay_render_texture.texture.width, (float) -present->overlay_render_texture.texture.height },
+        (Rectangle){ 0, 0, present->width, present->height },
+        (Vector2) { 0, 0 },
+        0,
+        WHITE
+    );
 
     EndDrawing();
 }
 
-static void obj__present_draw_wire(obj_t self, Vector2 from, Vector2 to) {
-    obj_present_t present = (obj_present_t) self;
-
-    const float wire_thickness = 1.5f;
-    const float electron_radius = wire_thickness / 2;
-    const Color electron_color = GREEN;
-    const float electron_span = 10.0f;
-    const Color wire_color = BLUE;
-    const double time_scale = 50.0f;
-    const Vector2 target_vector = Vector2_Normalize(Vector2_Sub(to, from));
-
-    DrawLineEx(from, to, wire_thickness, wire_color);
-
-    double t_end = fabsf(target_vector.x) > 0.01 ? (to.x - from.x) / target_vector.x : (to.y - from.y) / target_vector.y;
-    double t_next = fmod(present->time_cur * time_scale, t_end);
-    Vector2 next = Vector2_Add(from, Vector2_Scale(target_vector, t_next));
-    while (t_next > 0.0) {
-        DrawCircleV(next, electron_radius, electron_color);
-        t_next -= electron_span;
-        next = Vector2_Add(from, Vector2_Scale(target_vector, t_next));
+static void obj__present_draw_inputs(obj_t self, obj_t node, Rectangle rec, int depth) {
+    if (node->inputs_top == 0) {
+        return ;
     }
-    t_next = fmod(present->time_cur * time_scale, t_end) + electron_span;
-    next = Vector2_Add(from, Vector2_Scale(target_vector, t_next));
-    while (t_next < t_end) {
-        DrawCircleV(next, electron_radius, electron_color);
-        t_next += electron_span;
-        next = Vector2_Add(from, Vector2_Scale(target_vector, t_next));
+
+    struct state {
+        Rectangle rec;
+        int n;
+        int depth;
+    } states_stack[32];
+    int states_stack_top = 0;
+    states_stack[states_stack_top++] = (struct state) {
+        .rec   = rec,
+        .n     = node->inputs_top,
+        .depth = 0
+    };
+    size_t drawn_input_index = 0;
+    while (0 < states_stack_top) {
+        struct state state = states_stack[--states_stack_top];
+        if (1 < state.n) {
+            Rectangle rec_left  = state.rec;
+            Rectangle rec_right = state.rec;
+            int n_left = state.n >> 1;
+            int n_right = state.n - n_left;
+            if (state.depth & 1) {
+                rec_right.x += rec_right.width / 2;
+                rec_right.width /= 2;
+                rec_left.width /= 2;
+            } else {
+                rec_right.y += rec_right.height / 2;
+                rec_right.height /= 2;
+                rec_left.height /= 2;
+            }
+
+            states_stack[states_stack_top++] = (struct state) {
+                .rec = rec_left,
+                .n = n_left,
+                .depth = state.depth + 1
+            };
+            if (states_stack_top == ARRAY_SIZE(states_stack)) {
+                break ;
+            }
+            states_stack[states_stack_top++] = (struct state) {
+                .rec = rec_right,
+                .n = n_right,
+                .depth = state.depth + 1
+            };
+        } else {
+            assert(drawn_input_index < node->inputs_top);
+            obj_t input = node->inputs[drawn_input_index++];
+            Rectangle input_rec = {
+                .x = state.rec.x + state.rec.width * 0.2,
+                .y = state.rec.y + state.rec.height * 0.2,
+                .width = state.rec.width * 0.6,
+                .height = state.rec.height * 0.6
+            };
+            obj__present_draw_node(self, input, input_rec, depth);
+            obj__present_draw_inputs(self, input, input_rec, depth + 1);
+        }
     }
 }
 
@@ -233,170 +283,33 @@ static void obj__present_draw_scene(obj_t self) {
         return ;
     }
 
-    const Vector2 drawn_node_p = {
-        .x = -present->average_node_dims.x / 2.0f,
-        .y = -present->average_node_dims.y / 2.0f
-    };
-
-    Rectangle node_rec = obj__present_draw_node(self, present->drawn_node, drawn_node_p);
+    BeginTextureMode(present->scene_render_texture);
+    ClearBackground(BLANK);
     
-    Vector2 input_line_end = {
-        node_rec.x + node_rec.width / 2,
-        node_rec.y + node_rec.height,
+    // BeginMode2D(present->camera);
+
+    Rectangle starting_rec = {
+        .x = 0,
+        .y = 0,
+        .width = present->scene_render_texture.texture.width,
+        .height = present->scene_render_texture.texture.height
     };
-
-    const float vertical_wire_extension_len = 30.0f;
-    const float vertical_wire_extension_span_width = 40.0f;
-    const float horizontal_wire_extension_len = 30.0f;
-    const float horizontal_wire_extension_span_height = 40.0f;
-    const float average_node_width_expected = 150.0f;
-    const float output_horizontal_spacing = horizontal_wire_extension_len + 50.0f;
-    const float input_horizontal_spacing = horizontal_wire_extension_len + 50.0f;
-
-    float total_input_horizontal_space_expected = present->drawn_node->inputs_top * average_node_width_expected;
-    if (present->drawn_node->inputs_top > 1) {
-        total_input_horizontal_space_expected += input_horizontal_spacing * present->drawn_node->inputs_top - 1;
+    obj__present_draw_node(self, present->drawn_node, starting_rec, 0);
+    if (0 < present->drawn_node->inputs_top) {
+        obj__present_draw_inputs(self, present->drawn_node, starting_rec, 1);
     }
 
-    Vector2 input_top_left_p_cur = {
-        .x = node_rec.x + node_rec.width / 2.0f - total_input_horizontal_space_expected / 2.0f,
-        .y = node_rec.y + node_rec.height + 100.0f
-    };
+    // EndMode2D();
 
-    for (size_t input_index = 0; input_index < present->drawn_node->inputs_top; ++input_index) {
-        obj_t input = present->drawn_node->inputs[input_index];
-        Rectangle input_rec = obj__present_draw_node(self, input, input_top_left_p_cur);
-        if (input_rec.width == 0.0f && input_rec.height == 0.0f) {
-            continue ;
-        }
-
-        input_top_left_p_cur.x += input_rec.width + input_horizontal_spacing;
-        
-        Vector2 input_line_start = {
-            input_rec.x + input_rec.width / 2,
-            input_rec.y,
-        };
-        
-        obj__present_draw_wire(self, input_line_start, input_line_end);
-
-        if (input->outputs_top > 1) {
-            const Vector2 start_p = {
-                .x = input_rec.x,
-                .y = input_rec.y + input_rec.height / 2
-            };
-            const float vertical_increment = input->outputs_top > 2 ? horizontal_wire_extension_span_height / (input->outputs_top - 2) : 0.0f;
-            Vector2 end_p = {
-                .x = input_rec.x - horizontal_wire_extension_len,
-                .y = input_rec.y + input_rec.height / 2
-            };
-            if (input->outputs_top > 2) {
-                end_p.y -= horizontal_wire_extension_span_height / 2.0f;
-            }
-            for (size_t output_index = 0; output_index < input->outputs_top; ++output_index) {
-                obj_t output_of_input = input->outputs[output_index];
-                if (output_of_input != present->drawn_node) {
-                    obj__present_draw_wire(self, start_p, end_p);
-                    end_p.y += vertical_increment;
-                }
-            }
-        }
-
-        if (input->inputs_top > 0) {
-            const Vector2 end_p = {
-                .x = input_rec.x + input_rec.width / 2,
-                .y = input_rec.y + input_rec.height
-            };
-            const float horizontal_increment = input->inputs_top > 1 ? vertical_wire_extension_span_width / (input->inputs_top - 1) : 0.0f;
-            Vector2 start_p = {
-                .x = input_rec.x + input_rec.width / 2.0f,
-                .y = input_rec.y + input_rec.height + vertical_wire_extension_len
-            };
-            if (input->inputs_top > 1) {
-                start_p.x -= vertical_wire_extension_span_width / 2.0f;
-            }
-            for (size_t input_index = 0; input_index < input->inputs_top; ++input_index) {
-                obj__present_draw_wire(self, start_p, end_p);
-                start_p.x += horizontal_increment;
-            }
-        }
-    }
-
-    Vector2 output_line_start = {
-        node_rec.x + node_rec.width / 2,
-        node_rec.y,
-    };
-
-    float total_output_horizontal_space_expected = present->drawn_node->outputs_top * average_node_width_expected;
-    if (present->drawn_node->outputs_top > 1) {
-        total_output_horizontal_space_expected += output_horizontal_spacing * present->drawn_node->outputs_top - 1;
-    }
-
-    Vector2 output_top_left_p_cur = {
-        .x = node_rec.x + node_rec.width / 2.0f - total_output_horizontal_space_expected / 2.0f,
-        .y = node_rec.y - 300.0f
-    };
-
-    for (size_t output_index = 0; output_index < present->drawn_node->outputs_top; ++output_index) {
-        obj_t output = present->drawn_node->outputs[output_index];
-        Rectangle output_rec = obj__present_draw_node(self, output, output_top_left_p_cur);
-        if (output_rec.width == 0.0f && output_rec.height == 0.0f) {
-            continue ;
-        }
-
-        output_top_left_p_cur.x += output_rec.width + output_horizontal_spacing;
-        
-        Vector2 output_line_end = {
-            output_rec.x + output_rec.width / 2,
-            output_rec.y + output_rec.height,
-        };
-
-        obj__present_draw_wire(self, output_line_start, output_line_end);
-
-        if (output->inputs_top > 1) {
-            const Vector2 end_p = {
-                .x = output_rec.x,
-                .y = output_rec.y + output_rec.height / 2
-            };
-            const float vertical_increment = output->inputs_top > 2 ? horizontal_wire_extension_span_height / (output->inputs_top - 2) : 0.0f;
-            Vector2 start_p = {
-                .x = output_rec.x - horizontal_wire_extension_len,
-                .y = output_rec.y + output_rec.height / 2
-            };
-            if (output->inputs_top > 2) {
-                start_p.y -= horizontal_wire_extension_span_height / 2.0f;
-            }
-            for (size_t input_index = 0; input_index < output->inputs_top; ++input_index) {
-                obj_t input_of_output = output->inputs[input_index];
-                if (input_of_output != present->drawn_node) {
-                    obj__present_draw_wire(self, start_p, end_p);
-                    start_p.y += vertical_increment;
-                }
-            }
-        }
-
-        if (output->outputs_top > 0) {
-            const Vector2 start_p = {
-                .x = output_rec.x + output_rec.width / 2,
-                .y = output_rec.y
-            };
-            const float horizontal_increment = output->outputs_top > 1 ? vertical_wire_extension_span_width / (output->outputs_top - 1) : 0.0f;
-            Vector2 end_p = {
-                .x = output_rec.x + output_rec.width / 2,
-                .y = output_rec.y - vertical_wire_extension_len
-            };
-            if (output->outputs_top > 1) {
-                end_p.x -= vertical_wire_extension_span_width / 2.0f;
-            }
-            for (size_t output_index = 0; output_index < output->outputs_top; ++output_index) {
-                obj__present_draw_wire(self, start_p, end_p);
-                end_p.x += horizontal_increment;
-            }
-        }
-    }
+    EndTextureMode();
 }
 
 static void obj__present_draw_overlay(obj_t self) {
     obj_present_t present = (obj_present_t) self;
+
+    BeginTextureMode(present->overlay_render_texture);
+
+    ClearBackground(BLANK);
 
     char text[128];
     const float font_size = 24.0f;
@@ -444,18 +357,23 @@ static void obj__present_draw_overlay(obj_t self) {
     }
 
     snprintf(text, sizeof(text), "Time: %.2fs", present->time_cur);
-    Vector2 current_time_p_text_dims = MeasureTextEx(present->font, text, font_size, font_spacing);
-    Vector2 current_time_p = {
+    Vector2 text_dims = MeasureTextEx(present->font, text, font_size, font_spacing);
+    Vector2 text_p = {
         .x = margin.x,
-        .y = present->height - current_time_p_text_dims.y - margin.y
+        .y = present->height - text_dims.y - margin.y
     };
-    DrawTextEx(present->font, text, current_time_p, font_size, font_spacing, WHITE);
+    DrawTextEx(present->font, text, text_p, font_size, font_spacing, WHITE);
+
+    snprintf(text, sizeof(text), "Zoom: %.2fs", present->camera.zoom);
+    text_dims = MeasureTextEx(present->font, text, font_size, font_spacing);
+    text_p.y -= text_dims.y + margin.y;
+    DrawTextEx(present->font, text, text_p, font_size, font_spacing, WHITE);
+
+    EndTextureMode();
 }
 
-static void obj__run_present(obj_t self) {
+static void obj__present_init(obj_t self) {
     obj_present_t present = (obj_present_t) self;
-
-    obj__set_start(self, builder__get_time_stamp());
 
     char title_buffer[256];
     obj__describe_short(self, title_buffer, sizeof(title_buffer));
@@ -465,13 +383,34 @@ static void obj__run_present(obj_t self) {
     InitWindow(present->width, present->height, title_buffer);
     SetTargetFPS(60);
     present->movement_speed = 100.0;
-    present->min_zoom = 0.3f;
-    present->max_zoom = 14.0f;
+    present->min_zoom = 0.1f;
+    present->max_zoom = 20.0f;
 
     obj__present_update_reset_camera(self);
 
     present->font = LoadFont("/usr/share/fonts/liberation-mono/LiberationMono-Regular.ttf");
+    present->scene_render_texture = LoadRenderTexture(present->width, present->height);
+    present->overlay_render_texture = LoadRenderTexture(present->width, present->height);
+
     obj__present_update_node_as_drawn(self, self);
+}
+
+static void obj__present_destroy(obj_t self) {
+    obj_present_t present = (obj_present_t) self;
+
+    UnloadFont(present->font);
+    UnloadRenderTexture(present->scene_render_texture);
+    UnloadRenderTexture(present->overlay_render_texture);
+
+    CloseWindow();
+}
+
+static void obj__run_present(obj_t self) {
+    obj_present_t present = (obj_present_t) self;
+
+    obj__set_start(self, builder__get_time_stamp());
+
+    obj__present_init(self);
 
     double time_prev = builder__get_time_stamp() - builder__get_time_stamp_init();
     while (!WindowShouldClose()) {
@@ -487,7 +426,7 @@ static void obj__run_present(obj_t self) {
     obj__set_success(self, builder__get_time_stamp());
     obj__set_finish(self, builder__get_time_stamp());
 
-    CloseWindow();
+    obj__present_destroy(self);
 }
 
 static void obj__describe_short_present(obj_t self, char* buffer, int buffer_size) {
