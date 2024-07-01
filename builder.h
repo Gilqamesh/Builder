@@ -100,7 +100,7 @@ struct obj {
 
     // todo: remove once objects are type tagged
     int is_proc;
-    obj_t obj_proc; // necessary because it doesn't want to interfere the program's inputs/outputs
+    obj_t obj_proc; // necessary because it doesn't want to interfere with the program's inputs/outputs
 
     int transient_flag; // Should be cleared to 0 after using it
 };

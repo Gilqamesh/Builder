@@ -181,7 +181,7 @@ static void obj__run_oscillator(obj_t self) {
     const double epsilon_s = minimum_periodicity_s / 10.0; // to avoid modding down a whole period
     const double delta_time_last_successful_run_s = self->time_success - _->read_only.time_init + epsilon_s;
     const double last_successful_run_mod_s = delta_time_last_successful_run_s - fmod(delta_time_last_successful_run_s, periodicity_s);
-    const double delta_time_current_s = builder__get_time_stamp() - _->read_only.time_init;
+    const double delta_time_current_s = time_cur - _->read_only.time_init;
     if (last_successful_run_mod_s + periodicity_s < delta_time_current_s) {
         obj__set_success(self, time_cur);
         obj__set_finish(self, time_cur);

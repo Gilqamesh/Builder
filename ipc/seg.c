@@ -4,21 +4,19 @@
 #include <string.h>
 #include <stdio.h>
 
+typedef void* seg_t;
+
 typedef struct seg_tag {
     uint32_t seg_size     : 31;
     uint32_t is_available : 1;
-    seg_t    free_seg;
+    uint32_t offset_from_base_free_seg; // -1 - no free seg
 } *seg_tag_t;
 
-struct seg_state {
-    bool  is_available;
-    seg_t next;
-    seg_t prev;
-};
-
 typedef struct { // stored at the end of the provided memory
-    size_t  ff;
+    uint32_t offset_from_base_ff;
 } aux_state;
+
+static size_t next_power_of_2(size_t a);
 
 // size of payload data
 size_t    seg__data_size(seg_t seg);
@@ -34,16 +32,16 @@ size_t    seg__size(seg_t seg);
 void      seg__set_size(seg_t seg, size_t segment_size);
 // true if segment is available
 bool      seg__is_available(seg_t seg);
-// next seg in memory
+// next seg in memory, wraps, so care about infinite loops
 seg_t     seg__next(memory_slice_t memory, seg_t seg);
-// prev seg in memory
+// prev seg in memory, wraps, so care about infinite loops
 seg_t     seg__prev(memory_slice_t memory, seg_t seg);
 seg_t     seg__find_next_free(memory_slice_t memory, seg_t seg);
 seg_t     seg__find_prev_free(memory_slice_t memory, seg_t seg);
 // next free seg
-seg_t     seg__next_free(seg_t seg);
+seg_t     seg__next_free(memory_slice_t memory, seg_t seg);
 // prev free seg
-seg_t     seg__prev_free(seg_t seg);
+seg_t     seg__prev_free(memory_slice_t memory, seg_t seg);
 // try to coal with neighbors, seg can be either available or not, returns resulting grown seg
 seg_t     seg__coal(memory_slice_t memory, seg_t seg);
 // returns the size of coaling without applying coal
@@ -52,25 +50,26 @@ size_t    seg__check_coal_size(memory_slice_t memory, seg_t seg);
 seg_t     seg__detach(memory_slice_t memory, seg_t seg, size_t new_seg_size);
 // copy 'size' bytes from the start of src's data to the start of dst's data
 void      seg__copy_data(seg_t dst, seg_t src, size_t size);
+uint32_t  seg__get_offset(memory_slice_t memory, seg_t seg);
 
 static void* seg__seg_to_data(seg_t seg);
 static seg_t seg__data_to_seg(void* data);
 static seg_t seg__internal_free(memory_slice_t memory, seg_t seg);
 
 // get the first free pointer
-seg_t     seg__get_ff(memory_slice_t memory);
+static seg_t seg__get_ff(memory_slice_t memory);
 // seg the first free pointer
-void      seg__set_ff(memory_slice_t memory, seg_t seg);
+static void seg__set_ff(memory_slice_t memory, seg_t seg);
 
-// --== states ==--
 typedef struct {
     size_t seg_size;
     bool   available;
     seg_t  prev_free;
     seg_t  next_free;
-} seg_state;
-void seg_state__init(seg_t seg, size_t seg_size, bool available, seg_t prev_free, seg_t next_free);
-seg_state seg_state__get(seg_t seg);
+} seg_state_t;
+
+void seg_state__init(memory_slice_t memory, seg_t seg, size_t seg_size, bool available, seg_t prev_free, seg_t next_free);
+seg_state_t seg_state__get(memory_slice_t memory, seg_t seg);
 // --== state transitions ==--
 void seg_state__available(memory_slice_t memory, seg_t seg, bool value);
 
@@ -97,13 +96,7 @@ static seg_t seg__first_fit(memory_slice_t memory, size_t requested_seg_size);
 // */
 // static seg_t seg__best_fit(memory_slice_t memory, size_t requested_seg_size);
 
-#include <signal.h>
 seg_tag_t seg__head(seg_t seg) {
-    if (!seg) {
-        raise(SIGTRAP);
-        int bp = 0;
-        ++bp;
-    }
     assert(seg);
 
     return (seg_tag_t) seg;
@@ -117,7 +110,7 @@ seg_tag_t seg__tail(seg_t seg) {
 
 static void* seg__seg_to_data(seg_t seg) {
     if (!seg) {
-        return NULL;
+        return 0;
     }
 
     return (uint8_t*) seg + sizeof(struct seg_tag);
@@ -157,19 +150,24 @@ void seg__set_size(seg_t seg, size_t segment_size) {
 }
 
 static seg_t seg__first_fit(memory_slice_t memory, size_t requested_seg_size) {
-    seg_t cur = seg__get_ff(memory);
-    while (cur) {
-        assert(seg__is_available(cur));
+    seg_t seg = seg__get_ff(memory);
+    seg_t seg_start = seg;
+    while (seg) {
+        assert(seg__is_available(seg));
 
-        size_t seg_size = seg__data_size(cur);
+        size_t seg_size = seg__data_size(seg);
         if (seg_size >= requested_seg_size) {
-            return cur;
+            return seg;
         }
 
-        cur = seg__next_free(cur);
+        seg = seg__next_free(memory, seg);
+
+        if (seg == seg_start) {
+            break ;
+        }
     }
 
-    return NULL;
+    return 0;
 }
 
 // static seg_t seg__next_fit(memory_slice_t memory, size_t requested_seg_size) {
@@ -178,14 +176,14 @@ static seg_t seg__first_fit(memory_slice_t memory, size_t requested_seg_size) {
 // }
 
 // static seg_t seg__best_fit(memory_slice_t memory, size_t requested_seg_size) {
-//     seg_t best_seg = NULL;
+//     seg_t best_seg = 0;
 //     seg_t cur_seg = seg__get_ff(memory);
 //     while (cur_seg) {
 //         assert(seg__is_available(cur_seg));
 
 //         size_t seg_size = seg__data_size(cur_seg);
 //         if (seg_size >= requested_seg_size) {
-//             if (best_seg == NULL) {
+//             if (best_seg == 0) {
 //                 best_seg = cur_seg;
 //             } else if (seg_size < seg__data_size(best_seg)) {
 //                 best_seg = cur_seg;
@@ -204,9 +202,11 @@ seg_t seg__next(memory_slice_t memory, seg_t seg) {
 
     seg_t next_seg = (uint8_t*) seg + seg__size(seg);
 
-    if ((uint8_t*) next_seg >= (uint8_t*) memory.memory + memory.size - sizeof(aux_state)) {
-        return NULL;
+    const uint8_t* end_of_memory = (uint8_t*) memory.memory + memory.size - sizeof(aux_state);
+    if ((uint8_t*) next_seg == end_of_memory) {
+        next_seg = (seg_t) memory.memory;
     }
+    assert(!(end_of_memory < (uint8_t*) next_seg));
 
     return next_seg;
 }
@@ -214,31 +214,32 @@ seg_t seg__next(memory_slice_t memory, seg_t seg) {
 seg_t seg__prev(memory_slice_t memory, seg_t seg) {
     assert(seg);
     assert(memory.memory);
+    assert(!((uint8_t*) seg < (uint8_t*) memory.memory));
 
-    if ((uint8_t*) seg - 1 < (uint8_t*) memory.memory) {
-        return NULL;
+    if (seg == memory.memory) {
+        uint8_t* end_of_memory = (uint8_t*) memory.memory + memory.size - sizeof(aux_state);
+        seg_tag_t last_seg_tail = (seg_tag_t)(end_of_memory - sizeof(struct seg_tag));
+        seg_t last_seg = end_of_memory - last_seg_tail->seg_size;
+        return last_seg;
     }
-
+    
     seg_tag_t prev_seg_tail = (seg_tag_t) ((uint8_t*) seg - sizeof(struct seg_tag));
-    // size_t prev_seg_size = seg__size(prev_seg_tail);
-
-    if (prev_seg_tail->seg_size == 0) {
-        return 0;
-    }
+    assert(0 < prev_seg_tail->seg_size);
 
     return (uint8_t*) seg - prev_seg_tail->seg_size;
 }
 
 seg_t seg__find_next_free(memory_slice_t memory, seg_t seg) {
-    seg = seg__next(memory, seg);
-    while (seg) {
+    seg_t seg_start = seg;
+    seg = seg__next(memory, seg);    
+    while (seg && seg != seg_start) {
         if (seg__is_available(seg)) {
             return seg;
         }
         seg = seg__next(memory, seg);
     }
 
-    return NULL;
+    return 0;
 }
 
 seg_t seg__find_prev_free(memory_slice_t memory, seg_t seg) {
@@ -250,15 +251,37 @@ seg_t seg__find_prev_free(memory_slice_t memory, seg_t seg) {
         seg = seg__prev(memory, seg);
     }
 
-    return NULL;
+    return 0;
 }
 
-seg_t seg__next_free(seg_t seg) {
-    return seg__tail(seg)->free_seg;
+seg_t seg__next_free(memory_slice_t memory, seg_t seg) {
+    uint32_t offset_from_base_free_seg = seg__tail(seg)->offset_from_base_free_seg;
+    if (offset_from_base_free_seg == (uint32_t) -1) {
+        return 0;
+    }
+
+    seg_t result = (seg_t)((uint8_t*) memory.memory + offset_from_base_free_seg);
+    if (result == seg) {
+        return 0;
+    }
+    assert(seg__is_available(result));
+
+    return result;
 }
 
-seg_t seg__prev_free(seg_t seg) {
-    return seg__head(seg)->free_seg;
+seg_t seg__prev_free(memory_slice_t memory, seg_t seg) {
+    uint32_t offset_from_base_free_seg = seg__head(seg)->offset_from_base_free_seg;
+    if (offset_from_base_free_seg == (uint32_t) -1) {
+        return 0;
+    }
+
+    seg_t result = (seg_t)((uint8_t*) memory.memory + offset_from_base_free_seg);
+    if (result == seg) {
+        return 0;
+    }
+    assert(seg__is_available(result));
+
+    return result;
 }
 
 bool seg__is_available(seg_t seg) {
@@ -284,15 +307,16 @@ seg_t seg__coal(memory_slice_t memory, seg_t seg) {
         size_t new_size = seg__size(seg) + seg__size(prev);
 
         if (seg__is_available(seg)) {
-            seg_t next_free = seg__next_free(seg);
+            seg_t next_free = seg__next_free(memory, seg);
+            if (next_free) {
+                seg_state__available(memory, seg, false);
 
-            seg_state__available(memory, seg, false);
-
-            seg__tail(seg)->seg_size = new_size;
-            seg__head(prev)->seg_size = new_size;
-            
-            seg__tail(prev)->free_seg = next_free;
-            seg__tail(prev)->is_available = true;
+                seg__tail(seg)->seg_size = new_size;
+                seg__head(prev)->seg_size = new_size;
+                
+                seg__tail(prev)->offset_from_base_free_seg = seg__get_offset(memory, next_free);
+                seg__tail(prev)->is_available = true;
+            }
         } else {
             size_t seg_data_size = seg__data_size(seg);
             void*  seg_dst       = seg__seg_to_data(prev);
@@ -315,15 +339,17 @@ seg_t seg__coal(memory_slice_t memory, seg_t seg) {
         size_t new_size = seg__size(seg) + seg__size(next);
 
         if (seg__is_available(seg)) {  
-            seg_t next_free = seg__next_free(next);
+            seg_t next_free = seg__next_free(memory, next);
+            if (next_free) {
+                seg_state__available(memory, next, false);
 
-            seg_state__available(memory, next, false);
+                seg__tail(next)->seg_size = new_size;
+                seg__head(seg)->seg_size = new_size;
+                
+                seg__tail(seg)->offset_from_base_free_seg = seg__get_offset(memory, next_free);
+                seg__tail(seg)->is_available = true;
+            }
 
-            seg__tail(next)->seg_size = new_size;
-            seg__head(seg)->seg_size = new_size;
-            
-            seg__tail(seg)->free_seg = next_free;
-            seg__tail(seg)->is_available = true;
         } else {
             seg_state__available(memory, next, false);
 
@@ -339,16 +365,17 @@ seg_t seg__coal(memory_slice_t memory, seg_t seg) {
         size_t new_size = seg__size(seg) + seg__size(prev) + seg__size(next);
 
         if (seg__is_available(seg)) {
-            seg_t next_free = seg__next_free(next);
+            seg_t next_free = seg__next_free(memory, next);
+            if (next_free) {
+                seg_state__available(memory, seg, false);
+                seg_state__available(memory, next, false);
 
-            seg_state__available(memory, seg, false);
-            seg_state__available(memory, next, false);
+                seg__tail(next)->seg_size = new_size;
+                seg__head(prev)->seg_size = new_size;
 
-            seg__tail(next)->seg_size = new_size;
-            seg__head(prev)->seg_size = new_size;
-
-            seg__tail(prev)->free_seg = next_free;
-            seg__tail(prev)->is_available = true;
+                seg__tail(prev)->offset_from_base_free_seg = seg__get_offset(memory, next_free);
+                seg__tail(prev)->is_available = true;
+            }
         } else {
             size_t seg_data_size = seg__data_size(seg);
             void*  seg_dst       = seg__seg_to_data(prev);
@@ -394,7 +421,7 @@ size_t seg__check_coal_size(memory_slice_t memory, seg_t seg) {
 
 seg_t seg__detach(memory_slice_t memory, seg_t seg, size_t new_seg_size) {
     // store state of seg
-    seg_state state = seg_state__get(seg);
+    seg_state_t state = seg_state__get(memory, seg);
     assert(!state.available);
 
     if (new_seg_size == state.seg_size) {
@@ -412,11 +439,11 @@ seg_t seg__detach(memory_slice_t memory, seg_t seg, size_t new_seg_size) {
     }
 
     // initialize the two new segments
-    seg_state__init(detachment, detachment_size, false, 0, 0);
-    seg_state__init(seg, new_seg_size, state.available, state.prev_free, state.next_free);
+    seg_state__init(memory, detachment, detachment_size, false, 0, 0);
+    seg_state__init(memory, seg, new_seg_size, state.available, state.prev_free, state.next_free);
 
-    assert(seg__tail(seg)->free_seg == 0);
-    assert(seg__head(seg)->free_seg == 0);
+    assert(seg__tail(seg)->offset_from_base_free_seg == (uint32_t) -1);
+    assert(seg__head(seg)->offset_from_base_free_seg == (uint32_t) -1);
 
     // free the detachment
     (void) seg__internal_free(memory, detachment);
@@ -424,23 +451,23 @@ seg_t seg__detach(memory_slice_t memory, seg_t seg, size_t new_seg_size) {
     return seg;
 }
 
-void seg_state__init(seg_t seg, size_t seg_size, bool available, seg_t prev_free, seg_t next_free) {
+void seg_state__init(memory_slice_t memory, seg_t seg, size_t seg_size, bool available, seg_t prev_free, seg_t next_free) {
     assert(seg);
 
     seg__head(seg)->seg_size = seg_size;
     seg__tail(seg)->seg_size = seg_size;
-    seg__head(seg)->free_seg = prev_free;
-    seg__tail(seg)->free_seg = next_free;
+    seg__head(seg)->offset_from_base_free_seg = seg__get_offset(memory, prev_free);
+    seg__tail(seg)->offset_from_base_free_seg = seg__get_offset(memory, next_free);
     seg__head(seg)->is_available = available;
     seg__tail(seg)->is_available = available;
 }
 
-seg_state seg_state__get(seg_t seg) {
-    seg_state result = {
+seg_state_t seg_state__get(memory_slice_t memory, seg_t seg) {
+    seg_state_t result = {
         .seg_size = seg__size(seg),
         .available = seg__is_available(seg),
-        .prev_free = seg__prev_free(seg),
-        .next_free = seg__next_free(seg)
+        .prev_free = seg__prev_free(memory, seg),
+        .next_free = seg__next_free(memory, seg)
     };
 
     return result;
@@ -457,17 +484,17 @@ void seg_state__available(memory_slice_t memory, seg_t seg, bool value) {
         seg_t ff = seg__get_ff(memory);
         assert(ff);
 
-        seg_t prev_free = seg__prev_free(seg);
-        seg_t next_free = seg__next_free(seg);
+        seg_t prev_free = seg__prev_free(memory, seg);
+        seg_t next_free = seg__next_free(memory, seg);
 
-        seg__head(seg)->free_seg = 0;
-        seg__tail(seg)->free_seg = 0;
+        seg__head(seg)->offset_from_base_free_seg = (uint32_t) -1;
+        seg__tail(seg)->offset_from_base_free_seg = (uint32_t) -1;
 
         if (prev_free) {
-            seg__tail(prev_free)->free_seg = next_free;
+            seg__tail(prev_free)->offset_from_base_free_seg = seg__get_offset(memory, next_free);
         }
         if (next_free) {
-            seg__head(next_free)->free_seg = prev_free;
+            seg__head(next_free)->offset_from_base_free_seg = seg__get_offset(memory, prev_free);
         }
 
         if (ff == seg) {
@@ -488,14 +515,14 @@ void seg_state__available(memory_slice_t memory, seg_t seg, bool value) {
         seg_t prev_free = seg__find_prev_free(memory, seg);
         seg_t next_free = seg__find_next_free(memory, seg);
 
-        seg__head(seg)->free_seg = prev_free;
-        seg__tail(seg)->free_seg = next_free;
+        seg__head(seg)->offset_from_base_free_seg = seg__get_offset(memory, prev_free);
+        seg__tail(seg)->offset_from_base_free_seg = seg__get_offset(memory, next_free);
 
         if (prev_free) {
-            seg__tail(prev_free)->free_seg = seg;
+            seg__tail(prev_free)->offset_from_base_free_seg = seg__get_offset(memory, seg);
         }
         if (next_free) {
-            seg__head(next_free)->free_seg = seg;
+            seg__head(next_free)->offset_from_base_free_seg = seg__get_offset(memory, seg);
         }
 
         seg_t ff = seg__get_ff(memory);
@@ -518,7 +545,7 @@ bool seg__init(memory_slice_t memory) {
     seg_t seg = (seg_t) memory.memory;
     seg__set_ff(memory, seg);
 
-    seg_state__init(seg, mem_size - sizeof(aux_state), true, 0, 0);
+    seg_state__init(memory, seg, mem_size - sizeof(aux_state), true, 0, 0);
 
     return true;
 }
@@ -528,15 +555,18 @@ bool seg__print(memory_slice_t memory, void* ptr) {
     seg_tag_t tag = seg__head(seg);
     seg_t next = seg__next(memory, seg);
     seg_t expected = (seg_t) ((uint8_t*) seg + tag->seg_size);
+    if ((seg_t) ((uint8_t*) memory.memory + memory.size - sizeof(aux_state)) == expected) {
+        expected = (seg_t) memory.memory;
+    }
     printf(
         "[<- %12p, %12p, %s, %8u, %12p%s, %12p ->]\n",
-        seg__prev_free(seg),
+        seg__prev_free(memory, seg),
         seg,
         tag->is_available ? "free" : "used",
         tag->seg_size,
         next ? expected : 0,
         next ? (((uint8_t*) expected == (uint8_t*) next) ? "" : " ??") : "",
-        seg__next_free(seg)
+        seg__next_free(memory, seg)
     );
 
     return true;
@@ -550,6 +580,7 @@ void seg__print_aux(memory_slice_t memory) {
 
 void seg__for_each(memory_slice_t memory, bool (*fn)(memory_slice_t memory, void* ptr)) {
     seg_t seg = (seg_t) memory.memory;
+    seg_t seg_start = seg;
 
     while (seg) {
         seg_t next = seg__next(memory, seg);
@@ -557,11 +588,28 @@ void seg__for_each(memory_slice_t memory, bool (*fn)(memory_slice_t memory, void
             break ;
         }
         seg = next;
+        if (seg == seg_start) {
+            break ;
+        }
     }
 
 }
 
-static uint64_t next_power_of_2(uint64_t a) {
+void* seg__get_next_taken(memory_slice_t memory, void* ptr) {
+    seg_t seg_result = !ptr ? (seg_t) memory.memory : seg__data_to_seg(ptr);
+    seg_t seg_start = seg_result;
+    do {
+        if (!seg__is_available(seg_result)) {
+            return seg__seg_to_data(seg_result);
+        }
+        seg_result = seg__next(memory, seg_result);
+        if (!seg_result || seg_result == seg_start) {
+            return 0;
+        }
+    } while (1);
+}
+
+static size_t next_power_of_2(size_t a) {
     if (a == 0) {
         return 1;
     }
@@ -751,7 +799,7 @@ static seg_t seg__internal_free(memory_slice_t memory, seg_t seg) {
 
 static seg_t seg__data_to_seg(void* data) {
     if (!data) {
-        return NULL;
+        return 0;
     }
     
     return (seg_t) ((uint8_t*) data - sizeof(struct seg_tag));
@@ -765,16 +813,29 @@ void seg__copy_data(seg_t dst, seg_t src, size_t size) {
     memmove(seg__seg_to_data(dst), seg__seg_to_data(src), size);
 }
 
-seg_t seg__get_ff(memory_slice_t memory) {
-    void* data = memory.memory;
-    size_t data_size = memory.size;
-    aux_state* aux = (aux_state*) ((uint8_t*) data + data_size - sizeof(aux_state));
-    return (seg_t) aux->ff;
+uint32_t seg__get_offset(memory_slice_t memory, seg_t seg) {
+    if (!seg) {
+        return (uint32_t) -1;
+    }
+
+    assert((uint8_t*) memory.memory <= (uint8_t*) seg);
+    return (uint8_t*) seg - (uint8_t*) memory.memory;
 }
 
-void seg__set_ff(memory_slice_t memory, seg_t seg) {
+static seg_t seg__get_ff(memory_slice_t memory) {
     void* data = memory.memory;
     size_t data_size = memory.size;
     aux_state* aux = (aux_state*) ((uint8_t*) data + data_size - sizeof(aux_state));
-    aux->ff = (size_t) seg;
+    if (aux->offset_from_base_ff == -1) {
+        return 0;
+    }
+
+    return (seg_t) ((uint8_t*) memory.memory + aux->offset_from_base_ff);
+}
+
+static void seg__set_ff(memory_slice_t memory, seg_t seg) {
+    void* data = memory.memory;
+    size_t data_size = memory.size;
+    aux_state* aux = (aux_state*) ((uint8_t*) data + data_size - sizeof(aux_state));
+    aux->offset_from_base_ff = seg__get_offset(memory, seg);
 }
