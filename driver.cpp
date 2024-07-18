@@ -5,11 +5,6 @@
 #include <stdexcept>
 #include <thread>
 
-static struct {
-    abs_ptr_t<program::context_t> context;
-    offset_ptr_t<program::base_t> program_cur;
-} _;
-
 static void init(const std::string& process_name);
 static void deinit();
 static void update();
@@ -18,31 +13,23 @@ static void init(const std::string& process_name) {
     using namespace program;
 
     program::init(process_name, "driver", "shared_namespace_name", 8 * 1024);
-    _.context = g_context;
 
-    offset_ptr_t<pulse_t> updater = pulse();
-    offset_ptr_t<oscillator_t> oscillator_200ms = oscillator({ updater }, 0.2);
-    offset_ptr_t<process_t> proc = process(
+    lambda(
         {
-            lambda(
-                { file_modified({ oscillator_200ms }, "driver.cpp") },
-                [](abs_ptr_t<context_t> context, offset_ptr_t<lambda_t> lambda) {
-                    time_type_t time_cur = context->get_time();
-                    lambda->set_start(time_cur);
-                    
-                    std::cout << "Hello from lambda" << std::endl;
-                    
-                    lambda->set_success(time_cur);
-                    lambda->set_finish(time_cur);
-                }
+            file_modified(
+                { g_oscillator_200ms },
+                "driver.cpp"
             )
         },
-        { oscillator_200ms },
-        0
-    );
-    (void) proc;
+        [](offset_ptr_t<base_t> base) {
+            base->set_start(get_time());
 
-    _.program_cur = updater;
+            std::cout << "Hello from outer lambda" << std::endl;
+
+            base->set_success(get_time());
+            base->set_finish(get_time());
+        }
+    );
 }
 
 static void deinit() {
@@ -51,7 +38,7 @@ static void deinit() {
 
 static void update() {
     try {
-        _.context->run(_.program_cur, 0);
+        program::run();
     } catch (std::exception& e) {
         std::cerr << "exception caught: '" << e.what() << "'" << std::endl;
     }

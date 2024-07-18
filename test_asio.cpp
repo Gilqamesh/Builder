@@ -9,43 +9,90 @@
 
 #include "ipc_cpp/mem.h"
 
-struct garbage {
-    garbage(
+struct stuff {
+    stuff(
         const std::string& process_name,
-        boost::asio::io_context& io
+        boost::asio::io_context& io,
+        boost::asio::strand<boost::asio::io_context::executor_type>& strand
     ):
-        m_strand(boost::asio::make_strand(io)),
         m_p(io),
-        m_buf(1024) {
-        using namespace boost::asio;
+        m_buf(4096) {
+        read(strand);
+
         using namespace boost::process;
-        std::function<void(const boost::system::error_code& e, std::size_t size)> read_handler;
-        read_handler = [&read_handler, this](const boost::system::error_code& e, std::size_t size) {
-            if (!e) {
-                // lock
-                std::cout.write(m_buf.data(), size);
-                // unlock
-                async_read(m_p, buffer(m_buf), bind_executor(m_strand, read_handler));
-            } else if (e == boost::asio::error::eof) {
-                // lock
-                std::cout.write(m_buf.data(), size);
-                // unlock
-            } else {
-                // lock
-                std::cerr << "async_read " << e.what() << std::endl;
-                // unlock
-            }
-        };
-
-        async_read(m_p, buffer(m_buf), bind_executor(m_strand, read_handler));
-
         m_c = new child(
             process_name + " kekw",
             std_out > m_p
         );
     }
 
-    boost::asio::strand<boost::asio::io_context::executor_type> m_strand;
+    void read(boost::asio::strand<boost::asio::io_context::executor_type>& strand) {
+        using namespace boost::process;
+        using namespace boost::asio;
+
+        m_p.async_read_some(
+            buffer(m_buf),
+            bind_executor(
+                strand,
+                boost::bind(
+                    &stuff::read_handler,
+                    this,
+                    placeholders::error,
+                    placeholders::bytes_transferred,
+                    boost::ref(m_p),
+                    boost::ref(m_buf),
+                    boost::ref(strand)
+                )
+            )
+        );
+    }
+
+    void read_handler(
+        const boost::system::error_code& e,
+        std::size_t size,
+        boost::process::async_pipe& pipe,
+        std::vector<char>& buf,
+        boost::asio::strand<boost::asio::io_context::executor_type>& strand
+    ) {
+        using namespace boost::process;
+        using namespace boost::asio;
+
+        if (!e) {
+            // lock
+            std::cout << "'";
+            std::cout.write(buf.data(), size);
+            std::cout << "'" << std::endl;
+            std::cout << "Read " << size << " bytes" << std::endl;
+            pipe.async_read_some(
+                buffer(buf),
+                bind_executor(
+                    strand,
+                    boost::bind(
+                        &stuff::read_handler,
+                        this,
+                        placeholders::error,
+                        placeholders::bytes_transferred,
+                        boost::ref(pipe),
+                        boost::ref(buf),
+                        boost::ref(strand)
+                    )
+                )
+            );
+            // unlock
+        } else if (e == boost::asio::error::eof) {
+            // lock
+            std::cout << "'";
+            std::cout.write(buf.data(), size);
+            std::cout << "'" << std::endl;
+            std::cout << "Read " << size << " bytes" << std::endl;
+            // unlock
+        } else {
+            // lock
+            std::cerr << "async_read " << e.what() << std::endl;
+            // unlock
+        }
+    }
+
     boost::process::async_pipe m_p;
     std::vector<char> m_buf;
     boost::process::child* m_c;
@@ -56,21 +103,40 @@ struct garbage {
 };
 
 int main(int argc, char** argv) {
-    if (argc == 1) {
-        using namespace boost::asio;
+    using namespace boost::asio;
 
+    if (argc == 1) {
         io_context io;
-        garbage g(argv[0], io);
+        boost::asio::strand<boost::asio::io_context::executor_type> strand(boost::asio::make_strand(io));
+        boost::asio::io_service::work fake_work(io);
         boost::thread t(boost::bind(&io_context::run, &io));
+
+        std::this_thread::sleep_for(std::chrono::duration<double, std::ratio<1, 1>>(1));
+
+        stuff g(argv[0], io, strand);
         for (int i = 0; i < 10; ++i) {
             std::cout << "doing stuff in parent process" << std::endl;
             std::this_thread::sleep_for(std::chrono::duration<double, std::ratio<1, 1>>(1));
         }
+        g.wait();
+        io.stop();
         t.join();
     } else {
-        std::this_thread::sleep_for(std::chrono::duration<double, std::ratio<1, 1>>(2));
+        io_context io;
+        boost::asio::strand<boost::asio::io_context::executor_type> m_strand(boost::asio::make_strand(io));
+        boost::asio::io_service::work fake_work(io);
+        boost::thread t(boost::bind(&io_context::run, &io));
+
+        std::this_thread::sleep_for(std::chrono::duration<double, std::ratio<1, 1>>(1));
+        // printf("%s", "Hello from child process\n");
         std::cout << "Hello from child process" << std::endl;
-        std::this_thread::sleep_for(std::chrono::duration<double, std::ratio<1, 1>>(2));
+        std::this_thread::sleep_for(std::chrono::duration<double, std::ratio<1, 1>>(1));
+        // printf("%s", "Supppppppppppppp\n");
+        std::cout << "Supppppppppppppp" << std::endl;
+        std::this_thread::sleep_for(std::chrono::duration<double, std::ratio<1, 1>>(10));
+
+        io.stop();
+        t.join();
     }
 
     return 0;
