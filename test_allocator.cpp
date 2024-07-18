@@ -8,132 +8,110 @@
 #include <boost/process.hpp>
 
 using namespace boost::interprocess;
+using namespace ipc_mem;
 
 struct idk {
     char c;
+
+    friend std::ostream& operator<<(std::ostream& os, idk& self);
 };
 
-struct smthin {
-    smthin(shared_memory_t* shared_seg_memory):
-        v(shared_seg_memory->get_allocator<offset_ptr_t<idk>>()) {
-    }
+std::ostream& operator<<(std::ostream& os, idk& self) {
+    os << self.c;
+    
+    return os;
+}
 
+struct smthin {
     int a;
     double b;
-    shared_vector_t<offset_ptr_t<idk>> v;
+    ipc_mem::shared_vector_t<ipc_mem::offset_ptr_t<idk>> v;
+
+    bool operator<(const smthin& other) const {
+        return a < other.a;
+    }
 
     std::string describe() const {
         return std::to_string(a);
     }
+
+    friend std::ostream& operator<<(std::ostream& os, smthin& self);
 };
+
+std::ostream& operator<<(std::ostream& os, smthin& self) {
+    os << "{ " << self.a << ", " << self.b << ", " << self.v << " }";
+
+    return os;
+}
 
 struct obj_t {
-    obj_t(shared_memory_t* shared_seg_memory):
-        ptr2(0),
-        vector(shared_seg_memory->get_allocator<int>()),
-        vector2(shared_seg_memory->get_allocator<shared_ptr_t<smthin>>()),
-        vector3(shared_seg_memory->get_allocator<offset_ptr<smthin>>()),
-        set(shared_seg_memory->get_allocator<int>()),
-        string(shared_seg_memory->get_allocator<char>()) {
-    }
-
     int i;
-    offset_ptr<double> ptr2;
-    shared_vector_t<int> vector;
-    shared_vector_t<shared_ptr_t<smthin>> vector2;
-    shared_vector_t<offset_ptr<smthin>> vector3;
-    shared_set_t<int> set;
-    shared_string_t<char> string;
-    shared_ptr_t<double> ptr;
-    offset_ptr<void(*)(int)> fns[3];
-    offset_ptr<std::string(*)()> fn2;
-    offset_ptr<std::string(*)(offset_ptr<smthin>)> fn3;
+    ipc_mem::offset_ptr_t<double> ptr2;
+    ipc_mem::shared_vector_t<int> vector;
+    ipc_mem::shared_vector_t<ipc_mem::shared_ptr_t<smthin>> vector2;
+    ipc_mem::shared_vector_t<ipc_mem::offset_ptr_t<smthin>> vector3;
+    ipc_mem::shared_set_t<int> set;
+    ipc_mem::shared_set_t<offset_ptr<smthin>> set2;
+    ipc_mem::shared_string_t<char> string;
+    ipc_mem::shared_ptr_t<double> ptr;
+    ipc_mem::offset_ptr_t<void(*)(int)> fns[3];
+    ipc_mem::offset_ptr_t<std::string(*)()> fn2;
+    ipc_mem::offset_ptr_t<std::string(*)(ipc_mem::offset_ptr_t<smthin>)> fn3;
+    ipc_mem::shared_map_t<ipc_mem::shared_string_t<char>, int> map;
+    ipc_mem::shared_deque_t<int> deque;
 };
-
-std::ostream& operator<<(std::ostream& os, const shared_set_t<int>& container) {
-    auto it = container.begin();
-    for (size_t i = 0; i < container.size(); ++i, ++it) {
-        assert(it != container.end());
-        os << *it;
-        if (i < container.size() - 1) {
-            os << ", ";
-        }
-    }
-
-    return os;
-}
-
-template <typename T>
-std::ostream& operator<<(std::ostream& os, const shared_vector_t<T>& container) {
-    auto it = container.begin();
-    for (size_t i = 0; i < container.size(); ++i, ++it) {
-        assert(it != container.end());
-        os << *it;
-        if (i < container.size() - 1) {
-            os << ", ";
-        }
-    }
-
-    return os;
-}
-
-std::ostream& operator<<(std::ostream& os, const shared_vector_t<offset_ptr<idk>>& container) {
-    for (size_t i = 0; i < container.size(); ++i) {
-        os << container[i]->c;
-        if (i < container.size() - 1) {
-            os << ", ";
-        }
-    }
-
-    return os;
-}
-
-std::ostream& operator<<(std::ostream& os, const shared_vector_t<offset_ptr<smthin>>& container) {
-    for (size_t i = 0; i < container.size(); ++i) {
-        os << "{ " << container[i]->a << ", " << container[i]->b << " { " << container[i]->v << " } }";
-        if (i < container.size() - 1) {
-            os << ", ";
-        }
-    }
-
-    return os;
-}
 
 int main(int argc, char** argv) {
     if (argc == 1) {
         std::string shared_memory_name("fsdhd");
 
-        shared_memory_t* shared_seg_memory = new shared_memory_t(shared_memory_name, 2 * 1024);
+        init(shared_memory_name, 8 * 1024);
 
         {
-            offset_ptr_t<obj_t> obj = shared_seg_memory->malloc_named<obj_t>("obj", shared_seg_memory);
+            offset_ptr_t<obj_t> obj = malloc_named<obj_t>("obj");
             obj->i = 2;
-            obj->ptr2 = shared_seg_memory->malloc<double>(2.3);
-            obj->vector.push_back(4);
-            obj->vector.push_back(2);
-            obj->vector2.push_back(shared_seg_memory->malloc_shared<smthin>(shared_seg_memory));
-            offset_ptr_t<smthin> sm1 = shared_seg_memory->malloc_named<smthin>("abcd", smthin(shared_seg_memory));
+            obj->ptr2 = malloc<double>(2.3);
+            obj->vector.write([](auto& vector) {
+                vector.push_back(4);
+                vector.push_back(2);
+            });
+            obj->vector2.write([](auto& vector) {
+                vector.push_back(malloc_shared<smthin>());
+            });
+            offset_ptr_t<smthin> sm1 = malloc_named<smthin>("abcd");
             sm1->a = 4;
             sm1->b = 2.0;
-            sm1->v.push_back(shared_seg_memory->malloc<idk>(idk{ .c = 'c' }));
-            obj->vector3.push_back(sm1);
-            obj->string = "sup";
-            obj->ptr = shared_seg_memory->malloc_shared<double>(2.3);
-            const auto fn3 = [](offset_ptr<smthin> sm) -> std::string {
+            sm1->v.write([](auto& v) {
+                v.push_back(malloc<idk>(idk{ .c = 'c' }));
+            });
+            obj->vector3.write([sm1](auto& vector) {
+                vector.push_back(sm1);
+            });
+            obj->string.write([](auto& string) {
+                string = "sup";
+            });
+            obj->ptr = malloc_shared<double>(2.3);
+            obj->fn3 = malloc<typename decltype(obj->fn3)::value_type>([](auto sm) {
                 std::string result("Sup from parent's lambda: " + std::to_string(sm->a) + " " + std::to_string(sm->b));
-                for (auto i : sm->v) {
-                    result += i->c;
-                    result += " ";
-                }
+                sm->v.read([&result](auto& v) {
+                    for (auto i : v) {
+                        result += i->c;
+                        result += " ";
+                    }
+                });
                 return result;
-            };
-            obj->fn3 = shared_seg_memory->malloc<std::string(*)(offset_ptr<smthin>)>(fn3);
+            });
+            obj->map.write([](auto& map) {
+                // map.emplace("idk", 2);
+                map.emplace(std::string("idk"), 2);
+            });
 
             std::cout << "obj->i before running child process: " << obj->i << std::endl;
             std::cout << "obj->vector before running child process: " << obj->vector << std::endl;
             std::cout << "obj->vector2 before running child process: " << obj->vector2 << std::endl;
             std::cout << "obj->vector3 before running child process: " << obj->vector3 << std::endl;
             std::cout << "obj->set before running child process: " << obj->set << std::endl;
+            std::cout << "obj->set2 before running child process: " << obj->set2 << std::endl;
             std::cout << "obj->string before running child process: " << obj->string << std::endl;
             std::cout << "*obj->ptr before running child process: " << *obj->ptr << std::endl;
             std::cout << "*obj->ptr2 before running child process: " << *obj->ptr2 << std::endl;
@@ -141,6 +119,8 @@ int main(int argc, char** argv) {
             std::cout << "obj->fns[1] before running child process: " << obj->fns[1] << std::endl;
             std::cout << "obj->fns[2] before running child process: " << obj->fns[2] << std::endl;
             std::cout << "obj->fn2 before running child process: " << obj->fn2 << std::endl;
+            std::cout << "obj->map before running child process: " << obj->map << std::endl;
+            std::cout << "obj->deque before running child process: " << obj->deque << std::endl;
 
             using namespace boost::process;
             ipstream c_cout;
@@ -173,6 +153,7 @@ int main(int argc, char** argv) {
             std::cout << "obj->vector2 after running child process: " << obj->vector2 << std::endl;
             std::cout << "obj->vector3 after running child process: " << obj->vector3 << std::endl;
             std::cout << "obj->set after running child process: " << obj->set << std::endl;
+            std::cout << "obj->set2 after running child process: " << obj->set2 << std::endl;
             std::cout << "obj->string after running child process: " << obj->string << std::endl;
             std::cout << "*obj->ptr after running child process: " << *obj->ptr << std::endl;
             std::cout << "*obj->ptr2 after running child process: " << *obj->ptr2 << std::endl;
@@ -180,6 +161,8 @@ int main(int argc, char** argv) {
             std::cout << "obj->fns[1] after running child process: " << obj->fns[1] << std::endl;
             std::cout << "obj->fns[2] after running child process: " << obj->fns[2] << std::endl;
             std::cout << "obj->fn2 after running child process: " << obj->fn2 << std::endl;
+            std::cout << "obj->map after running child process: " << obj->map << std::endl;
+            std::cout << "obj->deque after running child process: " << obj->deque << std::endl;
             if (obj->fns[0]) {
                 (*obj->fns[0])(5);
             }
@@ -193,66 +176,108 @@ int main(int argc, char** argv) {
                 std::cout << (*obj->fn2)() << std::endl;
             }
 
-            shared_seg_memory->free(obj);
+            free(obj);
         }
 
-        delete shared_seg_memory;
-    } else {
-        shared_memory_t* shared_seg_memory = new shared_memory_t(argv[1]);
 
-        offset_ptr<obj_t> obj = shared_seg_memory->find_named<obj_t>("obj");
+        deinit();
+    } else {
+        init(argv[1]);
+
+        offset_ptr<obj_t> obj = find_named<obj_t>("obj");
 
         obj->i = 4;
-        obj->vector.push_back(4);
+        obj->vector.write([](auto& vector) {
+            vector.push_back(4);
+        });
 
         std::cerr << "Child process: something went wrong (not really)" << std::endl;
         std::cout << "Hello from child process" << std::endl;
         
-        obj->vector2.push_back(shared_seg_memory->malloc_shared<smthin>(shared_seg_memory));
-        offset_ptr_t<smthin> sm2 = shared_seg_memory->malloc<smthin>(smthin(shared_seg_memory));
+        obj->vector2.write([](auto& vector) {
+            vector.push_back(malloc_shared<smthin>());
+        });
+        offset_ptr_t<smthin> sm2 = malloc<smthin>();
         sm2->a = 4;
         sm2->b = 5.3;
-        obj->vector3.push_back(sm2);
-        offset_ptr_t<smthin> sm3 = shared_seg_memory->malloc<smthin>(smthin(shared_seg_memory));
+        offset_ptr_t<smthin> sm3 = malloc<smthin>();
         sm3->a = 2;
         sm3->b = 6.4;
 
-        obj->vector3.push_back(sm3);
+        obj->vector3.write([&sm2, &sm3](auto& vector){
+            vector.push_back(sm2);
+            vector.push_back(sm3);
+        });
 
-        offset_ptr_t<smthin> abcd = shared_seg_memory->find_named<smthin>("abcd");
+
+        obj->set2.write([](auto& set){
+            offset_ptr_t<smthin> s = malloc<smthin>();
+            s->a = 4;
+            s->b = 2.0;
+            s->v.write([](auto& v) {
+                offset_ptr_t<idk> i2 = malloc<idk>();
+                i2->c = '8';
+                v.push_back(i2);
+            });
+
+            set.emplace(s);
+        });
+
+        offset_ptr_t<smthin> abcd = find_named<smthin>("abcd");
         if (abcd) {
             abcd->a = -4;
             abcd->b = -2.0;
-            offset_ptr_t<idk> idk = abcd->v[0].get();
+            offset_ptr_t<idk> idk;
+            abcd->v.read([&idk](auto& v){ idk = v[0]; });
             idk->c = 'd';
         }
 
-        obj->set.insert(2);
-        obj->set.insert(2);
-        obj->set.insert(3);
-        obj->set.insert(4);
-        obj->string = "hello from child process";
+        {
+            obj->deque.write([](auto& deque) {
+                deque.push_back(4);
+                deque.push_back(2);
+                deque.push_back(4);
+                deque.push_back(2);
+            });
+        }
+
+        obj->set.write([](auto& set){
+            set.insert(2);
+            set.insert(2);
+            set.insert(3);
+            set.insert(4);
+        });
+        obj->string.write([](auto& string) {
+            string = "hello from child process";
+        });
         *obj->ptr = -42.42;
         *obj->ptr2 = -4322.42;
 
-        obj->fns[0] = shared_seg_memory->malloc<void(*)(int)>([](int a) {
+        obj->map.write([](auto& map){
+            map.emplace("yo sup from child", 42);
+        });
+
+        obj->fns[0] = malloc<void(*)(int)>([](int a) {
             std::cout << "Hello from lambda created by child: " << a << std::endl;
         });
-        obj->fns[1] = shared_seg_memory->malloc<void(*)(int)>([](int a) {
+        obj->fns[1] = malloc<void(*)(int)>([](int a) {
             std::cout << "Hello from lambda2 created by child: " << a << std::endl;
         });
-        obj->fns[2] = shared_seg_memory->malloc<void(*)(int)>([](int a) {
+        obj->fns[2] = malloc<void(*)(int)>([](int a) {
             std::cout << "Hello from lambda3 created by child: " << a << std::endl;
         });
-        obj->fn2 = shared_seg_memory->malloc<std::string(*)()>([]() {
+        obj->fn2 = malloc<std::string(*)()>([]() {
             return std::string("Sup from child's lambda");
         });
-        if (!obj->vector3.empty()) {
-            std::cout << (*obj->fn3)(obj->vector3[0]) << std::endl;
-            std::cout << "Describe: " << obj->vector3[0]->describe() << std::endl;
-        }
 
-        delete shared_seg_memory;
+        obj->vector3.read([&obj](auto& vector) {
+            if (!vector.empty()) {
+                std::cout << (*obj->fn3)(vector[0]) << std::endl;
+                std::cout << "Describe: " << vector[0]->describe() << std::endl;
+            }
+        });
+
+        deinit();
     }
 
     return 0;
