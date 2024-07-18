@@ -26,6 +26,7 @@ struct test_result_t {
     double time_taken;
     double time_read;
     double time_write;
+    double time_mixed;
 };
 
 static int rand_inclusive(int start, int end) {
@@ -46,42 +47,99 @@ test_result_t test(size_t n_of_threads) {
     size_t time_start = __rdtsc();
 
     thread_safe_data_t<data_t> data;
+
+    std::cout << "Starting test with '" << n_of_threads << "' threads, size of thread_safe_data_t: " << sizeof(data) << std::endl;
+
     std::mutex mutex_thread_result;
     size_t n_total_runs_total = 0;
     double time_read_total = 0.0;
     double time_write_total = 0.0;
+    double time_mixed_total = 0.0;
     const size_t n_of_operations = 50;
 
     std::vector<std::thread> threads;
+    std::mutex print_mutex;
+    const auto read_fn = [&print_mutex, &mutex_thread_result, &time_read_total, &data]() {
+        size_t time_read_start = __rdtsc();
+        data.read([&print_mutex](auto& self, data_t& data) {
+            (void) data;
+            (void) self;
+            (void) print_mutex;
+            // {
+            //     std::unique_lock<std::mutex> guard_print_mutex(print_mutex);
+            //     std::cout << std::this_thread::get_id() << " read: " << data.size << ", ownership count: " << self.ownership_count() << std::endl;
+            // }
+            std::this_thread::sleep_for(std::chrono::duration<double, std::ratio<1, 1>>(rand_inclusive(0.001, 0.01)));
+        });
+        size_t time_read_end = __rdtsc();
+        mutex_thread_result.lock();
+        time_read_total += time_read_end - time_read_start;
+        mutex_thread_result.unlock();
+    };
+    const auto write_fn = [&print_mutex, &mutex_thread_result, &n_total_runs_total, &time_write_total, &data]() {
+        size_t n_runs = rand_inclusive(100000, 100000 * 100);
+        mutex_thread_result.lock();
+        n_total_runs_total += n_runs;
+        mutex_thread_result.unlock();
+        size_t time_write_start = __rdtsc();
+        data.write([n_runs, &print_mutex](auto& self, data_t& data) {
+            (void) self;
+            (void) print_mutex;
+            (void) data;
+            // {
+            //     std::unique_lock<std::mutex> guard_print_mutex(print_mutex);
+            //     std::cout << std::this_thread::get_id() << " write: " << n_runs << ", ownership count: " << self.ownership_count() << std::endl;
+            // }
+            for (size_t i = 0; i < n_runs; ++i) {
+                ++data.size;
+            }
+        });
+        size_t time_write_end = __rdtsc();
+        mutex_thread_result.lock();
+        time_write_total += time_write_end - time_write_start;
+        mutex_thread_result.unlock();
+    };
+
+    const auto mixed_fn = [&write_fn, &read_fn, &mutex_thread_result, &data, &time_mixed_total]() {
+        size_t time_read_start = __rdtsc();
+        data.write([&read_fn, &write_fn](auto& self, data_t& data) {
+            (void) data;
+            read_fn();
+            self.write([&read_fn, &write_fn](auto& self, data_t& data) {
+                (void) data;
+                write_fn();
+                self.read([&read_fn](auto& self, data_t& data) {
+                    (void) data;
+                    (void) self;
+                    read_fn();
+                    for (size_t i = 0; i < 3; ++i) {
+                        read_fn();
+                    }
+                });
+                for (size_t i = 0; i < 3; ++i) {
+                    write_fn();
+                }
+                write_fn();
+                read_fn();
+            });
+            read_fn();
+        });
+        size_t time_read_end = __rdtsc();
+        mutex_thread_result.lock();
+        time_mixed_total += time_read_end - time_read_start;
+        mutex_thread_result.unlock();
+    };
+
     for (size_t thread_index = 0; thread_index < n_of_threads; ++thread_index) {
-        threads.emplace_back([&data, &n_total_runs_total, &time_read_total, &time_write_total, &mutex_thread_result]() {
+        threads.emplace_back([&read_fn, &write_fn, &mixed_fn]() {
             for (size_t operation_index = 0; operation_index < n_of_operations; ++operation_index) {
-                size_t operation_type = rand_inclusive(0, 5);
+                size_t operation_type = rand_inclusive(0, 10);
                 if (operation_type == 0) {
-                    size_t n_runs = rand_inclusive(100000, 100000 * 100);
-                    mutex_thread_result.lock();
-                    n_total_runs_total += n_runs;
-                    mutex_thread_result.unlock();
-                    size_t time_write_start = __rdtsc();
-                    data.write([n_runs](data_t& data) {
-                        for (size_t i = 0; i < n_runs; ++i) {
-                            ++data.size;
-                        }
-                    });
-                    size_t time_write_end = __rdtsc();
-                    mutex_thread_result.lock();
-                    time_write_total += time_write_end - time_write_start;
-                    mutex_thread_result.unlock();
+                    write_fn();
+                } else if (operation_type < 10) {
+                    read_fn();
                 } else {
-                    size_t time_read_start = __rdtsc();
-                    data.read([](const data_t& data) {
-                        (void) data;
-                        std::this_thread::sleep_for(std::chrono::duration<double, std::ratio<1, 1>>(rand_inclusive(0.01, 0.1)));
-                    });
-                    size_t time_read_end = __rdtsc();
-                    mutex_thread_result.lock();
-                    time_read_total += time_read_end - time_read_start;
-                    mutex_thread_result.unlock();
+                    mixed_fn();
                 }
             }
         });
@@ -95,7 +153,9 @@ test_result_t test(size_t n_of_threads) {
 
     test_result_t result;
 
-    data.read([&result, n_total_runs_total](const data_t& data) {
+    data.read([&result, n_total_runs_total](auto& self, const data_t& data) {
+        (void) self;
+
         result.succeeded = (n_total_runs_total == data.size);
         result.got = data.size;
     });
@@ -104,6 +164,7 @@ test_result_t test(size_t n_of_threads) {
     result.time_taken = static_cast<double>(time_end - time_start);
     result.time_read = time_read_total;
     result.time_write = time_write_total;
+    result.time_mixed = time_mixed_total;
 
     return result;
 }
@@ -140,7 +201,8 @@ static int process_routine(int argc, char** argv) {
             shared->m_n_total_runs_total += n_runs;
             shared->m_mutex.unlock();
             size_t time_write_start = __rdtsc();
-            shared->m_data.write([n_runs](data_t& data) {
+            shared->m_data.write([n_runs](auto& self, data_t& data) {
+                (void) self;
                 for (size_t i = 0; i < n_runs; ++i) {
                     ++data.size;
                 }
@@ -151,7 +213,8 @@ static int process_routine(int argc, char** argv) {
             shared->m_mutex.unlock();
         } else {
             size_t time_read_start = __rdtsc();
-            shared->m_data.read([](const data_t& data) {
+            shared->m_data.read([](auto& self, const data_t& data) {
+                (void) self;
                 (void) data;
                 std::this_thread::sleep_for(std::chrono::duration<double, std::ratio<1, 1>>(rand_inclusive(0.01, 0.1)));
             });
@@ -193,7 +256,8 @@ static test_result_t test(const std::string& process_name, size_t n_of_processes
     size_t time_end = __rdtsc();
 
     test_result_t result;
-    shared->m_data.read([&result, &shared](const data_t& data) {
+    shared->m_data.read([&result, &shared](auto& self, data_t& data) {
+        (void) self;
         result.succeeded = (shared->m_n_total_runs_total == data.size);
         result.got = data.size;
     });
@@ -222,8 +286,8 @@ int main(int argc, char** argv) {
 
     printf("Number of threads per test: %zu\n", n_of_threads);
     for (size_t test_index = 0; test_index < n_of_tests; ++test_index) {
-        test_result_t test_result = test(argv[0], n_of_threads);
-        // test_result_t test_result = test(n_of_threads);
+        // test_result_t test_result = test(argv[0], n_of_threads);
+        test_result_t test_result = test(n_of_threads);
 
         time_taken_total += test_result.time_taken;
         if (!test_result.succeeded) {
@@ -234,10 +298,11 @@ int main(int argc, char** argv) {
             );
         }
         printf(
-            "time taken (MCy): %.3lf, time read (MCy): %.3lf, time write (MCy): %.3lf\n",
+            "time taken (MCy): %.3lf, time read (MCy): %.3lf, time write (MCy): %.3lf, time mixed (MCy): %.3lf\n",
             test_result.time_taken / 1000000.0,
             test_result.time_read / 1000000.0,
-            test_result.time_write / 1000000.0
+            test_result.time_write / 1000000.0,
+            test_result.time_mixed / 1000000.0
         );
     }
 
