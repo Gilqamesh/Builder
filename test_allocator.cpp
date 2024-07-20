@@ -65,35 +65,41 @@ int main(int argc, char** argv) {
     if (argc == 1) {
         std::string shared_memory_name("fsdhd");
 
-        init(shared_memory_name, 8 * 1024);
+        init(shared_memory_name, 16 * 1024);
 
         {
             offset_ptr_t<obj_t> obj = malloc_named<obj_t>("obj");
             obj->i = 2;
             obj->ptr2 = malloc<double>(2.3);
-            obj->vector.write([](auto& vector) {
+            obj->vector.write([](auto& self, auto& vector) {
+                (void) self;
                 vector.push_back(4);
                 vector.push_back(2);
             });
-            obj->vector2.write([](auto& vector) {
+            obj->vector2.write([](auto& self, auto& vector) {
+                (void) self;
                 vector.push_back(malloc_shared<smthin>());
             });
             offset_ptr_t<smthin> sm1 = malloc_named<smthin>("abcd");
             sm1->a = 4;
             sm1->b = 2.0;
-            sm1->v.write([](auto& v) {
+            sm1->v.write([](auto& self, auto& v) {
+                (void) self;
                 v.push_back(malloc<idk>(idk{ .c = 'c' }));
             });
-            obj->vector3.write([sm1](auto& vector) {
+            obj->vector3.write([sm1](auto& self, auto& vector) {
+                (void) self;
                 vector.push_back(sm1);
             });
-            obj->string.write([](auto& string) {
+            obj->string.write([](auto& self, auto& string) {
+                (void) self;
                 string = "sup";
             });
             obj->ptr = malloc_shared<double>(2.3);
             obj->fn3 = malloc<typename decltype(obj->fn3)::value_type>([](auto sm) {
                 std::string result("Sup from parent's lambda: " + std::to_string(sm->a) + " " + std::to_string(sm->b));
-                sm->v.read([&result](auto& v) {
+                sm->v.read([&result](auto& self, auto& v) {
+                    (void) self;
                     for (auto i : v) {
                         result += i->c;
                         result += " ";
@@ -101,7 +107,8 @@ int main(int argc, char** argv) {
                 });
                 return result;
             });
-            obj->map.write([](auto& map) {
+            obj->map.write([](auto& self, auto& map) {
+                (void) self;
                 // map.emplace("idk", 2);
                 map.emplace(std::string("idk"), 2);
             });
@@ -187,14 +194,16 @@ int main(int argc, char** argv) {
         offset_ptr<obj_t> obj = find_named<obj_t>("obj");
 
         obj->i = 4;
-        obj->vector.write([](auto& vector) {
+        obj->vector.write([](auto& self, auto& vector) {
+            (void) self;
             vector.push_back(4);
         });
 
         std::cerr << "Child process: something went wrong (not really)" << std::endl;
         std::cout << "Hello from child process" << std::endl;
         
-        obj->vector2.write([](auto& vector) {
+        obj->vector2.write([](auto& self, auto& vector) {
+            (void) self;
             vector.push_back(malloc_shared<smthin>());
         });
         offset_ptr_t<smthin> sm2 = malloc<smthin>();
@@ -204,17 +213,20 @@ int main(int argc, char** argv) {
         sm3->a = 2;
         sm3->b = 6.4;
 
-        obj->vector3.write([&sm2, &sm3](auto& vector){
+        obj->vector3.write([&sm2, &sm3](auto& self, auto& vector){
+            (void) self;
             vector.push_back(sm2);
             vector.push_back(sm3);
         });
 
 
-        obj->set2.write([](auto& set){
+        obj->set2.write([](auto& self, auto& set){
+            (void) self;
             offset_ptr_t<smthin> s = malloc<smthin>();
             s->a = 4;
             s->b = 2.0;
-            s->v.write([](auto& v) {
+            s->v.write([](auto& self, auto& v) {
+                (void) self;
                 offset_ptr_t<idk> i2 = malloc<idk>();
                 i2->c = '8';
                 v.push_back(i2);
@@ -228,12 +240,16 @@ int main(int argc, char** argv) {
             abcd->a = -4;
             abcd->b = -2.0;
             offset_ptr_t<idk> idk;
-            abcd->v.read([&idk](auto& v){ idk = v[0]; });
+            abcd->v.read([&idk](auto& self, auto& v){
+                (void) self;
+                idk = v[0];
+            });
             idk->c = 'd';
         }
 
         {
-            obj->deque.write([](auto& deque) {
+            obj->deque.write([](auto& self, auto& deque) {
+                (void) self;
                 deque.push_back(4);
                 deque.push_back(2);
                 deque.push_back(4);
@@ -241,19 +257,22 @@ int main(int argc, char** argv) {
             });
         }
 
-        obj->set.write([](auto& set){
+        obj->set.write([](auto& self, auto& set){
+            (void) self;
             set.insert(2);
             set.insert(2);
             set.insert(3);
             set.insert(4);
         });
-        obj->string.write([](auto& string) {
+        obj->string.write([](auto& self, auto& string) {
+            (void) self;
             string = "hello from child process";
         });
         *obj->ptr = -42.42;
         *obj->ptr2 = -4322.42;
 
-        obj->map.write([](auto& map){
+        obj->map.write([](auto& self, auto& map){
+            (void) self;
             map.emplace("yo sup from child", 42);
         });
 
@@ -270,7 +289,8 @@ int main(int argc, char** argv) {
             return std::string("Sup from child's lambda");
         });
 
-        obj->vector3.read([&obj](auto& vector) {
+        obj->vector3.read([&obj](auto& self, auto& vector) {
+            (void) self;
             if (!vector.empty()) {
                 std::cout << (*obj->fn3)(vector[0]) << std::endl;
                 std::cout << "Describe: " << vector[0]->describe() << std::endl;

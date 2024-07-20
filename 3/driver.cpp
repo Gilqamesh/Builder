@@ -167,6 +167,9 @@ static int process_routine(int argc, char** argv) {
     return 0;
 }
 
+#include <boost/asio/io_context.hpp>
+#include <boost/asio/io_service.hpp>
+
 static test_result_t test(const std::string& process_name, size_t n_of_processes) {
     size_t time_start = __rdtsc();
 
@@ -177,18 +180,47 @@ static test_result_t test(const std::string& process_name, size_t n_of_processes
 
     boost::process::group g;
 
-    for (size_t process_index = 0; process_index < n_of_processes; ++process_index) {
-        boost::process::spawn(
-            process_name + " " + shared_memory_name + " " + shared_name,
-            g
-        );
-    }
+    boost::asio::io_context io_context;
+    boost::asio::io_service::work m_fake_work(io_context);
 
+    LOG("Launching processes..");
+    for (size_t process_index = 0; process_index < n_of_processes; ++process_index) {
+        auto c = boost::process::child(
+            process_name + " " + shared_memory_name + " " + shared_name,
+            g,
+            io_context,
+            boost::process::on_exit = [](int exit, const std::error_code &ec) {
+                LOG("Process exited with status code: " << exit << ", error code: '" << ec.message() << "'");
+            }
+        );
+        c.detach();
+        // boost::process::spawn(
+        //     process_name + " " + shared_memory_name + " " + shared_name,
+        //     g,
+        //     boost::process::on_exit = [](int exit, const std::error_code &ec) {
+        //         LOG("Process exited with status code: " << exit << ", error code: '" << ec.message() << "'");
+        //     }
+        // );
+    }
+    LOG("Launched processes!");
+
+    std::thread context_thread([&io_context]() {
+        LOG("Running context..");
+        io_context.run();
+        LOG("Ran context!");
+    });
+
+    LOG("Waiting on group..");
     std::error_code ec;
     g.wait(ec);
     if (ec.value()) {
         LOG("Error while waiting for group: " << ec.message());
     }
+    LOG("Waited for group!");
+
+    LOG("Joining asio context thread..");
+    context_thread.join();
+    LOG("Joined asio context thread!");
 
     size_t time_end = __rdtsc();
 
