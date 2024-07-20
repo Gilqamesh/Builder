@@ -17,6 +17,12 @@ namespace ipc_mem {
         if (m_managed_shared_memory.get_size() < shared_memory_size) {
             throw std::runtime_error("got less memory than expected");
         }
+        std::cout << "shared_memory memory left: " << m_managed_shared_memory.get_size() << std::endl;
+
+        std::cout << "shared_memory creating watcher process" << std::endl;
+        boost::process::spawn(
+            boost::process::args = { "watcher", shared_memory_name }
+        );
     }
 
     shared_memory_t::shared_memory_t(const std::string& shared_memory_name) {
@@ -33,6 +39,18 @@ namespace ipc_mem {
 
         if (m_is_owner) {
             shared_memory_object::remove(m_shared_memory_name.c_str());
+        }
+    }
+
+    bool exists() {
+        using namespace boost::interprocess;
+
+        try {
+            managed_shared_memory(open_only, g_shared_memory->m_shared_memory_name.c_str());
+            
+            return true;
+        } catch (...) {
+            return false;
         }
     }
 
