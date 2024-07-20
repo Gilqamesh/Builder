@@ -35,180 +35,128 @@ shared_allocator_t<T>::shared_allocator_t():
     base(g_shared_memory->m_managed_shared_memory.get_segment_manager()) {
 }
 
-template <typename T, class derived_t>
-multi_accessed_data_t<T, derived_t>::multi_accessed_data_t():
-    multi_accessed_data_t(T{})
-{
-}
-
-template <typename T, class derived_t>
-multi_accessed_data_t<T, derived_t>::multi_accessed_data_t(T&& data):
-    m_data(std::move(data)),
+template <typename T>
+thread_safe_data_t<T>::thread_safe_data_t():
+    m_data{},
     m_readers(0),
-    m_writers(0),
-    m_owners_top(0)
+    m_writers(0)
 {
-    // for (size_t i = 0; i < max_number_of_concurrent_owners; ++i) {
-    //     m_owners[i].m_id = owner_id_t{};
-    //     m_owners[i].m_ownership_count = 0;
-    //     m_owners[i].m_prev_operation = operation_t::NONE;
-    // }
 }
 
-template <typename T, class derived_t>
-void multi_accessed_data_t<T, derived_t>::read(const std::function<void(multi_accessed_data_t&, T&)>& fn) {
-    // note: no need to sync this logic, as only this thread can change our own ownership count, and we are protected against writers in case we have ownership here
-    if (0 < ownership_count()) {
-        operation_t prev_operation = increment_ownership_count(operation_t::READ);
-        fn(*this, m_data);
-        decrement_ownership_count(prev_operation);
-        return ;
-    }
+template <typename T>
+thread_safe_data_t<T>::thread_safe_data_t(T&& data):
+    m_data(boost::move(data)),
+    m_readers(0),
+    m_writers(0)
+{
+}
 
+template <typename T>
+void thread_safe_data_t<T>::read(const std::function<void(T&)>& fn) {
     {
-        guard_mutex_t guard_mutex_writers(m_mutex_writers);
+        std::unique_lock<std::mutex> guard_mutex_writers(m_mutex_writers);
         m_cv_writers.wait(guard_mutex_writers, [this]() { return m_writers == 0; });
     }
 
-    guard_shared_mutex_t guard_mutex_data(m_mutex_data);
+    std::shared_lock<std::shared_mutex> guard_mutex_data(m_mutex_data);
 
     {
-        guard_mutex_t guard_mutex_readers(m_mutex_readers);
+        std::unique_lock<std::mutex> guard_mutex_readers(m_mutex_readers);
         ++m_readers;
+        // std::cout << std::this_thread::get_id() << " readers: " << m_readers << std::endl;
     }
 
-    operation_t prev_operation = increment_ownership_count(operation_t::READ);
-    fn(*this, m_data);
-    decrement_ownership_count(prev_operation);
+    fn(m_data);
 
     {
-        guard_mutex_t guard_mutex_readers(m_mutex_readers);
+        std::unique_lock<std::mutex> guard_mutex_readers(m_mutex_readers);
         --m_readers;
     }
 }
 
-template <typename T, class derived_t>
-void multi_accessed_data_t<T, derived_t>::write(const std::function<void(multi_accessed_data_t&, T&)>& fn) {
-    // note: no need to sync this logic, as only this thread can change our own ownership count, and we are protected against writers in case we have ownership here
-    if (0 < ownership_count()) {
-        operation_t prev_operation = increment_ownership_count(operation_t::WRITE);
-        fn(*this, m_data);
-        decrement_ownership_count(prev_operation);
-        return ;
-    }
-
+template <typename T>
+void thread_safe_data_t<T>::write(const std::function<void(T&)>& fn) {
     {
-        guard_mutex_t guard_mutex_writers(m_mutex_writers);
+        std::unique_lock<std::mutex> guard_mutex_writers(m_mutex_writers);
         ++m_writers;
+        // std::cout << std::this_thread::get_id() << " writers: " << m_writers << std::endl;
     }
 
-    guard_mutex_shared_t guard_mutex_data(m_mutex_data);
+    std::unique_lock<std::shared_mutex> guard_mutex_data(m_mutex_data);
 
-    operation_t prev_operation = increment_ownership_count(operation_t::WRITE);
-    fn(*this, m_data);
-    decrement_ownership_count(prev_operation);
+    fn(m_data);
 
     {
-        guard_mutex_t guard_mutex_writers(m_mutex_writers);
+        std::unique_lock<std::mutex> guard_mutex_writers(m_mutex_writers);
         if (--m_writers == 0) {
             m_cv_writers.notify_all();
         }
     }
 }
 
-template <typename T, class derived_t>
-int multi_accessed_data_t<T, derived_t>::ownership_count() {
-    guard_mutex_t guard_owners_mutex(m_owners_mutex);
-    owner_id_t id = owner_id_namespace::get_id();
-    for (const auto& owner : m_owners) {
-        if (owner.m_id == id) {
-            return owner.m_ownership_count;
-        }
-    }
-
-    return 0;
+template <typename T>
+process_safe_data_t<T>::process_safe_data_t():
+    m_data{},
+    m_readers(0),
+    m_writers(0)
+{
 }
 
-template <typename T, class derived_t>
-multi_accessed_data_t<T, derived_t>::operation_t
-multi_accessed_data_t<T, derived_t>::increment_ownership_count(operation_t operation) {
-    operation_t result = operation_t::NONE;
-
-    guard_mutex_t guard_owners_mutex(m_owners_mutex);
-    owner_id_t id = owner_id_namespace::get_id();
-    auto owner_it = m_owners.begin();
-    auto hole_it = m_owners.end();
-    
-    while (owner_it != m_owners.end()) {
-        if (owner_it->m_id == id) {
-            break ;
-        }
-        if (hole_it == m_owners.end() && owner_it->m_ownership_count == 0) {
-            hole_it = owner_it;
-        }
-
-        ++owner_it;
-    }
-
-    if (owner_it == m_owners.end()) {
-        if (hole_it != m_owners.end()) {
-            owner_it = hole_it;
-        } else {
-            owner_it = m_owners.insert(owner_it, std::move(owner_t()));
-        }
-
-        assert(owner_it != m_owners.end());
-
-        assert(owner_it->m_id == owner_id_t{});
-        owner_it->m_id = id;
-        assert(owner_it->m_ownership_count == 0);
-        owner_it->m_ownership_count = 1;
-        assert(owner_it->m_prev_operation == operation_t::NONE);
-        result = owner_it->m_prev_operation;
-        owner_it->m_prev_operation = operation;
-    } else {
-        assert(owner_it->m_id == id);
-        ++owner_it->m_ownership_count;
-        if (operation == operation_t::WRITE && owner_it->m_prev_operation == operation_t::READ) {
-            throw std::runtime_error("A write operation cannot depend on a read operation");
-        }
-        result = owner_it->m_prev_operation;
-        owner_it->m_prev_operation = operation;
-    }
-
-    return result;
+template <typename T>
+process_safe_data_t<T>::process_safe_data_t(T&& data):
+    m_data(boost::move(data)),
+    m_readers(0),
+    m_writers(0)
+{
 }
 
-template <typename T, class derived_t>
-void multi_accessed_data_t<T, derived_t>::decrement_ownership_count(operation_t operation) {
-    guard_mutex_t guard_owners_mutex(m_owners_mutex);
-    owner_id_t id = owner_id_namespace::get_id();
-    for (auto& owner : m_owners) {
-        if (owner.m_id == id) {
-            assert(0 < owner.m_ownership_count);
-            owner.m_prev_operation = operation;
-            if (--owner.m_ownership_count == 0) {
-                owner.m_id = owner_id_t{};
-                owner = m_owners.back();
-                m_owners.back() = std::move(owner_t());
-                m_owners.shrink_to_fit();
-            }
-            return ;
-        }
+template <typename T>
+void process_safe_data_t<T>::read(const std::function<void(T&)>& fn) {
+    {
+        boost::interprocess::scoped_lock guard_mutex_writers(m_mutex_writers);
+        m_cv_writers.wait(guard_mutex_writers, [this]() { return m_writers == 0; });
     }
 
-    assert(0 && "the thread did not previously have ownership");
+
+    boost::interprocess::sharable_lock guard_mutex_data(m_mutex_data);
+
+    {
+        boost::interprocess::scoped_lock guard_mutex_readers(m_mutex_readers);
+        ++m_readers;
+        // std::cout << std::this_thread::get_id() << " readers: " << m_readers << std::endl;
+    }
+
+    fn(m_data);
+
+    {
+        boost::interprocess::scoped_lock guard_mutex_readers(m_mutex_readers);
+        --m_readers;
+    }
+}
+
+template <typename T>
+void process_safe_data_t<T>::write(const std::function<void(T&)>& fn) {
+    {
+        boost::interprocess::scoped_lock guard_mutex_writers(m_mutex_writers);
+        ++m_writers;
+        // std::cout << std::this_thread::get_id() << " writers: " << m_writers << std::endl;
+    }
+
+    boost::interprocess::scoped_lock guard_mutex_data(m_mutex_data);
+
+    fn(m_data);
+
+    {
+        boost::interprocess::scoped_lock guard_mutex_writers(m_mutex_writers);
+        if (--m_writers == 0) {
+            m_cv_writers.notify_all();
+        }
+    }
 }
 
 template <typename shared_container_t>
 container_base_t<shared_container_t>::container_base_t():
     base(boost::move(shared_container_t(shared_allocator_t<typename shared_container_t::value_type>()))) {
-}
-
-template <typename T>
-shared_vector_base_t<T>::shared_vector_base_t():
-    base(shared_allocator_t<T>())
-{
 }
 
 template <typename T>

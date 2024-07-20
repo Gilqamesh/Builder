@@ -15,13 +15,13 @@ struct message_header_t {
 
 template <typename T>
 struct message_t {
-    message_t();
+    message_t(abs_ptr_t<shared_memory_t> shared_memory);
 
     template <typename... Args>
-    message_t(const T& id, Args&&... args);
+    message_t(abs_ptr_t<shared_memory_t> shared_memory, const T& id, Args&&... args);
 
     message_header_t<T> m_message_header;
-    ipc_mem::shared_vector_t<uint8_t> m_body;
+    shared_vector_t<uint8_t> m_body;
 
     size_t size() const;
 

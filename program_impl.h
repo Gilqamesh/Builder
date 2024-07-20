@@ -3,36 +3,38 @@
 namespace program {
 
 template <typename signature_t>
-signature_t fn_signature_derived_t<signature_t>::add(ipc_mem::offset_ptr_t<base_t> program, const std::string& name, const signature_t& fn) {
+fn_signature_derived_t<signature_t>::fn_signature_derived_t():
+    m_program_type_to_name_to_fn_ptr(g_context->m_shared_memory) {
+}
+
+template <typename signature_t>
+signature_t fn_signature_derived_t<signature_t>::add(offset_ptr_t<base_t> program, const std::string& name, const signature_t& fn) {
     assert(!find(program, name));
-    std::string program_type;
-    program->m_program_type.read([&program_type](auto& string) {
-        program_type = string;
-    });
-    auto it_name_to_fn_ptr = m_program_type_to_name_to_fn_ptr.find(program->m_program_type);
+    auto shared_memory = g_context->m_shared_memory;
+    auto it_name_to_fn_ptr = m_program_type_to_name_to_fn_ptr.find(shared_string_t(shared_memory, program->m_program_type));
     if (it_name_to_fn_ptr == m_program_type_to_name_to_fn_ptr.end()) {
         auto emplace_result = m_program_type_to_name_to_fn_ptr.emplace(
-            program_type,
-            malloc<name_to_fn_ptr_t>()
+            shared_string_t(shared_memory, program->m_program_type),
+            shared_memory->malloc<name_to_fn_ptr_t>(shared_memory)
         );
         assert(emplace_result.second);
         it_name_to_fn_ptr = emplace_result.first;
         assert(it_name_to_fn_ptr != m_program_type_to_name_to_fn_ptr.end());
     }
 
-    auto emplace_result = it_name_to_fn_ptr->second->emplace(name, malloc<signature_t>(fn));
+    auto emplace_result = it_name_to_fn_ptr->second->emplace(shared_string_t(shared_memory, name), shared_memory->malloc<signature_t>(fn));
     assert(emplace_result.second);
     return *emplace_result.first->second;
 }
 
 template <typename signature_t>
-signature_t fn_signature_derived_t<signature_t>::find(ipc_mem::offset_ptr_t<base_t> program, const std::string& name) {
-    auto it_program_type_to_name_to_fn_ptr = m_program_type_to_name_to_fn_ptr.find(program->m_program_type);
+signature_t fn_signature_derived_t<signature_t>::find(offset_ptr_t<base_t> program, const std::string& name) {
+    auto it_program_type_to_name_to_fn_ptr = m_program_type_to_name_to_fn_ptr.find(shared_string_t(g_context->m_shared_memory, program->m_program_type));
     if (it_program_type_to_name_to_fn_ptr == m_program_type_to_name_to_fn_ptr.end()) {
         return 0;
     }
     
-    auto it_fn_ptr = it_program_type_to_name_to_fn_ptr->second->find(name);
+    auto it_fn_ptr = it_program_type_to_name_to_fn_ptr->second->find(shared_string_t(g_context->m_shared_memory, std::string(name.begin(), name.end())));
     if (it_fn_ptr == it_program_type_to_name_to_fn_ptr->second->end()) {
         return 0;
     }
@@ -42,7 +44,7 @@ signature_t fn_signature_derived_t<signature_t>::find(ipc_mem::offset_ptr_t<base
 
 template <typename program_t>
 base_initializer_t<program_t>::base_initializer_t(
-    std::initializer_list<ipc_mem::offset_ptr_t<base_t>> inputs,
+    std::initializer_list<offset_ptr_t<base_t>> inputs,
     run_fn_t run_fn,
     describe_fn_t describe_fn
 ): base_t(typeid(program_t).name()) {
@@ -54,56 +56,44 @@ base_initializer_t<program_t>::base_initializer_t(
     }
 
     // todo: call type specific assert check on inputs
-    for (ipc_mem::offset_ptr_t<base_t> input : inputs) {
+    for (offset_ptr_t<base_t> input : inputs) {
         add_input(this, input);
     }
 }
 
 template <typename signature_t>
-signature_t add_fn(ipc_mem::offset_ptr_t<base_t> program, const std::string& name, const signature_t& fn) {
+signature_t add_fn(offset_ptr_t<base_t> program, const std::string& name, const signature_t& fn) {
     if (find_fn<signature_t>(program, name)) {
         return 0;
     }
 
-    signature_t result = 0;
+    auto it_fn_signature = g_context->m_shared_namespace->m_fn_signatures.find(shared_string_t(g_context->m_shared_memory, std::string(typeid(signature_t).name())));
+    if (it_fn_signature == g_context->m_shared_namespace->m_fn_signatures.end()) {
+        g_context->m_shared_namespace->m_fn_signatures.emplace(
+            shared_string_t(g_context->m_shared_memory, std::string(typeid(signature_t).name())),
+            g_context->m_shared_memory->malloc<fn_signature_derived_t<signature_t>>()
+        );
+        it_fn_signature = g_context->m_shared_namespace->m_fn_signatures.find(shared_string_t(g_context->m_shared_memory, std::string(typeid(signature_t).name())));
+        assert(it_fn_signature != g_context->m_shared_namespace->m_fn_signatures.end());
+    }
 
-    g_context->m_shared_namespace->m_fn_signatures.write([&result, &program, &name, &fn](auto& map) {
-        auto it_fn_signature = map.find(std::string(typeid(signature_t).name()));
-        if (it_fn_signature == map.end()) {
-            map.emplace(
-                std::string(typeid(signature_t).name()),
-                malloc<fn_signature_derived_t<signature_t>>()
-            );
-            it_fn_signature = map.find(std::string(typeid(signature_t).name()));
-            assert(it_fn_signature != map.end());
-        }
-
-        fn_signature_derived_t<signature_t>* signature = static_cast<fn_signature_derived_t<signature_t>*>(it_fn_signature->second.get());
-        result = signature->add(program, name, fn);
-    });
-
-    return result;
+    fn_signature_derived_t<signature_t>* signature = static_cast<fn_signature_derived_t<signature_t>*>(it_fn_signature->second.get());
+    return signature->add(program, name, fn);
 }
 
 template <typename signature_t>
-signature_t find_fn(ipc_mem::offset_ptr_t<base_t> program, const std::string& name) {
-    signature_t result = 0;
+signature_t find_fn(offset_ptr_t<base_t> program, const std::string& name) {
+    auto it_map_fn_signature_base = g_context->m_shared_namespace->m_fn_signatures.find(shared_string_t(g_context->m_shared_memory, std::string(typeid(signature_t).name())));
+    if (it_map_fn_signature_base == g_context->m_shared_namespace->m_fn_signatures.end()) {
+        return 0;
+    }
 
-    g_context->m_shared_namespace->m_fn_signatures.read([&result, &program, &name](auto& map) {
-        auto it_map_fn_signature_base = map.find(std::string(typeid(signature_t).name()));
-        if (it_map_fn_signature_base == map.end()) {
-            return 0;
-        }
-
-        fn_signature_derived_t<signature_t>* signature = static_cast<fn_signature_derived_t<signature_t>*>(it_map_fn_signature_base->second.get());
-        result = signature->find(program, name);
-    });
-
-    return result;
+    fn_signature_derived_t<signature_t>* signature = static_cast<fn_signature_derived_t<signature_t>*>(it_map_fn_signature_base->second.get());
+    return signature->find(program, name);
 }
 
 template <typename signature_t, typename... Args>
-auto call_fn(ipc_mem::offset_ptr_t<base_t> program, const std::string& fn_name, Args&&... args) -> decltype(std::declval<signature_t>()(std::forward<Args>(args)...)) {
+auto call_fn(offset_ptr_t<base_t> program, const std::string& fn_name, Args&&... args) -> decltype(std::declval<signature_t>()(std::forward<Args>(args)...)) {
     auto fn = find_fn<signature_t>(program, fn_name);
     if (!fn) {
         // note: describe is mandatory to implement for all programs, so there shouldn't be infinite loop here in case describe doesn't exist
@@ -114,54 +104,46 @@ auto call_fn(ipc_mem::offset_ptr_t<base_t> program, const std::string& fn_name, 
 }
 
 template <typename program_t, typename... Args>
-ipc_mem::offset_ptr_t<program_t> malloc_program_named(const std::string& program_name, Args&&... args) {
-    ipc_mem::offset_ptr_t<program_t> program = malloc_named<program_t>(program_name, std::forward<Args>(args)...);
-    g_context->m_shared_namespace->m_programs.write([&program](auto& programs_vec) {
-        programs_vec.push_back(program);
-    });
+offset_ptr_t<program_t> malloc_program_named(const std::string& program_name, Args&&... args) {
+    offset_ptr_t<program_t> program = g_context->m_shared_memory->malloc_named<program_t>(program_name, std::forward<Args>(args)...);
+    g_context->m_shared_namespace->m_programs.push_back(program);
     return program;
 }
 
 template <typename program_t, typename... Args>
-ipc_mem::offset_ptr_t<program_t> malloc_program(Args&&... args) {
-    ipc_mem::offset_ptr_t<program_t> program = malloc<program_t>(std::forward<Args>(args)...);
-    g_context->m_shared_namespace->m_programs.write([&program](auto& programs_vec) {
-        programs_vec.push_back(program);
-    });
+offset_ptr_t<program_t> malloc_program(Args&&... args) {
+    offset_ptr_t<program_t> program = g_context->m_shared_memory->malloc<program_t>(std::forward<Args>(args)...);
+    g_context->m_shared_namespace->m_programs.push_back(program);
     return program;
 }
 
 template <typename program_t>
-ipc_mem::offset_ptr_t<program_t> find_named_program(const std::string& program_name) {
-    return find_named<program_t>(program_name);
+offset_ptr_t<program_t> find_named_program(const std::string& program_name) {
+    return g_context->m_shared_memory->find_named<program_t>(program_name);
 }
 
 template <typename... Args>
 int send(int address, const custom_message_t& type, Args&&... data) {
-    int result = 0;
+    auto message_queue_it = g_context->m_shared_namespace->m_message_queues.find(address);
+    if (message_queue_it == g_context->m_shared_namespace->m_message_queues.end()) {
+        return 1;
+    }
 
-    g_context->m_shared_namespace->m_message_queues.write([&result, address, &type, ... data = std::forward<Args>(data)](auto& message_queues) {
-        auto message_queues_it = message_queues.find(address);
-        if (message_queues_it == message_queues.end()) {
-            result = 1;
-            return ;
-        }
+    auto message_queue = message_queue_it->second;
 
-        auto message_queue = message_queues_it->second;
+    std::cout << "[" << boost::this_process::get_id() << "] sending message to [" << address << "]" << std::endl;
+    {
+        message_queue->scoped_lock();
+        message_queue->push_back(
+            g_context->m_shared_memory->malloc<message_t<custom_message_t>>(
+                g_context->m_shared_memory,
+                type,
+                std::forward<Args>(data)...
+            )
+        );
+    }
 
-        std::cout << "[" << boost::this_process::get_id() << "] sending message to [" << address << "]" << std::endl;
-        {
-            message_queue->scoped_lock();
-            message_queue->push_back(
-                malloc<message_t<custom_message_t>>(
-                    type,
-                    std::forward<Args>(data)...
-                )
-            );
-        }
-    });
-
-    return result;
+    return 0;
 }
 
 } // namespace program

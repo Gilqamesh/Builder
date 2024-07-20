@@ -20,16 +20,12 @@
 
 namespace program {
 
-ipc_mem::abs_ptr_t<context_t> g_context = 0;
-ipc_mem::offset_ptr_t<base_t> g_pulse = 0;
-ipc_mem::offset_ptr_t<base_t> g_oscillator_200ms = 0;
+abs_ptr_t<context_t> g_context = 0;
+offset_ptr_t<base_t> g_pulse = 0;
+offset_ptr_t<base_t> g_oscillator_200ms = 0;
 
-std::string debug_shared_string_to_std_string(const ipc_mem::shared_string_t<char>& str) {
-    std::string result;
-    const_cast<ipc_mem::shared_string_t<char>&>(str).read([&result](auto& string) {
-        result.assign(string.begin(), string.end());
-    });
-    return result;
+std::string debug_shared_string_to_std_string(const shared_string_t<char>& str) {
+    return std::string(str.begin(), str.end());
 }
 
 std::string time_type__serialize(const time_type_t& t) {
@@ -45,16 +41,36 @@ time_type_t time_type__deserialize(const std::string& serialized_time) {
 }
 
 base_t::base_t(const std::string& program_type):
-    m_program_type(program_type)
-{
+    m_program_type(g_context->m_shared_memory, program_type),
+    m_inputs(g_context->m_shared_memory),
+    m_outputs(g_context->m_shared_memory) {
     m_is_running = 0;
     m_n_runs = 0;
     m_n_finished_runs = 0;
     m_n_success = 0;
     m_n_failure = 0;
+
+    m_shared_memory_name_hash = std::hash<std::string>()(g_context->m_shared_memory->m_shared_memory_name);
+    m_unique_counter = (*g_context->m_shared_memory->m_unique_counter)++;
+    std::string unique_file_name("tmp_locks/" + std::to_string(m_shared_memory_name_hash) + "_" + std::to_string(m_unique_counter));
+    {
+        std::ofstream file_lock(unique_file_name, std::ofstream::trunc | std::ofstream::out);
+        if (!file_lock) {
+            throw std::runtime_error("Could not create file lock '" + unique_file_name + "'");
+        }
+    }
+
+    m_file_lock = boost::interprocess::file_lock(unique_file_name.c_str());
+}
+
+base_t::~base_t() {
+    std::string unique_file_name("tmp_locks/" + std::to_string(m_shared_memory_name_hash) + "_" + std::to_string(m_unique_counter));
+    std::remove(unique_file_name.c_str());
 }
 
 void base_t::set_start(time_type_t t) {
+    auto lock = scoped_lock_write();
+
     if (m_is_running) {
         set_finish(t);
     }
@@ -65,6 +81,8 @@ void base_t::set_start(time_type_t t) {
 }
 
 void base_t::set_success(time_type_t t) {
+    auto lock = scoped_lock_write();
+
     assert(m_is_running);
 
     m_t_success = t;
@@ -72,6 +90,8 @@ void base_t::set_success(time_type_t t) {
 }
 
 void base_t::set_failure(time_type_t t) {
+    auto lock = scoped_lock_write();
+
     assert(m_is_running);
 
     m_t_failure = t;
@@ -79,6 +99,8 @@ void base_t::set_failure(time_type_t t) {
 }
 
 void base_t::set_finish(time_type_t t) {
+    auto lock = scoped_lock_write();
+
     assert(m_is_running);
 
     m_t_finish = t;
@@ -86,13 +108,21 @@ void base_t::set_finish(time_type_t t) {
     ++m_n_finished_runs;
 }
 
+boost::interprocess::sharable_lock<boost::interprocess::file_lock> base_t::scoped_lock_read() {
+    return boost::interprocess::sharable_lock<boost::interprocess::file_lock>(m_file_lock);
+}
+
+boost::interprocess::scoped_lock<boost::interprocess::file_lock> base_t::scoped_lock_write() {
+    return boost::interprocess::scoped_lock<boost::interprocess::file_lock>(m_file_lock);
+}
+
 process_t::process_t(
-    std::initializer_list<ipc_mem::offset_ptr_t<base_t>> inputs
+    std::initializer_list<offset_ptr_t<base_t>> inputs
 ):
     base_initializer_t<process_t>(
         inputs,
-        [](ipc_mem::offset_ptr_t<base_t> base, time_type_t time_propagate) {
-            ipc_mem::offset_ptr_t<process_t> self = static_cast<ipc_mem::offset_ptr_t<process_t>>(base);
+        [](offset_ptr_t<base_t> base, time_type_t time_propagate) {
+            offset_ptr_t<process_t> self = static_cast<offset_ptr_t<process_t>>(base);
             
             if (base->m_is_running) {
                 try {
@@ -105,13 +135,11 @@ process_t::process_t(
                     std::cout << "kekw: " << e.what() << std::endl;
                 }
 
-                base->m_outputs.read([](auto& outputs) {
-                    for (ipc_mem::offset_ptr_t<base_t> output : outputs) {
-                        if (output->m_is_running) {
-                            output->set_finish(get_time());
-                        }
+                for (offset_ptr_t<base_t> output : base->m_outputs) {
+                    if (output->m_is_running) {
+                        output->set_finish(get_time());
                     }
-                });
+                }
                 base->set_finish(get_time());
             }
             base->set_start(get_time());
@@ -133,8 +161,8 @@ process_t::process_t(
 
             return 1;
         },
-        [](ipc_mem::offset_ptr_t<base_t> base) -> std::string {
-            ipc_mem::offset_ptr_t<process_t> self = static_cast<ipc_mem::offset_ptr_t<process_t>>(base);
+        [](offset_ptr_t<base_t> base) -> std::string {
+            offset_ptr_t<process_t> self = static_cast<offset_ptr_t<process_t>>(base);
 
             std::string result("process");
             if (self->m_child_id) {
@@ -150,12 +178,13 @@ process_t::process_t(
     m_child_id = 0;
 }
 
-ipc_mem::offset_ptr_t<process_t> process(std::initializer_list<ipc_mem::offset_ptr_t<base_t>> inputs) {
+offset_ptr_t<process_t> process(std::initializer_list<offset_ptr_t<base_t>> inputs) {
     std::string unique_name("process_" + std::to_string(g_context->m_shared_namespace->m_unique_counter++));
     offset_ptr_t<process_t> result = malloc_program_named<process_t>(unique_name, inputs);
     result->m_shared_unique_process_name.assign(unique_name.begin(), unique_name.end());
     return result;
 }
+
 
 void process_t::read() {
     using namespace boost::process;
@@ -230,15 +259,15 @@ void process_t::read_handler(
 }
 
 lambda_t::lambda_t(
-    std::initializer_list<ipc_mem::offset_ptr_t<base_t>> inputs,
+    std::initializer_list<offset_ptr_t<base_t>> inputs,
     lambda_fn_t fn
 ):
     base_initializer_t<lambda_t>(
         inputs,
-        [](ipc_mem::offset_ptr_t<base_t> base, time_type_t time_propagate) {
+        [](offset_ptr_t<base_t> base, time_type_t time_propagate) {
             (void) time_propagate;
 
-            ipc_mem::offset_ptr_t<lambda_t> self = static_cast<ipc_mem::offset_ptr_t<lambda_t>>(base);
+            offset_ptr_t<lambda_t> self = static_cast<offset_ptr_t<lambda_t>>(base);
 
             // todo: no need to run it async, we can just call it here..
             // if (self->m_context_id == boost::this_process::get_id()) {
@@ -252,7 +281,7 @@ lambda_t::lambda_t(
 
             return 1;
         },
-        [](ipc_mem::offset_ptr_t<base_t> base) -> std::string {
+        [](offset_ptr_t<base_t> base) -> std::string {
             (void) base;
             return "lambda";
         }
@@ -261,22 +290,22 @@ lambda_t::lambda_t(
     m_fn = fn;
 }
 
-ipc_mem::offset_ptr_t<lambda_t> lambda(
-    std::initializer_list<ipc_mem::offset_ptr_t<base_t>> inputs,
+offset_ptr_t<lambda_t> lambda(
+    std::initializer_list<offset_ptr_t<base_t>> inputs,
     lambda_t::lambda_fn_t fn
 ) {
     return malloc_program<lambda_t>(inputs, fn);
 }
 
 file_modified_t::file_modified_t(
-    std::initializer_list<ipc_mem::offset_ptr_t<base_t>> inputs,
+    std::initializer_list<offset_ptr_t<base_t>> inputs,
     const std::string& path
 ):
     base_initializer_t<file_modified_t>(
         inputs,
         [](offset_ptr_t<base_t> base, time_type_t time_propagate) {
             (void) time_propagate;
-            ipc_mem::offset_ptr_t<file_modified_t> self = static_cast<ipc_mem::offset_ptr_t<file_modified_t>>(base);
+            offset_ptr_t<file_modified_t> self = static_cast<offset_ptr_t<file_modified_t>>(base);
 
             time_type_t t_cur = get_time();
 
@@ -297,8 +326,8 @@ file_modified_t::file_modified_t(
 
             return 0;
         },
-        [](ipc_mem::offset_ptr_t<base_t> base) -> std::string {
-            ipc_mem::offset_ptr_t<file_modified_t> self = static_cast<ipc_mem::offset_ptr_t<file_modified_t>>(base);
+        [](offset_ptr_t<base_t> base) -> std::string {
+            offset_ptr_t<file_modified_t> self = static_cast<offset_ptr_t<file_modified_t>>(base);
 
             return std::string(self->m_path.begin(), self->m_path.end()) + " " + std::format("{}", base->m_t_success);
         }
@@ -310,8 +339,8 @@ file_modified_t::file_modified_t(
     propagate_past_events(this);
 }
 
-ipc_mem::offset_ptr_t<file_modified_t> file_modified(
-    std::initializer_list<ipc_mem::offset_ptr_t<base_t>> inputs,
+offset_ptr_t<file_modified_t> file_modified(
+    std::initializer_list<offset_ptr_t<base_t>> inputs,
     const std::string& path
 ) {
     return malloc_program<file_modified_t>(inputs, path);
@@ -320,7 +349,7 @@ ipc_mem::offset_ptr_t<file_modified_t> file_modified(
 pulse_t::pulse_t():
     base_initializer_t<pulse_t>(
         {},
-        [](ipc_mem::offset_ptr_t<base_t> base, time_type_t time_propagate) {
+        [](offset_ptr_t<base_t> base, time_type_t time_propagate) {
             (void) time_propagate;
 
             time_type_t t_cur = get_time();
@@ -330,22 +359,22 @@ pulse_t::pulse_t():
 
             return 0;
         },
-        [](ipc_mem::offset_ptr_t<base_t> base) -> std::string {
+        [](offset_ptr_t<base_t> base) -> std::string {
             return std::format("time {}", base->m_t_success);
         }
     ) {
 }
 
-ipc_mem::offset_ptr_t<pulse_t> pulse() {
+offset_ptr_t<pulse_t> pulse() {
     return malloc_program<pulse_t>();
 }
 
-oscillator_t::oscillator_t(std::initializer_list<ipc_mem::offset_ptr_t<base_t>> inputs, double periodicity_s):
+oscillator_t::oscillator_t(std::initializer_list<offset_ptr_t<base_t>> inputs, double periodicity_s):
     base_initializer_t<oscillator_t>(
         inputs,
-        [](ipc_mem::offset_ptr_t<base_t> base, time_type_t time_propagate) {
+        [](offset_ptr_t<base_t> base, time_type_t time_propagate) {
             (void) time_propagate;
-            ipc_mem::offset_ptr_t<oscillator_t> self = static_cast<ipc_mem::offset_ptr_t<oscillator_t>>(base);
+            offset_ptr_t<oscillator_t> self = static_cast<offset_ptr_t<oscillator_t>>(base);
 
             time_type_t t_cur = get_time();
 
@@ -371,16 +400,16 @@ oscillator_t::oscillator_t(std::initializer_list<ipc_mem::offset_ptr_t<base_t>> 
 
             return 0;
         },
-        [](ipc_mem::offset_ptr_t<base_t> base) -> std::string {
-            ipc_mem::offset_ptr_t<oscillator_t> self = static_cast<ipc_mem::offset_ptr_t<oscillator_t>>(base);
+        [](offset_ptr_t<base_t> base) -> std::string {
+            offset_ptr_t<oscillator_t> self = static_cast<offset_ptr_t<oscillator_t>>(base);
             return "oscillator [" + std::to_string(self->m_periodicity_s) + "s]";
         }
     ),
     m_periodicity_s(periodicity_s) {
 }
 
-ipc_mem::offset_ptr_t<oscillator_t> oscillator(
-    std::initializer_list<ipc_mem::offset_ptr_t<base_t>> inputs,
+offset_ptr_t<oscillator_t> oscillator(
+    std::initializer_list<offset_ptr_t<base_t>> inputs,
     double periodicity_s
 ) {
     return malloc_program<oscillator_t>(inputs, periodicity_s);
@@ -496,7 +525,7 @@ int process_driver(int argc, char** argv) {
 
     std::cout << "[" << boost::this_process::get_id() << "] finding process named '" << program_name << "'" << std::endl;
 
-    ipc_mem::offset_ptr_t<process_t> process = find_named_program<process_t>(program_name);
+    offset_ptr_t<process_t> process = find_named_program<process_t>(program_name);
     if (!process) {
         std::cerr << "[" << boost::this_process::get_id() << "] could not find process '" << program_name << "'" << std::endl;
         return 1;
@@ -504,7 +533,7 @@ int process_driver(int argc, char** argv) {
 
     std::cout << "[" << boost::this_process::get_id() << "] running programs..." << std::endl;
 
-    for (ipc_mem::offset_ptr_t<base_t> output : process->m_outputs) {
+    for (offset_ptr_t<base_t> output : process->m_outputs) {
         std::cout << "[" << boost::this_process::get_id() << "] running '" << call_fn<describe_fn_t>(output, "describe", output) << "'" << std::endl;
         if (run_impl(output, time_propagate)) {
             continue ;
@@ -577,14 +606,14 @@ int run_preamble(offset_ptr_t<base_t> program, time_type_t time_propagate) {
         return 1;
     }
 
-    std::function<void(ipc_mem::offset_ptr_t<base_t>)> propagate_time;
-    propagate_time = [&propagate_time, time_propagate](ipc_mem::offset_ptr_t<base_t> program) {
+    std::function<void(offset_ptr_t<base_t>)> propagate_time;
+    propagate_time = [&propagate_time, time_propagate](offset_ptr_t<base_t> program) {
         if (time_propagate <= program->m_t_propagate) {
             return ;
         }
         program->m_t_propagate = time_propagate;
 
-        for (ipc_mem::offset_ptr_t<base_t> output : program->m_outputs) {
+        for (offset_ptr_t<base_t> output : program->m_outputs) {
             propagate_time(output);
         }
     };
@@ -594,7 +623,7 @@ int run_preamble(offset_ptr_t<base_t> program, time_type_t time_propagate) {
         return 0;
     }
 
-    for (ipc_mem::offset_ptr_t<base_t> input : program->m_inputs) {
+    for (offset_ptr_t<base_t> input : program->m_inputs) {
         assert(!(time_propagate < input->m_t_propagate) && "how didn't the input propogate it's propogation time to us?");
         if (input->m_t_propagate == time_propagate) {
             if (input->m_t_start < time_propagate) {
@@ -605,7 +634,7 @@ int run_preamble(offset_ptr_t<base_t> program, time_type_t time_propagate) {
     }
 
     time_type_t most_recent_input;
-    for (ipc_mem::offset_ptr_t<base_t> input : program-> m_inputs) {
+    for (offset_ptr_t<base_t> input : program-> m_inputs) {
         if (input->m_t_success < input->m_t_failure) {
             // input program in failed status
             return 1;
@@ -620,7 +649,7 @@ int run_preamble(offset_ptr_t<base_t> program, time_type_t time_propagate) {
     }
 
     time_type_t most_oldest_output;
-    for (ipc_mem::offset_ptr_t<base_t> output : program->m_outputs) {
+    for (offset_ptr_t<base_t> output : program->m_outputs) {
         most_oldest_output = std::min(most_oldest_output, output->m_t_success);
     }
 
@@ -632,17 +661,17 @@ int run_preamble(offset_ptr_t<base_t> program, time_type_t time_propagate) {
     return 0;
 }
 
-int run_impl(ipc_mem::offset_ptr_t<base_t> program, time_type_t time_propagate) {
+int run_impl(offset_ptr_t<base_t> program, time_type_t time_propagate) {
     // std::cout << "run: " << call_fn<describe_fn_t>(program, "describe", program) << std::endl;
     return call_fn<run_fn_t>(program, "run", program, time_propagate);
 }
 
-int run_postamble(ipc_mem::offset_ptr_t<base_t> program, time_type_t time_propagate) {
+int run_postamble(offset_ptr_t<base_t> program, time_type_t time_propagate) {
     if (program->m_t_success <= program->m_t_failure) {
         return 1;
     }
 
-    for (ipc_mem::offset_ptr_t<base_t> output : program->m_outputs) {
+    for (auto& output : program->m_outputs) {
         if (output->m_t_start < program->m_t_success) {
             run(output, time_propagate);
         }
@@ -651,7 +680,7 @@ int run_postamble(ipc_mem::offset_ptr_t<base_t> program, time_type_t time_propag
     return 0;
 }
 
-void run(ipc_mem::offset_ptr_t<base_t> program, time_type_t time_propagate) {
+void run(offset_ptr_t<base_t> program, time_type_t time_propagate) {
     if (run_preamble(program, time_propagate)) {
         return ;
     }
@@ -663,7 +692,7 @@ void run(ipc_mem::offset_ptr_t<base_t> program, time_type_t time_propagate) {
     run_postamble(program, time_propagate);
 }
 
-void propagate_past_events(ipc_mem::offset_ptr_t<base_t> program) {
+void propagate_past_events(offset_ptr_t<base_t> program) {
     time_type_t time_init = get_time_init();
 
     if (
@@ -673,7 +702,7 @@ void propagate_past_events(ipc_mem::offset_ptr_t<base_t> program) {
         return ;
     }
 
-    for (ipc_mem::offset_ptr_t<base_t> input : program->m_inputs) {
+    for (offset_ptr_t<base_t> input : program->m_inputs) {
         if (
             program->m_t_success <= input->m_t_success ||
             input->m_t_success < input->m_t_failure
@@ -686,7 +715,7 @@ void propagate_past_events(ipc_mem::offset_ptr_t<base_t> program) {
     }
 }
 
-void add_input(ipc_mem::offset_ptr_t<base_t> program, ipc_mem::offset_ptr_t<base_t> input) {
+void add_input(offset_ptr_t<base_t> program, offset_ptr_t<base_t> input) {
     program->m_inputs.push_back(input);
     input->m_outputs.push_back(program);
 
@@ -695,18 +724,18 @@ void add_input(ipc_mem::offset_ptr_t<base_t> program, ipc_mem::offset_ptr_t<base
     propagate_past_events(program);
 }
 
-void validate_no_circle(ipc_mem::offset_ptr_t<base_t> program) {
-    std::unordered_set<ipc_mem::abs_ptr_t<base_t>> found_outputs;
-    std::function<ipc_mem::abs_ptr_t<base_t>(ipc_mem::abs_ptr_t<base_t>)> find_circle;
-    find_circle = [&find_circle, &found_outputs](ipc_mem::abs_ptr_t<base_t> program) -> abs_ptr_t<base_t> {
+void validate_no_circle(offset_ptr_t<base_t> program) {
+    std::unordered_set<abs_ptr_t<base_t>> found_outputs;
+    std::function<abs_ptr_t<base_t>(abs_ptr_t<base_t>)> find_circle;
+    find_circle = [&find_circle, &found_outputs](abs_ptr_t<base_t> program) -> abs_ptr_t<base_t> {
         auto found_output_it = found_outputs.find(program);
         if (found_output_it != found_outputs.end()) {
             return *found_output_it;
         }
         found_outputs.insert(program);
 
-        for (ipc_mem::offset_ptr_t<base_t> output : program->m_outputs) {
-            abs_ptr_t<ipc_mem::base_t> fund_output = find_circle(output.get());
+        for (offset_ptr_t<base_t> output : program->m_outputs) {
+            abs_ptr_t<base_t> fund_output = find_circle(output.get());
             if (fund_output) {
                 return fund_output;
             }
@@ -721,12 +750,12 @@ void validate_no_circle(ipc_mem::offset_ptr_t<base_t> program) {
     }
 }
 
-void dispatch(ipc_mem::offset_ptr_t<message_t<custom_message_t>> message) {
+void dispatch(offset_ptr_t<message_t<custom_message_t>> message) {
     switch (message->m_message_header.m_id) {
     case custom_message_t::MESSAGE_LAMBDA: {
         time_type_t time_propagated;
         lambda_t::lambda_fn_t fn;
-        ipc_mem::offset_ptr_t<base_t> base;
+        offset_ptr_t<base_t> base;
         (*message) >> time_propagated >> fn >> base;
         std::cout << "Got the message, executing lambda " << fn << " " << base << std::endl;
         fn(base);
