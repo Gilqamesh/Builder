@@ -19,8 +19,6 @@
 # include <boost/interprocess/sync/interprocess_condition.hpp>
 # include <boost/interprocess/sync/interprocess_mutex.hpp>
 # include <boost/interprocess/sync/interprocess_sharable_mutex.hpp>
-# include <boost/interprocess/sync/interprocess_recursive_mutex.hpp>
-# include <boost/process.hpp>
 
 namespace ipc_mem {
 
@@ -92,173 +90,53 @@ void free(offset_ptr_t<T> ptr);
 template <typename T>
 offset_ptr_t<T> find_named(const std::string& object_name);
 
-
-template <typename condition_variable_t, typename guard_mutex_t>
-concept concept_condition_variable_t = requires (
-    condition_variable_t& condition_variable,
-    guard_mutex_t& guard_mutex,
-    const std::function<bool()>& predicate_fn
-) {
-    { condition_variable.wait(guard_mutex, predicate_fn) } -> std::same_as<void>;
-    { condition_variable.notify_one() } -> std::same_as<void>;
-    { condition_variable.notify_all() } -> std::same_as<void>;
-};
-
-template <typename owner_id_namespace, typename owner_id_t>
-concept concept_owner_id_namespace = requires() {
-    { owner_id_namespace::get_id() } -> std::same_as<owner_id_t>;
-};
-
-template <typename mutex_t>
-concept concept_mutex_t = requires (mutex_t& mutex) {
-    { mutex.lock() } -> std::same_as<void>;
-    { mutex.unlock() } -> std::same_as<void>;
-};
-
-template <typename guard_mutex_t, typename mutex_t>
-concept concept_guard_mutex_t = requires (guard_mutex_t& guard_mutex, mutex_t& mutex) {
-    std::constructible_from<guard_mutex_t, mutex_t&>;
-    { guard_mutex.lock() } -> std::same_as<void>;
-    { guard_mutex.unlock() } -> std::same_as<void>;
-};
-
-template <typename T, class derived_t>
-struct multi_accessed_data_t;
-
-template <typename T>
-struct multi_accessed_data_traits_t;
-
-template <typename T>
-struct thread_safe_data_t : public multi_accessed_data_t<T, thread_safe_data_t<T>> {
-    template <typename U>
-    using vector_t             = typename multi_accessed_data_traits_t<thread_safe_data_t>::template vector_t<U>;
-    using mutex_t              = typename multi_accessed_data_traits_t<thread_safe_data_t>::mutex_t;
-    using shared_mutex_t       = typename multi_accessed_data_traits_t<thread_safe_data_t>::shared_mutex_t;
-    using condition_variable_t = typename multi_accessed_data_traits_t<thread_safe_data_t>::condition_variable_t;
-    using owner_id_t           = typename multi_accessed_data_traits_t<thread_safe_data_t>::owner_id_t;
-    using owner_id_namespace   = typename multi_accessed_data_traits_t<thread_safe_data_t>::owner_id_namespace;
-    using guard_mutex_t        = typename multi_accessed_data_traits_t<thread_safe_data_t>::guard_mutex_t;
-    using guard_mutex_shared_t = typename multi_accessed_data_traits_t<thread_safe_data_t>::guard_mutex_shared_t;
-    using guard_shared_mutex_t = typename multi_accessed_data_traits_t<thread_safe_data_t>::guard_shared_mutex_t;
-};
-
-template <typename T>
-struct multi_accessed_data_traits_t<thread_safe_data_t<T>> {
-    template <typename U>
-    using vector_t             = std::vector<U>;
-    using mutex_t              = typename std::mutex;
-    using shared_mutex_t       = typename std::shared_mutex;
-    using condition_variable_t = typename std::condition_variable;
-    using owner_id_t           = typename std::thread::id;
-    struct owner_id_namespace {
-        static owner_id_t get_id() {
-            return std::this_thread::get_id();
-        }
-    };
-    using guard_mutex_t        = typename std::unique_lock<mutex_t>;
-    using guard_mutex_shared_t = typename std::unique_lock<shared_mutex_t>;
-    using guard_shared_mutex_t = typename std::shared_lock<shared_mutex_t>;
-};
-
-template <typename T>
-struct process_safe_data_t : public multi_accessed_data_t<T, process_safe_data_t<T>> {
-    template <typename U>
-    using vector_t             = typename multi_accessed_data_traits_t<process_safe_data_t>::template vector_t<U>;
-    using mutex_t              = typename multi_accessed_data_traits_t<process_safe_data_t>::mutex_t;
-    using shared_mutex_t       = typename multi_accessed_data_traits_t<process_safe_data_t>::shared_mutex_t;
-    using condition_variable_t = typename multi_accessed_data_traits_t<process_safe_data_t>::condition_variable_t;
-    using owner_id_t           = typename multi_accessed_data_traits_t<process_safe_data_t>::owner_id_t;
-    using owner_id_namespace   = typename multi_accessed_data_traits_t<process_safe_data_t>::owner_id_namespace;
-    using guard_mutex_t        = typename multi_accessed_data_traits_t<process_safe_data_t>::guard_mutex_t;
-    using guard_mutex_shared_t = typename multi_accessed_data_traits_t<process_safe_data_t>::guard_mutex_shared_t;
-    using guard_shared_mutex_t = typename multi_accessed_data_traits_t<process_safe_data_t>::guard_shared_mutex_t;
-};
-
-template <typename T>
-struct shared_vector_base_t;
-
-template <typename T>
-struct multi_accessed_data_traits_t<process_safe_data_t<T>> {
-    template <typename U>
-    using vector_t             = shared_vector_base_t<U>;
-    using mutex_t              = typename boost::interprocess::interprocess_mutex;
-    using shared_mutex_t       = typename boost::interprocess::interprocess_sharable_mutex;
-    using condition_variable_t = typename boost::interprocess::interprocess_condition;
-    using owner_id_t           = decltype(boost::this_process::get_id());
-    struct owner_id_namespace {
-        static owner_id_t get_id() {
-            return boost::this_process::get_id();
-        }
-    };
-    using guard_mutex_t        = typename boost::interprocess::scoped_lock<mutex_t>;
-    using guard_mutex_shared_t = typename boost::interprocess::scoped_lock<shared_mutex_t>;
-    using guard_shared_mutex_t = typename boost::interprocess::sharable_lock<shared_mutex_t>;
-};
-
 // todo: implement robustness
-template <typename T, class derived_t>
-struct multi_accessed_data_t {
-    template <typename U>
-    using vector_t             = typename multi_accessed_data_traits_t<derived_t>::template vector_t<U>;
-    using mutex_t              = typename multi_accessed_data_traits_t<derived_t>::mutex_t;
-    using shared_mutex_t       = typename multi_accessed_data_traits_t<derived_t>::shared_mutex_t;
-    using condition_variable_t = typename multi_accessed_data_traits_t<derived_t>::condition_variable_t;
-    using owner_id_t           = typename multi_accessed_data_traits_t<derived_t>::owner_id_t;
-    using owner_id_namespace   = typename multi_accessed_data_traits_t<derived_t>::owner_id_namespace;
-    using guard_mutex_t        = typename multi_accessed_data_traits_t<derived_t>::guard_mutex_t;
-    using guard_mutex_shared_t = typename multi_accessed_data_traits_t<derived_t>::guard_mutex_shared_t;
-    using guard_shared_mutex_t = typename multi_accessed_data_traits_t<derived_t>::guard_shared_mutex_t;
+// thread_safe_data_t<T> m_data_prev;
+// todo: add input function for increment state change, and a journal for rollback
+template <typename T>
+struct thread_safe_data_t {
+    thread_safe_data_t();
 
-    static_assert(concept_mutex_t<mutex_t>);
-    static_assert(concept_mutex_t<shared_mutex_t>);
-    static_assert(concept_condition_variable_t<condition_variable_t, guard_mutex_t>);
-    static_assert(concept_owner_id_namespace<owner_id_namespace, owner_id_t>);
-    static_assert(concept_guard_mutex_t<guard_mutex_t, mutex_t>);
-    static_assert(concept_guard_mutex_t<guard_shared_mutex_t, shared_mutex_t>);
-
-    multi_accessed_data_t();
-
-    multi_accessed_data_t(T&& data);
+    thread_safe_data_t(T&& data);
 
     // use when there are 0 write operations on data
-    void read(const std::function<void(multi_accessed_data_t&, T&)>& fn);
+    void read(const std::function<void(T&)>& fn);
 
     // use when there is at least 1 write operation on data
-    void write(const std::function<void(multi_accessed_data_t&, T&)>& fn);
+    void write(const std::function<void(T&)>& fn);
 
     T m_data;
-    shared_mutex_t m_mutex_data;
+    std::shared_mutex m_mutex_data;
 
     size_t m_readers;
-    mutex_t m_mutex_readers;
+    std::mutex m_mutex_readers;
 
     size_t m_writers;
-    mutex_t m_mutex_writers;
-    condition_variable_t m_cv_writers;
+    std::mutex m_mutex_writers;
+    std::condition_variable m_cv_writers;
+};
 
-    enum class operation_t : int {
-        NONE,
-        WRITE,
-        READ
-    };
-    struct owner_t {
-        owner_t() {
-            m_id = owner_id_t{};
-            m_ownership_count = 0;
-            m_prev_operation = operation_t::NONE;
-        }
+template <typename T>
+struct process_safe_data_t {
+    process_safe_data_t();
 
-        owner_id_t m_id;
-        int m_ownership_count;
-        operation_t m_prev_operation;
-    };
-    vector_t<owner_t> m_owners;
-    // ptr_t<owner_t> m_owners;
-    size_t m_owners_top;
-    mutex_t m_owners_mutex;
-    int  ownership_count();
-    operation_t increment_ownership_count(operation_t operation); // returns previous operation
-    void decrement_ownership_count(operation_t operation);
+    process_safe_data_t(T&& data);
+
+    // use when there are 0 write operations on data
+    void read(const std::function<void(T&)>& fn);
+
+    // use when there is at least 1 write operation on data
+    void write(const std::function<void(T&)>& fn);
+
+    T m_data;
+    boost::interprocess::interprocess_sharable_mutex m_mutex_data;
+
+    size_t m_readers;
+    boost::interprocess::interprocess_mutex m_mutex_readers;
+
+    size_t m_writers;
+    boost::interprocess::interprocess_mutex m_mutex_writers;
+    boost::interprocess::interprocess_condition m_cv_writers;
 };
 
 template <typename shared_container_t>
@@ -271,17 +149,9 @@ struct container_base_t : public process_safe_data_t<shared_container_t> {
 };
 
 template <typename T>
-struct shared_vector_base_t : public boost::interprocess::vector<T, shared_allocator_t<T>> {
-    using base = boost::interprocess::vector<T, shared_allocator_t<T>>;
-    using base::base;
-    using base::operator=;
-
-    shared_vector_base_t();
-};
-
-template <typename T>
-struct shared_vector_t : public container_base_t<shared_vector_base_t<T>> {
-    using base = container_base_t<shared_vector_base_t<T>>;
+struct shared_vector_t : public container_base_t<boost::interprocess::vector<T, shared_allocator_t<T>>> {
+    using value_type = boost::interprocess::vector<T, shared_allocator_t<T>>;
+    using base = container_base_t<value_type>;
     using base::base;
     using base::operator=;
 
