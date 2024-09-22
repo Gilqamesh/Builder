@@ -43,7 +43,7 @@ protected:
     bool run_postamble(time_type_t t_propagate);
 public:
     node_t(
-        const function<void(node_t&)>& init_fn,
+        const function<bool(node_t&)>& init_fn,
         function<bool(const vector<node_t*>&, memory_slice_t&)>&& run_fn,
         function<void(const memory_slice_t&, string&)>&& describe_fn,
         function<void(node_t&)>&& deinit_fn
