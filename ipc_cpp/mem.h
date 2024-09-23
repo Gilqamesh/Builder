@@ -19,6 +19,8 @@
 # include <boost/interprocess/sync/interprocess_condition.hpp>
 # include <boost/interprocess/sync/interprocess_mutex.hpp>
 # include <boost/interprocess/sync/interprocess_sharable_mutex.hpp>
+# include <boost/interprocess/sync/file_lock.hpp>
+# include <boost/process.hpp>
 
 namespace ipc_mem {
 
@@ -28,26 +30,6 @@ namespace ipc_mem {
         std::cout << boost::this_process::get_id() << " [" << module_name << "] " << x << std::endl; \
     } while (0)
 # endif // LOG
-
-struct shared_memory_t {
-    // creates shared memory
-    shared_memory_t(const std::string& shared_memory_name, size_t shared_memory_size);
-
-    // opens shared memory
-    shared_memory_t(const std::string& shared_memory_name);
-
-    // destroys shared memory if this was the creator
-    ~shared_memory_t();
-
-    std::string m_shared_memory_name;
-    boost::interprocess::managed_shared_memory m_managed_shared_memory;
-
-    bool m_is_owner;
-};
-
-bool exists();
-
-extern shared_memory_t* g_shared_memory;
 
 template <typename T>
 struct offset_ptr_t : public boost::interprocess::offset_ptr<T> {
@@ -113,6 +95,26 @@ void free(offset_ptr_t<T> ptr);
 
 template <typename T>
 offset_ptr_t<T> find_named(const std::string& object_name);
+
+struct shared_memory_t {
+    // creates shared memory
+    shared_memory_t(const std::string& shared_memory_name, size_t shared_memory_size);
+
+    // opens shared memory
+    shared_memory_t(const std::string& shared_memory_name);
+
+    // destroys shared memory if this was the creator
+    ~shared_memory_t();
+
+    std::string m_shared_memory_name;
+    boost::interprocess::managed_shared_memory m_managed_shared_memory;
+
+    // offset_ptr_t<shared_set_base_t<decltype(boost::this_process::get_id())>> m_holders;
+    // boost::interprocess::file_lock m_mutex_holders;
+    bool m_owner;
+};
+
+extern shared_memory_t* g_shared_memory;
 
 template <typename condition_variable_t, typename guard_mutex_t>
 concept concept_condition_variable_t = requires (
