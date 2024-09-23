@@ -59,17 +59,15 @@ void multi_accessed_data_t<T, derived_t>::read(const std::function<void(multi_ac
         return ;
     }
 
-template <typename T>
-void thread_safe_data_t<T>::read(const std::function<void(T&)>& fn) {
     {
-        std::unique_lock<std::mutex> guard_mutex_writers(m_mutex_writers);
+        guard_mutex_t guard_mutex_writers(m_mutex_writers);
         m_cv_writers.wait(guard_mutex_writers, [this]() { return m_writers == 0; });
     }
 
-    std::shared_lock<std::shared_mutex> guard_mutex_data(m_mutex_data);
+    guard_shared_mutex_t guard_mutex_data(m_mutex_data);
 
     {
-        std::unique_lock<std::mutex> guard_mutex_readers(m_mutex_readers);
+        guard_mutex_t guard_mutex_readers(m_mutex_readers);
         ++m_readers;
         // std::cout << std::this_thread::get_id() << " readers: " << m_readers << std::endl;
     }
@@ -79,7 +77,7 @@ void thread_safe_data_t<T>::read(const std::function<void(T&)>& fn) {
     m_recursive_ownership.decrement_ownership_count(prev_operation);
 
     {
-        std::unique_lock<std::mutex> guard_mutex_readers(m_mutex_readers);
+        guard_mutex_t guard_mutex_readers(m_mutex_readers);
         --m_readers;
     }
 }
@@ -95,19 +93,19 @@ void multi_accessed_data_t<T, derived_t>::write(const std::function<void(multi_a
     }
 
     {
-        std::unique_lock<std::mutex> guard_mutex_writers(m_mutex_writers);
+        guard_mutex_t guard_mutex_writers(m_mutex_writers);
         ++m_writers;
         // std::cout << std::this_thread::get_id() << " writers: " << m_writers << std::endl;
     }
 
-    std::unique_lock<std::shared_mutex> guard_mutex_data(m_mutex_data);
+    guard_mutex_shared_t guard_mutex_data(m_mutex_data);
 
     auto prev_operation = m_recursive_ownership.increment_ownership_count(recursive_ownership_t::operation_t::WRITE);
     fn(*this, m_data);
     m_recursive_ownership.decrement_ownership_count(prev_operation);
 
     {
-        std::unique_lock<std::mutex> guard_mutex_writers(m_mutex_writers);
+        guard_mutex_t guard_mutex_writers(m_mutex_writers);
         if (--m_writers == 0) {
             m_cv_writers.notify_all();
         }
@@ -192,42 +190,6 @@ void recursive_ownership_t<T>::decrement_ownership_count(operation_t operation) 
                 m_owners.shrink_to_fit();
             }
             return ;
-        }
-    }
-
-
-    boost::interprocess::sharable_lock guard_mutex_data(m_mutex_data);
-
-    {
-        boost::interprocess::scoped_lock guard_mutex_readers(m_mutex_readers);
-        ++m_readers;
-        // std::cout << std::this_thread::get_id() << " readers: " << m_readers << std::endl;
-    }
-
-    fn(m_data);
-
-    {
-        boost::interprocess::scoped_lock guard_mutex_readers(m_mutex_readers);
-        --m_readers;
-    }
-}
-
-template <typename T>
-void process_safe_data_t<T>::write(const std::function<void(T&)>& fn) {
-    {
-        boost::interprocess::scoped_lock guard_mutex_writers(m_mutex_writers);
-        ++m_writers;
-        // std::cout << std::this_thread::get_id() << " writers: " << m_writers << std::endl;
-    }
-
-    boost::interprocess::scoped_lock guard_mutex_data(m_mutex_data);
-
-    fn(m_data);
-
-    {
-        boost::interprocess::scoped_lock guard_mutex_writers(m_mutex_writers);
-        if (--m_writers == 0) {
-            m_cv_writers.notify_all();
         }
     }
 }
