@@ -16,8 +16,6 @@ public:
 };
 
 struct audio_mixer_node_t : public node_t {
-    static constexpr size_t sizeof_output_buffer = 4096;
-
     thread mixer_thread;
     bool mixer_thread_is_running = false;
 public:
