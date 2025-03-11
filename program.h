@@ -74,7 +74,7 @@ struct fn_signature_base_t { };
 template <typename signature_t>
 struct fn_signature_derived_t : public fn_signature_base_t {
     using name_to_fn_ptr_t = shared_map_t<shared_string_t<char>, offset_ptr_t<signature_t>>;
-    using fn_signature_t   = signature_t;
+    using fn_signature_t = signature_t;
 
     fn_signature_derived_t();
 

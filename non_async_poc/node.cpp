@@ -6,6 +6,8 @@
 
 #define LINE() cout << __LINE__ << endl
 
+unordered_map<string, node_t*> node_database;
+
 static time_type_t t_init;
 
 void set_time_init() {
@@ -20,85 +22,34 @@ time_type_t get_time_init() {
     return t_init;
 }
 
-template <typename T>
-bool erase_stable(vector<T>& v, const T& val, size_t p = 0) {
-    for (size_t i = p; i < v.size(); ++i) {
-        if (v[i] == val) {
-            for (size_t j = i; j < v.size() - 1; ++j) {
-                v[i] = move(v[i + 1]);
-            }
-            v.pop_back();
-            return true;
-        }
-    }
-    return false;
-}
-
-// removes all occurance of 'val' from 'v', same ordering of elements is guaranteed
-// returns number of removed elements
-template <typename T>
-size_t erase_all_stable(vector<T>& v, const T& val) {
-    size_t result = 0;
-    size_t p = 0;
-    while (p < v.size()) {
-        if (erase_stable(v, val, p)) {
-            ++result;
-        } else {
-            ++p;
-        }
-    }
-    return result;
-}
-
-template <typename T>
-bool erase_unstable(vector<T>& v, const T& val, size_t p = 0) {
-    for (size_t i = p; i < v.size(); ++i) {
-        if (v[i] == val) {
-            if (i + 1 < v.size()) {
-                v[i] = move(v.back());
-            }
-            v.pop_back();
-            return true;
-        }
-    }
-    return false;
-}
-
-// removes all occurance of 'val' from 'v', same ordering of elements are not guaranteed
-// returns number of removed elements
-template <typename T>
-size_t erase_all_unstable(vector<T>& v, const T& val) {
-    size_t result = 0;
-    size_t p = 0;
-    while (p < v.size()) {
-        if (erase_unstable(v, val, p)) {
-            ++result;
-        } else {
-            ++p;
-        }
-    }
-    return result;
-}
-
+static int n_nodes = 0;
 node_t::node_t(
-    const function<void(node_t&)>& init_fn,
-    function<bool(const vector<node_t*>&, memory_slice_t&)>&& run_fn,
-    function<void(const memory_slice_t&, string&)>&& describe_fn,
-    function<void(node_t&)>&& deinit_fn
-):
-    m_run_fn(move(run_fn)),
-    m_describe_fn(move(describe_fn)),
-    m_deinit_fn(move(deinit_fn))
-{
-    m_result.memory = 0;
-    m_result.size = 0;
+    const function<bool(node_t&)>& constructor_fn,
+    const function<bool(node_t&)>& run_fn,
+    const function<string(const node_t&)>& describe_fn,
+    const function<void(node_t&)>& destructor_fn
+) {
+    if (n_nodes++ == 0) {
+        set_time_init();
+    }
 
-    init_fn(*this);
+    m_interface.add<function<bool(node_t&)>>("constructor", constructor_fn); // called once..
+    m_interface.add<function<bool(node_t&)>>("run", run_fn);
+    m_interface.add<function<string(const node_t&)>>("describe", describe_fn);
+    m_interface.add<function<void(node_t&)>>("destructor", destructor_fn); // called once..
+
+    if (!constructor_fn(*this)) {
+        throw runtime_error("constructor failed");
+    }
 }
 
 node_t::~node_t() {
     isolate();
-    m_deinit_fn(*this);
+    auto destructor_fn = m_interface.find<function<void(node_t&)>>("destructor");
+    assert(destructor_fn);
+    destructor_fn(*this);
+
+    assert(n_nodes--);
 }
 
 bool node_t::run_preamble(time_type_t t_propagate) {
@@ -113,8 +64,8 @@ bool node_t::run_preamble(time_type_t t_propagate) {
         }
         node->m_t_propagate = t_propagate;
 
-        for (node_t* output : node->m_outputs) {
-            propagate_time(output);
+        for (const auto& output_pair : node->m_outputs) {
+            propagate_time(output_pair.first);
         }
     };
     propagate_time(this);
@@ -124,16 +75,18 @@ bool node_t::run_preamble(time_type_t t_propagate) {
     }
 
     time_type_t most_recent_input;
-    for (node_t* input : m_inputs) {
-        if (input->m_t_propagate == t_propagate) {
-            if (input->m_t_start < t_propagate) {
+    for (const auto& input_slot_pair : m_inputs) {
+        for (const auto& input_pair : input_slot_pair.second) {
+            if (input_pair.first->m_t_propagate == t_propagate) {
+                if (input_pair.first->m_t_start < t_propagate) {
+                    return false;
+                }
+            }
+            if (input_pair.first->m_t_success < input_pair.first->m_t_failure) {
                 return false;
             }
+            most_recent_input = max(most_recent_input, input_pair.first->m_t_success);
         }
-        if (input->m_t_success < input->m_t_failure) {
-            return false;
-        }
-        most_recent_input = max(most_recent_input, input->m_t_success);
     }
 
     if (most_recent_input <= m_t_success) {
@@ -145,8 +98,8 @@ bool node_t::run_preamble(time_type_t t_propagate) {
     }
 
     time_type_t most_oldest_output = get_time();
-    for (node_t* output : m_outputs) {
-        most_oldest_output = min(most_oldest_output, output->m_t_success);
+    for (const auto& output_pair : m_outputs) {
+        most_oldest_output = min(most_oldest_output, output_pair.first->m_t_success);
     }
 
     if (most_recent_input <= most_oldest_output) {
@@ -158,7 +111,9 @@ bool node_t::run_preamble(time_type_t t_propagate) {
 
 bool node_t::run_impl() {
     m_t_start = get_time();
-    if (!m_run_fn(m_inputs, m_result)) {
+    auto run_fn = m_interface.find<function<bool(node_t&)>>("run");
+    assert(run_fn);
+    if (!run_fn(*this)) {
         m_t_failure = get_time();
         m_t_finish = m_t_failure;
         return false;
@@ -172,86 +127,36 @@ bool node_t::run_impl() {
 bool node_t::run_postamble(time_type_t t_propagate) {
     // todo: use queue to incorporate looping constructs, otherwise stack blows up
 
-    for (node_t* output : m_outputs) {
-        if (output->m_t_start < m_t_success) {
-            (void) output->run(t_propagate);
+    for (const auto& output_pair : m_outputs) {
+        if (output_pair.first->m_t_start < m_t_success) {
+            (void) output_pair.first->run(t_propagate);
         }
     }
 
     return true;
 }
 
-void node_t::add_input(node_t* input, size_t position) {
-    input->m_outputs.push_back(this);
-
-    if (m_inputs.size() <= position) {
-        position = m_inputs.size();
-    }
-
-    m_inputs.push_back(0);
-    for (size_t i = m_inputs.size() - 1; position < i; --i) {
-        m_inputs[i] = m_inputs[i - 1];
-    }
-    m_inputs[position] = input;
-
-    run(get_time());
-}
-
-void node_t::remove_all_input(node_t* input) {
-    for (size_t i = 0; i < m_inputs.size(); ++i) {
-        if (m_inputs[i] == input) {
-            erase_all_stable(m_inputs[i]->m_outputs, this);
-            break ;
-        }
-    }
-
-    if (erase_all_stable(m_inputs, input)) {
-        run(get_time());
-    }
-}
-
-void node_t::remove_input(node_t* input) {
-    if (m_inputs.empty()) {
-        return ;
-    }
-
-    bool erased = false;
-    size_t p = 0;
-    while (p < m_inputs.size()) {
-        if (m_inputs[p] == input) {
-            bool r = erase_stable(m_inputs[p]->m_outputs, this);
-            assert(r);
-            erased = true;
-            break ;
-        }
-
-        ++p;
-    }
-
-    bool r = erase_stable(m_inputs, this);
-    assert(r == erased);
-
-    if (erased) {
-        run(get_time());
-    }
-}
-
 void node_t::isolate() {
-    for (node_t* input : m_inputs) {
-        erase_all_stable(input->m_outputs, this);
-    }
-    time_type_t t_propagate = get_time();
-    for (node_t* output : m_outputs) {
-        if (erase_all_stable(output->m_inputs, this)) {
-            output->run(t_propagate);
+    for (const auto& input_slot_pair : m_inputs) {
+        for (const auto& input_pair : input_slot_pair.second) {
+            input_pair.first->m_outputs.erase(this);
         }
+        assert(input_slot_pair.second.empty());
     }
-    m_inputs.clear();
-    m_outputs.clear();
+
+    time_type_t t_propagate = get_time();
+    for (const auto& output_pair : m_outputs) {
+        for (auto& input_slot_pair : output_pair.first->m_inputs) {
+            input_slot_pair.second.erase(this);
+        }
+        output_pair.first->run(t_propagate);
+    }
 }
 
-void node_t::describe(string& str) {
-    m_describe_fn(m_result, str);
+string node_t::describe() {
+    auto describe_fn = m_interface.find<function<string(node_t&)>>("describe");
+    assert(describe_fn);
+    return describe_fn(*this);
 }
 
 bool node_t::run(time_type_t t_propagate) {
@@ -282,6 +187,12 @@ bool node_t::run_force(time_type_t t_propagate) {
     return true;
 }
 
-memory_slice_t& node_t::write() {
-    return m_result;
+const decltype(node_t::m_inputs)& node_t::read_inputs() const {
+    // todo: no write to inputs while reading
+    return m_inputs;
+}
+
+
+decltype(node_t::m_inputs)& node_t::write_inputs() {
+    return m_inputs;
 }
