@@ -1,11 +1,13 @@
 #ifndef EVALUATOR_H
 # define EVALUTOR_H
 
-# include "expr.h"
-# include "env.h"
+# include "parser.h"
 
-eval(expr_t* expr, env_t* env);
-apply(procedure, arguments);
+struct evaluator_t {
+  evaluator_t();
+
+  evaluate(expr_t* expr);
+};
 
 #endif // EVALUATOR_H
 

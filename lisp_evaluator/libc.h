@@ -15,6 +15,8 @@
 # include <functional>
 # include <algorithm>
 # include <chrono>
+# include <exception>
+
 # include <cassert>
 # include <cmath>
 # include <cstdint>

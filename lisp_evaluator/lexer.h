@@ -7,6 +7,7 @@ enum class token_type_t : int {
   LEFT_PAREN,
   RIGHT_PAREN,
   APOSTROPHE,
+  ELLIPSIS,
 
   // SPECIAL FORMS
   DEFINE,
@@ -24,7 +25,7 @@ enum class token_type_t : int {
   IDENTIFIER,
   NUMBER,
   STRING,
-  FALSE,
+  NIL,
   CONS,
   CAR,
   CDR,
@@ -33,7 +34,7 @@ enum class token_type_t : int {
   // SPECIAL
   ERROR,
   COMMENT,
-  END_OF_FILE
+  END_OF_FILE,
 
   _SIZE
 };
@@ -51,7 +52,18 @@ struct token_t {
   int          col_end;
   token_type_t type;
 
+  string to_string();
+
   friend ostream& operator<<(ostream& os, const token_t& token);
+};
+
+struct token_exception_t : public exception {
+  token_exception_t(const string& message, token_t token);
+
+  token_t token;
+  string message;
+
+  const char* what() const noexcept override;
 };
 
 struct lexer_t {
@@ -75,11 +87,11 @@ private:
 
   token_t make_token(token_type_t type);
   token_t make_error_token(const char* err_msg, int line, int col);
-  token_t make_number(bool dotted);
-  token_t make_identifier_if(const char* match, token_type_t type);
-  token_t make_identifier();
-  token_t make_comment();
-  token_t make_string();
+  token_t eat_number(bool dotted);
+  token_t eat_identifier_if(const char* match, token_type_t type);
+  token_t eat_identifier();
+  token_t eat_comment();
+  token_t eat_string();
 };
 
 #endif // LEXER_H
