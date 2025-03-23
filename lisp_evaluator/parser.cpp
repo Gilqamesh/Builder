@@ -1,176 +1,477 @@
 #include "parser.h"
 
-expr_t::expr_t(expr_t* parent, expr_type_t type, token_t token):
-  parent(parent),
+const char* expr_type_to_str(expr_type_t expr_type) {
+  switch (expr_type) {
+  case expr_type_t::SELF_EVALUATING: return "SELF_EVALUATING";
+  case expr_type_t::CONS: return "CONS";
+  case expr_type_t::CAR: return "CAR";
+  case expr_type_t::CDR: return "CDR";
+  case expr_type_t::LIST: return "LIST";
+  case expr_type_t::VARIABLE: return "VARIABLE";
+  case expr_type_t::QUOTED: return "QUOTED";
+  case expr_type_t::ASSIGNMENT: return "ASSIGNMENT";
+  case expr_type_t::DEFINITION: return "DEFINITION";
+  case expr_type_t::IF: return "IF";
+  case expr_type_t::LAMBDA: return "LAMBDA";
+  case expr_type_t::BEGIN: return "BEGIN";
+  case expr_type_t::APPLICATION: return "APPLICATION";
+  default: assert(0);
+  }
+  return 0;
+}
+
+expr_t::expr_t(expr_type_t type, token_t token):
   type(type),
-  token(token),
-  err("") {
+  token(token) {
+}
+
+void expr_t::print(ostream& os, const string& prefix, bool is_last) {
+  os << prefix << (is_last ? "└── " : "├── ") << expr_type_to_str(type) << ": " << token << endl;
+  string new_prefix = prefix + (is_last ? "    " : "│   ");
+
+  switch (type) {
+  case expr_type_t::SELF_EVALUATING: {
+    ((expr_self_evaluating_t*)this)->print(os, new_prefix, is_last);
+  } break ;
+  case expr_type_t::CONS: {
+    ((expr_cons_t*)this)->print(os, new_prefix, is_last);
+  } break ;
+  case expr_type_t::CAR: {
+    ((expr_car_t*)this)->print(os, new_prefix, is_last);
+  } break ;
+  case expr_type_t::CDR: {
+    ((expr_cdr_t*)this)->print(os, new_prefix, is_last);
+  } break ;
+  case expr_type_t::LIST: {
+    ((expr_list_t*)this)->print(os, new_prefix, is_last);
+  } break ;
+  case expr_type_t::VARIABLE: {
+    ((expr_identifier_t*)this)->print(os, new_prefix, is_last);
+  } break ;
+  case expr_type_t::QUOTED: {
+    ((expr_quoted_t*)this)->print(os, new_prefix, is_last);
+  } break ;
+  case expr_type_t::ASSIGNMENT: {
+    ((expr_assignment_t*)this)->print(os, new_prefix, is_last);
+  } break ;
+  case expr_type_t::DEFINITION: {
+    ((expr_define_t*)this)->print(os, new_prefix, is_last);
+  } break ;
+  case expr_type_t::IF: {
+    ((expr_if_t*)this)->print(os, new_prefix, is_last);
+  } break ;
+  case expr_type_t::LAMBDA: {
+    ((expr_lambda_t*)this)->print(os, new_prefix, is_last);
+  } break ;
+  case expr_type_t::BEGIN: {
+    ((expr_begin_t*)this)->print(os, new_prefix, is_last);
+  } break ;
+  case expr_type_t::APPLICATION: {
+    ((expr_application_t*)this)->print(os, new_prefix, is_last);
+  } break ;
+  default: throw token_exception_t("unexpected expr type", token);
+  }
+}
+
+ostream& operator<<(ostream& os, expr_t* expr) {
+  switch (expr->type) {
+  case expr_type_t::SELF_EVALUATING: {
+    os << (expr_self_evaluating_t*)expr;
+  } break ;
+  case expr_type_t::CONS: {
+    os << (expr_cons_t*)expr;
+  } break ;
+  case expr_type_t::CAR: {
+    os << (expr_car_t*)expr;
+  } break ;
+  case expr_type_t::CDR: {
+    os << (expr_cdr_t*)expr;
+  } break ;
+  case expr_type_t::LIST: {
+    os << (expr_list_t*)expr;
+  } break ;
+  case expr_type_t::VARIABLE: {
+    os << (expr_identifier_t*)expr;
+  } break ;
+  case expr_type_t::QUOTED: {
+    os << (expr_quoted_t*)expr;
+  } break ;
+  case expr_type_t::ASSIGNMENT: {
+    os << (expr_assignment_t*)expr;
+  } break ;
+  case expr_type_t::DEFINITION: {
+    os << (expr_define_t*)expr;
+  } break ;
+  case expr_type_t::IF: {
+    os << (expr_if_t*)expr;
+  } break ;
+  case expr_type_t::LAMBDA: {
+    os << (expr_lambda_t*)expr;
+  } break ;
+  case expr_type_t::BEGIN: {
+    os << (expr_begin_t*)expr;
+  } break ;
+  case expr_type_t::APPLICATION: {
+    os << (expr_application_t*)expr;
+  } break ;
+  default: throw token_exception_t("unexpected expr type", expr->token);
+  }
+
+  return os;
+}
+
+expr_self_evaluating_t::expr_self_evaluating_t(token_t token):
+  base(expr_type_t::SELF_EVALUATING, token)
+{
+}
+
+void expr_self_evaluating_t::print(ostream& os, const string& prefix, bool is_last) {
+}
+
+ostream& operator<<(ostream& os, expr_self_evaluating_t* expr) {
+  os << expr->base.token;
+
+  return os;
+}
+
+expr_cons_t::expr_cons_t(token_t token, expr_t* first, expr_t* second):
+  base(expr_type_t::CONS, token),
+  first(first),
+  second(second)
+{
+}
+
+void expr_cons_t::print(ostream& os, const string& prefix, bool is_last) {
+  first->print(os, prefix, false);
+  second->print(os, prefix, true);
+}
+
+ostream& operator<<(ostream& os, expr_cons_t* expr) {
+  os << "(cons " << expr->first << " " << expr->second << ")";
+
+  return os;
+}
+
+expr_car_t::expr_car_t(token_t token, expr_t* operand):
+  base(expr_type_t::CAR, token),
+  operand(operand)
+{
+}
+
+void expr_car_t::print(ostream& os, const string& prefix, bool is_last) {
+  operand->print(os, prefix, true);
+}
+
+ostream& operator<<(ostream& os, expr_car_t* expr) {
+  os << "(car " << expr->operand << ")";
+
+  return os;
+}
+
+expr_cdr_t::expr_cdr_t(token_t token, expr_t* operand):
+  base(expr_type_t::CDR, token),
+  operand(operand)
+{
+}
+
+void expr_cdr_t::print(ostream& os, const string& prefix, bool is_last) {
+  operand->print(os, prefix, true);
+}
+
+ostream& operator<<(ostream& os, expr_cdr_t* expr) {
+  os << "(cdr " << expr->operand << ")";
+
+  return os;
+}
+
+expr_list_t::expr_list_t(token_t token, const vector<expr_t*>& operands):
+  base(expr_type_t::LIST, token),
+  operands(operands)
+{
+}
+
+void expr_list_t::print(ostream& os, const string& prefix, bool is_last) {
+  os << prefix << "(" << endl;
+  for (int i = 0; i < operands.size(); ++i) {
+    operands[i]->print(os, prefix, i + 1 == operands.size());
+  }
+  os << prefix << ")" << endl;
+}
+
+ostream& operator<<(ostream& os, expr_list_t* expr) {
+  os << "(list ";
+  for (int i = 0; i < expr->operands.size(); ++i) {
+    os << expr->operands[i];
+    if (i + 1 < expr->operands.size()) {
+      os << " ";
+    }
+  }
+  os << ")";
+
+  return os;
+}
+
+expr_identifier_t::expr_identifier_t(token_t token):
+  base(expr_type_t::VARIABLE, token)
+{
+}
+
+void expr_identifier_t::print(ostream& os, const string& prefix, bool is_last) {
+}
+
+ostream& operator<<(ostream& os, expr_identifier_t* expr) {
+  os << expr->base.token;
+
+  return os;
+}
+
+expr_quoted_t::expr_quoted_t(token_t token, expr_t* quoted_expr):
+  base(expr_type_t::QUOTED, token),
+  quoted_expr(quoted_expr)
+{
+}
+
+void expr_quoted_t::print(ostream& os, const string& prefix, bool is_last) {
+  quoted_expr->print(os, prefix, true);
+}
+
+ostream& operator<<(ostream& os, expr_quoted_t* expr) {
+  os << "'" << expr->quoted_expr;
+
+  return os;
+}
+
+expr_assignment_t::expr_assignment_t(token_t token, expr_t* lvalue, expr_t* new_value):
+  base(expr_type_t::ASSIGNMENT, token),
+  lvalue(lvalue),
+  new_value(new_value)
+{
+}
+
+void expr_assignment_t::print(ostream& os, const string& prefix, bool is_last) {
+  lvalue->print(os, prefix, false);
+  new_value->print(os, prefix, true);
+}
+
+ostream& operator<<(ostream& os, expr_assignment_t* expr) {
+  os << "(set! " << expr->lvalue << " " << expr->new_value << ")";
+
+  return os;
+}
+
+expr_define_t::expr_define_t(token_t token, expr_t* variable, expr_t* value):
+  base(expr_type_t::DEFINITION, token),
+  variable(variable),
+  value(value)
+{
+}
+
+void expr_define_t::print(ostream& os, const string& prefix, bool is_last) {
+  variable->print(os, prefix, false);
+  value->print(os, prefix, true);
+}
+
+ostream& operator<<(ostream& os, expr_define_t* expr) {
+  os << "(define " << expr->variable << " " << expr->value << ")";
+
+  return os;
+}
+
+expr_if_t::expr_if_t(token_t token, expr_t* condition, expr_t* consequence, expr_t* alternative):
+  base(expr_type_t::IF, token),
+  condition(condition),
+  consequence(consequence),
+  alternative(alternative)
+{
+}
+
+void expr_if_t::print(ostream& os, const string& prefix, bool is_last) {
+  condition->print(os, prefix, false);
+  os << prefix << "then:" << endl;
+  consequence->print(os, prefix, alternative == 0);
+  if (alternative) {
+    os << prefix << "else:" << endl;
+    alternative->print(os, prefix, true);
+  }
+}
+
+ostream& operator<<(ostream& os, expr_if_t* expr) {
+  os << "(if " << expr->condition << " " << expr->consequence;
+  if (expr->alternative) {
+    os << " " << expr->alternative;
+  }
+  os << ")";
+
+  return os;
+}
+
+expr_lambda_t::expr_lambda_t(token_t token, const vector<expr_t*>& parameters, const vector<expr_t*>& body):
+  base(expr_type_t::LAMBDA, token),
+  parameters(parameters),
+  body(body)
+{
+}
+
+void expr_lambda_t::print(ostream& os, const string& prefix, bool is_last) {
+  os << prefix << "parameters:" << endl;
+  for (int i = 0; i < parameters.size(); ++i) {
+    parameters[i]->print(os, prefix, false);
+  }
+  os << prefix << "body:" << endl;
+  for (int i = 0; i < body.size(); ++i) {
+    body[i]->print(os, prefix, i + 1 == body.size());
+  }
+}
+
+ostream& operator<<(ostream& os, expr_lambda_t* expr) {
+  os << "(lambda (";
+  for (int i = 0; i < expr->parameters.size(); ++i) {
+    os << expr->parameters[i];
+    if (i + 1 < expr->parameters.size()) {
+      os << " ";
+    }
+  }
+  os << ") ";
+
+  for (int i = 0; i < expr->body.size(); ++i) {
+    os << expr->body[i];
+    if (i + 1 < expr->body.size()) {
+      os << " ";
+    }
+  }
+
+  os << ")";
+
+  return os;
+}
+
+expr_begin_t::expr_begin_t(token_t token, const vector<expr_t*>& expressions):
+  base(expr_type_t::BEGIN, token),
+  expressions(expressions)
+{
+}
+
+void expr_begin_t::print(ostream& os, const string& prefix, bool is_last) {
+  for (int i = 0; i < expressions.size(); ++i) {
+    expressions[i]->print(os, prefix, i + 1 == expressions.size());
+  }
+}
+
+ostream& operator<<(ostream& os, expr_begin_t* expr) {
+  os << "(begin ";
+  for (int i = 0; i < expr->expressions.size(); ++i) {
+    os << expr->expressions[i];
+    if (i + 1 < expr->expressions.size()) {
+      os << " ";
+    }
+  }
+  os << ")";
+
+  return os;
+}
+
+expr_application_t::expr_application_t(token_t token, expr_t* fn_to_apply, const vector<expr_t*>& operands):
+  base(expr_type_t::APPLICATION, token),
+  fn_to_apply(fn_to_apply),
+  operands(operands)
+{
+}
+
+void expr_application_t::print(ostream& os, const string& prefix, bool is_last) {
+  os << prefix << "operand:" << endl;
+  fn_to_apply->print(os, prefix, false);
+  os << prefix << "args:" << endl;
+  for (int i = 0; i < operands.size(); ++i) {
+    operands[i]->print(os, prefix, i + 1 == operands.size());
+  }
+}
+
+ostream& operator<<(ostream& os, expr_application_t* expr) {
+  os << "(" << expr->fn_to_apply << " ";
+  for (int i = 0; i < expr->operands.size(); ++i) {
+    os << expr->operands[i];
+    if (i + 1 < expr->operands.size()) {
+      os << " ";
+    }
+  }
+  os << ")";
+
+  return os;
 }
 
 parser_t::parser_t(const char* source):
   lexer(source) {
 }
 
-  SELF_EVALUATING, // determined by token
-  VARIABLE,
-  QUOTED, // determined by token
-  ASSIGNMENT,
-  DEFINITION, // determined by token
-  IF, // determined by token
-  LAMBDA, // determined by token
-  BEGIN, // determined by token
-  COND, // determined by token
-  APPLICATION
-
-expr_define_t* eat_define_expr() {
-  expr_define_t* define_expr = new expr_define_t(ate_token());
-  eat_error_token(token_type_t::IDENTIFIER | token_type_t::LEFT_PAREN);
-  switch (eat_token_error(token_type_t::IDENTIFIER | token_type_t::LEFT_PAREN)) {
-  case token_type_t::IDENTIFIER: {
-    // (define <var> <value>)
-    define_expr->variable = make_expr(expr_type_t::VARIABLE, ate_token());
-    define_expr->value(eat_expr(define_expr));
-  } break ;
-  case token_type_t::LEFT_PAREN: {
-    // (define (<var> <parameter1> ... <parametern>) <body>)
-    if (eat.token().type != token_type_t::IDENTIFIER) {
-      throw runtime_error("expect identifier token");
-    }
-    define_expr->variable = new expr_variable_t(ate_token());
-    expr_lambda_t* lambda = new expr_lambda_t();
-    define_expr->value = lambda;
-    expr_t* parameters = 0;
-    expr_t* parameters_cur = 0;
-    while (!is_at_end() && eat_token().type == token_type_t::IDENTIFIER) {
-      expr_t* parameter = new expr_variable_t(ate_token());
-      if (!parameters) {
-        parameters = parameter;
-      }
-      if (parameters_cur) {
-        parameters_cur->next = parameter;
-      }
-      parameters_cur = parameter;
-    }
-    lambda->parameters = parameters;
-    if (ate_token().type != token_type_t::RIGHT_PAREN) {
-      throw runtime_error("expect right parentheses token");
-    }
-    lambda->body = eat_expr();
-  } break ;
-  }
-  if (eat_token().type != token_type_t::RIGHT_PAREN) {
-    throw runtime_error("expect right parentheses token");
-  }
-  return define_expr;
-}
-
-expr_lambda_t* eat_lambda_expr() {
-  expr_lambda_t* lambda = new expr_lambda_t(ate_token());
-  if (eat_token().type != LEFT_PAREN) {
-    throw runtime_error("expect left parentheses token");
-  }
-  expr_t* parameters = 0;
-  expr_t* parameters_cur = 0;
-  while (!is_at_end() && eat_token().type == token_type_t::IDENTIFIER) {
-    expr_t* parameter = new expr_variable_t(ate_token());
-    if (!parameters) {
-      parameters = parameter;
-    }
-    if (parameters_cur) {
-      parameters_cur->next = parameter;
-    }
-    parameters_cur = parameter;
-  }
-  lambda->parameters = parameters;
-  if (ate_token().type != token_type_t::RIGHT_PAREN) {
-    throw runtime_error("expect right parentheses token");
-  }
-  lambda->body = eat_expr();
-}
-
-// install compound expr
-expr_t* parser_t::eat_compound_expr() {
-  static expr_t* (parser_t::* const dispatch[sizeof(token_type_t) * 8])() = {
-    .token_type_t::DEFINE = &eat_define_expr,
-    .token_type_t::LAMBDA = &eat_lambda_expr,
-    .token_type_t::IF = &eat_if_expr,
-    .token_type_t::ELSE = &eat_else_expr,
-    .token_type_t::WHEN = &eat_when_expr,
-    .token_type_t::COND = &eat_cond_expr,
-    .token_type_t::LET = &eat_let_expr,
-    .token_type_t::BEGIN = &eat_begin_expr,
-    .token_type_t::QUOTE = &eat_quote_expr,
-    .token_type_t::SET = &eat_set_expr,
-    .token_type_t::IDENTIFIER = &eat_identifier_expr,
-    .token_type_t::CONS = &eat_cons_expr,
-    .token_type_t::CAR = &eat_car_expr,
-    .token_type_t::CDR = &eat_cdr_expr,
-    .token_type_t::LIST = &eat_list_expr,
-  };
-  token_t token = eat_token();
-  const auto f = dispatch[eat_token().type];
-  if (f) {
-    (this->*f)();
-  } else {
-    // report error
-  }
-  switch (eat_token_error()) {
-  case token_type_t::DEFINE: return eat_define_expr();
-  case token_type_t::LAMBDA: return eat_lambda_expr();
-  case token_type_t::IF: return eat_if_expr();
-  case token_type_t::ELSE: return eat_else_expr();
-  case token_type_t::WHEN: return eat_when_expr();
-  case token_type_t::COND: return eat_cond_expr();
-  case token_type_t::LET: return eat_let_expr();
-  case token_type_t::BEGIN: return eat_begin_expr();
-  case token_type_t::QUOTE: return eat_quote_expr();
-  case token_type_t::SET: return eat_set_expr();
-  case token_type_t::IDENTIFIER: return eat_identifier_expr();
-  case token_type_t::CONS: return eat_cons_expr();
-  case token_type_t::CAR: return eat_car_expr();
-  case token_type_t::CDR: return eat_cdr_expr();
-  case token_type_t::LIST: return eat_list_expr();
-  default: throw runtime_error("");
-  }
-}
-
-expr_t* parser_t::dispatch_parser(parsers_t parsers) {
-  const parser = parsers[eat_token().type()];
-  if (parser) {
-    return (this->*parser)();
-  } else {
-    string error_msg = "expect ";
-    int n_options = 0;
-    for (int i = 0; i < sizeof(parsers) / sizeof(parsers[0]); ++i) {
-      if (parsers[i]) {
-        if (n_options++) {
-          error_msg += " or ";
-        }
-        error_msg += token_type_to_str(i);
-      }
-    }
-    throw runtime_error(error_msg);
-  }
-}
-
 expr_t* parser_t::eat_expr() {
-  switch (eat_token().type) {
-  case token_type_t::FALSE:
+  switch (peak_token()) {
+  case token_type_t::NIL:
   case token_type_t::NUMBER:
-  case token_type_t::STRING: return new expr_t(expr_type_t::SELF_EVALUATING, token);
-  case token_type_t::LEFT_PAREN: return eat_compound_expr();
-  case token_type_t::IDENTIFIER: return make_expr(expr_type_t:VARIABLE);
+  case token_type_t::STRING: return eat_self_evaluating();
+  case token_type_t::LEFT_PAREN: {
+    eat_token();
+    expr_t* expr = 0;
+    switch (peak_token()) {
+      case token_type_t::DEFINE: {
+        expr = eat_define();
+      } break ;
+      case token_type_t::LAMBDA: {
+        expr = eat_lambda();
+      } break ;
+      case token_type_t::IF: {
+        expr = eat_if();
+      } break ;
+      case token_type_t::WHEN: {
+        expr = eat_when();
+      } break ;
+      case token_type_t::COND: {
+        expr = eat_cond();
+      } break ;
+      case token_type_t::LET: {
+        expr = eat_let();
+      } break ;
+      case token_type_t::BEGIN: {
+        expr = eat_begin();
+      } break ;
+      case token_type_t::QUOTE: {
+        expr = eat_quote();
+      } break ;
+      case token_type_t::SET: {
+        expr = eat_set();
+      } break ;
+      case token_type_t::CONS: {
+        expr = eat_cons();
+      } break ;
+      case token_type_t::CAR: {
+        expr = eat_car();
+      } break ;
+      case token_type_t::CDR: {
+        expr = eat_cdr();
+      } break ;
+      case token_type_t::LIST: {
+        expr = eat_list();
+      } break ;
+      default: {
+        expr = eat_application();
+      } break ;
+    }
+    eat_token_error(token_type_t::RIGHT_PAREN);
+    return expr;
+  } break ;
+  case token_type_t::IDENTIFIER: return eat_identifier();
   case token_type_t::LIST:
   case token_type_t::CAR:
   case token_type_t::CDR:
-  case token_type_t::CONS: return make_expr(expr_type_t::APPLICATION);
-  case token_type_t::ERROR: return 0;
-  case token_type_t::APOSTROPHE: return eat_quote_expr(parent);
+  case token_type_t::CONS: return (expr_t*) new expr_identifier_t(eat_token());
+  case token_type_t::APOSTROPHE: return eat_apostrophe();
+  case token_type_t::ERROR: throw token_exception_t("error", eat_token());
   case token_type_t::END_OF_FILE: return 0;
+  default: throw token_exception_t("unexpected token", eat_token());
   }
+  return 0;
 }
 
-token_type_t parser_t::peak_token(int ahead) const {
+token_type_t parser_t::peak_token(int ahead) {
   if (tokens.size() <= ahead) {
     fill_tokens();
   }
@@ -180,6 +481,12 @@ token_type_t parser_t::peak_token(int ahead) const {
   return tokens[ahead].type;
 }
 
+void parser_t::peak_token_error(token_type_t token_type, int ahead) {
+  if (peak_token(ahead) != token_type) {
+    throw token_exception_t(string("expect token '") + token_type_to_str(token_type) + "'", eat_token());
+  }
+}
+
 token_t parser_t::eat_token() {
   if (tokens.empty()) {
     fill_tokens();
@@ -187,35 +494,35 @@ token_t parser_t::eat_token() {
   assert(!tokens.empty());
   token_t result = tokens.front();
   tokens.pop_front();
+  if (result.type == token_type_t::ERROR) {
+    throw token_exception_t("unexpected error token", result);
+  }
   last_ate = result;
   return result;
 }
 
-token_type_t parser_t::eat_token_error(int accepted_types_mask) {
-  token_t token = eat_token();
-  if (token.type & accepted_types_mask) {
-    return token.type;
+bool parser_t::eat_token_if(token_type_t token_type) {
+  if (peak_token() == token_type) {
+    eat_token();
+    return true;
   }
-  string err_msg = "expect ";
-  int n_accepted_types = 0;
-  for (int i = 0; i < sizeof(token_type_t) * 8; ++i) {
-    if ((1 << i) & accepted_types_mask) {
-      if (n_accepted_types++) {
-        err_msg += " or ";
-      }
-      err_msg += token_type_to_str((token_type_t)(1 << i));
-    }
-  }
-  throw runtime_error(err_msg);
-  return token_type_t::ERROR;
+  return false;
 }
 
-token_t ate_token() {
+token_t parser_t::eat_token_error(token_type_t token_type) {
+  token_t token = eat_token();
+  if (token.type != token_type) {
+    throw token_exception_t(string("expect token type '") + token_type_to_str(token_type) + "'", token);
+  }
+  return token;
+}
+
+token_t parser_t::ate_token() {
   return last_ate;
 }
 
-bool parser_t::is_at_end() const {
-  if (tokens.empty() {
+bool parser_t::is_at_end() {
+  if (tokens.empty()) {
     fill_tokens();
   }
   assert(!tokens.empty());
@@ -232,23 +539,180 @@ void parser_t::fill_tokens(int n) {
   }
 }
 
-expr_define_t* parser_t::make_define_expr(expr_t* parent, token_t token) {
-  expr_define_t* result = new expr_define_t;
-  result->base;
+expr_t* parser_t::eat_self_evaluating() {
+  token_t token = eat_token();
+  switch (token.type) {
+  case token_type_t::NIL:
+  case token_type_t::STRING:
+  case token_type_t::NUMBER: return (expr_t*) new expr_self_evaluating_t(token);
+  default: throw token_exception_t(string("expect token '") + token_type_to_str(token_type_t::NIL) + "' or '" + token_type_to_str(token_type_t::STRING) + "' or '" + token_type_to_str(token_type_t::STRING) + "'", token);
+  }
+  return 0;
 }
 
-expr_t* parser_t::make_expr(expr_t* parent, expr_type_t type, token_t token) {
-  return new expr_t {
-    .type = type,
-    .token = token,
-    .error = "",
-    .parent = parent
-  };
+expr_t* parser_t::eat_define() {
+  token_t define_token = eat_token_error(token_type_t::DEFINE);
+  token_t token = eat_token();
+  switch (token.type) {
+  case token_type_t::IDENTIFIER: {
+    // (define ident expr)
+    return (expr_t*) new expr_define_t(define_token, (expr_t*) new expr_identifier_t(token), eat_expr());
+  } break ;
+  case token_type_t::LEFT_PAREN: {
+    // (define (ident [ident]*) [expr]*)
+    expr_t* var = eat_identifier();
+    vector<expr_t*> parameters = eat_identifiers();
+    eat_token_error(token_type_t::RIGHT_PAREN);
+    return (expr_t*) new expr_define_t(define_token, var, (expr_t*) new expr_lambda_t(token, parameters, eat_while_not(token_type_t::RIGHT_PAREN)));
+  } break ;
+  default: throw token_exception_t(string("expect token '") + token_type_to_str(token_type_t::IDENTIFIER) + "' or '" + token_type_to_str(token_type_t::LEFT_PAREN) + "'", token);
+  }
+
+  assert(0);
+  return 0;
 }
 
-expr_t* parser_t::make_error_expr(expr_t* parent, const char* err_msg, token_t token) {
-  expr_t* result = make_expr(parent, expr_type_t::ERROR, token);
-  result->error = err_msg;
+expr_t* parser_t::eat_lambda() {
+  // (lambda ([ident]+) expr)
+  token_t lambda_token = eat_token_error(token_type_t::LAMBDA);
+  eat_token_error(token_type_t::LEFT_PAREN);
+  vector<expr_t*> parameters = eat_identifiers();
+  eat_token_error(token_type_t::RIGHT_PAREN);
+  return (expr_t*) new expr_lambda_t(lambda_token, parameters, eat_while_not(token_type_t::RIGHT_PAREN));
+}
+
+expr_t* parser_t::eat_if() {
+  // (if expr expr [expr])
+  token_t if_token = eat_token_error(token_type_t::IF);
+  expr_t* cond = eat_expr();
+  expr_t* consequence = eat_expr();
+  expr_t* alternative = 0;
+  if (peak_token() != token_type_t::RIGHT_PAREN) {
+    alternative = eat_expr();
+  }
+  return (expr_t*) new expr_if_t(if_token, cond, consequence, alternative);
+}
+
+expr_t* parser_t::eat_when() {
+  // (when expr [expr]*)
+  token_t when_token = eat_token_error(token_type_t::WHEN);
+
+  return (expr_t*) new expr_if_t(when_token, eat_expr(), (expr_t*) new expr_begin_t(when_token, eat_while_not(token_type_t::RIGHT_PAREN)));
+}
+
+expr_t* parser_t::eat_cond_branch() {
+  if (peak_token() == token_type_t::RIGHT_PAREN) {
+    return 0;
+  }
+
+  token_t left_paren_token = eat_token_error(token_type_t::LEFT_PAREN);
+  if (eat_token_if(token_type_t::ELSE)) {
+    expr_t* else_expr = eat_expr();
+    eat_token_error(token_type_t::RIGHT_PAREN);
+    peak_token_error(token_type_t::RIGHT_PAREN);
+    return else_expr;
+  }
+
+  expr_t* condition = eat_expr();
+  expr_t* consequence = eat_expr();
+  eat_token_error(token_type_t::RIGHT_PAREN);
+  return (expr_t*) new expr_if_t(left_paren_token, condition, consequence, eat_cond_branch());
+}
+
+expr_t* parser_t::eat_cond() {
+  // (cond [(expr expr)]* [(else expr)])
+  eat_token_error(token_type_t::COND);
+  expr_t* result = eat_cond_branch();
+  if (!result) {
+    throw token_exception_t("expect at least 1 cond branch", ate_token());
+  }
   return result;
 }
 
+expr_t* parser_t::eat_let() {
+  // (let ([(ident expr)]*) expr) -> ((lambda ([ident]*) expr) [expr]*)
+  token_t let_token = eat_token_error(token_type_t::LET);
+  eat_token_error(token_type_t::LEFT_PAREN);
+  vector<expr_t*> application_operands;
+  vector<expr_t*> lambda_parameters;
+  while (!is_at_end() && eat_token_if(token_type_t::LEFT_PAREN)) {
+    lambda_parameters.push_back(eat_identifier());
+    application_operands.push_back(eat_expr());
+    eat_token_error(token_type_t::RIGHT_PAREN);
+  }
+  eat_token_error(token_type_t::RIGHT_PAREN);
+  return (expr_t*) new expr_application_t(let_token, (expr_t*) new expr_lambda_t(let_token, lambda_parameters, eat_while_not(token_type_t::RIGHT_PAREN)), application_operands);
+}
+
+expr_t* parser_t::eat_begin() {
+  // (begin [expr]+)
+  return (expr_t*) new expr_begin_t(eat_token_error(token_type_t::BEGIN), eat_while_not(token_type_t::RIGHT_PAREN));
+}
+
+expr_t* parser_t::eat_quote() {
+  // (quote expr)
+  return 0;
+}
+
+expr_t* parser_t::eat_apostrophe() {
+  // 'expr -> (list expr)
+  token_t quote_token = eat_token_error(token_type_t::APOSTROPHE);
+  if (eat_token_if(token_type_t::LEFT_PAREN)) {
+    vector<expr_t*> list_elements = eat_while_not(token_type_t::RIGHT_PAREN);
+    eat_token_error(token_type_t::RIGHT_PAREN);
+    return (expr_t*) new expr_quoted_t(quote_token, (expr_t*) new expr_list_t(quote_token, list_elements));
+  } else {
+    return (expr_t*) new expr_quoted_t(quote_token, eat_expr());
+  }
+}
+
+expr_t* parser_t::eat_set() {
+  // (set! ident expr)
+  return (expr_t*) new expr_assignment_t(eat_token_error(token_type_t::SET), eat_identifier(), eat_expr());
+}
+
+expr_t* parser_t::eat_identifier() {
+  // ident
+  return (expr_t*) new expr_identifier_t(eat_token_error(token_type_t::IDENTIFIER));
+}
+
+expr_t* parser_t::eat_cons() {
+  // (cons expr expr)
+  return (expr_t*) new expr_cons_t(eat_token_error(token_type_t::CONS), eat_expr(), eat_expr());
+}
+
+expr_t* parser_t::eat_car() {
+  // (car expr)
+  return (expr_t*) new expr_car_t(eat_token_error(token_type_t::CAR), eat_expr());
+}
+
+expr_t* parser_t::eat_cdr() {
+  // (cdr expr)
+  return (expr_t*) new expr_cdr_t(eat_token_error(token_type_t::CDR), eat_expr());
+}
+
+expr_t* parser_t::eat_list() {
+  // (list [expr]*)
+  return (expr_t*) new expr_list_t(eat_token_error(token_type_t::LIST), eat_while_not(token_type_t::RIGHT_PAREN));
+}
+
+expr_t* parser_t::eat_application() {
+  // (expr [expr]*)
+  return (expr_t*) new expr_application_t(ate_token(), eat_expr(), eat_while_not(token_type_t::RIGHT_PAREN));
+}
+
+vector<expr_t*> parser_t::eat_identifiers() {
+  vector<expr_t*> identifiers;
+  while (!is_at_end() && peak_token() == token_type_t::IDENTIFIER) {
+    identifiers.push_back(eat_identifier());
+  }
+  return identifiers;
+}
+
+vector<expr_t*> parser_t::eat_while_not(token_type_t token_type) {
+  vector<expr_t*> expressions;
+  while (!is_at_end() && peak_token() != token_type) {
+    expressions.push_back(eat_expr());
+  }
+  return expressions;
+}

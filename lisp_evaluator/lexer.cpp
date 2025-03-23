@@ -1,26 +1,11 @@
 #include "lexer.h"
 
-ostream& operator<<(ostream& os, const token_t& token) {
-  os << token_type_to_str(token.type) << " " << token.line_start << ":" << token.col_start;
-  if (token.type != token_type_t::END_OF_FILE) {
-    os << " '";
-    for (int i = 0; i < token.lexeme_length; ++i) {
-      os << token.lexeme[i];
-    }
-    os << "'";
-  }
-  if (token.type == token_type_t::ERROR) {
-    os << ", " << token.error_line << ":" << token.error_col << ": " << token.error;
-  }
-
-  return os;
-}
-
 const char* token_type_to_str(token_type_t type) {
   switch (type) {
   case token_type_t::LEFT_PAREN: return "LEFT_PAREN";
   case token_type_t::RIGHT_PAREN: return "RIGHT_PAREN";
   case token_type_t::APOSTROPHE: return "APOSTROPHE";
+  case token_type_t::ELLIPSIS: return "ELLIPSIS";
   case token_type_t::DEFINE: return "DEFINE";
   case token_type_t::LAMBDA: return "LAMBDA";
   case token_type_t::IF: return "IF";
@@ -34,7 +19,7 @@ const char* token_type_to_str(token_type_t type) {
   case token_type_t::IDENTIFIER: return "IDENTIFIER";
   case token_type_t::NUMBER: return "NUMBER";
   case token_type_t::STRING: return "STRING";
-  case token_type_t::FALSE: return "FALSE";
+  case token_type_t::NIL: return "NIL";
   case token_type_t::CONS: return "CONS";
   case token_type_t::CAR: return "CAR";
   case token_type_t::CDR: return "CDR";
@@ -44,6 +29,36 @@ const char* token_type_to_str(token_type_t type) {
   case token_type_t::END_OF_FILE: return "END_OF_FILE";
   default: assert(0);
   }
+}
+
+string token_t::to_string() {
+  string result;
+  result += string(token_type_to_str(type)) + " " + std::to_string(line_start) + ":" + std::to_string(col_start);
+  if (type != token_type_t::END_OF_FILE) {
+    result += " '" + string(lexeme, lexeme_length) + "'";
+  }
+  if (type == token_type_t::ERROR) {
+    result += string(", ") + std::to_string(error_line) + ":" + std::to_string(error_col) + ": " + error;
+  }
+  return result;
+}
+
+ostream& operator<<(ostream& os, const token_t& token) {
+  for (int i = 0; i < token.lexeme_length; ++i) {
+    os << token.lexeme[i];
+  }
+
+  return os;
+}
+
+token_exception_t::token_exception_t(const string& message, token_t token):
+  message(message),
+  token(token)
+{
+}
+
+const char* token_exception_t::what() const noexcept {
+  return message.c_str();
 }
 
 lexer_t::lexer_t(const char* source) {
@@ -76,25 +91,25 @@ token_t lexer_t::eat_token() {
   case '6':
   case '7':
   case '8':
-  case '9': return make_number(false);
+  case '9': return eat_number(false);
   case '.': {
     if ('0' <= peak_char() && peak_char() <= '9') {
-      return make_number(true);
+      return eat_number(true);
     }
-    return make_identifier();
+    return eat_identifier();
   } break ;
   case '(': return make_token(token_type_t::LEFT_PAREN);
   case ')': return make_token(token_type_t::RIGHT_PAREN);
   case '\'': return make_token(token_type_t::APOSTROPHE);
-  case '"': return make_string();
+  case '"': return eat_string();
   case '#': {
     if (peak_char() == '|') {
-      return make_comment();
+      return eat_comment();
     } else {
-      return make_identifier();
+      return eat_identifier();
     }
   } break ;
-  default: return make_identifier();
+  default: return eat_identifier();
   }
 }
 
@@ -158,7 +173,7 @@ token_t lexer_t::make_error_token(const char* err_msg, int line, int col) {
   return result;
 }
 
-token_t lexer_t::make_number(bool dotted) {
+token_t lexer_t::eat_number(bool dotted) {
   while (!is_at_end() && '0' <= peak_char() && peak_char() <= '9') {
     eat_char();
   }
@@ -181,7 +196,7 @@ token_t lexer_t::make_number(bool dotted) {
   return make_error_token("expect EOF or whitespace character", err_line, err_col);
 }
 
-token_t lexer_t::make_identifier_if(const char* match, token_type_t type) {
+token_t lexer_t::eat_identifier_if(const char* match, token_type_t type) {
   const char* cur = start;
   while (cur < end && *match != '\0') {
     if (*cur != *match) {
@@ -196,48 +211,49 @@ token_t lexer_t::make_identifier_if(const char* match, token_type_t type) {
   return make_token(token_type_t::IDENTIFIER);
 }
 
-token_t lexer_t::make_identifier() {
+token_t lexer_t::eat_identifier() {
   while (!is_at_end() && !is_whitespace(peak_char()) && peak_char() != '(' && peak_char() != ')') {
     eat_char();
   }
 
   switch (*start) {
-  case 'd': return make_identifier_if("define", token_type_t::DEFINE);
+  case '.': return eat_identifier_if("...", token_type_t::ELLIPSIS);
+  case 'd': return eat_identifier_if("define", token_type_t::DEFINE);
   case 'l': {
     switch (*(start + 1)) {
-    case 'a': return make_identifier_if("lambda", token_type_t::LAMBDA);
-    case 'e': return make_identifier_if("let", token_type_t::LET);
-    case 'i': return make_identifier_if("list", token_type_t::LIST);
+    case 'a': return eat_identifier_if("lambda", token_type_t::LAMBDA);
+    case 'e': return eat_identifier_if("let", token_type_t::LET);
+    case 'i': return eat_identifier_if("list", token_type_t::LIST);
     }
   } break ;
-  case 's': return make_identifier_if("set!", token_type_t::SET);
-  case 'f': return make_identifier_if("false", token_type_t::FALSE);
-  case 'i': return make_identifier_if("if", token_type_t::IF);
-  case 'e': return make_identifier_if("else", token_type_t::ELSE);
+  case 's': return eat_identifier_if("set!", token_type_t::SET);
+  case 'f': return eat_identifier_if("nil", token_type_t::NIL);
+  case 'i': return eat_identifier_if("if", token_type_t::IF);
+  case 'e': return eat_identifier_if("else", token_type_t::ELSE);
   case 'c': {
     switch (*(start + 1)) {
       case 'o': {
         if (start + 2 < end && *(start + 2) == 'n') {
           if (start + 3 < end) {
             switch (*(start + 3)) {
-            case 's': return make_identifier_if("cons", token_type_t::CONS);
-            case 'd': return make_identifier_if("cond", token_type_t::COND);
+            case 's': return eat_identifier_if("cons", token_type_t::CONS);
+            case 'd': return eat_identifier_if("cond", token_type_t::COND);
             }
           }
         }
       } break ;
-      case 'a': return make_identifier_if("car", token_type_t::CAR);
-      case 'd': return make_identifier_if("cdr", token_type_t::CDR);
+      case 'a': return eat_identifier_if("car", token_type_t::CAR);
+      case 'd': return eat_identifier_if("cdr", token_type_t::CDR);
     }
   } break ;
-  case 'b': return make_identifier_if("begin", token_type_t::BEGIN);
-  case 'w': return make_identifier_if("when", token_type_t::WHEN);
-  case 'q': return make_identifier_if("quote", token_type_t::QUOTE);
+  case 'b': return eat_identifier_if("begin", token_type_t::BEGIN);
+  case 'w': return eat_identifier_if("when", token_type_t::WHEN);
+  case 'q': return eat_identifier_if("quote", token_type_t::QUOTE);
   }
   return make_token(token_type_t::IDENTIFIER);
 }
 
-token_t lexer_t::make_comment() {
+token_t lexer_t::eat_comment() {
   while (!is_at_end()) {
     if (eat_char() == '|') {
       if (!is_at_end() && eat_char() == '#') {
@@ -248,7 +264,7 @@ token_t lexer_t::make_comment() {
   return make_error_token("expect |# for end of comment", line_end, col_end);
 }
 
-token_t lexer_t::make_string() {
+token_t lexer_t::eat_string() {
   while (!is_at_end()) {
     if (eat_char() == '"') {
       return make_token(token_type_t::STRING);
