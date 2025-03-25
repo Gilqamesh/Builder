@@ -32,22 +32,17 @@ const char* token_type_to_str(token_type_t type) {
 }
 
 string token_t::to_string() {
-  string result;
-  result += string(token_type_to_str(type)) + " " + std::to_string(line_start) + ":" + std::to_string(col_start);
-  if (type != token_type_t::END_OF_FILE) {
-    result += " '" + string(lexeme, lexeme_length) + "'";
-  }
-  if (type == token_type_t::ERROR) {
-    result += string(", ") + std::to_string(error_line) + ":" + std::to_string(error_col) + ": " + error;
-  }
-  return result;
+  return string(token.lexeme, (size_t) token.lemexe_length);
 }
 
 ostream& operator<<(ostream& os, const token_t& token) {
-  for (int i = 0; i < token.lexeme_length; ++i) {
-    os << token.lexeme[i];
+  os << string(token_type_to_str(type)) << " " << line_start << ":" << col_start;
+  if (type != token_type_t::END_OF_FILE) {
+    os << " '" << token.to_string() << "'";
   }
-
+  if (type == token_type_t::ERROR) {
+    os << ", " << error_line << ":" << error_col << ": " << error;
+  }
   return os;
 }
 

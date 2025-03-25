@@ -1,5 +1,122 @@
 #include "evaluator.h"
 
+const char* obj_type_to_str(obj_type_t obj_type) {
+}
+
+obj_t::obj_t(obj_type_t type):
+  type(type)
+{
+}
+
+env_t::env_t():
+  next(0)
+{
+}
+
+env_t env_t::extend(const vector<expr_t*>& vars, const vector<obj_t*>& vals) const {
+  env_t result;
+  if (vars.size() != vals.size()) {
+    throw exception();
+  }
+  for (int i = 0; i < vars.size(); ++i) {
+    expr_t* var = vars[i];
+    if (var->type != expr_type_t::VARIABLE) {
+      throw exception();
+    }
+    result.bindings[vars[i]->to_string()] = vals[i];
+  }
+  result.next = this;
+  return result;
+}
+
+obj_t* env_t::lookup(const string& var) const {
+  return lookup_internal(var)->second;
+}
+
+void env_t::set(const string& var, obj_t* obj) {
+  auto it = lookup_internal(var);
+  it->second = obj;
+}
+
+void env_t::define(const string& var, obj_t* obj) {
+  bindings[var] = obj;
+}
+
+map<string, obj_t*>::iterator env_t::lookup_internal(const string& var) {
+  auto it = bindings.find(var);
+  if (it == bindings.end()) {
+    if (!next) {
+      throw exception();
+    }
+    return next->lookup(var);
+  }
+  return it;
+}
+
+evaluator_t::evaluator_t() {
+  global_env.define("nil", (obj_t*) new obj_nil_t());
+  global_env.define("car", (obj_t*) new obj_primitive_proc_t([](const vector<obj_t*>& args) {
+    if (is_false(apply_primitive_procedure(global_env.lookup("pair?"), obj))) {
+      throw exception();
+    }
+    return ((obj_pair_t*)obj)->first;
+  }));
+  global_env.define("cdr", (obj_t*) new obj_primitive_proc_t([this](const vector<obj_t*>& args) {
+    if (is_false(apply_primitive_procedure(global_env.lookup("pair?"), obj))) {
+      throw exception();
+    }
+    return ((obj_pair_t*)obj)->second;
+  }));
+  global_env.define("cons", (obj_t*) new obj_primitive_proc_t([](const vector<obj_t*>& args) {
+    return (obj_t*) new obj_pair_t(obj1, obj2);
+  }));
+  global_env.define("null?", (obj_t*) new obj_primitive_proc_t([this]() {
+    return global_env.lookup("nil") == obj;
+  }));
+  global_env.define("pair?", (obj_t*) new obj_primitive_proc_t([](obj_t* obj) {
+    return obj->type == obj_type_t::PAIR;
+  }));
+}
+
+obj_t* evaluator_t::eval(expr_t* expr) {
+  return eval(expr, global_env);
+}
+
+obj_t* evaluator_t::eval(expr_t* expr, env_t env) {
+  switch (expr->type) {
+  }
+}
+
+obj_t* evaluator_t::apply(obj_t* proc, const vector<obj_t*>& args) {
+  switch (proc->type) {
+  case PRIMITIVE_PROC: return apply_primitive_proc(proc, args);
+  case COMPOUND_PROC: return apply_compound_proc(proc, args);
+  default: throw exception();
+  }
+}
+
+bool evaluator_t::is_true(obj_t* obj) {
+  return obj->type != obj_type_t::NIL;
+}
+
+bool evaluator_t::is_false(obj_t* obj) {
+  return obj->type == obj_type_t::NIL;
+}
+
+obj_t* evaluator_t::apply_primitive_proc(obj_t* obj, const vector<obj_t*>& args) {
+  return ((obj_primitive_proc_t*)obj)->proc(args);
+}
+
+obj_t* evaluator_t::apply_compound_proc(obj_t* obj, const vector<obj_t*>& args) {
+  obj_compound_proc_t* proc = (obj_compound_proc_t*)obj;
+  env_t extended_env = proc->env.extend(proc->params, args)
+  obj_t* result = 0;
+  for (expr_t* expr : proc->body) {
+    result = eval(expr, extended_env);
+  }
+  return result;
+}
+
 bool is_self_evaluating(expr_t* expr) {
   if (is_number(expr)) {
     return true;
