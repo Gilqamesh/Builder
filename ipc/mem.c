@@ -33,8 +33,7 @@ int shared_mem__create(shared_mem_t self, size_t size, uint8_t nonnull_key_id) {
 
     memory_slice_t memory_slice = (memory_slice_t) {
         .memory = shmat(memory_id, 0, 0),
-        .size = size,
-        .offset = 0
+        .size = size
     };
     if (memory_slice.memory == (void*) -1) {
         perror("shmat");

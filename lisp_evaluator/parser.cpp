@@ -25,8 +25,12 @@ expr_t::expr_t(expr_type_t type, token_t token):
   token(token) {
 }
 
+string expr_t::to_string() const {
+  return token.to_string();
+}
+
 void expr_t::print(ostream& os, const string& prefix, bool is_last) {
-  os << prefix << (is_last ? "└── " : "├── ") << expr_type_to_str(type) << ": " << token << endl;
+  os << prefix << (is_last ? "└── " : "├── ") << expr_type_to_str(type) << ": " << token.to_string() << endl;
   string new_prefix = prefix + (is_last ? "    " : "│   ");
 
   switch (type) {

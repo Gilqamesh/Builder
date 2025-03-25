@@ -27,6 +27,8 @@ struct expr_t {
   expr_type_t type;
   token_t token;
 
+  string to_string() const;
+
   void print(ostream& os = cout, const string& prefix = "", bool is_last = true);
 
   friend ostream& operator<<(ostream& os, expr_t* expr);
