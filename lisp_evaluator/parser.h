@@ -5,10 +5,6 @@
 
 enum class expr_type_t : int {
   SELF_EVALUATING,
-  CONS,
-  CAR,
-  CDR,
-  LIST,
   VARIABLE,
   QUOTED,
   ASSIGNMENT,
@@ -42,51 +38,6 @@ struct expr_self_evaluating_t {
   void print(ostream& os, const string& prefix, bool is_last);
 
   friend ostream& operator<<(ostream& os, expr_self_evaluating_t* expr);
-};
-
-struct expr_cons_t {
-  expr_cons_t(token_t token, expr_t* first, expr_t* second);
-
-  expr_t base;
-  expr_t* first;
-  expr_t* second;
-
-  void print(ostream& os, const string& prefix, bool is_last);
-
-  friend ostream& operator<<(ostream& os, expr_cons_t* expr);
-};
-
-struct expr_car_t {
-  expr_car_t(token_t token, expr_t* operand);
-
-  expr_t base;
-  expr_t* operand;
-
-  void print(ostream& os, const string& prefix, bool is_last);
-
-  friend ostream& operator<<(ostream& os, expr_car_t* expr);
-};
-
-struct expr_cdr_t {
-  expr_cdr_t(token_t token, expr_t* operand);
-
-  expr_t base;
-  expr_t* operand;
-
-  void print(ostream& os, const string& prefix, bool is_last);
-
-  friend ostream& operator<<(ostream& os, expr_cdr_t* expr);
-};
-
-struct expr_list_t {
-  expr_list_t(token_t token, const vector<expr_t*>& operands);
-
-  expr_t base;
-  vector<expr_t*> operands;
-
-  void print(ostream& os, const string& prefix, bool is_last);
-
-  friend ostream& operator<<(ostream& os, expr_list_t* expr);
 };
 
 struct expr_identifier_t {

@@ -3,10 +3,6 @@
 const char* expr_type_to_str(expr_type_t expr_type) {
   switch (expr_type) {
   case expr_type_t::SELF_EVALUATING: return "SELF_EVALUATING";
-  case expr_type_t::CONS: return "CONS";
-  case expr_type_t::CAR: return "CAR";
-  case expr_type_t::CDR: return "CDR";
-  case expr_type_t::LIST: return "LIST";
   case expr_type_t::VARIABLE: return "VARIABLE";
   case expr_type_t::QUOTED: return "QUOTED";
   case expr_type_t::ASSIGNMENT: return "ASSIGNMENT";
@@ -36,18 +32,6 @@ void expr_t::print(ostream& os, const string& prefix, bool is_last) {
   switch (type) {
   case expr_type_t::SELF_EVALUATING: {
     ((expr_self_evaluating_t*)this)->print(os, new_prefix, is_last);
-  } break ;
-  case expr_type_t::CONS: {
-    ((expr_cons_t*)this)->print(os, new_prefix, is_last);
-  } break ;
-  case expr_type_t::CAR: {
-    ((expr_car_t*)this)->print(os, new_prefix, is_last);
-  } break ;
-  case expr_type_t::CDR: {
-    ((expr_cdr_t*)this)->print(os, new_prefix, is_last);
-  } break ;
-  case expr_type_t::LIST: {
-    ((expr_list_t*)this)->print(os, new_prefix, is_last);
   } break ;
   case expr_type_t::VARIABLE: {
     ((expr_identifier_t*)this)->print(os, new_prefix, is_last);
@@ -81,18 +65,6 @@ ostream& operator<<(ostream& os, expr_t* expr) {
   switch (expr->type) {
   case expr_type_t::SELF_EVALUATING: {
     os << (expr_self_evaluating_t*)expr;
-  } break ;
-  case expr_type_t::CONS: {
-    os << (expr_cons_t*)expr;
-  } break ;
-  case expr_type_t::CAR: {
-    os << (expr_car_t*)expr;
-  } break ;
-  case expr_type_t::CDR: {
-    os << (expr_cdr_t*)expr;
-  } break ;
-  case expr_type_t::LIST: {
-    os << (expr_list_t*)expr;
   } break ;
   case expr_type_t::VARIABLE: {
     os << (expr_identifier_t*)expr;
@@ -134,83 +106,6 @@ void expr_self_evaluating_t::print(ostream& os, const string& prefix, bool is_la
 
 ostream& operator<<(ostream& os, expr_self_evaluating_t* expr) {
   os << expr->base.token;
-
-  return os;
-}
-
-expr_cons_t::expr_cons_t(token_t token, expr_t* first, expr_t* second):
-  base(expr_type_t::CONS, token),
-  first(first),
-  second(second)
-{
-}
-
-void expr_cons_t::print(ostream& os, const string& prefix, bool is_last) {
-  first->print(os, prefix, false);
-  second->print(os, prefix, true);
-}
-
-ostream& operator<<(ostream& os, expr_cons_t* expr) {
-  os << "(cons " << expr->first << " " << expr->second << ")";
-
-  return os;
-}
-
-expr_car_t::expr_car_t(token_t token, expr_t* operand):
-  base(expr_type_t::CAR, token),
-  operand(operand)
-{
-}
-
-void expr_car_t::print(ostream& os, const string& prefix, bool is_last) {
-  operand->print(os, prefix, true);
-}
-
-ostream& operator<<(ostream& os, expr_car_t* expr) {
-  os << "(car " << expr->operand << ")";
-
-  return os;
-}
-
-expr_cdr_t::expr_cdr_t(token_t token, expr_t* operand):
-  base(expr_type_t::CDR, token),
-  operand(operand)
-{
-}
-
-void expr_cdr_t::print(ostream& os, const string& prefix, bool is_last) {
-  operand->print(os, prefix, true);
-}
-
-ostream& operator<<(ostream& os, expr_cdr_t* expr) {
-  os << "(cdr " << expr->operand << ")";
-
-  return os;
-}
-
-expr_list_t::expr_list_t(token_t token, const vector<expr_t*>& operands):
-  base(expr_type_t::LIST, token),
-  operands(operands)
-{
-}
-
-void expr_list_t::print(ostream& os, const string& prefix, bool is_last) {
-  os << prefix << "(" << endl;
-  for (int i = 0; i < operands.size(); ++i) {
-    operands[i]->print(os, prefix, i + 1 == operands.size());
-  }
-  os << prefix << ")" << endl;
-}
-
-ostream& operator<<(ostream& os, expr_list_t* expr) {
-  os << "(list ";
-  for (int i = 0; i < expr->operands.size(); ++i) {
-    os << expr->operands[i];
-    if (i + 1 < expr->operands.size()) {
-      os << " ";
-    }
-  }
-  os << ")";
 
   return os;
 }
@@ -678,26 +573,6 @@ expr_t* parser_t::eat_set() {
 expr_t* parser_t::eat_identifier() {
   // ident
   return (expr_t*) new expr_identifier_t(eat_token_error(token_type_t::IDENTIFIER));
-}
-
-expr_t* parser_t::eat_cons() {
-  // (cons expr expr)
-  return (expr_t*) new expr_cons_t(eat_token_error(token_type_t::CONS), eat_expr(), eat_expr());
-}
-
-expr_t* parser_t::eat_car() {
-  // (car expr)
-  return (expr_t*) new expr_car_t(eat_token_error(token_type_t::CAR), eat_expr());
-}
-
-expr_t* parser_t::eat_cdr() {
-  // (cdr expr)
-  return (expr_t*) new expr_cdr_t(eat_token_error(token_type_t::CDR), eat_expr());
-}
-
-expr_t* parser_t::eat_list() {
-  // (list [expr]*)
-  return (expr_t*) new expr_list_t(eat_token_error(token_type_t::LIST), eat_while_not(token_type_t::RIGHT_PAREN));
 }
 
 expr_t* parser_t::eat_application() {
