@@ -5,6 +5,9 @@
 
 enum class obj_type_t : int {
   NIL,
+  NUMBER,
+  STRING,
+  EXPR,
   PAIR,
   PRIMITIVE_PROC,
   COMPOUND_PROC
@@ -26,8 +29,8 @@ struct env_t {
 
   env_t extend(const vector<expr_t*>& vars, const vector<obj_t*>& vals) const;
   obj_t* lookup(const string& var) const;
-  void set(const string& var, obj_t* obj);
-  void define(const string& var, obj_t* obj);
+  obj_t* set(const string& var, obj_t* obj);
+  obj_t* define(const string& var, obj_t* obj);
 
 private:
   map<string, obj_t*>::iterator lookup_internal(const string& var);
@@ -37,6 +40,30 @@ struct obj_nil_t {
   obj_nil_t();
 
   obj_t base;
+};
+
+struct obj_number_t {
+  obj_number_t(double val);
+
+  obj_t base;
+
+  double val;
+};
+
+struct obj_string_t {
+  obj_string_t(const string& str);
+
+  obj_t base;
+
+  string str;
+};
+
+struct obj_expr_t {
+  obj_expr_t(expr_t* expr);
+
+  obj_t base;
+
+  expr_t* expr;
 };
 
 struct obj_pair_t {
@@ -75,12 +102,26 @@ private:
   env_t global_env;
 
   obj_t* eval(expr_t* expr, env_t env);
+  obj_t* eval_self_evaluating(expr_t* expr);
+  obj_t* eval_cons(expr_t* expr, env);
+  obj_t* eval_car(expr_t* expr, env);
+  obj_t* eval_cdr(expr_t* expr, env);
+  obj_t* eval_list(expr_t* expr, env);
+  obj_t* eval_variable(expr_t* expr, env_t env);
+  obj_t* eval_quoted(expr_t* expr);
+  obj_t* eval_assignment(expr_t* expr, env_t env);
+  obj_t* eval_definition(expr_t* expr, env_t env);
+  obj_t* eval_if(expr_t* expr, env_t env);
+  obj_t* eval_lambda(expr_t* expr, env_t env);
+  obj_t* eval_begin(expr_t* expr, env_t env);
+  obj_t* eval_application(expr_t* expr, env_t env);
+
   obj_t* apply(obj_t* proc, const vector<obj_t*>& args);
+  obj_t* apply_primitive_proc(obj_t* obj, const vector<obj_t*>& args);
+  obj_t* apply_compound_proc(obj_t* obj, const vector<obj_t*>& args);
 
   bool is_true(obj_t* obj);
   bool is_false(obj_t* obj);
-  obj_t* apply_primitive_proc(obj_t* obj, const vector<obj_t*>& args);
-  obj_t* apply_compound_proc(obj_t* obj, const vector<obj_t*>& args);
 };
 
 #endif // EVALUATOR_H

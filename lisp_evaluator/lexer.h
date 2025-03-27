@@ -26,10 +26,6 @@ enum class token_type_t : int {
   NUMBER,
   STRING,
   NIL,
-  CONS,
-  CAR,
-  CDR,
-  LIST,
 
   // SPECIAL
   ERROR,
@@ -52,7 +48,7 @@ struct token_t {
   int          col_end;
   token_type_t type;
 
-  string to_string();
+  string to_string() const;
 
   friend ostream& operator<<(ostream& os, const token_t& token);
 };

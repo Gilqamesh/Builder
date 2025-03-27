@@ -20,10 +20,6 @@ const char* token_type_to_str(token_type_t type) {
   case token_type_t::NUMBER: return "NUMBER";
   case token_type_t::STRING: return "STRING";
   case token_type_t::NIL: return "NIL";
-  case token_type_t::CONS: return "CONS";
-  case token_type_t::CAR: return "CAR";
-  case token_type_t::CDR: return "CDR";
-  case token_type_t::LIST: return "LIST";
   case token_type_t::ERROR: return "ERROR";
   case token_type_t::COMMENT: return "COMMENT";
   case token_type_t::END_OF_FILE: return "END_OF_FILE";
@@ -31,17 +27,17 @@ const char* token_type_to_str(token_type_t type) {
   }
 }
 
-string token_t::to_string() {
-  return string(token.lexeme, (size_t) token.lemexe_length);
+string token_t::to_string() const {
+  return string(lexeme, (size_t) lexeme_length);
 }
 
 ostream& operator<<(ostream& os, const token_t& token) {
-  os << string(token_type_to_str(type)) << " " << line_start << ":" << col_start;
-  if (type != token_type_t::END_OF_FILE) {
+  os << string(token_type_to_str(token.type)) << " " << token.line_start << ":" << token.col_start;
+  if (token.type != token_type_t::END_OF_FILE) {
     os << " '" << token.to_string() << "'";
   }
-  if (type == token_type_t::ERROR) {
-    os << ", " << error_line << ":" << error_col << ": " << error;
+  if (token.type == token_type_t::ERROR) {
+    os << ", " << token.error_line << ":" << token.error_col << ": " << token.error;
   }
   return os;
 }
@@ -218,29 +214,13 @@ token_t lexer_t::eat_identifier() {
     switch (*(start + 1)) {
     case 'a': return eat_identifier_if("lambda", token_type_t::LAMBDA);
     case 'e': return eat_identifier_if("let", token_type_t::LET);
-    case 'i': return eat_identifier_if("list", token_type_t::LIST);
     }
   } break ;
   case 's': return eat_identifier_if("set!", token_type_t::SET);
   case 'f': return eat_identifier_if("nil", token_type_t::NIL);
   case 'i': return eat_identifier_if("if", token_type_t::IF);
   case 'e': return eat_identifier_if("else", token_type_t::ELSE);
-  case 'c': {
-    switch (*(start + 1)) {
-      case 'o': {
-        if (start + 2 < end && *(start + 2) == 'n') {
-          if (start + 3 < end) {
-            switch (*(start + 3)) {
-            case 's': return eat_identifier_if("cons", token_type_t::CONS);
-            case 'd': return eat_identifier_if("cond", token_type_t::COND);
-            }
-          }
-        }
-      } break ;
-      case 'a': return eat_identifier_if("car", token_type_t::CAR);
-      case 'd': return eat_identifier_if("cdr", token_type_t::CDR);
-    }
-  } break ;
+  case 'c': return eat_identifier_if("cond", token_type_t::COND);
   case 'b': return eat_identifier_if("begin", token_type_t::BEGIN);
   case 'w': return eat_identifier_if("when", token_type_t::WHEN);
   case 'q': return eat_identifier_if("quote", token_type_t::QUOTE);

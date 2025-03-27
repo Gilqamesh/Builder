@@ -33,13 +33,15 @@ obj_t* env_t::lookup(const string& var) const {
   return lookup_internal(var)->second;
 }
 
-void env_t::set(const string& var, obj_t* obj) {
+obj_t* env_t::set(const string& var, obj_t* obj) {
   auto it = lookup_internal(var);
   it->second = obj;
+  return obj;
 }
 
-void env_t::define(const string& var, obj_t* obj) {
+obj_t* env_t::define(const string& var, obj_t* obj) {
   bindings[var] = obj;
+  return obj;
 }
 
 map<string, obj_t*>::iterator env_t::lookup_internal(const string& var) {
@@ -56,25 +58,44 @@ map<string, obj_t*>::iterator env_t::lookup_internal(const string& var) {
 evaluator_t::evaluator_t() {
   global_env.define("nil", (obj_t*) new obj_nil_t());
   global_env.define("car", (obj_t*) new obj_primitive_proc_t([](const vector<obj_t*>& args) {
-    if (is_false(apply_primitive_procedure(global_env.lookup("pair?"), obj))) {
+    if (args.empty()) {
+      throw exception();
+    }
+    if (is_false(apply_primitive_procedure(global_env.lookup("pair?"), args))) {
       throw exception();
     }
     return ((obj_pair_t*)obj)->first;
   }));
   global_env.define("cdr", (obj_t*) new obj_primitive_proc_t([this](const vector<obj_t*>& args) {
-    if (is_false(apply_primitive_procedure(global_env.lookup("pair?"), obj))) {
+    if (args.empty()) {
       throw exception();
     }
-    return ((obj_pair_t*)obj)->second;
+    if (is_false(apply_primitive_procedure(global_env.lookup("pair?"), args))) {
+      throw exception();
+    }
+    return ((obj_pair_t*)args[0])->second;
   }));
   global_env.define("cons", (obj_t*) new obj_primitive_proc_t([](const vector<obj_t*>& args) {
     return (obj_t*) new obj_pair_t(obj1, obj2);
   }));
-  global_env.define("null?", (obj_t*) new obj_primitive_proc_t([this]() {
+  global_env.define("list", (obj_t*) new obj_primitive_proc_t([](const vector<obj_t*>& args) {
+    if (args.empty()) {
+      return (obj_t*) new obj_nil_t();
+    }
+    obj_t* result = (obj_t*) new obj_nil_t();
+    for (int i = args.size() - 1; 0 <= i; --i) {
+      result = apply_primitive_procedure(global_env.lookup("cons"), { args[i], result });
+    }
+    return result;
+  }));
+  global_env.define("null?", (obj_t*) new obj_primitive_proc_t([this](const vector<obj_t*>& args) {
     return global_env.lookup("nil") == obj;
   }));
-  global_env.define("pair?", (obj_t*) new obj_primitive_proc_t([](obj_t* obj) {
-    return obj->type == obj_type_t::PAIR;
+  global_env.define("pair?", (obj_t*) new obj_primitive_proc_t([](const vector<obj_t*>& args) {
+    if (args.empty()) {
+      throw exception();
+    }
+    return args[0]->type == obj_type_t::PAIR;
   }));
 }
 
@@ -84,7 +105,77 @@ obj_t* evaluator_t::eval(expr_t* expr) {
 
 obj_t* evaluator_t::eval(expr_t* expr, env_t env) {
   switch (expr->type) {
+  case SELF_EVALUATING: return eval_self_evaluating(expr);
+  case VARIABLE: return eval_variable(expr, env);
+  case QUOTED: return eval_quoted(expr);
+  case ASSIGNMENT: return eval_assignment(expr, env);
+  case DEFINITION: return eval_definition(expr, env);
+  case IF: return eval_if(expr, env);
+  case LAMBDA: return eval_lambda(expr, env);
+  case BEGIN: return eval_begin(expr, env);
+  case APPLICATION: return eval_application(expr, env);
+  default: throw exception();
   }
+}
+
+obj_t* evaluator_t::eval_self_evaluating(expr_t* expr) {
+  switch (expr->token.type) {
+  case token_type_t::NUMBER: return (obj_t*) new obj_number_t(stod(expr->token.to_string()));
+  case token_type_t::STRING: return (obj_t*) new obj_string_t(expr->token.to_string()); // maybe without quotes
+  default: expr->print(); assert(0 && "unexpected token type for self evaluating expression");
+  }
+}
+
+obj_t* evaluator_t::eval_variable(expr_t* expr, env_t env) {
+  return env.lookup(expr->to_string());
+}
+
+obj_t* evaluator_t::eval_quoted(expr_t* expr) {
+  return (obj_t*) new obj_expr_t(((expr_quoted_t*)expr)->quoted_expr);
+}
+
+obj_t* evaluator_t::eval_assignment(expr_t* expr, env_t env) {
+  expr_assignment_t* assignment = (expr_assignment_t*)expr;
+  return env.set(assignment->lvalue->to_string(), eval(assignment->new_value, env));
+}
+
+obj_t* evaluator_t::eval_definition(expr_t* expr, env_t env) {
+  expr_define_t* def = (expr_define_t*) expr;
+  return env.define(def->variable->to_string(), eval(def->value, env));
+}
+
+obj_t* evaluator_t::eval_if(expr_t* expr, env_t env) {
+  expr_if_t* expr_if = (expr_if_t*)expr;
+  if (is_true(eval(expr_if->condition, env))) {
+    return eval(expr_if->consequence, env);
+  } else if (expr_if->alternative) {
+    return eval(expr_if->alternative, env);
+  } else {
+    return (obj_t*) new obj_nil_t();
+  }
+}
+
+obj_t* evaluator_t::eval_lambda(expr_t* expr, env_t env) {
+  expr_lambda_t* expr_lambda = (expr_lambda_t*)expr;
+  return (obj_t*) new obj_compound_proc_t(expr_lambda->parameters, expr_lambda->body, env);
+}
+
+obj_t* evaluator_t::eval_begin(expr_t* expr, env_t env) {
+  expr_begin_t* expr_begin = (expr_begin_t*)expr;
+  obj_t* result = 0;
+  for (expr_t* expression : expr_begin->expressions) {
+    result = eval(expression, env);
+  }
+  return result;
+}
+
+obj_t* evaluator_t::eval_application(expr_t* expr, env_t env) {
+  expr_application_t* expr_application = (expr_application_t*)expr;
+  vector<obj_t*> args;
+  for (expr_t* param : expr_application->operands) {
+    args.push_back(eval(param, env));
+  }
+  return apply(eval(expr_application->fn_to_apply, env), args);
 }
 
 obj_t* evaluator_t::apply(obj_t* proc, const vector<obj_t*>& args) {
@@ -93,14 +184,6 @@ obj_t* evaluator_t::apply(obj_t* proc, const vector<obj_t*>& args) {
   case COMPOUND_PROC: return apply_compound_proc(proc, args);
   default: throw exception();
   }
-}
-
-bool evaluator_t::is_true(obj_t* obj) {
-  return obj->type != obj_type_t::NIL;
-}
-
-bool evaluator_t::is_false(obj_t* obj) {
-  return obj->type == obj_type_t::NIL;
 }
 
 obj_t* evaluator_t::apply_primitive_proc(obj_t* obj, const vector<obj_t*>& args) {
@@ -117,84 +200,12 @@ obj_t* evaluator_t::apply_compound_proc(obj_t* obj, const vector<obj_t*>& args) 
   return result;
 }
 
-bool is_self_evaluating(expr_t* expr) {
-  if (is_number(expr)) {
-    return true;
-  } else if (is_string(expr)) {
-    return true;
-  }
-  return false;
+bool evaluator_t::is_true(obj_t* obj) {
+  return obj->type != obj_type_t::NIL;
 }
 
-bool is_variable(expr_t* expr) {
-  if (is_symbol(expr)) {
-    return true;
-  }
-  return false;
+bool evaluator_t::is_false(obj_t* obj) {
+  return obj->type == obj_type_t::NIL;
 }
 
-bool is_assignment(expr_t* expr) {
-}
-
-list_of_values(expressions, env_t* env) {
-  result;
-  for (expr_t* expr : expressions) {
-    result.push_back(eval(expr, env));
-  }
-  return result;
-}
-
-eval_if(expr_t* expr, env_t* env) {
-  if (is_true(eval(if_predicate(expr), env))) {
-    return eval(if_consequent(expr), env);
-  } else {
-    return eval(if_alternative(expr), env);
-  }
-}
-
-eval_sequence(expressions, env_t* env) {
-  last;
-  for (expr_t* expr : expressions) {
-    last = eval(expr, env);
-  }
-  return last;
-}
-
-eval_assignment(expr_t* expr, env_t* env) {
-  new_value = eval(assignment_value(expr), env);
-  env->set(assignment_variable(expr), new_value);
-  return new_value;
-}
-
-eval_definition(expr_t* expr, env_t* env) {
-  defined_value = eval(definition_value(expr), env);
-  env->define(definition_variable(expr), defined_value);
-  return defined_value;
-}
-
-eval(expr_t* expr, env_t* env) {
-  switch (expr->type) {
-  case SELF_EVALUATING: return expr;
-  case VARIABLE: return env->lookup(expr);
-  case QUOTE: return text_of_quotation(expr);
-  case ASSIGNMENT: return eval_assignment(expr, env);
-  case DEFINITION: return eval_definition(expr, env);
-  case IF: return eval_if(expr, env);
-  case LAMBDA: return make_procedure(lambda_parameters(expr), lambda_body(expr), env);
-  case BEGIN: return eval_sequence(begin_actions(expr), env);
-  case COND: return eval(cond_to_if(epxr), env);
-  case APPLICATION: return apply(eval(expr->get_operator(), env), list_of_values(expr->get_operands(), env));
-  default: assert(0);
-  }
-}
-
-apply(procedure, arguments) {
-  if (is_primitive_procedure(procedure)) {
-    return apply_primitive_procedure(procedure, arguments);
-  } else if (is_compund_procedure(procedure)) {
-    return eval_sequence(procedure->body(), extend_environment(procedure->arguments(), arguments, procedure->environment()));
-  } else { 
-    assert(0);
-  }
-}
 
