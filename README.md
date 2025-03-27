@@ -6,8 +6,7 @@
 * Timestamps allow for automatic version propagation, as once a Node has changed its own state (after which its internal timestamp updates), dependent Nodes will be notified. One consequence of this is that Nodes are always updated to represent the current state, even across networks (no more need for all those build pipelines to sync packages, and no more need for all that wiring and integration between different systems to make everything work).
 * Black-box away programs into Nodes as an Abstraction mechanism
 * A big consequence of Directed Edges and Timestamps is that they eliminate the need for build systems, version control, and programming becomes more about defining the proper relationship/dependency between programs.
-* Interactive programming
-* Nodes can live anywhere in the world, not necessarily on your computer, allowing you to share work with others, as well as interactively work on Nodes.
+* Nodes can live anywhere in the world, not necessarily on your computer, allowing you to share work with others, as well as interactively (runtime) work on Nodes together.
 * Nodes and Edges can be disconnected during runtime, allowing the programmer a lot of flexibility to experiment with combinations or localize tests without using inflexible build systems.
 * Have a Node that gives us eyes to see the Graph and allows us to interface with the system with a frontend language. This language is a major part of this project. As a prototype this would be a simple graphical representation on the computer, probably opening up an editor to edit a program runtime. The only limit to the end goal is how well our brain can consume the information of what we are building and our imagination of what we are trying to build and experiment with. So a big next step could be moving this language to Virtual Reality, as well as AI to build some connection with our brain as an interface to the system.
 
