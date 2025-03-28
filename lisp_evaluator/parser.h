@@ -4,15 +4,11 @@
 # include "lexer.h"
 
 enum class expr_type_t : int {
-  SELF_EVALUATING,
-  VARIABLE,
-  QUOTED,
-  ASSIGNMENT,
-  DEFINITION,
-  IF,
-  LAMBDA,
-  BEGIN,
-  APPLICATION
+  NIL,
+  NUMBER,
+  STRING,
+  SYMBOL,
+  LIST
 };
 
 const char* expr_type_to_str(expr_type_t expr_type);
@@ -24,113 +20,62 @@ struct expr_t {
   token_t token;
 
   string to_string() const;
-
   void print(ostream& os = cout, const string& prefix = "", bool is_last = true);
-
   friend ostream& operator<<(ostream& os, expr_t* expr);
 };
 
-struct expr_self_evaluating_t {
-  expr_self_evaluating_t(token_t token);
+struct expr_nil_t {
+  expr_nil_t(token_t token);
 
   expr_t base;
 
-  void print(ostream& os, const string& prefix, bool is_last);
-
-  friend ostream& operator<<(ostream& os, expr_self_evaluating_t* expr);
+  string to_string() const;
+  void print(ostream& os = cout, const string& prefix = "", bool is_last = true);
+  friend ostream& operator<<(ostream& os, expr_nil_t* expr);
 };
 
-struct expr_identifier_t {
-  expr_identifier_t(token_t token);
+struct expr_number_t {
+  expr_number_t(token_t token, double number);
 
   expr_t base;
+  double number;
 
-  void print(ostream& os, const string& prefix, bool is_last);
-
-  friend ostream& operator<<(ostream& os, expr_identifier_t* expr);
+  string to_string() const;
+  void print(ostream& os = cout, const string& prefix = "", bool is_last = true);
+  friend ostream& operator<<(ostream& os, expr_number_t* expr);
 };
 
-struct expr_quoted_t {
-  expr_quoted_t(token_t token, expr_t* quoted_expr);
+struct expr_string_t {
+  expr_string_t(token_t token, const string& str);
 
   expr_t base;
-  expr_t* quoted_expr;
+  string str;
 
-  void print(ostream& os, const string& prefix, bool is_last);
-
-  friend ostream& operator<<(ostream& os, expr_quoted_t* expr);
+  string to_string() const;
+  void print(ostream& os = cout, const string& prefix = "", bool is_last = true);
+  friend ostream& operator<<(ostream& os, expr_string_t* expr);
 };
 
-struct expr_assignment_t {
-  expr_assignment_t(token_t token, expr_t* lvalue, expr_t* new_value);
+struct expr_symbol_t {
+  expr_symbol_t(token_t token, string symbol);
 
   expr_t base;
-  expr_t* lvalue;
-  expr_t* new_value;
+  string symbol;
 
-  void print(ostream& os, const string& prefix, bool is_last);
-
-  friend ostream& operator<<(ostream& os, expr_assignment_t* expr);
+  string to_string() const;
+  void print(ostream& os = cout, const string& prefix = "", bool is_last = true);
+  friend ostream& operator<<(ostream& os, expr_symbol_t* expr);
 };
 
-struct expr_define_t {
-  expr_define_t(token_t token, expr_t* variable, expr_t* value);
+struct expr_list_t {
+  expr_list_t(token_t token, const vector<expr_t*>& exprs);
 
   expr_t base;
-  expr_t* variable;
-  expr_t* value;
+  vector<expr_t*> exprs;
 
-  void print(ostream& os, const string& prefix, bool is_last);
-
-  friend ostream& operator<<(ostream& os, expr_define_t* expr);
-};
-
-struct expr_if_t {
-  expr_if_t(token_t token, expr_t* condition, expr_t* consequence, expr_t* alternative = 0);
-
-  expr_t base;
-  expr_t* condition;
-  expr_t* consequence;
-  expr_t* alternative;
-
-  void print(ostream& os, const string& prefix, bool is_last);
-
-  friend ostream& operator<<(ostream& os, expr_if_t* expr);
-};
-
-struct expr_lambda_t {
-  expr_lambda_t(token_t token, const vector<expr_t*>& parameters, const vector<expr_t*>& body);
-
-  expr_t base;
-  vector<expr_t*> parameters;
-  vector<expr_t*> body;
-
-  void print(ostream& os, const string& prefix, bool is_last);
-
-  friend ostream& operator<<(ostream& os, expr_lambda_t* expr);
-};
-
-struct expr_begin_t {
-  expr_begin_t(token_t token, const vector<expr_t*>& expressions);
-
-  expr_t base;
-  vector<expr_t*> expressions;
-
-  void print(ostream& os, const string& prefix, bool is_last);
-
-  friend ostream& operator<<(ostream& os, expr_begin_t* expr);
-};
-
-struct expr_application_t {
-  expr_application_t(token_t token, expr_t* fn_to_apply, const vector<expr_t*>& operands);
-
-  expr_t base;
-  expr_t* fn_to_apply;
-  vector<expr_t*> operands;
-
-  void print(ostream& os, const string& prefix, bool is_last);
-
-  friend ostream& operator<<(ostream& os, expr_application_t* expr);
+  string to_string() const;
+  void print(ostream& os = cout, const string& prefix = "", bool is_last = true);
+  friend ostream& operator<<(ostream& os, expr_list_t* expr);
 };
 
 struct parser_t {
@@ -153,22 +98,12 @@ private:
   bool is_at_end();
   void fill_tokens(int n = 16);
 
-  expr_t* eat_self_evaluating();
-  expr_t* eat_define();
-  expr_t* eat_lambda();
-  expr_t* eat_if();
-  expr_t* eat_when();
-  expr_t* eat_cond_branch();
-  expr_t* eat_cond();
-  expr_t* eat_let();
-  expr_t* eat_begin();
+  expr_t* eat_nil();
+  expr_t* eat_number();
+  expr_t* eat_string();
+  expr_t* eat_symbol();
   expr_t* eat_apostrophe();
-  expr_t* eat_set();
-  expr_t* eat_identifier();
-  expr_t* eat_application();
-
-  vector<expr_t*> eat_identifiers();
-  vector<expr_t*> eat_while_not(token_type_t token_type);
+  expr_t* eat_list();
 };
 
 #endif // PARSER_H
