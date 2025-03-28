@@ -18,7 +18,6 @@ enum class token_type_t : int {
   COND,
   LET,
   BEGIN,
-  QUOTE,
   SET,
 
   // LITERALS

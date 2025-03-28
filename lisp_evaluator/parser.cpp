@@ -332,23 +332,8 @@ expr_t* parser_t::eat_expr() {
       case token_type_t::BEGIN: {
         expr = eat_begin();
       } break ;
-      case token_type_t::QUOTE: {
-        expr = eat_quote();
-      } break ;
       case token_type_t::SET: {
         expr = eat_set();
-      } break ;
-      case token_type_t::CONS: {
-        expr = eat_cons();
-      } break ;
-      case token_type_t::CAR: {
-        expr = eat_car();
-      } break ;
-      case token_type_t::CDR: {
-        expr = eat_cdr();
-      } break ;
-      case token_type_t::LIST: {
-        expr = eat_list();
       } break ;
       default: {
         expr = eat_application();
@@ -358,10 +343,6 @@ expr_t* parser_t::eat_expr() {
     return expr;
   } break ;
   case token_type_t::IDENTIFIER: return eat_identifier();
-  case token_type_t::LIST:
-  case token_type_t::CAR:
-  case token_type_t::CDR:
-  case token_type_t::CONS: return (expr_t*) new expr_identifier_t(eat_token());
   case token_type_t::APOSTROPHE: return eat_apostrophe();
   case token_type_t::ERROR: throw token_exception_t("error", eat_token());
   case token_type_t::END_OF_FILE: return 0;
@@ -431,6 +412,10 @@ bool parser_t::is_at_end() {
 void parser_t::fill_tokens(int n) {
   while (n--) {
     token_t token = lexer.eat_token();
+    if (token.type == token_type_t::COMMENT) {
+      ++n;
+      continue ;
+    }
     tokens.push_back(token);
     if (token.type == token_type_t::END_OF_FILE) {
       return ;
@@ -548,21 +533,10 @@ expr_t* parser_t::eat_begin() {
   return (expr_t*) new expr_begin_t(eat_token_error(token_type_t::BEGIN), eat_while_not(token_type_t::RIGHT_PAREN));
 }
 
-expr_t* parser_t::eat_quote() {
-  // (quote expr)
-  return 0;
-}
-
 expr_t* parser_t::eat_apostrophe() {
-  // 'expr -> (list expr)
+  // 'expr
   token_t quote_token = eat_token_error(token_type_t::APOSTROPHE);
-  if (eat_token_if(token_type_t::LEFT_PAREN)) {
-    vector<expr_t*> list_elements = eat_while_not(token_type_t::RIGHT_PAREN);
-    eat_token_error(token_type_t::RIGHT_PAREN);
-    return (expr_t*) new expr_quoted_t(quote_token, (expr_t*) new expr_list_t(quote_token, list_elements));
-  } else {
-    return (expr_t*) new expr_quoted_t(quote_token, eat_expr());
-  }
+  return (expr_t*) new expr_quoted_t(quote_token, eat_expr());
 }
 
 expr_t* parser_t::eat_set() {

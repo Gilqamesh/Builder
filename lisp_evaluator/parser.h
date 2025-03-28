@@ -162,14 +162,9 @@ private:
   expr_t* eat_cond();
   expr_t* eat_let();
   expr_t* eat_begin();
-  expr_t* eat_quote();
   expr_t* eat_apostrophe();
   expr_t* eat_set();
   expr_t* eat_identifier();
-  expr_t* eat_cons();
-  expr_t* eat_car();
-  expr_t* eat_cdr();
-  expr_t* eat_list();
   expr_t* eat_application();
 
   vector<expr_t*> eat_identifiers();

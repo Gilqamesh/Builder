@@ -14,7 +14,6 @@ const char* token_type_to_str(token_type_t type) {
   case token_type_t::COND: return "COND";
   case token_type_t::LET: return "LET";
   case token_type_t::BEGIN: return "BEGIN";
-  case token_type_t::QUOTE: return "QUOTE";
   case token_type_t::SET: return "SET!";
   case token_type_t::IDENTIFIER: return "IDENTIFIER";
   case token_type_t::NUMBER: return "NUMBER";
@@ -176,7 +175,7 @@ token_t lexer_t::eat_number(bool dotted) {
   while (!is_at_end() && '0' <= peak_char() && peak_char() <= '9') {
     eat_char();
   }
-  if (is_at_end() || is_whitespace(peak_char())) {
+  if (is_at_end() || is_whitespace(peak_char()) || peak_char() == '(' || peak_char() == ')') {
     return make_token(token_type_t::NUMBER);
   }
   int err_line = line_end;
@@ -223,7 +222,6 @@ token_t lexer_t::eat_identifier() {
   case 'c': return eat_identifier_if("cond", token_type_t::COND);
   case 'b': return eat_identifier_if("begin", token_type_t::BEGIN);
   case 'w': return eat_identifier_if("when", token_type_t::WHEN);
-  case 'q': return eat_identifier_if("quote", token_type_t::QUOTE);
   }
   return make_token(token_type_t::IDENTIFIER);
 }
