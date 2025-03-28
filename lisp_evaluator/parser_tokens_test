@@ -9,7 +9,7 @@
   (define (entry-name entry) (car entry))
   (define (entry-val entry) (cadr entry))
   (define (entry-description entry) (cddr entry))
-  #|(define entries '())|#
+  (define entries '())
   (define (insert! name val description) (set! entries (cons (make-entry name val description) entries)))
   (define (lookup . args)
     (define (lookup-iter rem-entries)
