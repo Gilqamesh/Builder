@@ -8,7 +8,7 @@ enum class expr_type_t : int {
   NUMBER,
   STRING,
   SYMBOL,
-  LIST
+  PAIR
 };
 
 const char* expr_type_to_str(expr_type_t expr_type);
@@ -19,7 +19,7 @@ struct expr_t {
   expr_type_t type;
   token_t token;
 
-  string to_string() const;
+  string to_string();
   void print(ostream& os = cout, const string& prefix = "", bool is_last = true);
   friend ostream& operator<<(ostream& os, expr_t* expr);
 };
@@ -29,7 +29,7 @@ struct expr_nil_t {
 
   expr_t base;
 
-  string to_string() const;
+  string to_string();
   void print(ostream& os = cout, const string& prefix = "", bool is_last = true);
   friend ostream& operator<<(ostream& os, expr_nil_t* expr);
 };
@@ -40,7 +40,7 @@ struct expr_number_t {
   expr_t base;
   double number;
 
-  string to_string() const;
+  string to_string();
   void print(ostream& os = cout, const string& prefix = "", bool is_last = true);
   friend ostream& operator<<(ostream& os, expr_number_t* expr);
 };
@@ -51,7 +51,7 @@ struct expr_string_t {
   expr_t base;
   string str;
 
-  string to_string() const;
+  string to_string();
   void print(ostream& os = cout, const string& prefix = "", bool is_last = true);
   friend ostream& operator<<(ostream& os, expr_string_t* expr);
 };
@@ -62,20 +62,21 @@ struct expr_symbol_t {
   expr_t base;
   string symbol;
 
-  string to_string() const;
+  string to_string();
   void print(ostream& os = cout, const string& prefix = "", bool is_last = true);
   friend ostream& operator<<(ostream& os, expr_symbol_t* expr);
 };
 
-struct expr_list_t {
-  expr_list_t(token_t token, const vector<expr_t*>& exprs);
+struct expr_pair_t {
+  expr_pair_t(token_t token, expr_t* first, expr_t* second);
 
   expr_t base;
-  vector<expr_t*> exprs;
+  expr_t* first;
+  expr_t* second;
 
-  string to_string() const;
+  string to_string();
   void print(ostream& os = cout, const string& prefix = "", bool is_last = true);
-  friend ostream& operator<<(ostream& os, expr_list_t* expr);
+  friend ostream& operator<<(ostream& os, expr_symbol_t* expr);
 };
 
 struct parser_t {
@@ -90,9 +91,7 @@ private:
   deque<token_t> tokens; // in case we want to support look ahead in the future
 
   token_type_t peak_token(int ahead = 0);
-  void peak_token_error(token_type_t token_type, int ahead = 0);
   token_t eat_token();
-  bool eat_token_if(token_type_t token_type);
   token_t eat_token_error(token_type_t token_type);
   token_t ate_token();
   bool is_at_end();
