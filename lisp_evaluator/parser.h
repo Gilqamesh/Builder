@@ -8,6 +8,7 @@ enum class expr_type_t : int {
   NUMBER,
   STRING,
   SYMBOL,
+  PRIMITIVE_PROC,
   PAIR
 };
 
@@ -21,7 +22,6 @@ struct expr_t {
 
   string to_string();
   void print(ostream& os = cout, const string& prefix = "", bool is_last = true);
-  friend ostream& operator<<(ostream& os, expr_t* expr);
 };
 
 struct expr_nil_t {
@@ -31,7 +31,6 @@ struct expr_nil_t {
 
   string to_string();
   void print(ostream& os = cout, const string& prefix = "", bool is_last = true);
-  friend ostream& operator<<(ostream& os, expr_nil_t* expr);
 };
 
 struct expr_number_t {
@@ -42,7 +41,6 @@ struct expr_number_t {
 
   string to_string();
   void print(ostream& os = cout, const string& prefix = "", bool is_last = true);
-  friend ostream& operator<<(ostream& os, expr_number_t* expr);
 };
 
 struct expr_string_t {
@@ -53,7 +51,6 @@ struct expr_string_t {
 
   string to_string();
   void print(ostream& os = cout, const string& prefix = "", bool is_last = true);
-  friend ostream& operator<<(ostream& os, expr_string_t* expr);
 };
 
 struct expr_symbol_t {
@@ -64,7 +61,16 @@ struct expr_symbol_t {
 
   string to_string();
   void print(ostream& os = cout, const string& prefix = "", bool is_last = true);
-  friend ostream& operator<<(ostream& os, expr_symbol_t* expr);
+};
+
+struct expr_primitive_proc_t {
+  expr_primitive_proc_t(token_t token, const function<expr_t*(expr_t*)>& proc);
+
+  expr_t base;
+  function<expr_t*(expr_t*)> proc;
+
+  string to_string();
+  void print(ostream& os = cout, const string& prefix = "", bool is_last = true);
 };
 
 struct expr_pair_t {
@@ -76,7 +82,6 @@ struct expr_pair_t {
 
   string to_string();
   void print(ostream& os = cout, const string& prefix = "", bool is_last = true);
-  friend ostream& operator<<(ostream& os, expr_symbol_t* expr);
 };
 
 struct parser_t {
@@ -86,16 +91,14 @@ struct parser_t {
 
 private:
   lexer_t lexer;
+  token_t prev_token;
+  token_t cur_token;
+  token_t next_token;
 
-  token_t last_ate;
-  deque<token_t> tokens; // in case we want to support look ahead in the future
-
-  token_type_t peak_token(int ahead = 0);
+  token_t peak_token();
   token_t eat_token();
   token_t eat_token_error(token_type_t token_type);
-  token_t ate_token();
   bool is_at_end();
-  void fill_tokens(int n = 16);
 
   expr_t* eat_nil();
   expr_t* eat_number();

@@ -45,6 +45,17 @@ private:
   expr_t* apply_primitive_proc(expr_t* expr, const vector<expr_t*>& args);
   expr_t* apply_compound_proc(expr_t* expr, const vector<expr_t*>& args);
 
+  expr_t* make_lambda(expr_t* param, expr_t* body);
+  bool is_lambda(expr_t* expr);
+  expr_t* lambda_param(expr_t* expr);
+  expr_t* lambda_body(expr_t* expr);
+
+  expr_t* make_compound_procedure(expr_t* param, expr_t* body, env_t env);
+  bool is_compound_procedure(expr_t* expr);
+  expr_t* compound_procedure_param(expr_t* expr);
+  expr_t* compound_procedure_body(expr_t* expr);
+  expr_t* compound_procedure_env(expr_t* expr);
+
   bool is_true(expr_t* expr);
   bool is_false(expr_t* expr);
 };
