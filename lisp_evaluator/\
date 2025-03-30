@@ -1,0 +1,40 @@
+#ifndef PARSER_H
+# define PARSER_H
+
+# include "lexer.h"
+
+struct any_t {
+  void* value;
+};
+
+struct cell_t {
+};
+
+struct parser_t {
+  parser_t(const char* source);
+
+  expr_t* eat_expr();
+
+private:
+  lexer_t lexer;
+
+  token_t last_ate;
+  deque<token_t> tokens; // in case we want to support look ahead in the future
+
+  token_type_t peak_token(int ahead = 0);
+  token_t eat_token();
+  token_t eat_token_error(token_type_t token_type);
+  token_t ate_token();
+  bool is_at_end();
+  void fill_tokens(int n = 16);
+
+  expr_t* eat_nil();
+  expr_t* eat_number();
+  expr_t* eat_string();
+  expr_t* eat_symbol();
+  expr_t* eat_apostrophe();
+  expr_t* eat_list();
+};
+
+#endif // PARSER_H
+

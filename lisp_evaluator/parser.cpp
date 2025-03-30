@@ -6,6 +6,7 @@ const char* expr_type_to_str(expr_type_t expr_type) {
   case expr_type_t::NUMBER: return "NUMBER";
   case expr_type_t::STRING: return "STRING";
   case expr_type_t::SYMBOL: return "SYMBOL";
+  case expr_type_t::PRIMITIVE_PROC: return "PRIMITIVE PROC";
   case expr_type_t::PAIR: return "PAIR";
   default: assert(0);
   }
@@ -30,6 +31,9 @@ string expr_t::to_string() {
   } break ;
   case expr_type_t::SYMBOL: {
     return ((expr_symbol_t*)this)->to_string();
+  } break ;
+  case expr_type_t::PRIMITIVE_PROC: {
+    return ((expr_primitive_proc_t*)this)->to_string();
   } break ;
   case expr_type_t::PAIR: {
     return ((expr_pair_t*)this)->to_string();
@@ -56,34 +60,14 @@ void expr_t::print(ostream& os, const string& prefix, bool is_last) {
   case expr_type_t::SYMBOL: {
     ((expr_symbol_t*)this)->print(os, new_prefix, is_last);
   } break ;
+  case expr_type_t::PRIMITIVE_PROC: {
+    ((expr_primitive_proc_t*)this)->print(os, new_prefix, is_last);
+  } break ;
   case expr_type_t::PAIR: {
     ((expr_pair_t*)this)->print(os, new_prefix, is_last);
   } break ;
   default: assert(0);
   }
-}
-
-ostream& operator<<(ostream& os, expr_t* expr) {
-  switch (expr->type) {
-  case expr_type_t::NIL: {
-    os << (expr_nil_t*)expr;
-  } break ;
-  case expr_type_t::NUMBER: {
-    os << (expr_number_t*)expr;
-  } break ;
-  case expr_type_t::STRING: {
-    os << (expr_string_t*)expr;
-  } break ;
-  case expr_type_t::SYMBOL: {
-    os << (expr_symbol_t*)expr;
-  } break ;
-  case expr_type_t::PAIR: {
-    os << (expr_pair_t*)expr;
-  } break ;
-  default: assert(0);
-  }
-
-  return os;
 }
 
 expr_nil_t::expr_nil_t(token_t token):
@@ -96,11 +80,6 @@ string expr_nil_t::to_string() {
 }
 
 void expr_nil_t::print(ostream& os, const string& prefix, bool is_last) {
-}
-
-ostream& operator<<(ostream& os, expr_nil_t* expr_nil) {
-  os << expr_nil->to_string();
-  return os;
 }
 
 expr_number_t::expr_number_t(token_t token, double number):
@@ -116,11 +95,6 @@ string expr_number_t::to_string() {
 void expr_number_t::print(ostream& os, const string& prefix, bool is_last) {
 }
 
-ostream& operator<<(ostream& os, expr_number_t* expr_number) {
-  os << expr_number->to_string();
-  return os;
-}
-
 expr_string_t::expr_string_t(token_t token, const string& str):
   base(expr_type_t::STRING, token),
   str(str)
@@ -132,11 +106,6 @@ string expr_string_t::to_string() {
 }
 
 void expr_string_t::print(ostream& os, const string& prefix, bool is_last) {
-}
-
-ostream& operator<<(ostream& os, expr_string_t* expr_string) {
-  os << expr_string->to_string();
-  return os;
 }
 
 expr_symbol_t::expr_symbol_t(token_t token, string symbol):
@@ -152,9 +121,17 @@ string expr_symbol_t::to_string() {
 void expr_symbol_t::print(ostream& os, const string& prefix, bool is_last) {
 }
 
-ostream& operator<<(ostream& os, expr_symbol_t* expr_symbol) {
-  os << expr_symbol->to_string();
-  return os;
+expr_primitive_proc_t::expr_primitive_proc_t(token_t token, const function<expr_t*(expr_t*)>& proc):
+  base(expr_type_t::PRIMITIVE_PROC, token),
+  proc(proc)
+{
+}
+
+string expr_primitive_proc_t::to_string() {
+  return "primitive proc";
+}
+
+void expr_primitive_proc_t::print(ostream& os, const string& prefix, bool is_last) {
 }
 
 expr_pair_t::expr_pair_t(token_t token, expr_t* first, expr_t* second):
@@ -197,17 +174,13 @@ void expr_pair_t::print(ostream& os, const string& prefix, bool is_last) {
   }
 }
 
-ostream& operator<<(ostream& os, expr_pair_t* expr_pair) {
-  os << expr_pair->to_string();
-  return os;
-}
-
 parser_t::parser_t(const char* source):
   lexer(source) {
+  eat_token();
 }
 
 expr_t* parser_t::eat_expr() {
-  switch (peak_token()) {
+  switch (peak_token().type) {
   case token_type_t::NIL: return eat_nil();
   case token_type_t::NUMBER: return eat_number();
   case token_type_t::STRING: return eat_string();
@@ -244,7 +217,7 @@ expr_t* parser_t::eat_list() {
   expr_t* list_terminator = (expr_t*) new expr_nil_t(left_paren);
   expr_pair_t* first = 0;
   expr_pair_t* prev = 0;
-  while (!is_at_end() && peak_token() != token_type_t::RIGHT_PAREN) {
+  while (!is_at_end() && peak_token().type != token_type_t::RIGHT_PAREN) {
     expr_t* expr = eat_expr();
     expr_pair_t* cur = new expr_pair_t(expr->token, expr, list_terminator);
     if (!first) {
@@ -262,31 +235,24 @@ expr_t* parser_t::eat_list() {
 }
 
 expr_t* parser_t::eat_apostrophe() {
-  return (expr_t*) new expr_pair_t(eat_token_error(token_type_t::APOSTROPHE), (expr_t*) new expr_symbol_t(ate_token(), "quote"), eat_expr());
+  return (expr_t*) new expr_pair_t(eat_token_error(token_type_t::APOSTROPHE), (expr_t*) new expr_symbol_t(prev_token, "quote"), eat_expr());
 }
 
-token_type_t parser_t::peak_token(int ahead) {
-  if (tokens.size() <= ahead) {
-    fill_tokens();
-  }
-  if (tokens.size() <= ahead) {
-    return token_type_t::END_OF_FILE;
-  }
-  return tokens[ahead].type;
+token_t parser_t::peak_token() {
+  return next_token;
 }
 
 token_t parser_t::eat_token() {
-  if (tokens.empty()) {
-    fill_tokens();
+  prev_token = cur_token;
+  cur_token = next_token;
+  next_token = lexer.eat_token();
+  while (next_token.type == token_type_t::COMMENT) {
+    next_token = lexer.eat_token();
   }
-  assert(!tokens.empty());
-  token_t result = tokens.front();
-  tokens.pop_front();
-  if (result.type == token_type_t::ERROR) {
-    throw token_exception_t("unexpected error token", result);
+  if (next_token.type == token_type_t::ERROR) {
+    throw token_exception_t("unexpected error token", next_token);
   }
-  last_ate = result;
-  return result;
+  return cur_token;
 }
 
 token_t parser_t::eat_token_error(token_type_t token_type) {
@@ -297,29 +263,7 @@ token_t parser_t::eat_token_error(token_type_t token_type) {
   return token;
 }
 
-token_t parser_t::ate_token() {
-  return last_ate;
-}
-
 bool parser_t::is_at_end() {
-  if (tokens.empty()) {
-    fill_tokens();
-  }
-  assert(!tokens.empty());
-  return tokens.front().type == token_type_t::END_OF_FILE;
-}
-
-void parser_t::fill_tokens(int n) {
-  while (n--) {
-    token_t token = lexer.eat_token();
-    if (token.type == token_type_t::COMMENT) {
-      ++n;
-      continue ;
-    }
-    tokens.push_back(token);
-    if (token.type == token_type_t::END_OF_FILE) {
-      return ;
-    }
-  }
+  return peak_token().type == token_type_t::END_OF_FILE;
 }
 

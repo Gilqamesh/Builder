@@ -48,8 +48,7 @@ map<string, expr_t*>::iterator env_t::lookup_internal(const string& var) {
 }
 
 evaluator_t::evaluator_t() {
-  global_env.define("nil", (expr_t*) new expr_nil_t());
-  global_env.define("car", (expr_t*) new obj_primitive_proc_t([](const vector<obj_t*>& args) {
+  global_env.define("car", (expr_t*) [](const vector<expr_t*>& args) {
     if (args.empty()) {
       throw exception();
     }
@@ -57,7 +56,7 @@ evaluator_t::evaluator_t() {
       throw exception();
     }
     return ((obj_pair_t*)obj)->first;
-  }));
+  });
   global_env.define("cdr", (obj_t*) new obj_primitive_proc_t([this](const vector<obj_t*>& args) {
     if (args.empty()) {
       throw exception();
