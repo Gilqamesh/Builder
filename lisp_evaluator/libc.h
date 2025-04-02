@@ -2,6 +2,7 @@
 # define LIBC_H
 
 # include <iostream>
+# include <iomanip>
 # include <fstream>
 # include <sstream>
 # include <vector>
@@ -16,6 +17,7 @@
 # include <algorithm>
 # include <chrono>
 # include <exception>
+# include <iterator>
 
 # include <cassert>
 # include <cmath>
