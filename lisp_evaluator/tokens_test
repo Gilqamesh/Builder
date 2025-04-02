@@ -4,6 +4,7 @@
 
 1 1.2 .2 1.
 
+#| this is a comment |#
 (define (make-dispatcher)
   (define (make-entry name val description) (cons name (cons val description)))
   (define (entry-name entry) (car entry))
