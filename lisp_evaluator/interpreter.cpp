@@ -309,18 +309,34 @@ const char* expr_exception_t::what() const noexcept {
 interpreter_t::interpreter_t() {
   nil = (expr_t*) new expr_nil_t();
   t = make_symbol("#t");
-  global_env.define(make_symbol("car"), make_primitive_proc([this](expr_t* expr) { return car(expr); }, 1, false));
-  global_env.define(make_symbol("cdr"), make_primitive_proc([this](expr_t* expr) { return cdr(expr); }, 1, false));
-  global_env.define(make_symbol("cons"), make_primitive_proc([this](expr_t* expr) { return make_cons(car(expr), cdr(expr)); }, 2, false));
+  global_env.define(t, t);
+  global_env.define(make_symbol("car"), make_primitive_proc([this](expr_t* expr) { return car(car(expr)); }, 1, false));
+  global_env.define(make_symbol("cdr"), make_primitive_proc([this](expr_t* expr) { return cdr(car(expr)); }, 1, false));
+  global_env.define(make_symbol("cons"), make_primitive_proc([this](expr_t* expr) { return make_cons(car(expr), car(cdr(expr))); }, 2, false));
   global_env.define(make_symbol("list"), make_primitive_proc([this](expr_t* expr) { return expr; }, 0, true));
-  global_env.define(make_symbol("eq?"), make_primitive_proc([this](expr_t* expr) { return make_boolean(is_eq(car(expr), car(cdr(expr)))); }, 2, false));
 
-  global_env.define(make_symbol("symbol?"), make_primitive_proc([this](expr_t* expr) { return make_boolean(is_symbol(expr)); }, 1, false));
-  global_env.define(make_symbol("string?"), make_primitive_proc([this](expr_t* expr) { return make_boolean(is_string(expr)); }, 1, false));
-  global_env.define(make_symbol("list?"), make_primitive_proc([this](expr_t* expr) { return make_boolean(is_list(expr)); }, 1, false));
-  global_env.define(make_symbol("null?"), make_primitive_proc([this](expr_t* expr) { return make_boolean(is_nil(expr)); }, 1, false));
-  global_env.define(make_symbol("integer?"), make_primitive_proc([this](expr_t* expr) { return make_boolean(is_integer(expr)); }, 1, false));
-  global_env.define(make_symbol("pair?"), make_primitive_proc([this](expr_t* expr) { return make_boolean(is_cons(expr)); }, 1, false));
+  global_env.define(make_symbol("eq?"), make_primitive_proc([this](expr_t* expr) { return make_boolean(is_eq(car(expr), car(cdr(expr)))); }, 2, false));
+  global_env.define(make_symbol("symbol?"), make_primitive_proc([this](expr_t* expr) { return make_boolean(is_symbol(car(expr))); }, 1, false));
+  global_env.define(make_symbol("string?"), make_primitive_proc([this](expr_t* expr) { return make_boolean(is_string(car(expr))); }, 1, false));
+  global_env.define(make_symbol("list?"), make_primitive_proc([this](expr_t* expr) { return make_boolean(is_list(car(expr))); }, 1, false));
+  global_env.define(make_symbol("null?"), make_primitive_proc([this](expr_t* expr) { return make_boolean(is_nil(car(expr))); }, 1, false));
+  global_env.define(make_symbol("integer?"), make_primitive_proc([this](expr_t* expr) { return make_boolean(is_integer(car(expr))); }, 1, false));
+  global_env.define(make_symbol("pair?"), make_primitive_proc([this](expr_t* expr) { return make_boolean(is_cons(car(expr))); }, 1, false));
+
+  global_env.define(make_symbol("display"), make_primitive_proc([this](expr_t* expr) {
+    expr = car(expr);
+    if (is_string(expr)) {
+      string s = expr->to_string();
+      cout << s.substr(1, s.size() - 2);
+    } else {
+      cout << expr->to_string();
+    }
+    return make_nil();
+  }, 1, false));
+  global_env.define(make_symbol("newline"), make_primitive_proc([this](expr_t* expr) {
+    cout << endl;
+    return make_nil();
+  }, 0, false));
 
   global_env.define(make_symbol("+"), make_primitive_proc([this](expr_t* expr) {
     expr_t* result = car(expr);
@@ -360,17 +376,86 @@ interpreter_t::interpreter_t() {
     }
     return result;
   }, 1, true));
+  global_env.define(make_symbol("="), make_primitive_proc([this](expr_t* expr) {
+    expr_t* first = car(expr);
+    expr = cdr(expr);
+    while (!is_nil(expr)) {
+      if (is_false(number_eq(first, car(expr)))) {
+        return make_boolean(false);
+      }
+      expr = cdr(expr);
+    }
+    return make_boolean(true);
+  }, 1, true));
 
+  global_env.define(make_symbol("read"), make_special_form([this](expr_t* expr, expr_env_t* env) {
+    int len = list_length_internal(expr);
+    if (len == -1) {
+      throw expr_exception_t("read: list has cycle", expr);
+    }
+    if (len == 0) {
+      return read(cin);
+    } else if (len == 1) {
+      // todo: support stream expressions
+      return read(cin);
+    } else {
+      throw expr_exception_t("read: wrong arity for special form", expr);
+    }
+  }));
+  global_env.define(make_symbol("eval"), make_special_form([this](expr_t* expr, expr_env_t* env) {
+    int len = list_length_internal(expr);
+    if (len == -1) {
+      throw expr_exception_t("eval: list has cycle", expr);
+    }
+    if (len == 1) {
+      return eval(eval(car(expr), env), env);
+    } else if (len == 2) {
+      return eval(eval(car(expr), env), env);
+    } else {
+      throw expr_exception_t("eval: wrong arity for special form", expr);
+    }
+  }));
+  global_env.define(make_symbol("apply"), make_special_form([this](expr_t* expr, expr_env_t* env) {
+    // (apply fn args)
+    int len = list_length_internal(expr);
+    if (len == -1) {
+      throw expr_exception_t("apply: list has cycle", expr);
+    }
+    if (len != 2) {
+      throw expr_exception_t("apply: wrong arity for special form", expr);
+    }
+    return apply(eval(list_ref(expr, 0), env), eval(list_ref(expr, 1), env), env);
+  }));
 
+  global_env.define(make_symbol("begin"), make_special_form([this](expr_t* expr, expr_env_t* env) {
+    expr_t* result = make_nil();
+    while (!is_nil(expr)) {
+      result = eval(car(expr), env);
+      expr = cdr(expr);
+    }
+    return result;
+  }));
   global_env.define(make_symbol("quote"), make_special_form([this](expr_t* expr, expr_env_t* env) {
-    return expr;
+    return car(expr);
   }));
   global_env.define(make_symbol("if"), make_special_form([this](expr_t* expr, expr_env_t* env) {
+    int len = list_length_internal(expr);
+    if (!(len == 2 || len == 3)) {
+      throw expr_exception_t("if: wrong arity for special form", expr);
+    }
     // (if condition consequence alternative)
-    if (is_true(eval(list_ref(expr, 1), env))) {
+    if (is_true(eval(list_ref(expr, 0), env))) {
+      return eval(list_ref(expr, 1), env);
+    } else if (!is_nil(list_tail(expr, 2))) {
       return eval(list_ref(expr, 2), env);
-    } else if (!is_nil(list_tail(expr, 3))) {
-      return eval(list_ref(expr, 3), env);
+    } else {
+      return make_nil();
+    }
+  }));
+  global_env.define(make_symbol("when"), make_special_form([this](expr_t* expr, expr_env_t* env) {
+    // (when condition consequence)
+    if (is_true(eval(list_ref(expr, 0), env))) {
+      return eval(list_ref(expr, 1), env);
     } else {
       return make_nil();
     }
@@ -409,8 +494,6 @@ interpreter_t::interpreter_t() {
     }
     return make_compound_proc(params, body);
   }));
-  //define_primitive_proc(make_primitive_proc([this](expr_t* expr) {
-  //}, (expr_t*) new expr_symbol_t("when"), 1, false));
 }
 
 static token_t eat_token(lexer_t& lexer) {
@@ -424,7 +507,8 @@ static token_t eat_token(lexer_t& lexer) {
   return token;
 }
 
-expr_t* interpreter_t::read(lexer_t& lexer) {
+expr_t* interpreter_t::read(istream& is) {
+  lexer_t lexer(is);
   return read(lexer, eat_token(lexer));
 }
 
@@ -495,11 +579,15 @@ expr_t* interpreter_t::read_apostrophe(lexer_t& lexer, token_t token) {
   if (!quoted_expr) {
     throw token_exception_t("expected expression", token);
   }
-  return make_cons(make_symbol("quote"), quoted_expr);
+  return make_list({ make_symbol("quote"), quoted_expr });
 }
 
 expr_t* interpreter_t::eval(expr_t* expr) {
   return eval(expr, &global_env);
+}
+
+void interpreter_t::print(ostream& os, expr_t* expr) {
+  os << expr->to_string() << endl;
 }
 
 expr_t* interpreter_t::eval(expr_t* expr, expr_env_t* env) {
@@ -658,6 +746,10 @@ expr_t* interpreter_t::number_div(expr_t* a, expr_t* b) {
   } else {
     return make_real(result);
   }
+}
+
+expr_t* interpreter_t::number_eq(expr_t* a, expr_t* b) {
+  return make_boolean(get_real(a) == get_real(b));
 }
 
 expr_t* interpreter_t::make_string(const string& str) {

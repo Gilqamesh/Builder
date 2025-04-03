@@ -2,27 +2,36 @@
 
 void repl() {
   interpreter_t interpreter;
-
   while (1) {
-    cout << "> " << flush;
-    lexer_t lexer(cin);
     try {
-      if (expr_t* read_expr = interpreter.read(lexer)) {
-        if (expr_t* evaled_expr = interpreter.eval(read_expr)) {
-          cout << evaled_expr->to_string() << endl;
-        } else {
-          cerr << "could not eval read expr: '" << read_expr->to_string() << "'" << endl;
-        }
-      } else {
-        cout << endl;
-        break ;
-      }
+      interpreter.print(cout, interpreter.eval(interpreter.read(cin)));
     } catch (token_exception_t& e) {
       cerr << "exception: " << e.what() << " " << e.token << endl;
     } catch (expr_exception_t& e) {
-      cerr << "exception: " << e.what() << " " << e.expr->to_string() << endl;
+      cerr << "exception: " << e.what() << " " << expr_type_to_str(e.expr->type) << ": " <<  e.expr->to_string() << endl;
     }
   }
+
+  // while (1) {
+  //   cout << "> " << flush;
+  //   lexer_t lexer(cin);
+  //   try {
+  //     if (expr_t* read_expr = interpreter.read(lexer)) {
+  //       if (expr_t* evaled_expr = interpreter.eval(read_expr)) {
+  //         cout << evaled_expr->to_string() << endl;
+  //       } else {
+  //         cerr << "could not eval read expr: '" << read_expr->to_string() << "'" << endl;
+  //       }
+  //     } else {
+  //       cout << endl;
+  //       break ;
+  //     }
+  //   } catch (token_exception_t& e) {
+  //     cerr << "exception: " << e.what() << " " << e.token << endl;
+  //   } catch (expr_exception_t& e) {
+  //     cerr << "exception: " << e.what() << " " <<  e.expr->to_string() << endl;
+  //   }
+  // }
 }
 
 int main() {
