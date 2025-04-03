@@ -5,11 +5,7 @@ void repl() {
 
   while (1) {
     cout << "> " << flush;
-    string line;
-    if (!getline(cin, line)) {
-      break ;
-    }
-    lexer_t lexer(line.c_str());
+    lexer_t lexer(cin);
     try {
       if (expr_t* read_expr = interpreter.read(lexer)) {
         if (expr_t* evaled_expr = interpreter.eval(read_expr)) {
@@ -18,7 +14,8 @@ void repl() {
           cerr << "could not eval read expr: '" << read_expr->to_string() << "'" << endl;
         }
       } else {
-        cerr << "could not read expr" << endl;
+        cout << endl;
+        break ;
       }
     } catch (token_exception_t& e) {
       cerr << "exception: " << e.what() << " " << e.token << endl;

@@ -235,9 +235,9 @@ private:
   bool is_eq(expr_t* expr1, expr_t* expr2);
 
   bool is_list(expr_t* expr);
-  expr_t* list_tail(expr_t* expr, size_t n);
+  expr_t* list_tail(expr_t* expr, int n);
   expr_t* list_tail(expr_t* expr, expr_t* integer_expr);
-  expr_t* list_ref(expr_t* expr, size_t n);
+  expr_t* list_ref(expr_t* expr, int n);
   expr_t* list_ref(expr_t* expr, expr_t* integer_expr);
   int list_length_internal(expr_t* expr);
   expr_t* list_length(expr_t* expr);
