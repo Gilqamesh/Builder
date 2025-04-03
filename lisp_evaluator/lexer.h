@@ -36,9 +36,8 @@ enum class token_type_t : int {
 const char* token_type_to_str(token_type_t type);
 
 struct token_t {
-  const char*  lexeme; // not null terminated, could move to std::string
+  string       lexeme;
   const char*  error; // null terminated
-  int          lexeme_length;
   int          error_line;
   int          error_col;
   int          line_start;
@@ -46,8 +45,6 @@ struct token_t {
   int          col_start;
   int          col_end;
   token_type_t type;
-
-  string to_string() const;
 
   friend ostream& operator<<(ostream& os, const token_t& token);
 };
@@ -62,13 +59,13 @@ struct token_exception_t : public exception {
 };
 
 struct lexer_t {
-  lexer_t(const char* source);
+  lexer_t(istream& is);
 
   token_t eat_token();
 
 private:
-  const char* start;
-  const char* end;
+  istream&    is;
+  string      lexeme;
   int         line_start;
   int         line_end;
   int         col_start;

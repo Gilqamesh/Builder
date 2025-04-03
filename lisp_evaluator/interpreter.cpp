@@ -314,12 +314,14 @@ interpreter_t::interpreter_t() {
   global_env.define(make_symbol("cons"), make_primitive_proc([this](expr_t* expr) { return make_cons(car(expr), cdr(expr)); }, 2, false));
   global_env.define(make_symbol("list"), make_primitive_proc([this](expr_t* expr) { return expr; }, 0, true));
   global_env.define(make_symbol("eq?"), make_primitive_proc([this](expr_t* expr) { return make_boolean(is_eq(car(expr), car(cdr(expr)))); }, 2, false));
+
   global_env.define(make_symbol("symbol?"), make_primitive_proc([this](expr_t* expr) { return make_boolean(is_symbol(expr)); }, 1, false));
   global_env.define(make_symbol("string?"), make_primitive_proc([this](expr_t* expr) { return make_boolean(is_string(expr)); }, 1, false));
   global_env.define(make_symbol("list?"), make_primitive_proc([this](expr_t* expr) { return make_boolean(is_list(expr)); }, 1, false));
   global_env.define(make_symbol("null?"), make_primitive_proc([this](expr_t* expr) { return make_boolean(is_nil(expr)); }, 1, false));
   global_env.define(make_symbol("integer?"), make_primitive_proc([this](expr_t* expr) { return make_boolean(is_integer(expr)); }, 1, false));
   global_env.define(make_symbol("pair?"), make_primitive_proc([this](expr_t* expr) { return make_boolean(is_cons(expr)); }, 1, false));
+
   global_env.define(make_symbol("+"), make_primitive_proc([this](expr_t* expr) {
     expr_t* result = car(expr);
     expr = cdr(expr);
@@ -374,15 +376,38 @@ interpreter_t::interpreter_t() {
     }
   }));
   global_env.define(make_symbol("define"), make_special_form([this](expr_t* expr, expr_env_t* env) {
-    if (is_list(car(expr))) {
+    int len = list_length_internal(expr);
+    if (len == -1) {
+      throw expr_exception_t("define: cycle in list", expr);
+    }
+    expr_t* first = list_ref(expr, 0);
+    expr_t* rest = cdr(expr);
+    if (is_list(first)) {
       // (define (fn args ...) body)
-      return env->define(car(car(expr)), make_compound_proc(cdr(car(expr)), car(cdr(expr))));
-    } else if (is_symbol(car(expr))) {
+      return env->define(car(first), make_compound_proc(cdr(first), rest));
+    } else if (is_symbol(first)) {
       // (define var val)
-      return env->define(car(expr), eval(list_ref(expr, 1), env));
+      if (len != 2) {
+        throw expr_exception_t("define: unrecognized special form", expr);
+      }
+      return env->define(first, eval(car(rest), env));
     } else {
       throw expr_exception_t("unrecognized special form of define", expr);
     }
+  }));
+
+  global_env.define(make_symbol("lambda"), make_special_form([this](expr_t* expr, expr_env_t* env) {
+    // (lambda (params) body)
+    int len = list_length_internal(expr);
+    if (len == -1) {
+      throw expr_exception_t("lambda: circle in list", expr);
+    }
+    expr_t* params = car(expr);
+    expr_t* body = cdr(expr);
+    if (!is_list(params)) {
+      throw expr_exception_t("lambda: unrecognized special form", expr);
+    }
+    return make_compound_proc(params, body);
   }));
   //define_primitive_proc(make_primitive_proc([this](expr_t* expr) {
   //}, (expr_t*) new expr_symbol_t("when"), 1, false));
@@ -422,7 +447,7 @@ expr_t* interpreter_t::read_nil() {
 }
 
 expr_t* interpreter_t::read_number(token_t token) {
-  double real = stod(token.to_string());
+  double real = stod(token.lexeme);
   if ((int64_t) real == real) {
     return make_integer((int64_t) real);
   } else {
@@ -431,11 +456,11 @@ expr_t* interpreter_t::read_number(token_t token) {
 }
 
 expr_t* interpreter_t::read_string(token_t token) {
-  return make_string(token.to_string());
+  return make_string(token.lexeme);
 }
 
 expr_t* interpreter_t::read_symbol(token_t token) {
-  return make_symbol(token.to_string());
+  return make_symbol(token.lexeme);
 }
 
 expr_t* interpreter_t::read_list(lexer_t& lexer) {
@@ -527,15 +552,19 @@ expr_t* interpreter_t::apply_primitive_proc(expr_t* expr, expr_t* args, expr_env
 expr_t* interpreter_t::apply_compound_proc(expr_t* expr, expr_t* args, expr_env_t* env) {
   expr_t* body = get_compound_proc_body(expr);
   expr_t* params = get_compound_proc_params(expr);
-  expr_env_t extended_env = extend_env(env, list_map(args, [this, env](expr_t* expr) {
+  expr_env_t extended_env = extend_env(env, params, list_map(args, [this, env](expr_t* expr) {
     return eval(expr, env);
-  }), params);
-  expr_t* last = make_nil();
-  while (!is_nil(body)) {
-    last = eval(car(body), &extended_env);
-    body = cdr(body);
+  }));
+  if (is_list(body)) {
+    expr_t* last = make_nil();
+    while (!is_nil(body)) {
+      last = eval(car(body), &extended_env);
+      body = cdr(body);
+    }
+    return last;
+  } else {
+    return eval(body);
   }
-  return last;
 }
 
 expr_t* interpreter_t::make_nil() {
@@ -793,7 +822,7 @@ bool interpreter_t::is_list(expr_t* expr) {
   return is_nil(expr);
 }
 
-expr_t* interpreter_t::list_tail(expr_t* expr, size_t n) {
+expr_t* interpreter_t::list_tail(expr_t* expr, int n) {
   while (n--) {
     expr = cdr(expr);
   }
@@ -807,7 +836,7 @@ expr_t* interpreter_t::list_tail(expr_t* expr, expr_t* integer_expr) {
   return list_tail(expr, get_integer(integer_expr));
 }
 
-expr_t* interpreter_t::list_ref(expr_t* expr, size_t n) {
+expr_t* interpreter_t::list_ref(expr_t* expr, int n) {
   return car(list_tail(expr, n));
 }
 

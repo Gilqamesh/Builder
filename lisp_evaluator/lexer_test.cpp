@@ -1,12 +1,7 @@
 #include "lexer.h"
 
 int main() {
-  string line;
-  string buf;
-  while (getline(cin, line)) {
-    buf += line + '\n';
-  }
-  lexer_t lexer(buf.c_str());
+  lexer_t lexer(cin);
   while (1) {
     token_t token = lexer.eat_token();
     //cout << token.to_string() << endl;

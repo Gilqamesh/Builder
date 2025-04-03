@@ -26,14 +26,10 @@ const char* token_type_to_str(token_type_t type) {
   }
 }
 
-string token_t::to_string() const {
-  return string(lexeme, (size_t) lexeme_length);
-}
-
 ostream& operator<<(ostream& os, const token_t& token) {
   os << string(token_type_to_str(token.type)) << " " << token.line_start << ":" << token.col_start;
   if (token.type != token_type_t::END_OF_FILE) {
-    os << " '" << token.to_string() << "'";
+    os << " '" << token.lexeme << "'";
   }
   if (token.type == token_type_t::ERROR) {
     os << ", " << token.error_line << ":" << token.error_col << ": " << token.error;
@@ -51,9 +47,9 @@ const char* token_exception_t::what() const noexcept {
   return message.c_str();
 }
 
-lexer_t::lexer_t(const char* source) {
-  start = source;
-  end = source;
+lexer_t::lexer_t(istream& is):
+  is(is)
+{
   line_start = 0;
   line_end = 0;
   col_start = 0;
@@ -63,7 +59,7 @@ lexer_t::lexer_t(const char* source) {
 token_t lexer_t::eat_token() {
   skip_whitespaces();
 
-  start = end;
+  lexeme.clear();
   line_start = line_end;
   col_start = col_end;
 
@@ -88,6 +84,12 @@ token_t lexer_t::eat_token() {
     }
     return eat_identifier();
   } break ;
+  case '-': {
+    if ('0' <= peak_char() && peak_char() <= '9') {
+      return eat_number(false);
+    }
+    return eat_identifier();
+  } break ;
   case '(': return make_token(token_type_t::LEFT_PAREN);
   case ')': return make_token(token_type_t::RIGHT_PAREN);
   case '\'': return make_token(token_type_t::APOSTROPHE);
@@ -108,26 +110,37 @@ bool lexer_t::is_at_end() const {
 }
 
 char lexer_t::peak_char(int ahead) const {
-  const char* cur = end;
-  while (*cur != '\0' && ahead) {
-    ++cur;
-    --ahead;
+  char result = is.peek();
+  if (!ahead) {
+    if (result == EOF) {
+      result = '\0';
+    }
+  } else {
+    streampos pos = is.tellg();
+    ios::iostate state = is.rdstate();
+    while (0 < ahead--) {
+      result = is.get();
+    }
+    is.setstate(state);
+    is.seekg(pos);
   }
-  return *cur;
+  return result;
 }
 
 char lexer_t::eat_char() {
+  char result = is.get();
+  lexeme.push_back(result);
   ++col_end;
-  if (*end == '\n') {
+  if (result == '\n') {
     ++line_end;
     col_end = 0;
   }
-  if (*end == '\r' && peak_char(1) == '\n') {
-    ++end;
+  if (result == '\r' && peak_char(1) == '\n') {
+    lexeme.push_back(is.get());
     ++line_end;
     col_end = 0;
   }
-  return *end++;
+  return result;
 }
 
 void lexer_t::skip_whitespaces() {
@@ -142,9 +155,8 @@ bool lexer_t::is_whitespace(char c) const {
 
 token_t lexer_t::make_token(token_type_t type) {
   return token_t {
-    .lexeme = start,
+    .lexeme = lexeme,
     .error = "",
-    .lexeme_length = (int)(end - start),
     .error_line = 0,
     .error_col = 0,
     .line_start = line_start,
@@ -187,15 +199,7 @@ token_t lexer_t::eat_number(bool dotted) {
 }
 
 token_t lexer_t::eat_identifier_if(const char* match, token_type_t type) {
-  const char* cur = start;
-  while (cur < end && *match != '\0') {
-    if (*cur != *match) {
-      break ;
-    }
-    ++cur;
-    ++match;
-  }
-  if (cur == end && *match == '\0') {
+  if (lexeme == match) {
     return make_token(type);
   }
   return make_token(token_type_t::IDENTIFIER);
@@ -206,13 +210,19 @@ token_t lexer_t::eat_identifier() {
     eat_char();
   }
 
-  switch (*start) {
+  assert(!lexeme.empty());
+
+  switch (lexeme[0]) {
   case '.': return eat_identifier_if("...", token_type_t::ELLIPSIS);
   case 'd': return eat_identifier_if("define", token_type_t::DEFINE);
   case 'l': {
-    switch (*(start + 1)) {
-    case 'a': return eat_identifier_if("lambda", token_type_t::LAMBDA);
-    case 'e': return eat_identifier_if("let", token_type_t::LET);
+    if (1 < lexeme.size()) {
+      switch (lexeme[1]) {
+      case 'a': return eat_identifier_if("lambda", token_type_t::LAMBDA);
+      case 'e': return eat_identifier_if("let", token_type_t::LET);
+      }
+    } else {
+      return make_token(token_type_t::IDENTIFIER);
     }
   } break ;
   case 's': return eat_identifier_if("set!", token_type_t::SET);
