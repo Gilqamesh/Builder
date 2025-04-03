@@ -150,8 +150,9 @@ struct expr_exception_t : public exception {
 struct interpreter_t {
   interpreter_t();
 
-  expr_t* read(lexer_t& lexer);
+  expr_t* read(istream& is);
   expr_t* eval(expr_t* expr);
+  void print(ostream& os, expr_t* expr);
 
 private:
   // todo: add system_env where all initial stuff lives, expose user_env to users
@@ -199,6 +200,7 @@ private:
   expr_t* number_sub(expr_t* a, expr_t* b);
   expr_t* number_mul(expr_t* a, expr_t* b);
   expr_t* number_div(expr_t* a, expr_t* b);
+  expr_t* number_eq(expr_t* a, expr_t* b);
 
   expr_t* make_string(const string& str);
   bool is_string(expr_t* expr);
