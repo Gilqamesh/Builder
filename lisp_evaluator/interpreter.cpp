@@ -4,6 +4,7 @@ const char* expr_type_to_str(expr_type_t expr_type) {
   switch (expr_type) {
   case expr_type_t::NIL: return "NIL";
   case expr_type_t::INTEGER: return "INTEGER";
+  case expr_type_t::REAL: return "REAL";
   case expr_type_t::STRING: return "STRING";
   case expr_type_t::SYMBOL: return "SYMBOL";
   case expr_type_t::ENV: return "ENV";
@@ -28,6 +29,9 @@ string expr_t::to_string() {
   } break ;
   case expr_type_t::INTEGER: {
     return ((expr_integer_t*)this)->to_string();
+  } break ;
+  case expr_type_t::REAL: {
+    return ((expr_real_t*)this)->to_string();
   } break ;
   case expr_type_t::STRING: {
     return ((expr_string_t*)this)->to_string();
@@ -64,6 +68,9 @@ void expr_t::print(ostream& os, const string& prefix, bool is_last) {
   } break ;
   case expr_type_t::INTEGER: {
     ((expr_integer_t*)this)->print(os, new_prefix, is_last);
+  } break ;
+  case expr_type_t::REAL: {
+    ((expr_real_t*)this)->print(os, new_prefix, is_last);
   } break ;
   case expr_type_t::STRING: {
     ((expr_string_t*)this)->print(os, new_prefix, is_last);
@@ -115,6 +122,19 @@ string expr_integer_t::to_string() {
 void expr_integer_t::print(ostream& os, const string& prefix, bool is_last) {
 }
 
+expr_real_t::expr_real_t(double real):
+  base(expr_type_t::REAL),
+  real(real)
+{
+}
+
+string expr_real_t::to_string() {
+  return std::to_string(real);
+}
+
+void expr_real_t::print(ostream& os, const string& prefix, bool is_last) {
+}
+
 expr_string_t::expr_string_t(const string& str):
   base(expr_type_t::STRING),
   str(str)
@@ -153,7 +173,7 @@ expr_t* expr_env_t::lookup(expr_t* symbol) {
 
 expr_t* expr_env_t::set(expr_t* symbol, expr_t* expr) {
   if (symbol->type != expr_type_t::SYMBOL) {
-    throw exception();
+    throw expr_exception_t("set: symbol expected", symbol);
   }
   auto it = lookup_internal(symbol);
   it->second = expr;
@@ -162,7 +182,7 @@ expr_t* expr_env_t::set(expr_t* symbol, expr_t* expr) {
 
 expr_t* expr_env_t::define(expr_t* symbol, expr_t* expr) {
   if (symbol->type != expr_type_t::SYMBOL) {
-    throw exception();
+    throw expr_exception_t("define: symbol expected", symbol);
   }
   bindings[symbol] = expr;
   return expr;
@@ -172,7 +192,7 @@ map<expr_t*, expr_t*>::iterator expr_env_t::lookup_internal(expr_t* symbol) {
   auto it = bindings.find(symbol);
   if (it == bindings.end()) {
     if (!next) {
-      throw exception();
+      throw expr_exception_t("lookup_internal: symbol is not defined", symbol);
     }
     return next->lookup_internal(symbol);
   }
@@ -275,6 +295,17 @@ void expr_cons_t::print(ostream& os, const string& prefix, bool is_last) {
   second->print(os, prefix, true);
 }
 
+expr_exception_t::expr_exception_t(const string& message, expr_t* expr):
+  expr(expr),
+  message(message)
+{
+}
+
+
+const char* expr_exception_t::what() const noexcept {
+  return message.c_str();
+}
+
 interpreter_t::interpreter_t() {
   nil = (expr_t*) new expr_nil_t();
   t = make_symbol("#t");
@@ -289,6 +320,46 @@ interpreter_t::interpreter_t() {
   global_env.define(make_symbol("null?"), make_primitive_proc([this](expr_t* expr) { return make_boolean(is_nil(expr)); }, 1, false));
   global_env.define(make_symbol("integer?"), make_primitive_proc([this](expr_t* expr) { return make_boolean(is_integer(expr)); }, 1, false));
   global_env.define(make_symbol("pair?"), make_primitive_proc([this](expr_t* expr) { return make_boolean(is_cons(expr)); }, 1, false));
+  global_env.define(make_symbol("+"), make_primitive_proc([this](expr_t* expr) {
+    expr_t* result = car(expr);
+    expr = cdr(expr);
+    while (!is_nil(expr)) {
+      result = number_add(result, car(expr));
+      expr = cdr(expr);
+    }
+    return result;
+  }, 1, true));
+  global_env.define(make_symbol("-"), make_primitive_proc([this](expr_t* expr) {
+    expr_t* result = car(expr);
+    expr = cdr(expr);
+    while (!is_nil(expr)) {
+      result = number_sub(result, car(expr));
+      expr = cdr(expr);
+    }
+    return result;
+  }, 1, true));
+  global_env.define(make_symbol("*"), make_primitive_proc([this](expr_t* expr) {
+    expr_t* result = make_real(1.0);
+    while (!is_nil(expr)) {
+      result = number_mul(result, car(expr));
+      expr = cdr(expr);
+    }
+    return result;
+  }, 1, true));
+  global_env.define(make_symbol("/"), make_primitive_proc([this](expr_t* expr) {
+    if (list_length_internal(expr) == 1) {
+      return number_div(make_real(1.0), car(expr));
+    }
+    expr_t* result = car(expr);
+    expr = cdr(expr);
+    while (!is_nil(expr)) {
+      result = number_div(result, car(expr));
+      expr = cdr(expr);
+    }
+    return result;
+  }, 1, true));
+
+
   global_env.define(make_symbol("quote"), make_special_form([this](expr_t* expr, expr_env_t* env) {
     return expr;
   }));
@@ -310,7 +381,7 @@ interpreter_t::interpreter_t() {
       // (define var val)
       return env->define(car(expr), eval(list_ref(expr, 1), env));
     } else {
-      throw exception();
+      throw expr_exception_t("unrecognized special form of define", expr);
     }
   }));
   //define_primitive_proc(make_primitive_proc([this](expr_t* expr) {
@@ -351,7 +422,12 @@ expr_t* interpreter_t::read_nil() {
 }
 
 expr_t* interpreter_t::read_number(token_t token) {
-  return make_integer((int64_t)stod(token.to_string()));
+  double real = stod(token.to_string());
+  if ((int64_t) real == real) {
+    return make_integer((int64_t) real);
+  } else {
+    return make_real(real);
+  }
 }
 
 expr_t* interpreter_t::read_string(token_t token) {
@@ -405,13 +481,14 @@ expr_t* interpreter_t::eval(expr_t* expr, expr_env_t* env) {
   switch (expr->type) {
   case expr_type_t::NIL:
   case expr_type_t::INTEGER:
+  case expr_type_t::REAL:
   case expr_type_t::STRING: return expr;
   case expr_type_t::SYMBOL: return env->lookup(expr);
   case expr_type_t::CONS: return apply(eval(car(expr), env), cdr(expr), env);
   case expr_type_t::ENV:
   case expr_type_t::PRIMITIVE_PROC: 
   case expr_type_t::SPECIAL_FORM:
-  case expr_type_t::COMPOUND_PROC: throw exception();
+  case expr_type_t::COMPOUND_PROC: throw expr_exception_t("unexpected type in eval", expr);
   default: assert(0);
   }
 }
@@ -424,7 +501,7 @@ expr_t* interpreter_t::apply(expr_t* expr, expr_t* args, expr_env_t* env) {
   } else if (is_compound_proc(expr)) {
     return apply_compound_proc(expr, args, env);
   } else {
-    throw exception();
+    throw expr_exception_t("unexpected type in apply", expr);
   }
 }
 
@@ -436,11 +513,11 @@ expr_t* interpreter_t::apply_special_form(expr_t* expr, expr_t* args, expr_env_t
 expr_t* interpreter_t::apply_primitive_proc(expr_t* expr, expr_t* args, expr_env_t* env) {
   int len = list_length_internal(args);
   if (len == -1) {
-    throw exception();
+    throw expr_exception_t("argument list has cycles for primitive procedure", args);
   }
   expr_primitive_proc_t* proc = (expr_primitive_proc_t*)expr;
-  if (proc->is_variadic && len <= proc->arity || !proc->is_variadic && len != proc->arity) {
-    throw exception();
+  if (proc->is_variadic && len < proc->arity || !proc->is_variadic && len != proc->arity) {
+    throw expr_exception_t("argument list arity is not defined for primitive procedure", args);
   }
   return proc->f(list_map(args, [this, env](expr_t* expr) {
     return eval(expr, env);
@@ -491,9 +568,67 @@ bool interpreter_t::is_integer(expr_t* expr) {
 
 int64_t interpreter_t::get_integer(expr_t* expr) {
   if (!is_integer(expr)) {
-    throw exception();
+    throw expr_exception_t("unexpected type in get integer", expr);
   }
   return ((expr_integer_t*)expr)->integer;
+}
+
+expr_t* interpreter_t::make_real(double real) {
+  return (expr_t*) new expr_real_t(real);
+}
+
+bool interpreter_t::is_real(expr_t* expr) {
+  return expr->type == expr_type_t::REAL;
+}
+
+double interpreter_t::get_real(expr_t* expr) {
+  if (is_integer(expr)) {
+    return (double) get_integer(expr);
+  } else if (is_real(expr)) {
+    return ((expr_real_t*)expr)->real;
+  } else {
+    throw expr_exception_t("unexpected type in get real", expr);
+  }
+}
+
+expr_t* interpreter_t::number_add(expr_t* a, expr_t* b) {
+  double result = get_real(a) + get_real(b);
+  if ((int64_t) result == result) {
+    return make_integer((int64_t) result);
+  } else {
+    return make_real(result);
+  }
+}
+
+expr_t* interpreter_t::number_sub(expr_t* a, expr_t* b) {
+  double result = get_real(a) - get_real(b);
+  if ((int64_t) result == result) {
+    return make_integer((int64_t) result);
+  } else {
+    return make_real(result);
+  }
+}
+
+expr_t* interpreter_t::number_mul(expr_t* a, expr_t* b) {
+  double result = get_real(a) * get_real(b);
+  if ((int64_t) result == result) {
+    return make_integer((int64_t) result);
+  } else {
+    return make_real(result);
+  }
+}
+
+expr_t* interpreter_t::number_div(expr_t* a, expr_t* b) {
+  double denom = get_real(b);
+  if (denom == 0.0) {
+    throw expr_exception_t("cannot divide by 0", b);
+  }
+  double result = get_real(a) / denom;
+  if ((int64_t) result == result) {
+    return make_integer((int64_t) result);
+  } else {
+    return make_real(result);
+  }
 }
 
 expr_t* interpreter_t::make_string(const string& str) {
@@ -512,7 +647,7 @@ bool interpreter_t::is_string(expr_t* expr) {
 
 string interpreter_t::get_string(expr_t* expr) {
   if (!is_string(expr)) {
-    throw exception();
+    throw expr_exception_t("unexpected type in get string", expr);
   }
   return ((expr_string_t*)expr)->str;
 }
@@ -533,7 +668,7 @@ bool interpreter_t::is_symbol(expr_t* expr) {
 
 string interpreter_t::get_symbol(expr_t* expr) {
   if (!is_symbol(expr)) {
-    throw exception();
+    throw expr_exception_t("unexpected type in get symbol", expr);
   }
   return ((expr_symbol_t*)expr)->symbol;
 }
@@ -548,13 +683,13 @@ expr_env_t interpreter_t::extend_env(expr_env_t* env, expr_t* symbols, expr_t* e
   int len_symbols = list_length_internal(symbols);
   int len_exprs = list_length_internal(exprs);
   if (len_symbols == -1) {
-    throw exception();
+    throw expr_exception_t("symbols list has cycle", symbols);
   } else if (len_exprs == -1) {
-    throw exception();
+    throw expr_exception_t("exprs list has cycle", exprs);
   } else if (len_symbols < len_exprs) {
-    throw exception();
+    throw expr_exception_t("symbols list is smaller than exprs list", symbols);
   } else if (len_exprs < len_symbols) {
-    throw exception();
+    throw expr_exception_t("exprs list is smaller than symbols list", exprs);
   }
 
   for (int i = 0; i < len_symbols; ++i) {
@@ -591,14 +726,14 @@ bool interpreter_t::is_compound_proc(expr_t* expr) {
 
 expr_t* interpreter_t::get_compound_proc_params(expr_t* expr) {
   if (!is_compound_proc(expr)) {
-    throw exception();
+    throw expr_exception_t("get_compound_proc_params: compound proc expected", expr);
   }
   return ((expr_compound_proc_t*)expr)->params;
 }
 
 expr_t* interpreter_t::get_compound_proc_body(expr_t* expr) {
   if (!is_compound_proc(expr)) {
-    throw exception();
+    throw expr_exception_t("get_compound_proc_body: compound proc expected", expr);
   }
   return ((expr_compound_proc_t*)expr)->body;
 }
@@ -621,28 +756,28 @@ bool interpreter_t::is_cons(expr_t* expr) {
 
 expr_t* interpreter_t::car(expr_t* expr) {
   if (!is_cons(expr)) {
-    throw exception();
+    throw expr_exception_t("car: cons expected", expr);
   }
   return ((expr_cons_t*)expr)->first;
 }
 
 expr_t* interpreter_t::cdr(expr_t* expr) {
   if (!is_cons(expr)) {
-    throw exception();
+    throw expr_exception_t("cdr: cons expected", expr);
   }
   return ((expr_cons_t*)expr)->second;
 }
 
 void interpreter_t::set_car(expr_t* expr, expr_t* val) {
   if (!is_cons(expr)) {
-    throw exception();
+    throw expr_exception_t("set_car: cons expected", expr);
   }
   ((expr_cons_t*)expr)->first = val;
 }
 
 void interpreter_t::set_cdr(expr_t* expr, expr_t* val) {
   if (!is_cons(expr)) {
-    throw exception();
+    throw expr_exception_t("set_cdr: cons expected", expr);
   }
   ((expr_cons_t*)expr)->second = val;
 }
@@ -667,7 +802,7 @@ expr_t* interpreter_t::list_tail(expr_t* expr, size_t n) {
 
 expr_t* interpreter_t::list_tail(expr_t* expr, expr_t* integer_expr) {
   if (!is_integer(integer_expr)) {
-    throw exception();
+    throw expr_exception_t("list_tail: integer expected", integer_expr);
   }
   return list_tail(expr, get_integer(integer_expr));
 }

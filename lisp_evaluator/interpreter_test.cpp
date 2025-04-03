@@ -20,8 +20,10 @@ void repl() {
       } else {
         cerr << "could not read expr" << endl;
       }
-    } catch (const exception& e) {
-      cerr << "exception: " << e.what() << endl;
+    } catch (token_exception_t& e) {
+      cerr << "exception: " << e.what() << " " << e.token << endl;
+    } catch (expr_exception_t& e) {
+      cerr << "exception: " << e.what() << " " << e.expr->to_string() << endl;
     }
   }
 }

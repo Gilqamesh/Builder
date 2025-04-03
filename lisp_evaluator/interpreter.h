@@ -6,6 +6,7 @@
 enum class expr_type_t : int {
   NIL,
   INTEGER,
+  REAL,
   STRING,
   SYMBOL,
   ENV,
@@ -40,6 +41,16 @@ struct expr_integer_t {
 
   expr_t base;
   int64_t integer;
+
+  string to_string();
+  void print(ostream& os = cout, const string& prefix = "", bool is_last = true);
+};
+
+struct expr_real_t {
+  expr_real_t(double real);
+
+  expr_t base;
+  double real;
 
   string to_string();
   void print(ostream& os = cout, const string& prefix = "", bool is_last = true);
@@ -127,7 +138,15 @@ struct expr_cons_t {
   void print(ostream& os = cout, const string& prefix = "", bool is_last = true);
 };
 
-// todo: move runtime stuff into here, like nil, system env, user env, interning, etc.
+struct expr_exception_t : public exception {
+  expr_exception_t(const string& message, expr_t* expr);
+
+  expr_t* expr;
+  string message;
+
+  const char* what() const noexcept override;
+};
+
 struct interpreter_t {
   interpreter_t();
 
@@ -171,6 +190,15 @@ private:
   expr_t* make_integer(int64_t integer);
   bool is_integer(expr_t* expr);
   int64_t get_integer(expr_t* expr);
+
+  expr_t* make_real(double real);
+  bool is_real(expr_t* expr);
+  double get_real(expr_t* expr);
+
+  expr_t* number_add(expr_t* a, expr_t* b);
+  expr_t* number_sub(expr_t* a, expr_t* b);
+  expr_t* number_mul(expr_t* a, expr_t* b);
+  expr_t* number_div(expr_t* a, expr_t* b);
 
   expr_t* make_string(const string& str);
   bool is_string(expr_t* expr);
