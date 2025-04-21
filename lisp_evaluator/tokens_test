@@ -1,3 +1,10 @@
+#\a
+#\b
+#\1
+
+(defmacro sup (a b) (list 'if a b))
+(macroexpand '(sup 1 2))
+
 (define quoted_expr '(+ 1 2))
 (define quoted_expr 'a)
 (define quoted_expr '1.3)

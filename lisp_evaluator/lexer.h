@@ -6,14 +6,18 @@
 enum class token_type_t : int {
   LEFT_PAREN,
   RIGHT_PAREN,
-  APOSTROPHE,
+
   ELLIPSIS,
+
+  APOSTROPHE,
+  BACKQUOTE,
+  COMMA,
+  COMMA_SPLICE,
 
   // SPECIAL FORMS
   DEFINE,
   LAMBDA,
   IF,
-  ELSE,
   WHEN,
   COND,
   LET,
@@ -22,6 +26,7 @@ enum class token_type_t : int {
 
   // LITERALS
   IDENTIFIER,
+  CHAR,
   NUMBER,
   STRING,
   NIL,
@@ -71,17 +76,18 @@ private:
   int         col_start;
   int         col_end;
 
-  char peak_char(int ahead = 0) const;
-  char eat_char();
+  char peak(int ahead = 0) const;
+  char eat();
   bool is_at_end() const;
-  void skip_whitespaces();
   bool is_whitespace(char c) const;
+  bool is_separator(char c) const;
 
   token_t make_token(token_type_t type);
   token_t make_error_token(const char* err_msg, int line, int col);
   token_t eat_number(bool dotted);
   token_t eat_identifier_if(const char* match, token_type_t type);
   token_t eat_identifier();
+  token_t eat_char();
   token_t eat_comment();
   token_t eat_string();
 };

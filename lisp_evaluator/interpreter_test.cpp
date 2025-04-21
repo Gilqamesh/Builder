@@ -2,15 +2,9 @@
 
 void repl() {
   interpreter_t interpreter;
-  while (1) {
-    try {
-      interpreter.print(cout, interpreter.eval(interpreter.read(cin)));
-    } catch (token_exception_t& e) {
-      cerr << "exception: " << e.what() << " " << e.token << endl;
-    } catch (expr_exception_t& e) {
-      cerr << "exception: " << e.what() << " " << expr_type_to_str(e.expr->type) << ": " <<  e.expr->to_string() << endl;
-    }
-  }
+
+  interpreter.source("global_env.lisp");
+  interpreter.source(cout, cin);
 
   // while (1) {
   //   cout << "> " << flush;
