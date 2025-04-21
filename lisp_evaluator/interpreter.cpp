@@ -1,315 +1,117 @@
 #include "interpreter.h"
 
-const char* expr_type_to_str(expr_type_t expr_type) {
-  switch (expr_type) {
-  case expr_type_t::NIL: return "NIL";
-  case expr_type_t::INTEGER: return "INTEGER";
-  case expr_type_t::REAL: return "REAL";
-  case expr_type_t::STRING: return "STRING";
-  case expr_type_t::SYMBOL: return "SYMBOL";
-  case expr_type_t::ENV: return "ENV";
-  case expr_type_t::PRIMITIVE_PROC: return "PRIMITIVE PROC";
-  case expr_type_t::SPECIAL_FORM: return "SPECIAL FORM";
-  case expr_type_t::COMPOUND_PROC: return "COMPOUND PROC";
-  case expr_type_t::CONS: return "CONS";
-  default: assert(0);
-  }
-  return 0;
-}
-
-expr_t::expr_t(expr_type_t type):
-  type(type)
+interpreter_t::interpreter_t():
+  reader([this](const string& lexeme) {
+    return make_symbol(lexeme);
+  })
 {
-}
-
-string expr_t::to_string() {
-  switch (type) {
-  case expr_type_t::NIL: {
-    return ((expr_nil_t*)this)->to_string();
-  } break ;
-  case expr_type_t::INTEGER: {
-    return ((expr_integer_t*)this)->to_string();
-  } break ;
-  case expr_type_t::REAL: {
-    return ((expr_real_t*)this)->to_string();
-  } break ;
-  case expr_type_t::STRING: {
-    return ((expr_string_t*)this)->to_string();
-  } break ;
-  case expr_type_t::SYMBOL: {
-    return ((expr_symbol_t*)this)->to_string();
-  } break ;
-  case expr_type_t::ENV: {
-    return ((expr_env_t*)this)->to_string();
-  } break ;
-  case expr_type_t::PRIMITIVE_PROC: {
-    return ((expr_primitive_proc_t*)this)->to_string();
-  } break ;
-  case expr_type_t::SPECIAL_FORM: {
-    return ((expr_special_form_t*)this)->to_string();
-  } break ;
-  case expr_type_t::COMPOUND_PROC: {
-    return ((expr_compound_proc_t*)this)->to_string();
-  } break ;
-  case expr_type_t::CONS: {
-    return ((expr_cons_t*)this)->to_string();
-  } break ;
-  default: assert(0);
-  }
-}
-
-void expr_t::print(ostream& os, const string& prefix, bool is_last) {
-  os << prefix << (is_last ? "└── " : "├── ") << to_string() << endl;
-  string new_prefix = prefix + (is_last ? "    " : "│   ");
-
-  switch (type) {
-  case expr_type_t::NIL: {
-    ((expr_nil_t*)this)->print(os, new_prefix, is_last);
-  } break ;
-  case expr_type_t::INTEGER: {
-    ((expr_integer_t*)this)->print(os, new_prefix, is_last);
-  } break ;
-  case expr_type_t::REAL: {
-    ((expr_real_t*)this)->print(os, new_prefix, is_last);
-  } break ;
-  case expr_type_t::STRING: {
-    ((expr_string_t*)this)->print(os, new_prefix, is_last);
-  } break ;
-  case expr_type_t::SYMBOL: {
-    ((expr_symbol_t*)this)->print(os, new_prefix, is_last);
-  } break ;
-  case expr_type_t::ENV: {
-    ((expr_env_t*)this)->print(os, new_prefix, is_last);
-  } break ;
-  case expr_type_t::PRIMITIVE_PROC: {
-    ((expr_primitive_proc_t*)this)->print(os, new_prefix, is_last);
-  } break ;
-  case expr_type_t::SPECIAL_FORM: {
-    ((expr_special_form_t*)this)->print(os, new_prefix, is_last);
-  } break ;
-  case expr_type_t::COMPOUND_PROC: {
-    ((expr_compound_proc_t*)this)->print(os, new_prefix, is_last);
-  } break ;
-  case expr_type_t::CONS: {
-    ((expr_cons_t*)this)->print(os, new_prefix, is_last);
-  } break ;
-  default: assert(0);
-  }
-}
-
-expr_nil_t::expr_nil_t():
-  base(expr_type_t::NIL)
-{
-}
-
-string expr_nil_t::to_string() {
-  return "nil";
-}
-
-void expr_nil_t::print(ostream& os, const string& prefix, bool is_last) {
-}
-
-expr_integer_t::expr_integer_t(int64_t integer):
-  base(expr_type_t::INTEGER),
-  integer(integer)
-{
-}
-
-string expr_integer_t::to_string() {
-  return std::to_string(integer);
-}
-
-void expr_integer_t::print(ostream& os, const string& prefix, bool is_last) {
-}
-
-expr_real_t::expr_real_t(double real):
-  base(expr_type_t::REAL),
-  real(real)
-{
-}
-
-string expr_real_t::to_string() {
-  return std::to_string(real);
-}
-
-void expr_real_t::print(ostream& os, const string& prefix, bool is_last) {
-}
-
-expr_string_t::expr_string_t(const string& str):
-  base(expr_type_t::STRING),
-  str(str)
-{
-}
-
-string expr_string_t::to_string() {
-  return str;
-}
-
-void expr_string_t::print(ostream& os, const string& prefix, bool is_last) {
-}
-
-expr_symbol_t::expr_symbol_t(string symbol):
-  base(expr_type_t::SYMBOL),
-  symbol(symbol)
-{
-}
-
-string expr_symbol_t::to_string() {
-  return symbol;
-}
-
-void expr_symbol_t::print(ostream& os, const string& prefix, bool is_last) {
-}
-
-expr_env_t::expr_env_t():
-  base(expr_type_t::ENV),
-  next(0)
-{
-}
-
-expr_t* expr_env_t::lookup(expr_t* symbol) {
-  return lookup_internal(symbol)->second;
-}
-
-expr_t* expr_env_t::set(expr_t* symbol, expr_t* expr) {
-  if (symbol->type != expr_type_t::SYMBOL) {
-    throw expr_exception_t("set: symbol expected", symbol);
-  }
-  auto it = lookup_internal(symbol);
-  it->second = expr;
-  return expr;
-}
-
-expr_t* expr_env_t::define(expr_t* symbol, expr_t* expr) {
-  if (symbol->type != expr_type_t::SYMBOL) {
-    throw expr_exception_t("define: symbol expected", symbol);
-  }
-  bindings[symbol] = expr;
-  return expr;
-}
-
-map<expr_t*, expr_t*>::iterator expr_env_t::lookup_internal(expr_t* symbol) {
-  auto it = bindings.find(symbol);
-  if (it == bindings.end()) {
-    if (!next) {
-      throw expr_exception_t("lookup_internal: symbol is not defined", symbol);
-    }
-    return next->lookup_internal(symbol);
-  }
-  return it;
-}
-
-string expr_env_t::to_string() {
-  return "env";
-}
-
-void expr_env_t::print(ostream& os, const string& prefix, bool is_last) {
-}
-
-expr_primitive_proc_t::expr_primitive_proc_t(const function<expr_t*(expr_t*)>& f, int arity, bool is_variadic):
-  base(expr_type_t::PRIMITIVE_PROC),
-  f(f),
-  arity(arity),
-  is_variadic(is_variadic)
-{
-}
-
-string expr_primitive_proc_t::to_string() {
-  string result = "<#procedure (";
-  for (int i = 0; i < arity; ++i) {
-    result += "_";
-    if (i + 1 < arity) {
-      result += " ";
-    }
-  }
-  if (is_variadic) {
-    result += " . _";
-  }
-  result += ")>";
-  return result;
-}
-
-void expr_primitive_proc_t::print(ostream& os, const string& prefix, bool is_last) {
-}
-
-expr_special_form_t::expr_special_form_t(const function<expr_t*(expr_t*, expr_env_t*)>& f):
-  base(expr_type_t::SPECIAL_FORM),
-  f(f)
-{
-}
-
-string expr_special_form_t::to_string() {
-  return "<#special form (?)>";
-}
-
-void expr_special_form_t::print(ostream& os, const string& prefix, bool is_last) {
-}
-
-expr_compound_proc_t::expr_compound_proc_t(expr_t* params, expr_t* body):
-  base(expr_type_t::COMPOUND_PROC),
-  params(params),
-  body(body)
-{
-}
-
-string expr_compound_proc_t::to_string() {
-  return "compound proc";
-}
-
-void expr_compound_proc_t::print(ostream& os, const string& prefix, bool is_last) {
-  params->print(os, prefix, false);
-  body->print(os, prefix, true);
-}
-
-expr_cons_t::expr_cons_t(expr_t* first, expr_t* second):
-  base(expr_type_t::CONS),
-  first(first),
-  second(second)
-{
-}
-
-string expr_cons_t::to_string() {
-  string result = "(";
-  expr_t* cur = (expr_t*)this;
-  while (cur->type == expr_type_t::CONS) {
-    expr_cons_t* cons = (expr_cons_t*)cur;
-    result += cons->first->to_string();
-    
-    if (cons->second->type == expr_type_t::CONS) {
-      result += " ";
-      cur = cons->second;
-    } else if (cons->second->type == expr_type_t::NIL) {
-      break ;
-    } else {
-      result += " . " + cons->second->to_string();
-      break ;
-    }
-  }
-  result += ")";
-
-  return result;
-}
-
-void expr_cons_t::print(ostream& os, const string& prefix, bool is_last) {
-  first->print(os, prefix, false);
-  second->print(os, prefix, true);
-}
-
-expr_exception_t::expr_exception_t(const string& message, expr_t* expr):
-  expr(expr),
-  message(message)
-{
-}
-
-
-const char* expr_exception_t::what() const noexcept {
-  return message.c_str();
-}
-
-interpreter_t::interpreter_t() {
+  reader.set_skippable_predicate([](char c) {
+    return c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '\v' || c == '\f';
+  });
   nil = (expr_t*) new expr_nil_t();
   t = make_symbol("#t");
+  void_expr = (expr_t*) new expr_void_t();
+  for (int i = 0; i < sizeof(chars) / sizeof(chars[0]); ++i) {
+    chars[i] = (expr_t*) new expr_char_t((char)i);
+  }
+  char_map = {
+    { "space", chars[' '] },
+    { "backspace", chars[8] },
+    { "newline", chars['\n'] },
+    { "tab", chars['\t'] }
+  };
+  
   global_env.define(t, t);
+
+  reader.add("(", [this](reader_t& reader, const string& lexeme, istream& is) {
+    expr_t* first = 0;
+    expr_t* prev = 0;
+    while (expr_t* expr = reader.read(/* reader env */ is, [](reader_t& reader, istream& is) {  })) {
+      assert(expr);
+      expr_t* cur = make_cons(expr, make_nil());
+      if (!first) {
+        first = cur;
+      } else {
+        set_cdr(prev, cur);
+      }
+      prev = cur;
+    }
+    if (reader.eat(is) != ')') {
+      throw runtime_error("expect ')'");
+    }
+    if (first) {
+      return first;
+    }
+    return make_nil();
+  });
+
+  reader.add("#|", [this](reader_t& reader, const string& lexeme, istream& is) {
+    while (!reader.is_at_end(is)) {
+      if (reader.eat(is) == '|') {
+        if (reader.peek(is) == '#') {
+          reader.eat(is);
+          return make_void();
+        }
+      }
+    }
+    throw runtime_error("expect |#");
+  });
+
+  reader.add("#\\", [this](reader_t& reader, const string& lexeme, istream& is) {
+    while (!reader.is_at_end(is) && ) {
+      if () {
+      }
+    }
+    expr_t* expr = reader.read(is);
+    if (!is_symbol(expr)) {
+      throw expr_exception_t("#\\: expect symbol", expr);
+    }
+    string symbol = get_symbol(expr);
+    if (symbol.size() == 1) {
+      return chars[symbol[0]];
+    } else {
+      auto it = char_map.find(symbol);
+      if (it != char_map.end()) {
+        return it->second;
+      }
+    }
+    throw expr_exception_t("#\\: unknown character name", expr);
+  });
+
+  reader.add("\"", [this](reader_t& reader, const string& lexeme, istream& is) {
+    while (!reader.is_at_end(is)) {
+      if (reader.eat(is) == '"') {
+        return make_string("\"" + reader.lexeme());
+      }
+    }
+    throw runtime_error("\": expect ending \"");
+  });
+  function<expr_t*(reader_t&, const string&, istream& is)> number_reader = [](reader_t& reader, const string& lexeme, istream& is) {
+    
+  };
+
+ // case token_type_t::CHAR: return read_char(reader_env, token);
+ // case token_type_t::NUMBER: return read_number(reader_env, token);
+ // case token_type_t::STRING: return read_string(reader_env, token);
+ // case token_type_t::NIL: return read_nil(reader_env);
+ // case token_type_t::ERROR: throw token_exception_t("error", token);
+ // case token_type_t::COMMENT: return read(reader_env, lexer, eat_token(lexer));
+ //
+  reader.add("'", [this](reader_t& reader, const string& symbol, istream& is) {
+    return make_list({ make_symbol("quote"), reader.read(is) });
+  });
+  reader.add("`", [this](reader_t& reader, const string& symbol, istream& is) {
+    return make_list({ make_symbol("quasiquote"), reader.read(is) });
+  });
+  reader.add(",", [this](reader_t& reader, const string& symbol, istream& is) {
+    return make_list({ make_symbol("unquote"), reader.read(is) });
+  });
+  reader.add(",@", [this](reader_t& reader, const string& symbol, istream& is) {
+    return make_list({ make_symbol("unquote-splicing"), reader.read(is) });
+  });
+
+  global_env.define(make_symbol("cin"), make_istream(cin));
+  global_env.define(make_symbol("cout"), make_ostream(cout));
   global_env.define(make_symbol("car"), make_primitive_proc([this](expr_t* expr) { return car(car(expr)); }, 1, false));
   global_env.define(make_symbol("cdr"), make_primitive_proc([this](expr_t* expr) { return cdr(car(expr)); }, 1, false));
   global_env.define(make_symbol("cons"), make_primitive_proc([this](expr_t* expr) { return make_cons(car(expr), car(cdr(expr))); }, 2, false));
@@ -331,12 +133,8 @@ interpreter_t::interpreter_t() {
     } else {
       cout << expr->to_string();
     }
-    return make_nil();
+    return make_void();
   }, 1, false));
-  global_env.define(make_symbol("newline"), make_primitive_proc([this](expr_t* expr) {
-    cout << endl;
-    return make_nil();
-  }, 0, false));
 
   global_env.define(make_symbol("+"), make_primitive_proc([this](expr_t* expr) {
     expr_t* result = car(expr);
@@ -387,21 +185,11 @@ interpreter_t::interpreter_t() {
     }
     return make_boolean(true);
   }, 1, true));
+  global_env.define(make_symbol("<"), make_primitive_proc([this](expr_t* expr) {
+    return make_boolean(get_real(list_ref(expr, 0)) < get_real(list_ref(expr, 1)));
+  }, 2, false));
 
-  global_env.define(make_symbol("read"), make_special_form([this](expr_t* expr, expr_env_t* env) {
-    int len = list_length_internal(expr);
-    if (len == -1) {
-      throw expr_exception_t("read: list has cycle", expr);
-    }
-    if (len == 0) {
-      return read(cin);
-    } else if (len == 1) {
-      // todo: support stream expressions
-      return read(cin);
-    } else {
-      throw expr_exception_t("read: wrong arity for special form", expr);
-    }
-  }));
+  global_env.define(make_symbol("read"), make_primitive_proc([this](expr_t* expr) { return read(list_ref(expr, 0)); }, 1, false));
   global_env.define(make_symbol("eval"), make_special_form([this](expr_t* expr, expr_env_t* env) {
     int len = list_length_internal(expr);
     if (len == -1) {
@@ -436,8 +224,23 @@ interpreter_t::interpreter_t() {
     return result;
   }));
   global_env.define(make_symbol("quote"), make_special_form([this](expr_t* expr, expr_env_t* env) {
+    // 'expr
     return car(expr);
   }));
+  // global_env.define(make_symbol("unquote"), make_special_form([this](expr_t* expr, expr_env_t* env) {
+  //   // ,expr
+  //   return car(expr);
+  // }));
+
+  //global_env.define(make_symbol("quasiquote"), make_special_form([this](expr_t* expr, expr_env_t* env) {
+  //  return quasiquote(car(expr), env);
+  //}));
+
+  // global_env.define(make_symbol("unquote-splicing"), make_special_form([this](expr_t* expr, expr_env_t* env) {
+  //   // ,@expr
+  //   return car(expr);
+  // }));
+
   global_env.define(make_symbol("if"), make_special_form([this](expr_t* expr, expr_env_t* env) {
     int len = list_length_internal(expr);
     if (!(len == 2 || len == 3)) {
@@ -452,14 +255,37 @@ interpreter_t::interpreter_t() {
       return make_nil();
     }
   }));
-  global_env.define(make_symbol("when"), make_special_form([this](expr_t* expr, expr_env_t* env) {
-    // (when condition consequence)
-    if (is_true(eval(list_ref(expr, 0), env))) {
-      return eval(list_ref(expr, 1), env);
-    } else {
-      return make_nil();
-    }
+  global_env.define(make_symbol("defreader"), make_special_form([this](expr_t* expr, expr_env_t* env) {
+    expr_t* symbol = list_ref(expr, 0);
+    expr_t* body = list_ref(expr, 1);
+    reader.add(get_symbol(symbol), [this, body](reader_t& reader, const string&, istream& is) {
+      return eval(body);
+    });
+    return body;
   }));
+  global_env.define(make_symbol("defmacro"), make_special_form([this](expr_t* expr, expr_env_t* env) {
+    // (defmacro symbol (params) expand-to)
+    return env->define(list_ref(expr, 0), make_macro([this, env, expr](expr_t* args) {
+      expr_env_t extended_env = extend_env(env, list_ref(expr, 1), args);
+      return eval(list_ref(expr, 2), &extended_env);
+    }));
+  }));
+  global_env.define(make_symbol("cond"), make_macro([this](expr_t* expr) {
+    // (cond <(condition consequence)>+ [consequence_last]) -> (if condition (if condition) [consequence_last])
+    expr_t* result = make_nil();
+    while (!is_nil(expr)) {
+      expr_t* cur = car(expr);
+      expr = cdr(expr);
+    }
+    return result;
+  }));
+  global_env.define(make_symbol("macroexpand"), make_special_form([this](expr_t* expr, expr_env_t* env) {
+    return macroexpand(eval(car(expr)), env);
+  }));
+  global_env.define(make_symbol("macroexpand-all"), make_special_form([this](expr_t* expr, expr_env_t* env) {
+    return macroexpand_all(eval(car(expr)), env);
+  }));
+
   global_env.define(make_symbol("define"), make_special_form([this](expr_t* expr, expr_env_t* env) {
     int len = list_length_internal(expr);
     if (len == -1) {
@@ -508,29 +334,114 @@ static token_t eat_token(lexer_t& lexer) {
 }
 
 expr_t* interpreter_t::read(istream& is) {
-  lexer_t lexer(is);
-  return read(lexer, eat_token(lexer));
+ //lexer_t lexer(is);
+ //return read(&global_reader_env, lexer, eat_token(lexer));
+ return reader.read(is);
 }
 
-expr_t* interpreter_t::read(lexer_t& lexer, token_t token) {
+void interpreter_t::print(ostream& os, expr_t* expr) {
+  os << expr->to_string() << endl;
+}
+
+void interpreter_t::source(const char* filepath) {
+  ifstream ifs(filepath);
+  if (!ifs) {
+    throw runtime_error(string("could not open file '") + filepath + "'");
+  }
+  source(ifs);
+}
+
+void interpreter_t::source(ostream& os, istream& is) {
+  while (is) {
+    try {
+      if (expr_t* expr = read(is)) {
+        expr->print(os);
+        print(os, eval(expr));
+      } else {
+        break ;
+      }
+    } catch (token_exception_t& e) {
+      cerr << "exception: " << e.what() << " " << e.token << endl;
+    } catch (expr_exception_t& e) {
+      cerr << "exception: " << e.what() << " " << expr_type_to_str(e.expr->type) << ": " <<  e.expr->to_string() << endl;
+    }
+  }
+}
+
+void interpreter_t::source(istream& is) {
+  while (is) {
+    try {
+      if (expr_t* expr = read(is)) {
+        eval(expr);
+      } else {
+        break ;
+      }
+    } catch (token_exception_t& e) {
+      cerr << "exception: " << e.what() << " " << e.token << endl;
+    } catch (expr_exception_t& e) {
+      cerr << "exception: " << e.what() << " " << expr_type_to_str(e.expr->type) << ": " <<  e.expr->to_string() << endl;
+    }
+  }
+}
+
+expr_t* interpreter_t::read(expr_t* istream) {
+  return read(get_istream(istream));
+}
+
+expr_t* interpreter_t::read(expr_env_t* reader_env, lexer_t& lexer, token_t token) {
   switch (token.type) {
-  case token_type_t::NIL: return read_nil();
-  case token_type_t::NUMBER: return read_number(token);
-  case token_type_t::STRING: return read_string(token);
-  case token_type_t::APOSTROPHE: return read_apostrophe(lexer, token);
-  case token_type_t::LEFT_PAREN: return read_list(lexer);
-  case token_type_t::ERROR: throw token_exception_t("unexpected token", token);
+  case token_type_t::LEFT_PAREN: return read_list(reader_env, lexer);
+  case token_type_t::RIGHT_PAREN: throw token_exception_t("unmatched right paren", token);
+  case token_type_t::ELLIPSIS: assert(0 && "todo: implement");
+  // todo: add set-dispatch-macro-character and set-macro-character
+  case token_type_t::APOSTROPHE: return make_cons(make_symbol("quote"), read(reader_env, lexer, eat_token(lexer)));
+  case token_type_t::BACKQUOTE: return make_cons(make_symbol("quasiquote"), read(reader_env, lexer, eat_token(lexer)));
+  case token_type_t::COMMA: return make_cons(make_symbol("unquote"), read(reader_env, lexer, eat_token(lexer)));
+  case token_type_t::COMMA_SPLICE: return make_cons(make_symbol("unquote-splicing"), read(reader_env, lexer, eat_token(lexer)));
+
+  // todo: remove all of these and define them as special forms
+  case token_type_t::DEFINE: 
+  case token_type_t::LAMBDA:
+  case token_type_t::IF:
+  case token_type_t::WHEN:
+  case token_type_t::COND:
+  case token_type_t::LET:
+  case token_type_t::BEGIN:
+  case token_type_t::SET: return read_symbol(reader_env, lexer, token);
+
+  case token_type_t::IDENTIFIER: return read_symbol(reader_env, lexer, token);
+  case token_type_t::CHAR: return read_char(reader_env, token);
+  case token_type_t::NUMBER: return read_number(reader_env, token);
+  case token_type_t::STRING: return read_string(reader_env, token);
+  case token_type_t::NIL: return read_nil(reader_env);
+  case token_type_t::ERROR: throw token_exception_t("error", token);
+  case token_type_t::COMMENT: return read(reader_env, lexer, eat_token(lexer));
   case token_type_t::END_OF_FILE: return 0;
-  default: return read_symbol(token);
+  default: assert(0);
   }
   return 0;
 }
 
-expr_t* interpreter_t::read_nil() {
+expr_t* interpreter_t::read_nil(expr_env_t* reader_env) {
   return make_nil();
 }
 
-expr_t* interpreter_t::read_number(token_t token) {
+expr_t* interpreter_t::read_char(expr_env_t* reader_env, token_t token) {
+  expr_t* result = 0;
+  if (token.lexeme.size() == 1) {
+    result = make_char(token.lexeme[0]);
+  } else {
+    auto it = char_map.find(token.lexeme);
+    if (it != char_map.end()) {
+      result = it->second;
+    } else {
+      throw token_exception_t("unknown character name", token);
+    }
+  }
+  return result;
+}
+
+expr_t* interpreter_t::read_number(expr_env_t* reader_env, token_t token) {
   double real = stod(token.lexeme);
   if ((int64_t) real == real) {
     return make_integer((int64_t) real);
@@ -539,20 +450,24 @@ expr_t* interpreter_t::read_number(token_t token) {
   }
 }
 
-expr_t* interpreter_t::read_string(token_t token) {
+expr_t* interpreter_t::read_string(expr_env_t* reader_env, token_t token) {
   return make_string(token.lexeme);
 }
 
-expr_t* interpreter_t::read_symbol(token_t token) {
-  return make_symbol(token.lexeme);
+expr_t* interpreter_t::read_symbol(expr_env_t* reader_env, lexer_t& lexer, token_t token) {
+  expr_t* symbol = make_symbol(token.lexeme);
+  if (expr_t* reader = reader_env->get(symbol)) {
+    // return eval(reader);
+  }
+  return symbol;
 }
 
-expr_t* interpreter_t::read_list(lexer_t& lexer) {
+expr_t* interpreter_t::read_list(expr_env_t* reader_env, lexer_t& lexer) {
   expr_t* first = 0;
   expr_t* prev = 0;
   token_t token = eat_token(lexer);
   while (token.type != token_type_t::END_OF_FILE && token.type != token_type_t::RIGHT_PAREN) {
-    expr_t* expr = read(lexer, token);
+    expr_t* expr = read(reader_env, lexer, token);
     if (!expr) {
       throw token_exception_t("expect expression", token);
     }
@@ -574,33 +489,33 @@ expr_t* interpreter_t::read_list(lexer_t& lexer) {
   return make_nil();
 }
 
-expr_t* interpreter_t::read_apostrophe(lexer_t& lexer, token_t token) {
-  expr_t* quoted_expr = read(lexer, eat_token(lexer));
-  if (!quoted_expr) {
-    throw token_exception_t("expected expression", token);
-  }
-  return make_list({ make_symbol("quote"), quoted_expr });
+expr_t* interpreter_t::read_backquote(expr_env_t* reader_env, lexer_t& lexer, token_t token) {
+  return 0;
 }
 
 expr_t* interpreter_t::eval(expr_t* expr) {
   return eval(expr, &global_env);
 }
 
-void interpreter_t::print(ostream& os, expr_t* expr) {
-  os << expr->to_string() << endl;
-}
-
 expr_t* interpreter_t::eval(expr_t* expr, expr_env_t* env) {
   switch (expr->type) {
+  case expr_type_t::VOID:
   case expr_type_t::NIL:
+  case expr_type_t::CHAR:
   case expr_type_t::INTEGER:
   case expr_type_t::REAL:
   case expr_type_t::STRING: return expr;
-  case expr_type_t::SYMBOL: return env->lookup(expr);
+  case expr_type_t::SYMBOL: {
+    if (expr_t* result = env->get(expr)) {
+      return result;
+    }
+    throw expr_exception_t("eval: symbol not defined", expr);
+  } break ;
   case expr_type_t::CONS: return apply(eval(car(expr), env), cdr(expr), env);
   case expr_type_t::ENV:
   case expr_type_t::PRIMITIVE_PROC: 
   case expr_type_t::SPECIAL_FORM:
+  case expr_type_t::MACRO:
   case expr_type_t::COMPOUND_PROC: throw expr_exception_t("unexpected type in eval", expr);
   default: assert(0);
   }
@@ -613,6 +528,8 @@ expr_t* interpreter_t::apply(expr_t* expr, expr_t* args, expr_env_t* env) {
     return apply_primitive_proc(expr, args, env);
   } else if (is_compound_proc(expr)) {
     return apply_compound_proc(expr, args, env);
+  } else if (is_macro(expr)) {
+    return apply_macro(expr, args, env);
   } else {
     throw expr_exception_t("unexpected type in apply", expr);
   }
@@ -655,12 +572,104 @@ expr_t* interpreter_t::apply_compound_proc(expr_t* expr, expr_t* args, expr_env_
   }
 }
 
+expr_t* interpreter_t::apply_macro(expr_t* expr, expr_t* args, expr_env_t* env) {
+  expr_macro_t* macro = (expr_macro_t*)expr;
+  return eval(macro->f(args), env);
+}
+
+expr_t* interpreter_t::macroexpand_all(expr_t* expr, expr_env_t* env) {
+  expr = macroexpand(expr, env);
+  if (is_list(expr)) {
+    return list_map(expr, [this, env](expr_t* expr) {
+      return macroexpand_all(expr, env);
+    });
+  }
+  return expr;
+}
+
+expr_t* interpreter_t::macroexpand(expr_t* expr, expr_env_t* env) {
+  while (1) {
+    expr_t* next = expand(expr, env);
+    if (next == expr) {
+      break ;
+    }
+    expr = next;
+  }
+  return expr;
+}
+
+expr_t* interpreter_t::expand(expr_t* expr, expr_env_t* env) {
+  if (!is_list(expr)) {
+    return expr;
+  }
+  expr_t* head = car(expr);
+  if (is_symbol(head)) {
+    expr_t* binding = env->get(head);
+    if (!binding) {
+      throw expr_exception_t("expand: symbol not defined", head);
+    }
+    if (is_macro(binding)) {
+      expr_macro_t* macro = (expr_macro_t*)binding;
+      return macro->f(cdr(expr));
+    }
+  }
+  return expr;
+}
+
+expr_t* interpreter_t::quasiquote(expr_t* expr, expr_env_t* env) {
+  expr_t* cur = expr;
+  if (is_cons(cur)) {
+    expr_t* head = car(cur);
+    if (is_symbol(head)) {
+      string symbol = get_symbol(head);
+      if (symbol == "unquote") {
+        set_car(cur, eval(head, env));
+      } else if (symbol == "unquote-splicing") {
+        // `(1 2 ,@(3 4)) -> (1 2 3 4)
+        //set_car();
+      } else {
+        return expr;
+      }
+    } else {
+      set_car(expr, quasiquote(expr, env));
+    }
+    if (!is_nil(cdr(expr))) {
+      set_cdr(expr, quasiquote(expr, env));
+    }
+  }
+  return expr;
+}
+
+
+expr_t* interpreter_t::make_void() {
+  return void_expr;
+}
+
+bool interpreter_t::is_void(expr_t* expr) {
+  return expr->type == expr_type_t::VOID;
+}
+
 expr_t* interpreter_t::make_nil() {
   return nil;
 }
 
 bool interpreter_t::is_nil(expr_t* expr) {
   return expr->type == expr_type_t::NIL;
+}
+
+expr_t* interpreter_t::make_char(char c) {
+  return chars[c];
+}
+
+bool interpreter_t::is_char(expr_t* expr) {
+  return expr->type == expr_type_t::CHAR;
+}
+
+char interpreter_t::get_char(expr_t* expr) {
+  if (!is_char(expr)) {
+    throw expr_exception_t("expect char", expr);
+  }
+  return ((expr_char_t*)expr)->c;
 }
 
 expr_t* interpreter_t::make_boolean(bool boolean) {
@@ -685,7 +694,7 @@ bool interpreter_t::is_integer(expr_t* expr) {
 
 int64_t interpreter_t::get_integer(expr_t* expr) {
   if (!is_integer(expr)) {
-    throw expr_exception_t("unexpected type in get integer", expr);
+    throw expr_exception_t("get_integer: expect integer", expr);
   }
   return ((expr_integer_t*)expr)->integer;
 }
@@ -800,7 +809,7 @@ expr_t* interpreter_t::make_env() {
 
 expr_env_t interpreter_t::extend_env(expr_env_t* env, expr_t* symbols, expr_t* exprs) {
   expr_env_t result;
-  result.next = env;
+  result.parent = env;
   int len_symbols = list_length_internal(symbols);
   int len_exprs = list_length_internal(exprs);
   if (len_symbols == -1) {
@@ -831,6 +840,14 @@ bool interpreter_t::is_primitive_proc(expr_t* expr) {
 
 expr_t* interpreter_t::make_special_form(const function<expr_t*(expr_t*, expr_env_t*)>& f) {
   return (expr_t*) new expr_special_form_t(f);
+}
+
+expr_t* interpreter_t::make_macro(const function<expr_t*(expr_t*)>& f) {
+  return (expr_t*) new expr_macro_t(f);
+}
+
+bool interpreter_t::is_macro(expr_t* expr) {
+  return expr->type == expr_type_t::MACRO;
 }
 
 bool interpreter_t::is_special_form(expr_t* expr) {
@@ -903,6 +920,36 @@ void interpreter_t::set_cdr(expr_t* expr, expr_t* val) {
   ((expr_cons_t*)expr)->second = val;
 }
 
+expr_t* interpreter_t::make_istream(istream& is) {
+  return (expr_t*) new expr_istream_t(is);
+}
+
+bool interpreter_t::is_istream(expr_t* expr) {
+  return expr->type == expr_type_t::ISTREAM;
+}
+
+istream& interpreter_t::get_istream(expr_t* expr) {
+  if (!is_istream(expr)) {
+    throw expr_exception_t("get_istream: expect istream", expr);
+  }
+  return ((expr_istream_t*)expr)->is;
+}
+
+expr_t* interpreter_t::make_ostream(ostream& os) {
+  return (expr_t*) new expr_ostream_t(os);
+}
+
+bool interpreter_t::is_ostream(expr_t* expr) {
+  return expr->type == expr_type_t::OSTREAM;
+}
+
+ostream& interpreter_t::get_ostream(expr_t* expr) {
+  if (!is_ostream(expr)) {
+    throw expr_exception_t("get_ostream: expect ostream", expr);
+  }
+  return ((expr_ostream_t*)expr)->os;
+}
+
 bool interpreter_t::is_eq(expr_t* expr1, expr_t* expr2) {
   return expr1 == expr2;
 }
@@ -970,6 +1017,15 @@ expr_t* interpreter_t::list_map(expr_t* expr, const function<expr_t*(expr_t*)>& 
     return make_nil();
   }
   return make_cons(f(car(expr)), list_map(cdr(expr), f));
+}
+
+expr_t* interpreter_t::list_reverse(expr_t* expr) {
+  expr_t* result = make_nil();
+  while (!is_nil(expr)) {
+    result = make_cons(car(expr), result);
+    expr = cdr(expr);
+  }
+  return result;
 }
 
 bool interpreter_t::is_tagged(expr_t* expr, expr_t* tag) {

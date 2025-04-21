@@ -6,6 +6,7 @@
 # include <fstream>
 # include <sstream>
 # include <vector>
+# include <array>
 # include <stack>
 # include <queue>
 # include <deque>
@@ -18,6 +19,7 @@
 # include <chrono>
 # include <exception>
 # include <iterator>
+# include <regex>
 
 # include <cassert>
 # include <cmath>

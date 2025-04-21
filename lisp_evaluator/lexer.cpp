@@ -4,18 +4,21 @@ const char* token_type_to_str(token_type_t type) {
   switch (type) {
   case token_type_t::LEFT_PAREN: return "LEFT_PAREN";
   case token_type_t::RIGHT_PAREN: return "RIGHT_PAREN";
-  case token_type_t::APOSTROPHE: return "APOSTROPHE";
   case token_type_t::ELLIPSIS: return "ELLIPSIS";
+  case token_type_t::APOSTROPHE: return "APOSTROPHE";
+  case token_type_t::BACKQUOTE: return "BACKQUOTE";
+  case token_type_t::COMMA: return "COMMA";
+  case token_type_t::COMMA_SPLICE: return "COMMA_SPLICE";
   case token_type_t::DEFINE: return "DEFINE";
   case token_type_t::LAMBDA: return "LAMBDA";
   case token_type_t::IF: return "IF";
-  case token_type_t::ELSE: return "ELSE";
   case token_type_t::WHEN: return "WHEN";
   case token_type_t::COND: return "COND";
   case token_type_t::LET: return "LET";
   case token_type_t::BEGIN: return "BEGIN";
   case token_type_t::SET: return "SET!";
   case token_type_t::IDENTIFIER: return "IDENTIFIER";
+  case token_type_t::CHAR: return "CHAR";
   case token_type_t::NUMBER: return "NUMBER";
   case token_type_t::STRING: return "STRING";
   case token_type_t::NIL: return "NIL";
@@ -57,17 +60,18 @@ lexer_t::lexer_t(istream& is):
 }
 
 token_t lexer_t::eat_token() {
-  skip_whitespaces();
+  while (!is_at_end() && is_whitespace(peak())) {
+    eat();
+  }
+  if (is_at_end()) {
+    return make_token(token_type_t::END_OF_FILE);
+  }
 
   lexeme.clear();
   line_start = line_end;
   col_start = col_end;
 
-  if (is_at_end()) {
-    return make_token(token_type_t::END_OF_FILE);
-  }
-
-  switch (eat_char()) {
+  switch (eat()) {
   case '0':
   case '1':
   case '2':
@@ -79,13 +83,13 @@ token_t lexer_t::eat_token() {
   case '8':
   case '9': return eat_number(false);
   case '.': {
-    if ('0' <= peak_char() && peak_char() <= '9') {
+    if ('0' <= peak() && peak() <= '9') {
       return eat_number(true);
     }
     return eat_identifier();
   } break ;
   case '-': {
-    if ('0' <= peak_char() && peak_char() <= '9') {
+    if ('0' <= peak() && peak() <= '9') {
       return eat_number(false);
     }
     return eat_identifier();
@@ -94,11 +98,20 @@ token_t lexer_t::eat_token() {
   case ')': return make_token(token_type_t::RIGHT_PAREN);
   case '\'': return make_token(token_type_t::APOSTROPHE);
   case '"': return eat_string();
-  case '#': {
-    if (peak_char() == '|') {
-      return eat_comment();
+  case ',': {
+    if (peak() == '@') {
+      eat();
+      return make_token(token_type_t::COMMA_SPLICE);
     } else {
-      return eat_identifier();
+      return make_token(token_type_t::COMMA);
+    }
+  } break ;
+  case '`': return make_token(token_type_t::BACKQUOTE);
+  case '#': {
+    switch (peak()) {
+    case '|': return eat_comment();
+    case '\\': return eat_char();
+    default: return eat_identifier();
     }
   } break ;
   default: return eat_identifier();
@@ -106,10 +119,10 @@ token_t lexer_t::eat_token() {
 }
 
 bool lexer_t::is_at_end() const {
-  return peak_char() == '\0';
+  return peak() == '\0';
 }
 
-char lexer_t::peak_char(int ahead) const {
+char lexer_t::peak(int ahead) const {
   char result = is.peek();
   if (!ahead) {
     if (result == EOF) {
@@ -118,16 +131,15 @@ char lexer_t::peak_char(int ahead) const {
   } else {
     streampos pos = is.tellg();
     ios::iostate state = is.rdstate();
-    while (0 < ahead--) {
-      result = is.get();
-    }
+    is.seekg(ahead - 1, ios_base::cur);
+    result = is.get();
     is.setstate(state);
     is.seekg(pos);
   }
   return result;
 }
 
-char lexer_t::eat_char() {
+char lexer_t::eat() {
   char result = is.get();
   lexeme.push_back(result);
   ++col_end;
@@ -135,7 +147,7 @@ char lexer_t::eat_char() {
     ++line_end;
     col_end = 0;
   }
-  if (result == '\r' && peak_char(1) == '\n') {
+  if (result == '\r' && peak(1) == '\n') {
     lexeme.push_back(is.get());
     ++line_end;
     col_end = 0;
@@ -143,14 +155,12 @@ char lexer_t::eat_char() {
   return result;
 }
 
-void lexer_t::skip_whitespaces() {
-  while (!is_at_end() && is_whitespace(peak_char())) {
-    eat_char();
-  }
-}
-
 bool lexer_t::is_whitespace(char c) const {
   return c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '\v' || c == '\f';
+}
+
+bool lexer_t::is_separator(char c) const {
+  return is_whitespace(c) || c == '(' || c == ')' || c == '\'' || c == ',' || c == '`';
 }
 
 token_t lexer_t::make_token(token_type_t type) {
@@ -176,24 +186,24 @@ token_t lexer_t::make_error_token(const char* err_msg, int line, int col) {
 }
 
 token_t lexer_t::eat_number(bool dotted) {
-  while (!is_at_end() && '0' <= peak_char() && peak_char() <= '9') {
-    eat_char();
+  while (!is_at_end() && '0' <= peak() && peak() <= '9') {
+    eat();
   }
   if (!dotted) {
-    if (peak_char() == '.') {
-      eat_char();
+    if (peak() == '.') {
+      eat();
     }
   }
-  while (!is_at_end() && '0' <= peak_char() && peak_char() <= '9') {
-    eat_char();
+  while (!is_at_end() && '0' <= peak() && peak() <= '9') {
+    eat();
   }
-  if (is_at_end() || is_whitespace(peak_char()) || peak_char() == '(' || peak_char() == ')') {
+  if (is_at_end() || is_separator(peak())) {
     return make_token(token_type_t::NUMBER);
   }
   int err_line = line_end;
   int err_col = col_end;
-  while (!is_at_end() && !is_whitespace(peak_char()) && peak_char() != '(' && peak_char() != ')') {
-    eat_char();
+  while (!is_at_end() && !is_separator(peak())) {
+    eat();
   }
   return make_error_token("expect EOF or whitespace character", err_line, err_col);
 }
@@ -206,8 +216,8 @@ token_t lexer_t::eat_identifier_if(const char* match, token_type_t type) {
 }
 
 token_t lexer_t::eat_identifier() {
-  while (!is_at_end() && !is_whitespace(peak_char()) && peak_char() != '(' && peak_char() != ')') {
-    eat_char();
+  while (!is_at_end() && !is_separator(peak())) {
+    eat();
   }
 
   assert(!lexeme.empty());
@@ -228,7 +238,6 @@ token_t lexer_t::eat_identifier() {
   case 's': return eat_identifier_if("set!", token_type_t::SET);
   case 'f': return eat_identifier_if("nil", token_type_t::NIL);
   case 'i': return eat_identifier_if("if", token_type_t::IF);
-  case 'e': return eat_identifier_if("else", token_type_t::ELSE);
   case 'c': return eat_identifier_if("cond", token_type_t::COND);
   case 'b': return eat_identifier_if("begin", token_type_t::BEGIN);
   case 'w': return eat_identifier_if("when", token_type_t::WHEN);
@@ -236,23 +245,35 @@ token_t lexer_t::eat_identifier() {
   return make_token(token_type_t::IDENTIFIER);
 }
 
+token_t lexer_t::eat_char() {
+  assert(eat() == '\\');
+  if (is_at_end()) {
+    return make_error_token("expect character", line_end, col_end);
+  }
+  while (!is_at_end() && !is_separator(peak())) {
+    eat();
+  }
+  lexeme = lexeme.substr(2);
+  return make_token(token_type_t::CHAR);
+}
+
 token_t lexer_t::eat_comment() {
   while (!is_at_end()) {
-    if (eat_char() == '|') {
-      if (!is_at_end() && eat_char() == '#') {
+    if (eat() == '|') {
+      if (!is_at_end() && eat() == '#') {
         return make_token(token_type_t::COMMENT);
       }
     }
   }
-  return make_error_token("expect |# for end of comment", line_end, col_end);
+  return make_error_token("expect |#", line_end, col_end);
 }
 
 token_t lexer_t::eat_string() {
   while (!is_at_end()) {
-    if (eat_char() == '"') {
+    if (eat() == '"') {
       return make_token(token_type_t::STRING);
     }
   }
-  return make_error_token("expect \" for end of string", line_end, col_end);
+  return make_error_token("expect \"", line_end, col_end);
 }
 

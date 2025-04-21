@@ -2,7 +2,7 @@
 
 int main() {
   lexer_t lexer(cin);
-  while (1) {
+  while (cin) {
     token_t token = lexer.eat_token();
     //cout << token.to_string() << endl;
     cout << token << endl;
