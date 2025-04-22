@@ -3,40 +3,33 @@
 
 # include "expr.h"
 
+char eat(istream& is);
+void uneat(istream& is, char c);
+char peek(istream& is);
+bool is_at_end(istream& is);
+
+bool is_illegal(char c) const;
+bool is_whitespace(char c) const;
+bool is_terminating_macro(char c) const;
+bool is_non_terminating_macro(char c) const;
+bool is_single_escape(char c) const;
+bool is_multiple_escape(char c) const;
+bool is_constituent(char c) const;
+
 struct reader_t {
-  reader_t(istream& is, function<expr_t*(const string&)> default_lexeme_handler);
+  reader_t();
 
-  void set_skippable_predicate(function<bool(char)> skippable_predicate);
+  // either returns a valid expr or throws, always call with recursive = true inside a reader macro
+  expr_t* read(istream& is, bool recursive = false);
 
-  void add(const string& lexeme, function<expr_t*(reader_t&)> f);
+  void set_macro_character(char c, function<expr_t*(istream&, char)> f);
+  function<expr_t*(reader_t&, istream& is, char)> get_macro_character(char c) const;
 
-  expr_t* read(function<bool(reader_t&)> terminator);
-  expr_t* read();
-
-  char peek() const;
-  char eat();
-  bool is_at_end() const;
-  bool is_skippable(char c) const;
-
-  const string lexeme() const;
-
+  // character types
+  // todo: move outside
 private:
-  struct node_t {
-    node_t();
-    node_t* children[128];
-    function<expr_t*(reader_t& reader)> f;
-  };
- 
-  node_t root;
-  istream& is;
-
-  stack<function<bool(reader_t&)>> terminators;
-
-  function<bool(char)> skippable_predicate;
-  function<expr_t*(const string&)> default_lexeme_handler;
-
-  string m_lexeme;
+  function<expr_t*(reader_t&, char)> macros[256];
 };
 
-#endif // READER_H
+#endif // READER
 
