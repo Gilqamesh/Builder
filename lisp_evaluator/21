@@ -1,0 +1,114 @@
+memory.cpp:3:1: error: use of undeclared identifier 'memory_t'; did you mean 'memory_h'?
+    3 | memory_t::memory_t() {
+      | ^~~~~~~~
+      | memory_h
+./memory.h:6:8: note: 'memory_h' declared here
+    6 | struct memory_h {
+      |        ^
+memory.cpp:3:11: error: missing return type for function 'memory_t'; did you mean the constructor name 'memory_h'?
+    3 | memory_t::memory_t() {
+      |           ^~~~~~~~
+      |           memory_h
+memory.cpp:17:9: error: use of undeclared identifier 'memory_t'; did you mean 'memory_h'?
+   17 | expr_t* memory_t::make_void() {
+      |         ^~~~~~~~
+      |         memory_h
+./memory.h:6:8: note: 'memory_h' declared here
+    6 | struct memory_h {
+      |        ^
+memory.cpp:18:10: error: use of undeclared identifier 'void_expr'
+   18 |   return void_expr;
+      |          ^
+memory.cpp:21:9: error: use of undeclared identifier 'memory_t'; did you mean 'memory_h'?
+   21 | expr_t* memory_t::make_nil() {
+      |         ^~~~~~~~
+      |         memory_h
+./memory.h:6:8: note: 'memory_h' declared here
+    6 | struct memory_h {
+      |        ^
+memory.cpp:22:10: error: use of undeclared identifier 'nil'
+   22 |   return nil;
+      |          ^
+memory.cpp:25:9: error: use of undeclared identifier 'memory_t'; did you mean 'memory_h'?
+   25 | expr_t* memory_t::make_char(char c) {
+      |         ^~~~~~~~
+      |         memory_h
+./memory.h:6:8: note: 'memory_h' declared here
+    6 | struct memory_h {
+      |        ^
+memory.cpp:26:10: error: use of undeclared identifier 'chars'
+   26 |   return chars[c];
+      |          ^
+memory.cpp:29:9: error: use of undeclared identifier 'memory_t'; did you mean 'memory_h'?
+   29 | expr_t* memory_t::make_boolean(bool boolean) {
+      |         ^~~~~~~~
+      |         memory_h
+./memory.h:6:8: note: 'memory_h' declared here
+    6 | struct memory_h {
+      |        ^
+memory.cpp:30:20: error: use of undeclared identifier 't'
+   30 |   return boolean ? t : make_nil();
+      |                    ^
+memory.cpp:33:9: error: use of undeclared identifier 'memory_t'; did you mean 'memory_h'?
+   33 | expr_t* memory_t::make_integer(int64_t integer) {
+      |         ^~~~~~~~
+      |         memory_h
+./memory.h:6:8: note: 'memory_h' declared here
+    6 | struct memory_h {
+      |        ^
+memory.cpp:37:9: error: use of undeclared identifier 'memory_t'; did you mean 'memory_h'?
+   37 | expr_t* memory_t::make_real(double real) {
+      |         ^~~~~~~~
+      |         memory_h
+./memory.h:6:8: note: 'memory_h' declared here
+    6 | struct memory_h {
+      |        ^
+memory.cpp:41:9: error: use of undeclared identifier 'memory_t'; did you mean 'memory_h'?
+   41 | expr_t* memory_t::make_string(const string& str) {
+      |         ^~~~~~~~
+      |         memory_h
+./memory.h:6:8: note: 'memory_h' declared here
+    6 | struct memory_h {
+      |        ^
+memory.cpp:45:9: error: use of undeclared identifier 'memory_t'; did you mean 'memory_h'?
+   45 | expr_t* memory_t::make_symbol(const string& symbol) {
+      |         ^~~~~~~~
+      |         memory_h
+./memory.h:6:8: note: 'memory_h' declared here
+    6 | struct memory_h {
+      |        ^
+memory.cpp:46:13: error: use of undeclared identifier 'm_interned_symols'; did you mean 'm_interned_symbols'?
+   46 |   auto it = m_interned_symols.find(symbol);
+      |             ^~~~~~~~~~~~~~~~~
+      |             m_interned_symbols
+./memory.h:32:34: note: 'm_interned_symbols' declared here
+   32 |   unordered_map<string, expr_t*> m_interned_symbols;
+      |                                  ^
+memory.cpp:47:13: error: use of undeclared identifier 'm_interned_symols'; did you mean 'm_interned_symbols'?
+   47 |   if (it != m_interned_symols.end()) {
+      |             ^~~~~~~~~~~~~~~~~
+      |             m_interned_symbols
+./memory.h:32:34: note: 'm_interned_symbols' declared here
+   32 |   unordered_map<string, expr_t*> m_interned_symbols;
+      |                                  ^
+memory.cpp:51:3: error: use of undeclared identifier 'm_interned_symols'; did you mean 'm_interned_symbols'?
+   51 |   m_interned_symols[symbol] = result;
+      |   ^~~~~~~~~~~~~~~~~
+      |   m_interned_symbols
+./memory.h:32:34: note: 'm_interned_symbols' declared here
+   32 |   unordered_map<string, expr_t*> m_interned_symbols;
+      |                                  ^
+memory.cpp:55:9: error: use of undeclared identifier 'memory_t'; did you mean 'memory_h'?
+   55 | expr_t* memory_t::make_istream(istream& is) {
+      |         ^~~~~~~~
+      |         memory_h
+./memory.h:6:8: note: 'memory_h' declared here
+    6 | struct memory_h {
+      |        ^
+memory.cpp:59:9: error: use of undeclared identifier 'memory_t'; did you mean 'memory_h'?
+   59 | expr_t* memory_t::make_ostream(ostream& os) {
+      |         ^~~~~~~~
+      |         memory_h
+./memory.h:6:8: note: 'memory_h' declared here
+    6 | struct memory_h {
+      |        ^

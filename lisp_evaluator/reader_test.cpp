@@ -1,9 +1,13 @@
-#include "interpreter.h"
+#include "reader.h"
 
 int main() {
-  interpreter_t reader;
+  reader_t reader(cin);
 
-  expr_t* expr = interpreter.read(cin);
+  while (!reader.is_at_end()) {
+    expr_t* expr = reader.read();
+    assert(expr);
+    expr->print(cout);
+  }
 
   return 0;
 }
