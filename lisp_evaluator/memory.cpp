@@ -1,6 +1,7 @@
 #include "memory.h"
 
 memory_t::memory_t() {
+  m_eof = (expr_t*) new expr_eof_t();
   m_nil = (expr_t*) new expr_nil_t();
   m_void = (expr_t*) new expr_void_t();
   for (int i = 0; i < sizeof(m_chars) / sizeof(m_chars[0]); ++i) {
@@ -13,6 +14,10 @@ memory_t::memory_t() {
     { "tab", m_chars['\t'] }
   };
   m_t = make_symbol("#t");
+}
+
+expr_t* memory_t::make_eof() {
+  return m_eof;
 }
 
 expr_t* memory_t::make_void() {

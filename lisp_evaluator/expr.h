@@ -4,6 +4,7 @@
 # include "libc.h"
 
 enum class expr_type_t : int {
+  END_OF_FILE,
   VOID,
   NIL,
   CHAR,
@@ -28,6 +29,15 @@ struct expr_t {
 
   expr_type_t type;
 
+  string to_string();
+  void print(ostream& os = cout, const string& prefix = "", bool is_last = true);
+};
+
+struct expr_eof_t {
+  expr_eof_t();
+
+  expr_t base;
+ 
   string to_string();
   void print(ostream& os = cout, const string& prefix = "", bool is_last = true);
 };
