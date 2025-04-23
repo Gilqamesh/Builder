@@ -37,6 +37,32 @@ char interpreter_t::read_char(istream& is) const {
   return is.get();
 }
 
+bool interpreter_t::read_char(istream& is, const string& str) const {
+  for (int i = 0; i < str.size(); ++i) {
+    bool rewind = false;
+    if (is_at_end(is) || !read_char(is, str[i])) {
+      rewind = true;
+    }
+    if (rewind) {
+      while (0 < i) {
+        unread_char(is, str[--i]);
+      }
+      return false;
+      break ;
+    }
+  }
+  return true;
+}
+
+bool interpreter_t::read_char(istream& is, char c) const {
+  char y = read_char(is);
+  if (y != c) {
+    unread_char(is, y);
+    return false;
+  }
+  return true;
+}
+
 void interpreter_t::unread_char(istream& is, char c) const {
   is.putback(c);
 }
@@ -136,21 +162,24 @@ interpreter_t::interpreter_t()
         return result;
       } break ;
       case '|': {
+        int depth = 1;
         while (!is_at_end(is)) {
-          if (read_char(is) == '|') {
-            if (is_at_end(is)) {
-              throw runtime_error("reader macro '#|': unterminated comment");
+          if (read_char(is, "|#")) {
+            if (--depth == 0) {
+              return (expr_t*) 0;
             }
-            if (read_char(is) == '#') {
-              break ;
-            }
+          } else if (read_char(is, "#|")) {
+            ++depth;
           }
+          read_char(is);
         }
+        throw runtime_error("reader macro '#|': unterminated comment");
         return (expr_t*) 0;
       } break ;
       default: throw runtime_error("reader macro '#': undefined macro for character: '" + string(1, y) + "'");
     }
     assert(0);
+    return (expr_t*) 0;
   });
 
   global_env.define(memory.make_symbol("cin"),  memory.make_istream(cin));

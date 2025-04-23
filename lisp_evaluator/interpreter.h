@@ -35,6 +35,8 @@ private:
   bool is_illegal(char c) const;
 
   char read_char(istream& is) const;
+  bool read_char(istream& is, const string& str) const;
+  bool read_char(istream& is, char c) const;
   void unread_char(istream& is, char c) const;
   char peek_char(istream& is) const;
   bool is_at_end(istream& is) const;
