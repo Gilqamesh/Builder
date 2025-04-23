@@ -133,7 +133,7 @@ interpreter_t::interpreter_t()
       prev = cur;
     }
     if (is_at_end(is)) {
-      throw runtime_error("reahed eof, expect ')'");
+      throw runtime_error("reached eof, expect ')'");
     }
     if (read_char(is) != ')') {
       throw runtime_error("expect ')'");
@@ -411,9 +411,13 @@ expr_t* interpreter_t::read(istream& is, bool recursive) {
   return read(lexeme, is, recursive);
 }
 
+bool interpreter_t::is_eof(expr_t* expr) {
+  return expr->type == expr_type_t::END_OF_FILE;
+}
+
 expr_t* interpreter_t::read(string& lexeme, istream& is, bool recursive) {
   if (is_at_end(is)) {
-    return 0;
+    return memory.make_eof();
   }
 
   unsigned char c = (unsigned char) read_char(is);
@@ -572,9 +576,10 @@ void interpreter_t::source(const char* filepath) {
 void interpreter_t::source(ostream& os, istream& is) {
   while (is) {
     try {
-      if (expr_t* expr = read(is)) {
-        print(os, eval(expr));
-      } else {
+      expr_t* expr = read(is);
+      assert(expr);
+      print(os, eval(expr));
+      if (is_eof(expr)) {
         break ;
       }
     } catch (expr_exception_t& e) {
@@ -588,13 +593,16 @@ void interpreter_t::source(ostream& os, istream& is) {
 void interpreter_t::source(istream& is) {
   while (is) {
     try {
-      if (expr_t* expr = read(is)) {
-        eval(expr);
-      } else {
+      expr_t* expr = read(is);
+      assert(expr);
+      eval(expr);
+      if (is_eof(expr)) {
         break ;
       }
     } catch (expr_exception_t& e) {
       cerr << "exception: " << e.what() << " " << expr_type_to_str(e.expr->type) << ": " <<  e.expr->to_string() << endl;
+    } catch (exception& e) {
+      cerr << "exception: " << e.what() << endl;
     }
   }
 }
@@ -605,6 +613,7 @@ expr_t* interpreter_t::eval(expr_t* expr) {
 
 expr_t* interpreter_t::eval(expr_t* expr, expr_env_t* env) {
   switch (expr->type) {
+  case expr_type_t::END_OF_FILE:
   case expr_type_t::VOID:
   case expr_type_t::NIL:
   case expr_type_t::CHAR:

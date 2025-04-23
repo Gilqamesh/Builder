@@ -7,7 +7,10 @@
 struct interpreter_t {
   interpreter_t();
 
+  // always returns a valid expression
   expr_t* read(istream& is, bool recursive = false);
+  bool is_eof(expr_t* expr);
+
   expr_t* eval(expr_t* expr);
   void print(ostream& os, expr_t* expr);
 

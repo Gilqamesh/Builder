@@ -2,6 +2,7 @@
 
 const char* expr_type_to_str(expr_type_t expr_type) {
   switch (expr_type) {
+  case expr_type_t::END_OF_FILE: return "EOF";
   case expr_type_t::VOID: return "VOID";
   case expr_type_t::NIL: return "NIL";
   case expr_type_t::CHAR: return "CHAR";
@@ -29,6 +30,9 @@ expr_t::expr_t(expr_type_t type):
 
 string expr_t::to_string() {
   switch (type) {
+  case expr_type_t::END_OF_FILE: {
+    return ((expr_eof_t*)this)->to_string();
+  } break ;
   case expr_type_t::VOID: {
     return ((expr_void_t*)this)->to_string();
   } break ;
@@ -83,6 +87,9 @@ void expr_t::print(ostream& os, const string& prefix, bool is_last) {
   string new_prefix = prefix + (is_last ? "    " : "│   ");
 
   switch (type) {
+  case expr_type_t::END_OF_FILE: {
+    ((expr_eof_t*)this)->print(os, new_prefix, is_last);
+  } break ;
   case expr_type_t::VOID: {
     ((expr_void_t*)this)->print(os, new_prefix, is_last);
   } break ;
@@ -130,6 +137,18 @@ void expr_t::print(ostream& os, const string& prefix, bool is_last) {
   } break ;
   default: assert(0);
   }
+}
+
+expr_eof_t::expr_eof_t():
+  base(expr_type_t::END_OF_FILE)
+{
+}
+
+string expr_eof_t::to_string() {
+  return "EOF";
+}
+
+void expr_eof_t::print(ostream& os, const string& prefix, bool is_last) {
 }
 
 expr_void_t::expr_void_t():

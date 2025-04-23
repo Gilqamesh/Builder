@@ -6,6 +6,7 @@
 struct memory_t {
   memory_t();
 
+  expr_t* make_eof();
   expr_t* make_void();
   expr_t* make_nil();
   expr_t* make_char(char c);
@@ -25,6 +26,7 @@ struct memory_t {
   expr_t* make_env();
 
 private:
+  expr_t* m_eof;
   expr_t* m_void;
   expr_t* m_nil;
   expr_t* m_t;
