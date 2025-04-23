@@ -54,6 +54,7 @@ private:
 
   expr_t* eval(expr_t* expr, expr_env_t* env);
 
+  expr_t* list_of_values(expr_t* arguments, expr_t* parameters, expr_env_t* env);
   expr_t* apply(expr_t* expr, expr_t* args, expr_env_t* env);
   expr_t* apply_primitive_proc(expr_t* expr, expr_t* args, expr_env_t* env);
   expr_t* apply_special_form(expr_t* expr, expr_t* args, expr_env_t* env);
@@ -135,9 +136,13 @@ private:
   expr_t* list_length(expr_t* expr);
   expr_t* list_map(expr_t* expr, const function<expr_t*(expr_t*)>& f);
   expr_t* list_reverse(expr_t* expr);
+  expr_t* list_copy(expr_t* l);
+  expr_t* list_append(expr_t* l, expr_t* e, bool pure);
 
   bool is_tagged(expr_t* expr, expr_t* symbol);
   bool is_tagged(expr_t* expr, const string& symbol);
+
+  expr_t* dot();
 };
 
 #endif // INTERPRETER_H
