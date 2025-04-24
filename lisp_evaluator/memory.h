@@ -25,6 +25,8 @@ struct memory_t {
   expr_t* make_primitive_proc(const function<expr_t*(expr_t*)>& f, int arity, bool is_variadic);
   expr_t* make_env();
 
+  expr_t* shallow_copy(expr_t* expr);
+
 private:
   expr_t* m_eof;
   expr_t* m_void;

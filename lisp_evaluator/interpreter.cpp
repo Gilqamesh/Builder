@@ -195,7 +195,7 @@ interpreter_t::interpreter_t()
   global_env.define(memory.make_symbol("list?"),    memory.make_primitive_proc([this](expr_t* expr) { return memory.make_boolean(is_list(car(expr))); }, 1, false));
   global_env.define(memory.make_symbol("nil?"),    memory.make_primitive_proc([this](expr_t* expr) { return memory.make_boolean(is_nil(car(expr))); }, 1, false));
   global_env.define(memory.make_symbol("integer?"), memory.make_primitive_proc([this](expr_t* expr) { return memory.make_boolean(is_integer(car(expr))); }, 1, false));
-  global_env.define(memory.make_symbol("pair?"),    memory.make_primitive_proc([this](expr_t* expr) { return memory.make_boolean(is_cons(car(expr))); }, 1, false));
+  global_env.define(memory.make_symbol("cons?"),    memory.make_primitive_proc([this](expr_t* expr) { return memory.make_boolean(is_cons(car(expr))); }, 1, false));
 
   global_env.define(memory.make_symbol("display"), memory.make_primitive_proc([this](expr_t* expr) {
     expr = car(expr);
@@ -304,9 +304,11 @@ interpreter_t::interpreter_t()
   //   return car(expr);
   // }));
 
-  //global_env.define(make_symbol("quasiquote"), make_special_form([this](expr_t* expr, expr_env_t* env) {
-  //  return quasiquote(car(expr), env);
-  //}));
+  global_env.define(memory.make_symbol("quasiquote"), memory.make_special_form([this](expr_t* expr, expr_env_t* env) {
+    expr = memory.shallow_copy(expr);
+    quasiquote(car(expr), env, expr);
+    return car(expr);
+  }));
 
   // global_env.define(make_symbol("unquote-splicing"), make_special_form([this](expr_t* expr, expr_env_t* env) {
   //   // ,@expr
@@ -338,8 +340,7 @@ interpreter_t::interpreter_t()
   global_env.define(memory.make_symbol("defmacro"), memory.make_special_form([this](expr_t* expr, expr_env_t* env) {
     // (defmacro symbol (params) expand-to)
     return env->define(list_ref(expr, 0), memory.make_macro([this, env, expr](expr_t* args) {
-      expr_env_t extended_env = extend_env(env, list_ref(expr, 1), args);
-      return eval(list_ref(expr, 2), &extended_env);
+      return eval(list_ref(expr, 2), extend_env(env, list_ref(expr, 1), args));
     }));
   }));
   // global_env.define(memory.make_symbol("cond"), memory.make_macro([this](expr_t* expr) {
@@ -627,10 +628,11 @@ expr_t* interpreter_t::eval(expr_t* expr, expr_env_t* env) {
     throw expr_exception_t("eval: symbol not defined", expr);
   } break ;
   case expr_type_t::CONS: return apply(eval(car(expr), env), cdr(expr), env);
+  //default: return apply(expr, env);
   case expr_type_t::ENV:
   case expr_type_t::PRIMITIVE_PROC: 
   case expr_type_t::SPECIAL_FORM:
-  case expr_type_t::MACRO:
+  case expr_type_t::MACRO: return ((expr_macro_t*)expr)->f(expr);
   case expr_type_t::COMPOUND_PROC: throw expr_exception_t("unexpected type in eval", expr);
   default: assert(0);
   }
@@ -692,16 +694,16 @@ expr_t* interpreter_t::apply_primitive_proc(expr_t* expr, expr_t* args, expr_env
 expr_t* interpreter_t::apply_compound_proc(expr_t* expr, expr_t* args, expr_env_t* env) {
   expr_t* body = get_compound_proc_body(expr);
   expr_t* params = get_compound_proc_params(expr);
-  expr_env_t extended_env = extend_env(env, params, list_of_values(args, params, env));
+  expr_env_t* extended_env = extend_env(env, params, list_of_values(args, params, env));
   if (is_list(body)) {
     expr_t* last = memory.make_nil();
     while (!is_nil(body)) {
-      last = eval(car(body), &extended_env);
+      last = eval(car(body), extended_env);
       body = cdr(body);
     }
     return last;
   } else {
-    return eval(body, &extended_env);
+    return eval(body, extended_env);
   }
 }
 
@@ -749,80 +751,54 @@ expr_t* interpreter_t::expand(expr_t* expr, expr_env_t* env) {
   return expr;
 }
 
-expr_t* interpreter_t::quasiquote(expr_t* expr, expr_env_t* env) {
-  expr_t* cur = expr;
-  if (is_cons(cur)) {
-    expr_t* head = car(cur);
-    if (is_symbol(head)) {
-      string symbol = get_symbol(head);
-      if (symbol == "unquote") {
-        set_car(cur, eval(head, env));
-      } else if (symbol == "unquote-splicing") {
-        // `(1 2 ,@(3 4)) -> (1 2 3 4)
-        //set_car();
-      } else {
-        return expr;
+void interpreter_t::quasiquote(expr_t* expr, expr_env_t* env, expr_t* car_parent) {
+  if (!is_cons(expr)) {
+    return ;
+  }
+
+  if (is_unquote(car(expr))) {
+    if (!car_parent) {
+      throw expr_exception_t("unquote: can only unquote inside of a quasiquote context", expr);
+    }
+    set_car(car_parent, eval(list_ref(expr, 1), env));
+    return ;
+  }
+
+  if (is_unquote_splicing(car(expr))) {
+    if (!car_parent) {
+      throw expr_exception_t("unquote-splicing: can only unquote inside of a quasiquote context", expr);
+    }
+    expr = eval(list_ref(expr, 1), env);
+    if (!is_cons(expr)) {
+      set_car(car_parent, expr);
+      return ;
+    }
+    while (is_cons(expr)) {
+      set_car(car_parent, car(expr));
+      if (is_cons(cdr(expr))) {
+        set_cdr(car_parent, cons(0, cdr(car_parent)));
+        car_parent = cdr(car_parent);
       }
-    } else {
-      set_car(expr, quasiquote(expr, env));
+      expr = cdr(expr);
     }
-    if (!is_nil(cdr(expr))) {
-      set_cdr(expr, quasiquote(expr, env));
+    if (!is_nil(expr)) {
+      set_cdr(car_parent, cons(expr, cdr(car_parent)));
     }
+    return ;
   }
-  return expr;
-}
 
-bool interpreter_t::is_void(expr_t* expr) {
-  return expr->type == expr_type_t::VOID;
-}
-
-bool interpreter_t::is_nil(expr_t* expr) {
-  return expr->type == expr_type_t::NIL;
-}
-
-bool interpreter_t::is_char(expr_t* expr) {
-  return expr->type == expr_type_t::CHAR;
-}
-
-char interpreter_t::get_char(expr_t* expr) {
-  if (!is_char(expr)) {
-    throw expr_exception_t("expect char", expr);
+  while (is_cons(expr)) {
+    quasiquote(car(expr), env, expr);
+    expr = cdr(expr);
   }
-  return ((expr_char_t*)expr)->c;
 }
 
-bool interpreter_t::is_true(expr_t* expr) {
-  return !is_false(expr);
+bool interpreter_t::is_unquote(expr_t* expr) {
+  return is_eq(expr, memory.make_symbol("unquote"));
 }
 
-bool interpreter_t::is_false(expr_t* expr) {
-  return is_nil(expr);
-}
-
-bool interpreter_t::is_integer(expr_t* expr) {
-  return expr->type == expr_type_t::INTEGER;
-}
-
-int64_t interpreter_t::get_integer(expr_t* expr) {
-  if (!is_integer(expr)) {
-    throw expr_exception_t("get_integer: expect integer", expr);
-  }
-  return ((expr_integer_t*)expr)->integer;
-}
-
-bool interpreter_t::is_real(expr_t* expr) {
-  return expr->type == expr_type_t::REAL;
-}
-
-double interpreter_t::get_real(expr_t* expr) {
-  if (is_integer(expr)) {
-    return (double) get_integer(expr);
-  } else if (is_real(expr)) {
-    return ((expr_real_t*)expr)->real;
-  } else {
-    throw expr_exception_t("unexpected type in get real", expr);
-  }
+bool interpreter_t::is_unquote_splicing(expr_t* expr) {
+  return is_eq(expr, memory.make_symbol("unquote-splicing"));
 }
 
 expr_t* interpreter_t::number_add(expr_t* a, expr_t* b) {
@@ -869,40 +845,18 @@ expr_t* interpreter_t::number_eq(expr_t* a, expr_t* b) {
   return memory.make_boolean(get_real(a) == get_real(b));
 }
 
-bool interpreter_t::is_string(expr_t* expr) {
-  return expr->type == expr_type_t::STRING;
-}
-
-string interpreter_t::get_string(expr_t* expr) {
-  if (!is_string(expr)) {
-    throw expr_exception_t("unexpected type in get string", expr);
-  }
-  return ((expr_string_t*)expr)->str;
-}
-
-bool interpreter_t::is_symbol(expr_t* expr) {
-  return expr->type == expr_type_t::SYMBOL;
-}
-
-string interpreter_t::get_symbol(expr_t* expr) {
-  if (!is_symbol(expr)) {
-    throw expr_exception_t("unexpected type in get symbol", expr);
-  }
-  return ((expr_symbol_t*)expr)->symbol;
-}
-
-expr_env_t interpreter_t::extend_env(expr_env_t* env, expr_t* symbols, expr_t* exprs) {
-  expr_env_t result;
-  result.parent = env;
+expr_env_t* interpreter_t::extend_env(expr_env_t* env, expr_t* symbols, expr_t* exprs) {
+  expr_env_t* result = (expr_env_t*) memory.make_env();
+  result->parent = env;
   while (!is_nil(symbols) && !is_nil(exprs)) {
     if (is_eq(car(symbols), dot())) {
       symbols = cdr(symbols);
-      result.define(car(symbols), car(exprs));
+      result->define(car(symbols), car(exprs));
       symbols = cdr(symbols);
       exprs = cdr(exprs);
       break ;
     }
-    result.define(car(symbols), car(exprs));
+    result->define(car(symbols), car(exprs));
     symbols = cdr(symbols);
     exprs = cdr(exprs);
   }
@@ -914,92 +868,8 @@ expr_env_t interpreter_t::extend_env(expr_env_t* env, expr_t* symbols, expr_t* e
   return result;
 }
 
-bool interpreter_t::is_primitive_proc(expr_t* expr) {
-  return expr->type == expr_type_t::PRIMITIVE_PROC;
-}
-
-bool interpreter_t::is_macro(expr_t* expr) {
-  return expr->type == expr_type_t::MACRO;
-}
-
-bool interpreter_t::is_special_form(expr_t* expr) {
-  return expr->type == expr_type_t::SPECIAL_FORM;
-}
-
-bool interpreter_t::is_compound_proc(expr_t* expr) {
-  return expr->type == expr_type_t::COMPOUND_PROC;
-}
-
-expr_t* interpreter_t::get_compound_proc_params(expr_t* expr) {
-  if (!is_compound_proc(expr)) {
-    throw expr_exception_t("get_compound_proc_params: compound proc expected", expr);
-  }
-  return ((expr_compound_proc_t*)expr)->params;
-}
-
-expr_t* interpreter_t::get_compound_proc_body(expr_t* expr) {
-  if (!is_compound_proc(expr)) {
-    throw expr_exception_t("get_compound_proc_body: compound proc expected", expr);
-  }
-  return ((expr_compound_proc_t*)expr)->body;
-}
-
 expr_t* interpreter_t::cons(expr_t* expr1, expr_t* expr2) {
   return memory.make_cons(expr1, expr2);
-}
-
-bool interpreter_t::is_cons(expr_t* expr) {
-  return expr->type == expr_type_t::CONS;
-}
-
-expr_t* interpreter_t::car(expr_t* expr) {
-  if (!is_cons(expr)) {
-    throw expr_exception_t("car: cons expected", expr);
-  }
-  return ((expr_cons_t*)expr)->first;
-}
-
-expr_t* interpreter_t::cdr(expr_t* expr) {
-  if (!is_cons(expr)) {
-    throw expr_exception_t("cdr: cons expected", expr);
-  }
-  return ((expr_cons_t*)expr)->second;
-}
-
-void interpreter_t::set_car(expr_t* expr, expr_t* val) {
-  if (!is_cons(expr)) {
-    throw expr_exception_t("set_car: cons expected", expr);
-  }
-  ((expr_cons_t*)expr)->first = val;
-}
-
-void interpreter_t::set_cdr(expr_t* expr, expr_t* val) {
-  if (!is_cons(expr)) {
-    throw expr_exception_t("set_cdr: cons expected", expr);
-  }
-  ((expr_cons_t*)expr)->second = val;
-}
-
-bool interpreter_t::is_istream(expr_t* expr) {
-  return expr->type == expr_type_t::ISTREAM;
-}
-
-istream& interpreter_t::get_istream(expr_t* expr) {
-  if (!is_istream(expr)) {
-    throw expr_exception_t("get_istream: expect istream", expr);
-  }
-  return ((expr_istream_t*)expr)->is;
-}
-
-bool interpreter_t::is_ostream(expr_t* expr) {
-  return expr->type == expr_type_t::OSTREAM;
-}
-
-ostream& interpreter_t::get_ostream(expr_t* expr) {
-  if (!is_ostream(expr)) {
-    throw expr_exception_t("get_ostream: expect ostream", expr);
-  }
-  return ((expr_ostream_t*)expr)->os;
 }
 
 bool interpreter_t::is_eq(expr_t* expr1, expr_t* expr2) {

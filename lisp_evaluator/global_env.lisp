@@ -9,13 +9,13 @@
 (defmacro when (condition consequence)
   `(if ,condition (begin ,@consequence)))
 
-
-
-#| (defmacro quasiquote (l)
-  (map (lambda (e) (if (list? e)
-                       (quasiquote e)
-                       ()
-       l)) |#
+#| (cond ((condition consequence)
+          (condition consequence)
+          (else consequence))) |#
+(defmacro cond (cond-body)
+  (lambda ()
+    (define a 3)
+    a))
 
 #| testing variadic parameters
  (define (acc l r)

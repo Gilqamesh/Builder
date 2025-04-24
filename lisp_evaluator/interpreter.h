@@ -70,25 +70,11 @@ private:
   expr_t* macroexpand(expr_t* expr, expr_env_t* env);
   expr_t* expand(expr_t* expr, expr_env_t* env);
 
-  expr_t* quasiquote(expr_t* expr, expr_env_t* env);
+  void quasiquote(expr_t* expr, expr_env_t* env, expr_t* car_parent);
+  bool is_unquote(expr_t* expr);
+  bool is_unquote_splicing(expr_t* expr);
 
   // ---
-
-  bool is_void(expr_t* expr);
-
-  bool is_nil(expr_t* expr);
-
-  bool is_char(expr_t* expr);
-  char get_char(expr_t* expr);
-
-  bool is_true(expr_t* expr);
-  bool is_false(expr_t* expr);
-
-  bool is_integer(expr_t* expr);
-  int64_t get_integer(expr_t* expr);
-
-  bool is_real(expr_t* expr);
-  double get_real(expr_t* expr);
 
   expr_t* number_add(expr_t* a, expr_t* b);
   expr_t* number_sub(expr_t* a, expr_t* b);
@@ -96,36 +82,9 @@ private:
   expr_t* number_div(expr_t* a, expr_t* b);
   expr_t* number_eq(expr_t* a, expr_t* b);
 
-  bool is_string(expr_t* expr);
-  string get_string(expr_t* expr);
-
-  bool is_symbol(expr_t* expr);
-  string get_symbol(expr_t* expr);
-
-  expr_env_t extend_env(expr_env_t* env, expr_t* symbols, expr_t* exprs);
-
-  bool is_primitive_proc(expr_t* expr);
-
-  bool is_special_form(expr_t* expr);
-
-  bool is_macro(expr_t* expr);
-
-  bool is_compound_proc(expr_t* expr);
-  expr_t* get_compound_proc_params(expr_t* expr);
-  expr_t* get_compound_proc_body(expr_t* expr);
+  expr_env_t* extend_env(expr_env_t* env, expr_t* symbols, expr_t* exprs);
 
   expr_t* cons(expr_t* expr1, expr_t* expr2);
-  bool is_cons(expr_t* expr);
-  expr_t* car(expr_t* expr);
-  expr_t* cdr(expr_t* expr);
-  void set_car(expr_t* expr, expr_t* val);
-  void set_cdr(expr_t* expr, expr_t* val);
-
-  bool is_istream(expr_t* expr);
-  istream& get_istream(expr_t* expr);
-
-  bool is_ostream(expr_t* expr);
-  ostream& get_ostream(expr_t* expr);
 
   // ---
 

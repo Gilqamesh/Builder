@@ -286,7 +286,11 @@ expr_t* expr_env_t::define(expr_t* symbol, expr_t* expr) {
 }
 
 string expr_env_t::to_string() {
-  return "env";
+  string result = "env: ";
+  for (const auto& p : bindings) {
+    result += "{ " + p.first->to_string() + ": " + p.second->to_string() + " } ";
+  }
+  return result;
 }
 
 void expr_env_t::print(ostream& os, const string& prefix, bool is_last) {
@@ -352,7 +356,7 @@ expr_compound_proc_t::expr_compound_proc_t(expr_t* params, expr_t* body):
 }
 
 string expr_compound_proc_t::to_string() {
-  return "compound proc";
+  return "compound proc: params: { " + params->to_string() + " }, body: { " + body->to_string() + " }";
 }
 
 void expr_compound_proc_t::print(ostream& os, const string& prefix, bool is_last) {
@@ -429,4 +433,163 @@ expr_exception_t::expr_exception_t(const string& message, expr_t* expr):
 const char* expr_exception_t::what() const noexcept {
   return message.c_str();
 }
+
+bool is_void(expr_t* expr) {
+  return expr->type == expr_type_t::VOID;
+}
+
+bool is_nil(expr_t* expr) {
+  return expr->type == expr_type_t::NIL;
+}
+
+bool is_char(expr_t* expr) {
+  return expr->type == expr_type_t::CHAR;
+}
+
+char get_char(expr_t* expr) {
+  if (!is_char(expr)) {
+    throw expr_exception_t("expect char", expr);
+  }
+  return ((expr_char_t*)expr)->c;
+}
+
+bool is_cons(expr_t* expr) {
+  return expr->type == expr_type_t::CONS;
+}
+
+expr_t* car(expr_t* expr) {
+  if (!is_cons(expr)) {
+    throw expr_exception_t("car: cons expected", expr);
+  }
+  return ((expr_cons_t*)expr)->first;
+}
+
+expr_t* cdr(expr_t* expr) {
+  if (!is_cons(expr)) {
+    throw expr_exception_t("cdr: cons expected", expr);
+  }
+  return ((expr_cons_t*)expr)->second;
+}
+
+void set_car(expr_t* expr, expr_t* val) {
+  if (!is_cons(expr)) {
+    throw expr_exception_t("set_car: cons expected", expr);
+  }
+  ((expr_cons_t*)expr)->first = val;
+}
+
+void set_cdr(expr_t* expr, expr_t* val) {
+  if (!is_cons(expr)) {
+    throw expr_exception_t("set_cdr: cons expected", expr);
+  }
+  ((expr_cons_t*)expr)->second = val;
+}
+
+bool is_true(expr_t* expr) {
+  return !is_false(expr);
+}
+
+bool is_false(expr_t* expr) {
+  return is_nil(expr);
+}
+
+bool is_integer(expr_t* expr) {
+  return expr->type == expr_type_t::INTEGER;
+}
+
+int64_t get_integer(expr_t* expr) {
+  if (!is_integer(expr)) {
+    throw expr_exception_t("get_integer: expect integer", expr);
+  }
+  return ((expr_integer_t*)expr)->integer;
+}
+
+bool is_real(expr_t* expr) {
+  return expr->type == expr_type_t::REAL;
+}
+
+double get_real(expr_t* expr) {
+  if (is_integer(expr)) {
+    return (double) get_integer(expr);
+  } else if (is_real(expr)) {
+    return ((expr_real_t*)expr)->real;
+  } else {
+    throw expr_exception_t("unexpected type in get real", expr);
+  }
+}
+
+bool is_string(expr_t* expr) {
+  return expr->type == expr_type_t::STRING;
+}
+
+string get_string(expr_t* expr) {
+  if (!is_string(expr)) {
+    throw expr_exception_t("unexpected type in get string", expr);
+  }
+  return ((expr_string_t*)expr)->str;
+}
+
+bool is_symbol(expr_t* expr) {
+  return expr->type == expr_type_t::SYMBOL;
+}
+
+string get_symbol(expr_t* expr) {
+  if (!is_symbol(expr)) {
+    throw expr_exception_t("unexpected type in get symbol", expr);
+  }
+  return ((expr_symbol_t*)expr)->symbol;
+}
+
+bool is_primitive_proc(expr_t* expr) {
+  return expr->type == expr_type_t::PRIMITIVE_PROC;
+}
+
+bool is_macro(expr_t* expr) {
+  return expr->type == expr_type_t::MACRO;
+}
+
+bool is_special_form(expr_t* expr) {
+  return expr->type == expr_type_t::SPECIAL_FORM;
+}
+
+bool is_compound_proc(expr_t* expr) {
+  return expr->type == expr_type_t::COMPOUND_PROC;
+}
+
+expr_t* get_compound_proc_params(expr_t* expr) {
+  if (!is_compound_proc(expr)) {
+    throw expr_exception_t("get_compound_proc_params: compound proc expected", expr);
+  }
+  return ((expr_compound_proc_t*)expr)->params;
+}
+
+expr_t* get_compound_proc_body(expr_t* expr) {
+  if (!is_compound_proc(expr)) {
+    throw expr_exception_t("get_compound_proc_body: compound proc expected", expr);
+  }
+  return ((expr_compound_proc_t*)expr)->body;
+}
+
+bool is_istream(expr_t* expr) {
+  return expr->type == expr_type_t::ISTREAM;
+}
+
+istream& get_istream(expr_t* expr) {
+  if (!is_istream(expr)) {
+    throw expr_exception_t("get_istream: expect istream", expr);
+  }
+  return ((expr_istream_t*)expr)->is;
+}
+
+bool is_ostream(expr_t* expr) {
+  return expr->type == expr_type_t::OSTREAM;
+}
+
+ostream& get_ostream(expr_t* expr) {
+  if (!is_ostream(expr)) {
+    throw expr_exception_t("get_ostream: expect ostream", expr);
+  }
+  return ((expr_ostream_t*)expr)->os;
+}
+
 
