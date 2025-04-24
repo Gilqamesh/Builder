@@ -208,5 +208,49 @@ struct expr_exception_t : public exception {
   const char* what() const noexcept override;
 };
 
+bool is_void(expr_t* expr);
+
+bool is_nil(expr_t* expr);
+
+bool is_char(expr_t* expr);
+char get_char(expr_t* expr);
+
+bool is_cons(expr_t* expr);
+expr_t* car(expr_t* expr);
+expr_t* cdr(expr_t* expr);
+void set_car(expr_t* expr, expr_t* val);
+void set_cdr(expr_t* expr, expr_t* val);
+
+bool is_true(expr_t* expr);
+bool is_false(expr_t* expr);
+
+bool is_integer(expr_t* expr);
+int64_t get_integer(expr_t* expr);
+
+bool is_real(expr_t* expr);
+double get_real(expr_t* expr);
+
+bool is_string(expr_t* expr);
+string get_string(expr_t* expr);
+
+bool is_symbol(expr_t* expr);
+string get_symbol(expr_t* expr);
+
+bool is_primitive_proc(expr_t* expr);
+
+bool is_special_form(expr_t* expr);
+
+bool is_macro(expr_t* expr);
+
+bool is_compound_proc(expr_t* expr);
+expr_t* get_compound_proc_params(expr_t* expr);
+expr_t* get_compound_proc_body(expr_t* expr);
+
+bool is_istream(expr_t* expr);
+istream& get_istream(expr_t* expr);
+
+bool is_ostream(expr_t* expr);
+ostream& get_ostream(expr_t* expr);
+
 #endif // EXPR_H
 

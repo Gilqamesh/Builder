@@ -101,3 +101,10 @@ expr_t* memory_t::make_env() {
   return (expr_t*) new expr_env_t();
 }
 
+expr_t* memory_t::shallow_copy(expr_t* expr) {
+  if (!is_cons(expr)) {
+    return expr;
+  }
+  return make_cons(shallow_copy(car(expr)), shallow_copy(cdr(expr)));
+}
+
