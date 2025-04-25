@@ -13,7 +13,8 @@ memory_t::memory_t() {
     { "newline", m_chars['\n'] },
     { "tab", m_chars['\t'] }
   };
-  m_t = make_symbol("#t");
+  m_t = (expr_t*) new expr_boolean_t(true);
+  m_f = (expr_t*) new expr_boolean_t(false);
 }
 
 expr_t* memory_t::make_eof() {
@@ -44,7 +45,11 @@ expr_t* memory_t::make_char(const string& symbol) {
 }
 
 expr_t* memory_t::make_boolean(bool boolean) {
-  return boolean ? m_t : make_nil();
+  if (boolean) {
+    return m_t;
+  } else {
+    return m_f;
+  }
 }
 
 expr_t* memory_t::make_integer(int64_t integer) {
@@ -93,7 +98,7 @@ expr_t* memory_t::make_special_form(const function<expr_t*(expr_t*, expr_env_t*)
   return (expr_t*) new expr_special_form_t(f);
 }
 
-expr_t* memory_t::make_primitive_proc(const function<expr_t*(expr_t*)>& f, int arity, bool is_variadic) {
+expr_t* memory_t::make_primitive_proc(const function<expr_t*(expr_t*, expr_env_t*)>& f, int arity, bool is_variadic) {
   return (expr_t*) new expr_primitive_proc_t(f, arity, is_variadic);
 }
 

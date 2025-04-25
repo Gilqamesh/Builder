@@ -59,7 +59,10 @@ private:
 
   expr_t* eval(expr_t* expr, expr_env_t* env);
 
+  expr_t* bind_params(expr_t* args, expr_t* params);
   expr_t* list_of_values(expr_t* arguments, expr_t* parameters, expr_env_t* env);
+  expr_t* begin(expr_t* expr, expr_env_t* env);
+
   expr_t* apply(expr_t* expr, expr_t* args, expr_env_t* env);
   expr_t* apply_primitive_proc(expr_t* expr, expr_t* args, expr_env_t* env);
   expr_t* apply_special_form(expr_t* expr, expr_t* args, expr_env_t* env);
@@ -89,6 +92,8 @@ private:
   // ---
 
   bool is_eq(expr_t* expr1, expr_t* expr2);
+  bool is_true(expr_t* expr);
+  bool is_false(expr_t* expr);
 
   expr_t* make_list(const initializer_list<expr_t*>& exprs);
   bool is_list(expr_t* expr);

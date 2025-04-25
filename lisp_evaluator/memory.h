@@ -9,9 +9,9 @@ struct memory_t {
   expr_t* make_eof();
   expr_t* make_void();
   expr_t* make_nil();
+  expr_t* make_boolean(bool boolean);
   expr_t* make_char(char c);
   expr_t* make_char(const string& symbol);
-  expr_t* make_boolean(bool boolean);
   expr_t* make_integer(int64_t integer);
   expr_t* make_real(double real);
   expr_t* make_string(const string& str);
@@ -22,7 +22,7 @@ struct memory_t {
   expr_t* make_compound_proc(expr_t* params, expr_t* body);
   expr_t* make_macro(const function<expr_t*(expr_t*)>& f);
   expr_t* make_special_form(const function<expr_t*(expr_t*, expr_env_t*)>& f);
-  expr_t* make_primitive_proc(const function<expr_t*(expr_t*)>& f, int arity, bool is_variadic);
+  expr_t* make_primitive_proc(const function<expr_t*(expr_t*, expr_env_t*)>& f, int arity, bool is_variadic);
   expr_t* make_env();
 
   expr_t* shallow_copy(expr_t* expr);
@@ -32,6 +32,7 @@ private:
   expr_t* m_void;
   expr_t* m_nil;
   expr_t* m_t;
+  expr_t* m_f;
   expr_t* m_chars[128];
   unordered_map<string, expr_t*> m_char_map;
   unordered_map<string, expr_t*> m_interned_symbols;

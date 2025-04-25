@@ -5,6 +5,7 @@ const char* expr_type_to_str(expr_type_t expr_type) {
   case expr_type_t::END_OF_FILE: return "EOF";
   case expr_type_t::VOID: return "VOID";
   case expr_type_t::NIL: return "NIL";
+  case expr_type_t::BOOLEAN: return "BOOLEAN";
   case expr_type_t::CHAR: return "CHAR";
   case expr_type_t::INTEGER: return "INTEGER";
   case expr_type_t::REAL: return "REAL";
@@ -38,6 +39,9 @@ string expr_t::to_string() {
   } break ;
   case expr_type_t::NIL: {
     return ((expr_nil_t*)this)->to_string();
+  } break ;
+  case expr_type_t::BOOLEAN: {
+    return ((expr_boolean_t*)this)->to_string();
   } break ;
   case expr_type_t::CHAR: {
     return ((expr_char_t*)this)->to_string();
@@ -95,6 +99,9 @@ void expr_t::print(ostream& os, const string& prefix, bool is_last) {
   } break ;
   case expr_type_t::NIL: {
     ((expr_nil_t*)this)->print(os, new_prefix, is_last);
+  } break ;
+  case expr_type_t::BOOLEAN: {
+    ((expr_boolean_t*)this)->print(os, new_prefix, is_last);
   } break ;
   case expr_type_t::INTEGER: {
     ((expr_integer_t*)this)->print(os, new_prefix, is_last);
@@ -173,6 +180,19 @@ string expr_nil_t::to_string() {
 }
 
 void expr_nil_t::print(ostream& os, const string& prefix, bool is_last) {
+}
+
+expr_boolean_t::expr_boolean_t(bool boolean):
+  base(expr_type_t::BOOLEAN),
+  boolean(boolean)
+{
+}
+
+string expr_boolean_t::to_string() {
+  return boolean ? "true" : "false";
+}
+
+void expr_boolean_t::print(ostream& os, const string& prefix, bool is_last) {
 }
 
 expr_char_t::expr_char_t(char c):
@@ -296,7 +316,7 @@ string expr_env_t::to_string() {
 void expr_env_t::print(ostream& os, const string& prefix, bool is_last) {
 }
 
-expr_primitive_proc_t::expr_primitive_proc_t(const function<expr_t*(expr_t*)>& f, int arity, bool is_variadic):
+expr_primitive_proc_t::expr_primitive_proc_t(const function<expr_t*(expr_t*, expr_env_t*)>& f, int arity, bool is_variadic):
   base(expr_type_t::PRIMITIVE_PROC),
   f(f),
   arity(arity),
@@ -442,6 +462,14 @@ bool is_nil(expr_t* expr) {
   return expr->type == expr_type_t::NIL;
 }
 
+bool is_boolean(expr_t* expr) {
+  return expr->type == expr_type_t::BOOLEAN;
+}
+
+bool get_boolean(expr_t* expr) {
+  return ((expr_boolean_t*)expr)->boolean;
+}
+
 bool is_char(expr_t* expr) {
   return expr->type == expr_type_t::CHAR;
 }
@@ -483,14 +511,6 @@ void set_cdr(expr_t* expr, expr_t* val) {
     throw expr_exception_t("set_cdr: cons expected", expr);
   }
   ((expr_cons_t*)expr)->second = val;
-}
-
-bool is_true(expr_t* expr) {
-  return !is_false(expr);
-}
-
-bool is_false(expr_t* expr) {
-  return is_nil(expr);
 }
 
 bool is_integer(expr_t* expr) {
