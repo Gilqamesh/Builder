@@ -7,6 +7,7 @@ enum class expr_type_t : int {
   END_OF_FILE,
   VOID,
   NIL,
+  BOOLEAN,
   CHAR,
   INTEGER,
   REAL,
@@ -55,6 +56,16 @@ struct expr_nil_t {
   expr_nil_t();
 
   expr_t base;
+
+  string to_string();
+  void print(ostream& os = cout, const string& prefix = "", bool is_last = true);
+};
+
+struct expr_boolean_t {
+  expr_boolean_t(bool boolean);
+
+  expr_t base;
+  bool boolean;
 
   string to_string();
   void print(ostream& os = cout, const string& prefix = "", bool is_last = true);
@@ -126,10 +137,10 @@ struct expr_env_t {
 };
 
 struct expr_primitive_proc_t {
-  expr_primitive_proc_t(const function<expr_t*(expr_t*)>& f, int arity, bool is_variadic);
+  expr_primitive_proc_t(const function<expr_t*(expr_t*, expr_env_t*)>& f, int arity, bool is_variadic);
 
   expr_t base;
-  function<expr_t*(expr_t*)> f;
+  function<expr_t*(expr_t*, expr_env_t*)> f;
   int arity;
   bool is_variadic;
 
@@ -212,6 +223,9 @@ bool is_void(expr_t* expr);
 
 bool is_nil(expr_t* expr);
 
+bool is_boolean(expr_t* expr);
+bool get_boolean(expr_t* expr);
+
 bool is_char(expr_t* expr);
 char get_char(expr_t* expr);
 
@@ -220,9 +234,6 @@ expr_t* car(expr_t* expr);
 expr_t* cdr(expr_t* expr);
 void set_car(expr_t* expr, expr_t* val);
 void set_cdr(expr_t* expr, expr_t* val);
-
-bool is_true(expr_t* expr);
-bool is_false(expr_t* expr);
 
 bool is_integer(expr_t* expr);
 int64_t get_integer(expr_t* expr);

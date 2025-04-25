@@ -176,6 +176,12 @@ interpreter_t::interpreter_t()
         throw runtime_error("reader macro '#|': unterminated comment");
         return (expr_t*) 0;
       } break ;
+      case 't': {
+        return memory.make_boolean(true);
+      } break ;
+      case 'f': {
+        return memory.make_boolean(false);
+      } break ;
       default: throw runtime_error("reader macro '#': undefined macro for character: '" + string(1, y) + "'");
     }
     assert(0);
@@ -184,20 +190,20 @@ interpreter_t::interpreter_t()
 
   global_env.define(memory.make_symbol("cin"),  memory.make_istream(cin));
   global_env.define(memory.make_symbol("cout"), memory.make_ostream(cout));
-  global_env.define(memory.make_symbol("car"),  memory.make_primitive_proc([this](expr_t* expr) { return car(car(expr)); }, 1, false));
-  global_env.define(memory.make_symbol("cdr"),  memory.make_primitive_proc([this](expr_t* expr) { return cdr(car(expr)); }, 1, false));
-  global_env.define(memory.make_symbol("cons"), memory.make_primitive_proc([this](expr_t* expr) { return cons(car(expr), car(cdr(expr))); }, 2, false));
-  global_env.define(memory.make_symbol("list"), memory.make_primitive_proc([this](expr_t* expr) { return expr; }, 0, true));
+  global_env.define(memory.make_symbol("car"),  memory.make_primitive_proc([this](expr_t* expr, expr_env_t* env) { return car(car(expr)); }, 1, false));
+  global_env.define(memory.make_symbol("cdr"),  memory.make_primitive_proc([this](expr_t* expr, expr_env_t* env) { return cdr(car(expr)); }, 1, false));
+  global_env.define(memory.make_symbol("cons"), memory.make_primitive_proc([this](expr_t* expr, expr_env_t* env) { return cons(car(expr), car(cdr(expr))); }, 2, false));
+  global_env.define(memory.make_symbol("list"), memory.make_primitive_proc([this](expr_t* expr, expr_env_t* env) { return expr; }, 0, true));
 
-  global_env.define(memory.make_symbol("eq?"),      memory.make_primitive_proc([this](expr_t* expr) { return memory.make_boolean(is_eq(car(expr), car(cdr(expr)))); }, 2, false));
-  global_env.define(memory.make_symbol("symbol?"),  memory.make_primitive_proc([this](expr_t* expr) { return memory.make_boolean(is_symbol(car(expr))); }, 1, false));
-  global_env.define(memory.make_symbol("string?"),  memory.make_primitive_proc([this](expr_t* expr) { return memory.make_boolean(is_string(car(expr))); }, 1, false));
-  global_env.define(memory.make_symbol("list?"),    memory.make_primitive_proc([this](expr_t* expr) { return memory.make_boolean(is_list(car(expr))); }, 1, false));
-  global_env.define(memory.make_symbol("nil?"),    memory.make_primitive_proc([this](expr_t* expr) { return memory.make_boolean(is_nil(car(expr))); }, 1, false));
-  global_env.define(memory.make_symbol("integer?"), memory.make_primitive_proc([this](expr_t* expr) { return memory.make_boolean(is_integer(car(expr))); }, 1, false));
-  global_env.define(memory.make_symbol("cons?"),    memory.make_primitive_proc([this](expr_t* expr) { return memory.make_boolean(is_cons(car(expr))); }, 1, false));
+  global_env.define(memory.make_symbol("eq?"),      memory.make_primitive_proc([this](expr_t* expr, expr_env_t* env) { return memory.make_boolean(is_eq(car(expr), car(cdr(expr)))); }, 2, false));
+  global_env.define(memory.make_symbol("symbol?"),  memory.make_primitive_proc([this](expr_t* expr, expr_env_t* env) { return memory.make_boolean(is_symbol(car(expr))); }, 1, false));
+  global_env.define(memory.make_symbol("string?"),  memory.make_primitive_proc([this](expr_t* expr, expr_env_t* env) { return memory.make_boolean(is_string(car(expr))); }, 1, false));
+  global_env.define(memory.make_symbol("list?"),    memory.make_primitive_proc([this](expr_t* expr, expr_env_t* env) { return memory.make_boolean(is_list(car(expr))); }, 1, false));
+  global_env.define(memory.make_symbol("nil?"),     memory.make_primitive_proc([this](expr_t* expr, expr_env_t* env) { return memory.make_boolean(is_nil(car(expr))); }, 1, false));
+  global_env.define(memory.make_symbol("integer?"), memory.make_primitive_proc([this](expr_t* expr, expr_env_t* env) { return memory.make_boolean(is_integer(car(expr))); }, 1, false));
+  global_env.define(memory.make_symbol("cons?"),    memory.make_primitive_proc([this](expr_t* expr, expr_env_t* env) { return memory.make_boolean(is_cons(car(expr))); }, 1, false));
 
-  global_env.define(memory.make_symbol("display"), memory.make_primitive_proc([this](expr_t* expr) {
+  global_env.define(memory.make_symbol("display"), memory.make_primitive_proc([this](expr_t* expr, expr_env_t* env) {
     expr = car(expr);
     if (is_string(expr)) {
       string s = expr->to_string();
@@ -208,7 +214,7 @@ interpreter_t::interpreter_t()
     return memory.make_void();
   }, 1, false));
 
-  global_env.define(memory.make_symbol("+"), memory.make_primitive_proc([this](expr_t* expr) {
+  global_env.define(memory.make_symbol("+"), memory.make_primitive_proc([this](expr_t* expr, expr_env_t* env) {
     expr_t* result = car(expr);
     expr = cdr(expr);
     while (!is_nil(expr)) {
@@ -217,7 +223,7 @@ interpreter_t::interpreter_t()
     }
     return result;
   }, 1, true));
-  global_env.define(memory.make_symbol("-"), memory.make_primitive_proc([this](expr_t* expr) {
+  global_env.define(memory.make_symbol("-"), memory.make_primitive_proc([this](expr_t* expr, expr_env_t* env) {
     expr_t* result = car(expr);
     expr = cdr(expr);
     while (!is_nil(expr)) {
@@ -226,7 +232,7 @@ interpreter_t::interpreter_t()
     }
     return result;
   }, 1, true));
-  global_env.define(memory.make_symbol("*"), memory.make_primitive_proc([this](expr_t* expr) {
+  global_env.define(memory.make_symbol("*"), memory.make_primitive_proc([this](expr_t* expr, expr_env_t* env) {
     expr_t* result = memory.make_real(1.0);
     while (!is_nil(expr)) {
       result = number_mul(result, car(expr));
@@ -234,7 +240,7 @@ interpreter_t::interpreter_t()
     }
     return result;
   }, 1, true));
-  global_env.define(memory.make_symbol("/"), memory.make_primitive_proc([this](expr_t* expr) {
+  global_env.define(memory.make_symbol("/"), memory.make_primitive_proc([this](expr_t* expr, expr_env_t* env) {
     if (list_length_internal(expr) == 1) {
       return number_div(memory.make_real(1.0), car(expr));
     }
@@ -246,7 +252,7 @@ interpreter_t::interpreter_t()
     }
     return result;
   }, 1, true));
-  global_env.define(memory.make_symbol("="), memory.make_primitive_proc([this](expr_t* expr) {
+  global_env.define(memory.make_symbol("="), memory.make_primitive_proc([this](expr_t* expr, expr_env_t* env) {
     expr_t* first = car(expr);
     expr = cdr(expr);
     while (!is_nil(expr)) {
@@ -257,35 +263,13 @@ interpreter_t::interpreter_t()
     }
     return memory.make_boolean(true);
   }, 1, true));
-  global_env.define(memory.make_symbol("<"), memory.make_primitive_proc([this](expr_t* expr) {
+  global_env.define(memory.make_symbol("<"), memory.make_primitive_proc([this](expr_t* expr, expr_env_t* env) {
     return memory.make_boolean(get_real(list_ref(expr, 0)) < get_real(list_ref(expr, 1)));
   }, 2, false));
 
-  global_env.define(memory.make_symbol("read"), memory.make_primitive_proc([this](expr_t* expr) { return read(get_istream(list_ref(expr, 0))); }, 1, false));
-  global_env.define(memory.make_symbol("eval"), memory.make_special_form([this](expr_t* expr, expr_env_t* env) {
-    int len = list_length_internal(expr);
-    if (len == -1) {
-      throw expr_exception_t("eval: list has cycle", expr);
-    }
-    if (len == 1) {
-      return eval(eval(car(expr), env), env);
-    } else if (len == 2) {
-      return eval(eval(car(expr), env), env);
-    } else {
-      throw expr_exception_t("eval: wrong arity for special form", expr);
-    }
-  }));
-  global_env.define(memory.make_symbol("apply"), memory.make_special_form([this](expr_t* expr, expr_env_t* env) {
-    // (apply fn args)
-    int len = list_length_internal(expr);
-    if (len == -1) {
-      throw expr_exception_t("apply: list has cycle", expr);
-    }
-    if (len != 2) {
-      throw expr_exception_t("apply: wrong arity for special form", expr);
-    }
-    return apply(eval(list_ref(expr, 0), env), eval(list_ref(expr, 1), env), env);
-  }));
+  global_env.define(memory.make_symbol("read"), memory.make_primitive_proc([this](expr_t* expr, expr_env_t* env) { return read(get_istream(list_ref(expr, 0))); }, 1, false));
+  global_env.define(memory.make_symbol("eval"), memory.make_primitive_proc([this](expr_t* expr, expr_env_t* env) { return eval(list_ref(expr, 0), env); }, 1, false));
+  global_env.define(memory.make_symbol("apply"), memory.make_primitive_proc([this](expr_t* expr, expr_env_t* env) { return apply(list_ref(expr, 0), list_ref(expr, 1), env); }, 2, false));
 
   global_env.define(memory.make_symbol("begin"), memory.make_special_form([this](expr_t* expr, expr_env_t* env) {
     expr_t* result = memory.make_nil();
@@ -299,21 +283,12 @@ interpreter_t::interpreter_t()
     // 'expr
     return car(expr);
   }));
-  // global_env.define(make_symbol("unquote"), make_special_form([this](expr_t* expr, expr_env_t* env) {
-  //   // ,expr
-  //   return car(expr);
-  // }));
 
   global_env.define(memory.make_symbol("quasiquote"), memory.make_special_form([this](expr_t* expr, expr_env_t* env) {
     expr = memory.shallow_copy(expr);
     quasiquote(car(expr), env, expr);
     return car(expr);
   }));
-
-  // global_env.define(make_symbol("unquote-splicing"), make_special_form([this](expr_t* expr, expr_env_t* env) {
-  //   // ,@expr
-  //   return car(expr);
-  // }));
 
   global_env.define(memory.make_symbol("if"), memory.make_special_form([this](expr_t* expr, expr_env_t* env) {
     int len = list_length_internal(expr);
@@ -326,7 +301,7 @@ interpreter_t::interpreter_t()
     } else if (!is_nil(list_tail(expr, 2))) {
       return eval(list_ref(expr, 2), env);
     } else {
-      return memory.make_nil();
+      return memory.make_void();
     }
   }));
   //global_env.define(memory.make_symbol("defreader"), memory.make_special_form([this](expr_t* expr, expr_env_t* env) {
@@ -340,18 +315,9 @@ interpreter_t::interpreter_t()
   global_env.define(memory.make_symbol("defmacro"), memory.make_special_form([this](expr_t* expr, expr_env_t* env) {
     // (defmacro symbol (params) expand-to)
     return env->define(list_ref(expr, 0), memory.make_macro([this, env, expr](expr_t* args) {
-      return eval(list_ref(expr, 2), extend_env(env, list_ref(expr, 1), args));
+      return begin(list_tail(expr, 2), extend_env(env, list_ref(expr, 1), args));
     }));
   }));
-  // global_env.define(memory.make_symbol("cond"), memory.make_macro([this](expr_t* expr) {
-  //   // (cond <(condition consequence)>+ [consequence_last]) -> (if condition (if condition) [consequence_last])
-  //   expr_t* result = memory.make_nil();
-  //   while (!is_nil(expr)) {
-  //     expr_t* cur = car(expr);
-  //     expr = cdr(expr);
-  //   }
-  //   return result;
-  // }));
   global_env.define(memory.make_symbol("macroexpand"), memory.make_special_form([this](expr_t* expr, expr_env_t* env) {
     return macroexpand(eval(car(expr)), env);
   }));
@@ -617,6 +583,7 @@ expr_t* interpreter_t::eval(expr_t* expr, expr_env_t* env) {
   case expr_type_t::END_OF_FILE:
   case expr_type_t::VOID:
   case expr_type_t::NIL:
+  case expr_type_t::BOOLEAN:
   case expr_type_t::CHAR:
   case expr_type_t::INTEGER:
   case expr_type_t::REAL:
@@ -627,20 +594,29 @@ expr_t* interpreter_t::eval(expr_t* expr, expr_env_t* env) {
     }
     throw expr_exception_t("eval: symbol not defined", expr);
   } break ;
-  case expr_type_t::CONS: return apply(eval(car(expr), env), cdr(expr), env);
-  //default: return apply(expr, env);
+  case expr_type_t::CONS: {
+    expr_t* the_operator = eval(car(expr), env);
+    expr_t* the_operands = cdr(expr);
+    if (is_special_form(the_operator)) {
+      return apply_special_form(the_operator, the_operands, env);
+    } else if (is_macro(the_operator)) {
+      return apply_macro(the_operator, the_operands, env);
+    } else {
+      return apply(the_operator, list_map(the_operands, [this, env](expr_t* expr) { return eval(expr, env); }), env);
+    }
+  } break ;
+  case expr_type_t::MACRO:
   case expr_type_t::ENV:
   case expr_type_t::PRIMITIVE_PROC: 
   case expr_type_t::SPECIAL_FORM:
-  case expr_type_t::MACRO: return ((expr_macro_t*)expr)->f(expr);
-  case expr_type_t::COMPOUND_PROC: throw expr_exception_t("unexpected type in eval", expr);
+  case expr_type_t::COMPOUND_PROC: throw expr_exception_t("eval: unexpected type", expr);
   default: assert(0);
   }
 }
 
 expr_t* interpreter_t::list_of_values(expr_t* arguments, expr_t* parameters, expr_env_t* env) {
   expr_t* result = memory.make_nil();
-  while (!is_nil(parameters) || !is_nil(arguments)) {
+  while (!is_nil(parameters) && !is_nil(arguments)) {
     if (is_eq(car(parameters), dot())) {
       expr_t* rest = memory.make_nil();
       while (!is_nil(arguments)) {
@@ -657,15 +633,23 @@ expr_t* interpreter_t::list_of_values(expr_t* arguments, expr_t* parameters, exp
   return result;
 }
 
+expr_t* interpreter_t::begin(expr_t* expr, expr_env_t* env) {
+  expr_t* result = memory.make_void();
+  while (is_cons(expr)) {
+    result = eval(car(expr), env);
+    expr = cdr(expr);
+  }
+  if (!is_nil(expr)) {
+    result = eval(expr, env);
+  }
+  return result;
+}
+
 expr_t* interpreter_t::apply(expr_t* expr, expr_t* args, expr_env_t* env) {
-  if (is_special_form(expr)) {
-    return apply_special_form(expr, args, env);
-  } else if (is_primitive_proc(expr)) {
+  if (is_primitive_proc(expr)) {
     return apply_primitive_proc(expr, args, env);
   } else if (is_compound_proc(expr)) {
     return apply_compound_proc(expr, args, env);
-  } else if (is_macro(expr)) {
-    return apply_macro(expr, args, env);
   } else {
     throw expr_exception_t("unexpected type in apply", expr);
   }
@@ -686,25 +670,13 @@ expr_t* interpreter_t::apply_primitive_proc(expr_t* expr, expr_t* args, expr_env
     throw expr_exception_t("argument list arity is not defined for primitive procedure", args);
   }
   // is variadic.. if so, find variadic expr, then bind all remaining parameters to the last argument
-  return proc->f(list_map(args, [this, env](expr_t* expr) {
-    return eval(expr, env);
-  }));
+  return proc->f(args, env);
 }
 
 expr_t* interpreter_t::apply_compound_proc(expr_t* expr, expr_t* args, expr_env_t* env) {
   expr_t* body = get_compound_proc_body(expr);
   expr_t* params = get_compound_proc_params(expr);
-  expr_env_t* extended_env = extend_env(env, params, list_of_values(args, params, env));
-  if (is_list(body)) {
-    expr_t* last = memory.make_nil();
-    while (!is_nil(body)) {
-      last = eval(car(body), extended_env);
-      body = cdr(body);
-    }
-    return last;
-  } else {
-    return eval(body, extended_env);
-  }
+  return begin(body, extend_env(env, params, args));
 }
 
 expr_t* interpreter_t::apply_macro(expr_t* expr, expr_t* args, expr_env_t* env) {
@@ -851,10 +823,12 @@ expr_env_t* interpreter_t::extend_env(expr_env_t* env, expr_t* symbols, expr_t* 
   while (!is_nil(symbols) && !is_nil(exprs)) {
     if (is_eq(car(symbols), dot())) {
       symbols = cdr(symbols);
-      result->define(car(symbols), car(exprs));
+      result->define(car(symbols), exprs);
       symbols = cdr(symbols);
-      exprs = cdr(exprs);
-      break ;
+      if (!is_nil(symbols)) {
+        throw runtime_error("extend_env: only one symbol can be supplied after dotted parameter");
+      }
+      return result;
     }
     result->define(car(symbols), car(exprs));
     symbols = cdr(symbols);
@@ -874,6 +848,14 @@ expr_t* interpreter_t::cons(expr_t* expr1, expr_t* expr2) {
 
 bool interpreter_t::is_eq(expr_t* expr1, expr_t* expr2) {
   return expr1 == expr2;
+}
+
+bool interpreter_t::is_true(expr_t* expr) {
+  return !is_false(expr);
+}
+
+bool interpreter_t::is_false(expr_t* expr) {
+  return is_eq(expr, memory.make_boolean(false)) || is_eq(expr, memory.make_nil());
 }
 
 expr_t* interpreter_t::make_list(const initializer_list<expr_t*>& exprs) {
