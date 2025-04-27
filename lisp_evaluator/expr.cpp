@@ -317,53 +317,43 @@ string expr_env_t::to_string() {
 void expr_env_t::print(ostream& os, const string& prefix, bool is_last) {
 }
 
-expr_primitive_proc_t::expr_primitive_proc_t(const function<expr_t*(expr_t*, expr_env_t*)>& f, int arity, bool is_variadic):
+expr_primitive_proc_t::expr_primitive_proc_t(const string& name, const function<expr_t*(expr_t*, expr_env_t*)>& f):
   base(expr_type_t::PRIMITIVE_PROC),
-  f(f),
-  arity(arity),
-  is_variadic(is_variadic)
+  name(name),
+  f(f)
 {
 }
 
 string expr_primitive_proc_t::to_string() {
-  string result = "<#procedure (";
-  for (int i = 0; i < arity; ++i) {
-    result += "_";
-    if (i + 1 < arity) {
-      result += " ";
-    }
-  }
-  if (is_variadic) {
-    result += " . _";
-  }
-  result += ")>";
-  return result;
+  return "primitive procedure '" + name + "'";
 }
 
 void expr_primitive_proc_t::print(ostream& os, const string& prefix, bool is_last) {
 }
 
-expr_special_form_t::expr_special_form_t(const function<expr_t*(expr_t*, expr_env_t*)>& f):
+expr_special_form_t::expr_special_form_t(const string& name, const function<expr_t*(expr_t*, expr_env_t*)>& f):
   base(expr_type_t::SPECIAL_FORM),
+  name(name),
   f(f)
 {
 }
 
 string expr_special_form_t::to_string() {
-  return "<#special form (?)>";
+  return "special form '" + name + "'";
 }
 
 void expr_special_form_t::print(ostream& os, const string& prefix, bool is_last) {
 }
 
-expr_macro_t::expr_macro_t(const function<expr_t*(expr_t*, expr_env_t*)>& f):
+expr_macro_t::expr_macro_t(const string& name, const function<expr_t*(expr_t*, expr_env_t*)>& f):
   base(expr_type_t::MACRO),
+  name(name),
   f(f)
 {
 }
 
 string expr_macro_t::to_string() {
-  return "macro";
+  return "macro '" + name + "'";
 }
 
 void expr_macro_t::print(ostream& os, const string& prefix, bool is_last) {

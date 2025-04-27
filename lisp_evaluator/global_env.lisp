@@ -35,7 +35,8 @@
   -> ((lambda (var1 var2) body) val1 val2)
 |#
 
-#| (defmacro let (. |#
+(defmacro let (var-val-pair-list . body-list)
+  `((lambda ,(map (lambda (e) (car e)) var-val-pair-list) ,@body-list) ,@(map (lambda (e) (cadr e)) var-val-pair-list)))
 
 (defmacro cond (. cond-cons-pairs)
   (define (cond-helper rem-cond-cons-pairs)
