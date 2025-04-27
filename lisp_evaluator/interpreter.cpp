@@ -72,7 +72,7 @@ char interpreter_t::peek_char(istream& is) const {
 }
 
 bool interpreter_t::is_at_end(istream& is) const {
-  return !is || (is && is.peek() == EOF);
+  return !is || is.peek() == EOF;
 }
 
 interpreter_t::interpreter_t()
@@ -83,11 +83,11 @@ interpreter_t::interpreter_t()
 
   set_macro_character('"', [this](istream& is, char c) {
     string lexeme;
-    lexeme.push_back(c);
     while (!is_at_end(is)) {
       char y = read_char(is);
       lexeme.push_back(y);
       if (y == '\"') {
+        lexeme.pop_back();
         return (expr_t*) new expr_string_t(lexeme);
       }
     }
@@ -151,15 +151,24 @@ interpreter_t::interpreter_t()
     char y = read_char(is);
     switch (y) {
       case '\\': {
-        expr_t* symbol = read(is, true);
-        if (!symbol) {
+        expr_t* expr = read(is, true);
+        if (is_eof(expr)) {
           throw runtime_error("reader macro '#': unexpected EOF");
+        } else if (is_symbol(expr)) {
+          if (expr_t* result = memory.make_char(get_symbol(expr))) {
+            return result;
+          } else {
+            throw expr_exception_t("reader macro '#': undefined mapping from symbol to character", expr);
+          }
+        } else if (is_integer(expr)) {
+          if (expr_t* result = memory.make_char('0' + get_integer(expr))) {
+            return result;
+          } else {
+            throw expr_exception_t("reader macro '#': undefined mapping from integer to character", expr);
+          }
+        } else {
+          throw expr_exception_t("reader macro '#': macro undefined for expr type", expr);
         }
-        expr_t* result = memory.make_char(get_symbol(symbol));
-        if (!result) {
-          throw expr_exception_t("reader macro '#': undefined character", result);
-        }
-        return result;
       } break ;
       case '|': {
         int depth = 1;
@@ -213,6 +222,10 @@ interpreter_t::interpreter_t()
     }
     return memory.make_void();
   }, 1, false));
+  global_env.define(memory.make_symbol("newline"), memory.make_primitive_proc([this](expr_t* expr, expr_env_t* env) {
+    cout << endl;
+    return memory.make_void();
+  }, 0, false));
 
   global_env.define(memory.make_symbol("+"), memory.make_primitive_proc([this](expr_t* expr, expr_env_t* env) {
     expr_t* result = car(expr);
@@ -272,7 +285,7 @@ interpreter_t::interpreter_t()
   global_env.define(memory.make_symbol("apply"), memory.make_primitive_proc([this](expr_t* expr, expr_env_t* env) { return apply(list_ref(expr, 0), list_ref(expr, 1), env); }, 2, false));
 
   global_env.define(memory.make_symbol("begin"), memory.make_special_form([this](expr_t* expr, expr_env_t* env) {
-    expr_t* result = memory.make_nil();
+    expr_t* result = memory.make_void();
     while (!is_nil(expr)) {
       result = eval(car(expr), env);
       expr = cdr(expr);
@@ -304,6 +317,32 @@ interpreter_t::interpreter_t()
       return memory.make_void();
     }
   }));
+  global_env.define(memory.make_symbol("read-char"), memory.make_primitive_proc([this](expr_t* expr, expr_env_t* env) {
+    if (&cin == &get_istream(car(expr))) {
+      assert(read_char(get_istream(car(expr))) == '\n');
+    }
+    char c = read_char(get_istream(car(expr)));
+    if (c == EOF) {
+      return memory.make_eof();
+    }
+    return memory.make_char(c);
+  }, 1, false));
+  global_env.define(memory.make_symbol("unread-char"), memory.make_primitive_proc([this](expr_t* expr, expr_env_t* env) { unread_char(get_istream(car(expr)), get_char(list_ref(expr, 1))); return memory.make_void(); }, 2, false));
+  global_env.define(memory.make_symbol("peek-char"), memory.make_primitive_proc([this](expr_t* expr, expr_env_t* env) {
+    char c = peek_char(get_istream(car(expr)));
+    if (c == EOF) {
+      return memory.make_eof();
+    }
+    return memory.make_char(c);
+  }, 1, false));
+  global_env.define(memory.make_symbol("open-file"), memory.make_primitive_proc([this](expr_t* expr, expr_env_t* env) {
+    string filename = get_string(car(expr));
+    unique_ptr<ifstream> ifs = make_unique<ifstream>(filename);
+    if (!*ifs) {
+      throw runtime_error("open-file: failed to open file: '" + filename + "'");
+    }
+    return memory.make_istream(std::move(ifs));
+  }, 1, false));
   //global_env.define(memory.make_symbol("defreader"), memory.make_special_form([this](expr_t* expr, expr_env_t* env) {
   //  expr_t* symbol = list_ref(expr, 0);
   //  expr_t* body = list_ref(expr, 1);
@@ -314,7 +353,7 @@ interpreter_t::interpreter_t()
   //}));
   global_env.define(memory.make_symbol("defmacro"), memory.make_special_form([this](expr_t* expr, expr_env_t* env) {
     // (defmacro symbol (params) expand-to)
-    return env->define(list_ref(expr, 0), memory.make_macro([this, env, expr](expr_t* args) {
+    return env->define(list_ref(expr, 0), memory.make_macro([this, expr](expr_t* args, expr_env_t* env) {
       return begin(list_tail(expr, 2), extend_env(env, list_ref(expr, 1), args));
     }));
   }));
@@ -376,10 +415,6 @@ function<expr_t*(istream&, char)> interpreter_t::get_macro_character(char c) con
 expr_t* interpreter_t::read(istream& is, bool recursive) {
   string lexeme;
   return read(lexeme, is, recursive);
-}
-
-bool interpreter_t::is_eof(expr_t* expr) {
-  return expr->type == expr_type_t::END_OF_FILE;
 }
 
 expr_t* interpreter_t::read(string& lexeme, istream& is, bool recursive) {
@@ -510,26 +545,29 @@ expr_t* interpreter_t::reader_step9(string& lexeme, istream& is, char c, bool re
 }
 
 expr_t* interpreter_t::reader_step10(string& lexeme) {
-  assert(!lexeme.empty());
-  if (lexeme == "nil") {
-    return memory.make_nil();
-  } else if (lexeme[0] == '.' || ('0' <= lexeme[0] && lexeme[0] <= '9')) {
-    bool is_number = lexeme[0] != '.' || (lexeme[0] == '.' && 1 < lexeme.size());
-    for (int i = 1; i < lexeme.size(); ++i) {
-      if (!('0' <= lexeme[i] && lexeme[i] <= '9')) {
-        is_number = false;
-        break ;
+  if ((lexeme[0] == '.' && 1 < lexeme.size()) || ('0' <= lexeme[0] && lexeme[0] <= '9')) {
+    bool had_dot = false;
+    for (int i = 0; i < lexeme.size(); ++i) {
+      if (lexeme[i] == '.') {
+        if (!had_dot) {
+          had_dot = true;
+        } else {
+          return memory.make_symbol(lexeme);
+        }
+      } else if ('0' <= lexeme[i] && lexeme[i] <= '9') {
+      } else {
+        return memory.make_symbol(lexeme);
       }
     }
-    if (is_number) {
-      return memory.make_real(stod(lexeme));
-    }
+    return memory.make_real(stod(lexeme));
   }
   return memory.make_symbol(lexeme);
 }
 
 void interpreter_t::print(ostream& os, expr_t* expr) {
-  os << expr->to_string() << endl;
+  if (!::is_void(expr)) {
+    os << expr->to_string() << endl;
+  }
 }
 
 void interpreter_t::source(const char* filepath) {
@@ -550,9 +588,9 @@ void interpreter_t::source(ostream& os, istream& is) {
         break ;
       }
     } catch (expr_exception_t& e) {
-      cerr << "exception: " << e.what() << " " << expr_type_to_str(e.expr->type) << ": " <<  e.expr->to_string() << endl;
+      os << "exception: " << e.what() << " " << expr_type_to_str(e.expr->type) << ": " <<  e.expr->to_string() << endl;
     } catch (exception& e) {
-      cerr << "exception: " << e.what() << endl;
+      os << "exception: " << e.what() << endl;
     }
   }
 }
@@ -570,6 +608,24 @@ void interpreter_t::source(istream& is) {
       cerr << "exception: " << e.what() << " " << expr_type_to_str(e.expr->type) << ": " <<  e.expr->to_string() << endl;
     } catch (exception& e) {
       cerr << "exception: " << e.what() << endl;
+    }
+  }
+}
+
+void interpreter_t::repl() {
+  while (cin) {
+    try {
+      expr_t* expr = read(cin);
+      assert(expr);
+      if (is_eof(expr)) {
+        break ;
+      }
+      //assert(read_char(cin) == '\n');
+      print(cout, eval(expr));
+    } catch (expr_exception_t& e) {
+      cout << "exception: " << e.what() << " " << expr_type_to_str(e.expr->type) << ": " <<  e.expr->to_string() << endl;
+    } catch (exception& e) {
+      cout << "exception: " << e.what() << endl;
     }
   }
 }
@@ -681,7 +737,7 @@ expr_t* interpreter_t::apply_compound_proc(expr_t* expr, expr_t* args, expr_env_
 
 expr_t* interpreter_t::apply_macro(expr_t* expr, expr_t* args, expr_env_t* env) {
   expr_macro_t* macro = (expr_macro_t*)expr;
-  return eval(macro->f(args), env);
+  return eval(macro->f(args, env), env);
 }
 
 expr_t* interpreter_t::macroexpand_all(expr_t* expr, expr_env_t* env) {
@@ -717,7 +773,7 @@ expr_t* interpreter_t::expand(expr_t* expr, expr_env_t* env) {
     }
     if (is_macro(binding)) {
       expr_macro_t* macro = (expr_macro_t*)binding;
-      return macro->f(cdr(expr));
+      return macro->f(cdr(expr), env);
     }
   }
   return expr;
@@ -742,6 +798,9 @@ void interpreter_t::quasiquote(expr_t* expr, expr_env_t* env, expr_t* car_parent
     }
     expr = eval(list_ref(expr, 1), env);
     if (!is_cons(expr)) {
+      if (is_nil(expr)) {
+        expr = memory.make_void();
+      }
       set_car(car_parent, expr);
       return ;
     }
@@ -834,10 +893,18 @@ expr_env_t* interpreter_t::extend_env(expr_env_t* env, expr_t* symbols, expr_t* 
     symbols = cdr(symbols);
     exprs = cdr(exprs);
   }
-  if (is_nil(symbols) && !is_nil(exprs)) {
+  if (is_nil(symbols) && is_nil(exprs)) {
+    return result;
+  } else if (is_nil(symbols) && !is_nil(exprs)) {
     throw expr_exception_t("extend_env: more exprs supplied than symbols", exprs);
   } else if (!is_nil(symbols) && is_nil(exprs)) {
-    throw expr_exception_t("extend_env: more symbols supplied than exprs", symbols);
+    if (is_eq(car(symbols), dot())) {
+      result->define(list_ref(symbols, 1), memory.make_nil());
+    } else {
+      throw expr_exception_t("extend_env: more symbols supplied than exprs", symbols);
+    }
+  } else {
+    assert(0);
   }
   return result;
 }

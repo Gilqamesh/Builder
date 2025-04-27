@@ -159,10 +159,10 @@ struct expr_special_form_t {
 };
 
 struct expr_macro_t {
-  expr_macro_t(const function<expr_t*(expr_t*)>& f);
+  expr_macro_t(const function<expr_t*(expr_t*, expr_env_t*)>& f);
 
   expr_t base;
-  function<expr_t*(expr_t*)> f;
+  function<expr_t*(expr_t*, expr_env_t*)> f;
 
   string to_string();
   void print(ostream& os = cout, const string& prefix = "", bool is_last = true);
@@ -192,9 +192,10 @@ struct expr_cons_t {
 
 struct expr_istream_t {
   expr_istream_t(istream& is);
+  expr_istream_t(unique_ptr<istream> is);
 
   expr_t base;
-  istream& is;
+  unique_ptr<istream, function<void(istream*)>> is;
 
   string to_string();
   void print(ostream& os = cout, const string& prefix = "", bool is_last = true);
@@ -202,9 +203,10 @@ struct expr_istream_t {
 
 struct expr_ostream_t {
   expr_ostream_t(ostream& os);
+  expr_ostream_t(unique_ptr<ostream> os);
 
   expr_t base;
-  ostream& os;
+  unique_ptr<ostream, function<void(ostream*)>> os;
 
   string to_string();
   void print(ostream& os = cout, const string& prefix = "", bool is_last = true);
@@ -218,6 +220,8 @@ struct expr_exception_t : public exception {
 
   const char* what() const noexcept override;
 };
+
+bool is_eof(expr_t* expr);
 
 bool is_void(expr_t* expr);
 

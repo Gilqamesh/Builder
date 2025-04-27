@@ -57,6 +57,9 @@ expr_t* memory_t::make_integer(int64_t integer) {
 }
 
 expr_t* memory_t::make_real(double real) {
+  if (real == (int64_t)real) {
+    return make_integer((int64_t)real);
+  }
   return (expr_t*) new expr_real_t(real);
 }
 
@@ -78,8 +81,16 @@ expr_t* memory_t::make_istream(istream& is) {
   return (expr_t*) new expr_istream_t(is);
 }
 
+expr_t* memory_t::make_istream(unique_ptr<istream> is) {
+  return (expr_t*) new expr_istream_t(std::move(is));
+}
+
 expr_t* memory_t::make_ostream(ostream& os) {
   return (expr_t*) new expr_ostream_t(os);
+}
+
+expr_t* memory_t::make_ostream(unique_ptr<ostream> os) {
+  return (expr_t*) new expr_ostream_t(std::move(os));
 }
 
 expr_t* memory_t::make_cons(expr_t* expr1, expr_t* expr2) {
@@ -90,7 +101,7 @@ expr_t* memory_t::make_compound_proc(expr_t* params, expr_t* body) {
   return (expr_t*) new expr_compound_proc_t(params, body);
 }
 
-expr_t* memory_t::make_macro(const function<expr_t*(expr_t*)>& f) {
+expr_t* memory_t::make_macro(const function<expr_t*(expr_t*, expr_env_t*)>& f) {
   return (expr_t*) new expr_macro_t(f);
 }
 

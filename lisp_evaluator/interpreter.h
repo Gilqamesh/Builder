@@ -9,7 +9,6 @@ struct interpreter_t {
 
   // always returns a valid expression
   expr_t* read(istream& is, bool recursive = false);
-  bool is_eof(expr_t* expr);
 
   expr_t* eval(expr_t* expr);
   void print(ostream& os, expr_t* expr);
@@ -17,6 +16,7 @@ struct interpreter_t {
   void source(const char* filepath);
   void source(istream& is);
   void source(ostream& os, istream& is);
+  void repl();
 
 private:
   // todo: add system_env where all initial stuff lives, expose user_env to users
@@ -25,6 +25,7 @@ private:
 
   memory_t memory;
 
+  //unordered_map<string, expr_t*> m_interned_strings;
   function<expr_t*(istream&, char)> m_reader_macros[256];
   void set_macro_character(char c, function<expr_t*(istream&, char)> f);
   function<expr_t*(istream& is, char)> get_macro_character(char c) const;
