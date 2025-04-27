@@ -4,7 +4,7 @@ void repl() {
   interpreter_t interpreter;
 
   interpreter.source("global_env.lisp");
-  interpreter.source(cout, cin);
+  interpreter.repl();
 
   // while (1) {
   //   cout << "> " << flush;

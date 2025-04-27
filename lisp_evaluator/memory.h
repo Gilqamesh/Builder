@@ -17,10 +17,12 @@ struct memory_t {
   expr_t* make_string(const string& str);
   expr_t* make_symbol(const string& symbol);
   expr_t* make_istream(istream& is);
+  expr_t* make_istream(unique_ptr<istream> is);
   expr_t* make_ostream(ostream& os);
+  expr_t* make_ostream(unique_ptr<ostream> os);
   expr_t* make_cons(expr_t* expr1, expr_t* expr2);
   expr_t* make_compound_proc(expr_t* params, expr_t* body);
-  expr_t* make_macro(const function<expr_t*(expr_t*)>& f);
+  expr_t* make_macro(const function<expr_t*(expr_t*, expr_env_t*)>& f);
   expr_t* make_special_form(const function<expr_t*(expr_t*, expr_env_t*)>& f);
   expr_t* make_primitive_proc(const function<expr_t*(expr_t*, expr_env_t*)>& f, int arity, bool is_variadic);
   expr_t* make_env();
@@ -33,7 +35,7 @@ private:
   expr_t* m_nil;
   expr_t* m_t;
   expr_t* m_f;
-  expr_t* m_chars[128];
+  expr_t* m_chars[256];
   unordered_map<string, expr_t*> m_char_map;
   unordered_map<string, expr_t*> m_interned_symbols;
 };

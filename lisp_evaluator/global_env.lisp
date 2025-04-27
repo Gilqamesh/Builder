@@ -31,13 +31,29 @@
           #t
           (apply and (cons (car rest) (cdr rest))))))
 
+#| (let ((var1 val1) (var2 val3) ...) body)
+  -> ((lambda (var1 var2) body) val1 val2)
+|#
+
+#| (defmacro let (. |#
+
 (defmacro cond (. cond-cons-pairs)
-  (define (mymacro-helper rem-cond-cons-pairs)
-    (if (cons? rem-cond-cons-pairs)
-        `(if ,(caar rem-cond-cons-pairs)
-             ,(car (cdar rem-cond-cons-pairs))
-             ,(mymacro-helper (cdr rem-cond-cons-pairs)))))
-  (mymacro-helper cond-cons-pairs))
+  (define (cond-helper rem-cond-cons-pairs)
+    (when rem-cond-cons-pairs
+      (if (eq? (caar rem-cond-cons-pairs) 'else)
+          `(begin ,@(cdar rem-cond-cons-pairs))
+          `(if ,(caar rem-cond-cons-pairs)
+               (begin ,@(cdar rem-cond-cons-pairs))
+               ,(cond-helper (cdr rem-cond-cons-pairs))))))
+  (cond-helper cond-cons-pairs))
+
+(define (list-len l)
+  (if (nil? l)
+      0
+      (+ 1 (list-len (cdr l)))))
+
+#| todo: compile out void exprs |#
+(define list_of_len1 (list (if '() #t) 1)) 
 
 #| testing variadic parameters
  (define (acc l r)
@@ -47,4 +63,9 @@
  
 (define a ((lambda (x y . z) (+ x y (acc z 0))) 1 2 3 4 5 6 7 8 9 10)) |#
 
-
+#| 
+(define (fib n) 
+  (cond ((= n 0) 1)
+        ((= n 1) 1)
+        (#t (fib (- n 1) (- n 2)))))
+|#

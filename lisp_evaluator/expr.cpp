@@ -202,6 +202,7 @@ expr_char_t::expr_char_t(char c):
 }
 
 string expr_char_t::to_string() {
+  // need the mapping from char to symbol
   return "'" + string(1, c) + "'";
 }
 
@@ -241,7 +242,7 @@ expr_string_t::expr_string_t(const string& str):
 }
 
 string expr_string_t::to_string() {
-  return str;
+  return "\"" + str + "\"";
 }
 
 void expr_string_t::print(ostream& os, const string& prefix, bool is_last) {
@@ -355,7 +356,7 @@ string expr_special_form_t::to_string() {
 void expr_special_form_t::print(ostream& os, const string& prefix, bool is_last) {
 }
 
-expr_macro_t::expr_macro_t(const function<expr_t*(expr_t*)>& f):
+expr_macro_t::expr_macro_t(const function<expr_t*(expr_t*, expr_env_t*)>& f):
   base(expr_type_t::MACRO),
   f(f)
 {
@@ -420,7 +421,13 @@ void expr_cons_t::print(ostream& os, const string& prefix, bool is_last) {
 
 expr_istream_t::expr_istream_t(istream& is):
   base(expr_type_t::ISTREAM),
-  is(is)
+  is(&is, [](istream*) {})
+{
+}
+
+expr_istream_t::expr_istream_t(unique_ptr<istream> is):
+  base(expr_type_t::ISTREAM),
+  is(is.release(), [](istream* is) { delete is; })
 {
 }
 
@@ -433,7 +440,13 @@ void expr_istream_t::print(ostream& os, const string& prefix, bool is_last) {
 
 expr_ostream_t::expr_ostream_t(ostream& os):
   base(expr_type_t::OSTREAM),
-  os(os)
+  os(&os, [](ostream*) {})
+{
+}
+
+expr_ostream_t::expr_ostream_t(unique_ptr<ostream> os):
+  base(expr_type_t::OSTREAM),
+  os(os.release(), [](ostream* os) { delete os; })
 {
 }
 
@@ -452,6 +465,10 @@ expr_exception_t::expr_exception_t(const string& message, expr_t* expr):
 
 const char* expr_exception_t::what() const noexcept {
   return message.c_str();
+}
+
+bool is_eof(expr_t* expr) {
+  return expr->type == expr_type_t::END_OF_FILE;
 }
 
 bool is_void(expr_t* expr) {
@@ -598,7 +615,7 @@ istream& get_istream(expr_t* expr) {
   if (!is_istream(expr)) {
     throw expr_exception_t("get_istream: expect istream", expr);
   }
-  return ((expr_istream_t*)expr)->is;
+  return *((expr_istream_t*)expr)->is;
 }
 
 bool is_ostream(expr_t* expr) {
@@ -609,7 +626,7 @@ ostream& get_ostream(expr_t* expr) {
   if (!is_ostream(expr)) {
     throw expr_exception_t("get_ostream: expect ostream", expr);
   }
-  return ((expr_ostream_t*)expr)->os;
+  return *((expr_ostream_t*)expr)->os;
 }
 
 
