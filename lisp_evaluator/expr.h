@@ -137,21 +137,21 @@ struct expr_env_t {
 };
 
 struct expr_primitive_proc_t {
-  expr_primitive_proc_t(const function<expr_t*(expr_t*, expr_env_t*)>& f, int arity, bool is_variadic);
+  expr_primitive_proc_t(const string& name, const function<expr_t*(expr_t*, expr_env_t*)>& f);
 
   expr_t base;
+  string name;
   function<expr_t*(expr_t*, expr_env_t*)> f;
-  int arity;
-  bool is_variadic;
 
   string to_string();
   void print(ostream& os = cout, const string& prefix = "", bool is_last = true);
 };
 
 struct expr_special_form_t {
-  expr_special_form_t(const function<expr_t*(expr_t*, expr_env_t*)>& f);
+  expr_special_form_t(const string& name, const function<expr_t*(expr_t*, expr_env_t*)>& f);
 
   expr_t base;
+  string name;
   function<expr_t*(expr_t*, expr_env_t*)> f;
 
   string to_string();
@@ -159,9 +159,10 @@ struct expr_special_form_t {
 };
 
 struct expr_macro_t {
-  expr_macro_t(const function<expr_t*(expr_t*, expr_env_t*)>& f);
+  expr_macro_t(const string& name, const function<expr_t*(expr_t*, expr_env_t*)>& f);
 
   expr_t base;
+  string name;
   function<expr_t*(expr_t*, expr_env_t*)> f;
 
   string to_string();

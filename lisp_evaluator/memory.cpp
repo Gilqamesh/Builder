@@ -101,16 +101,16 @@ expr_t* memory_t::make_compound_proc(expr_t* params, expr_t* body) {
   return (expr_t*) new expr_compound_proc_t(params, body);
 }
 
-expr_t* memory_t::make_macro(const function<expr_t*(expr_t*, expr_env_t*)>& f) {
-  return (expr_t*) new expr_macro_t(f);
+expr_t* memory_t::make_macro(const string& name, const function<expr_t*(expr_t*, expr_env_t*)>& f) {
+  return (expr_t*) new expr_macro_t(name, f);
 }
 
-expr_t* memory_t::make_special_form(const function<expr_t*(expr_t*, expr_env_t*)>& f) {
-  return (expr_t*) new expr_special_form_t(f);
+expr_t* memory_t::make_special_form(const string& name, const function<expr_t*(expr_t*, expr_env_t*)>& f) {
+  return (expr_t*) new expr_special_form_t(name, f);
 }
 
-expr_t* memory_t::make_primitive_proc(const function<expr_t*(expr_t*, expr_env_t*)>& f, int arity, bool is_variadic) {
-  return (expr_t*) new expr_primitive_proc_t(f, arity, is_variadic);
+expr_t* memory_t::make_primitive_proc(const string& name, const function<expr_t*(expr_t*, expr_env_t*)>& f) {
+  return (expr_t*) new expr_primitive_proc_t(name, f);
 }
 
 expr_t* memory_t::make_env() {

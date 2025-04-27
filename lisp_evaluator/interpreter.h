@@ -22,13 +22,22 @@ private:
   // todo: add system_env where all initial stuff lives, expose user_env to users
   expr_env_t global_env;
   expr_env_t global_reader_env;
-
   memory_t memory;
-
-  //unordered_map<string, expr_t*> m_interned_strings;
   function<expr_t*(istream&, char)> m_reader_macros[256];
-  void set_macro_character(char c, function<expr_t*(istream&, char)> f);
-  function<expr_t*(istream& is, char)> get_macro_character(char c) const;
+
+  void register_primitive_symbols();
+
+  void register_reader_macro(char c, function<expr_t*(istream&, char)> f);
+  void register_reader_macros();
+
+  void register_primitive_proc(expr_env_t* env, const string& name, function<expr_t*(expr_t*, expr_env_t*)> f);
+  void register_primitive_procs();
+
+  void register_special_form(expr_env_t* env, const string& name, function<expr_t*(expr_t*, expr_env_t*)> f);
+  void register_special_forms();
+
+  void register_macro(expr_env_t* env, const string& name, function<expr_t*(expr_t*, expr_env_t*)> f);
+  void register_macros();
  
   bool is_whitespace(char c) const;
   bool is_terminating_macro(char c) const;
@@ -102,7 +111,7 @@ private:
   expr_t* list_tail(expr_t* expr, expr_t* integer_expr);
   expr_t* list_ref(expr_t* expr, int n);
   expr_t* list_ref(expr_t* expr, expr_t* integer_expr);
-  int list_length_internal(expr_t* expr);
+  size_t list_length_internal(expr_t* expr);
   expr_t* list_length(expr_t* expr);
   expr_t* list_map(expr_t* expr, const function<expr_t*(expr_t*)>& f);
   expr_t* list_reverse(expr_t* expr);

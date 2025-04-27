@@ -22,9 +22,9 @@ struct memory_t {
   expr_t* make_ostream(unique_ptr<ostream> os);
   expr_t* make_cons(expr_t* expr1, expr_t* expr2);
   expr_t* make_compound_proc(expr_t* params, expr_t* body);
-  expr_t* make_macro(const function<expr_t*(expr_t*, expr_env_t*)>& f);
-  expr_t* make_special_form(const function<expr_t*(expr_t*, expr_env_t*)>& f);
-  expr_t* make_primitive_proc(const function<expr_t*(expr_t*, expr_env_t*)>& f, int arity, bool is_variadic);
+  expr_t* make_macro(const string& name, const function<expr_t*(expr_t*, expr_env_t*)>& f);
+  expr_t* make_special_form(const string& name, const function<expr_t*(expr_t*, expr_env_t*)>& f);
+  expr_t* make_primitive_proc(const string& name, const function<expr_t*(expr_t*, expr_env_t*)>& f);
   expr_t* make_env();
 
   expr_t* shallow_copy(expr_t* expr);
