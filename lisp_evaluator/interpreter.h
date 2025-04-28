@@ -8,7 +8,7 @@ struct interpreter_t {
   interpreter_t();
 
   // always returns a valid expression
-  expr_t* read(istream& is, bool recursive = false);
+  expr_t* read(istream& is);
 
   expr_t* eval(expr_t* expr);
   void print(ostream& os, expr_t* expr);
@@ -23,30 +23,31 @@ private:
   expr_env_t global_env;
   expr_env_t global_reader_env;
   memory_t memory;
-  function<expr_t*(istream&, char)> m_reader_macros[256];
 
-  void register_primitive_symbols();
+  struct node_t {
+    node_t();
 
-  void register_reader_macro(char c, function<expr_t*(istream&, char)> f);
+    node_t* children[128];
+    function<expr_t*(istream&)> reader_macro;
+  };
+  bool m_whitespaces[128];
+  node_t m_reader_macro_root;
+
+  void register_symbols();
+
+  void register_reader_macro(const string& prefix, function<expr_t*(istream&)> f);
   void register_reader_macros();
 
-  void register_primitive_proc(expr_env_t* env, const string& name, function<expr_t*(expr_t*, expr_env_t*)> f);
+  expr_t* register_macro(expr_env_t* env, const string& name, function<expr_t*(expr_t*, expr_env_t*)> f);
+  void register_macros();
+
+  expr_t* register_primitive_proc(expr_env_t* env, const string& name, function<expr_t*(expr_t*, expr_env_t*)> f);
   void register_primitive_procs();
 
-  void register_special_form(expr_env_t* env, const string& name, function<expr_t*(expr_t*, expr_env_t*)> f);
+  expr_t* register_special_form(expr_env_t* env, const string& name, function<expr_t*(expr_t*, expr_env_t*)> f);
   void register_special_forms();
-
-  void register_macro(expr_env_t* env, const string& name, function<expr_t*(expr_t*, expr_env_t*)> f);
-  void register_macros();
  
   bool is_whitespace(char c) const;
-  bool is_terminating_macro(char c) const;
-  bool is_non_terminating_macro(char c) const;
-  bool is_single_escape(char c) const;
-  bool is_multiple_escape(char c) const;
-  bool is_constituent(char c) const;
-  bool is_illegal(char c) const;
-
   char read_char(istream& is) const;
   bool read_char(istream& is, const string& str) const;
   bool read_char(istream& is, char c) const;
@@ -54,18 +55,8 @@ private:
   char peek_char(istream& is) const;
   bool is_at_end(istream& is) const;
 
-  expr_t* read(string& lexeme, istream& is, bool recursive);
-  expr_t* read_illegal();
-  expr_t* read_whitespace(string& lexeme, istream& is, char c, bool recursive);
-  expr_t* read_terminating_macro(string& lexeme, istream& is, char c, bool recursive);
-  expr_t* read_non_terminating_macro(string& lexeme, istream& is, char c, bool recursive);
-  expr_t* read_single_escape(string& lexeme, istream& is, char c, bool recursive);
-  expr_t* read_multiple_escape(string& lexeme, istream& is, char c, bool recursive);
-  expr_t* read_constituent(string& lexeme, istream& is, char c, bool recursive);
-  
-  expr_t* reader_step8(string& lexeme, istream& is, char c, bool recursive);
-  expr_t* reader_step9(string& lexeme, istream& is, char c, bool recursive);
-  expr_t* reader_step10(string& lexeme);
+  expr_t* default_reader_macro(istream& is);
+  expr_t* read_whitespaces(istream& is);
 
   expr_t* eval(expr_t* expr, expr_env_t* env);
 
@@ -86,6 +77,9 @@ private:
   void quasiquote(expr_t* expr, expr_env_t* env, expr_t* car_parent);
   bool is_unquote(expr_t* expr);
   bool is_unquote_splicing(expr_t* expr);
+
+  expr_t* compile(expr_t* expr);
+  expr_t* compile_void_exprs_out(expr_t* expr);
 
   // ---
 
