@@ -444,6 +444,19 @@ void interpreter_t::register_primitive_procs() {
     return memory.make_boolean(get_real(list_ref(expr, 0)) < get_real(list_ref(expr, 1)));
   });
 
+  register_primitive_proc(&global_env, "memory", [this](expr_t* expr, expr_env_t* env) {
+    function<size_t(node_t*)> reader_macro_memory_collect = [&](node_t* node) {
+      size_t result = sizeof(*node);
+      for (size_t i = 0; i < sizeof(node->children) / sizeof(node->children[0]); ++i) {
+        if (node->children[i]) {
+          result += reader_macro_memory_collect(node->children[i]);
+        }
+      }
+      return result;
+    };
+    cout << "reader macro: " << reader_macro_memory_collect(&m_reader_macro_root) / 1024.0 << " kB" << endl;
+    return memory.make_void();
+  });
   register_primitive_proc(&global_env, "read", [this](expr_t* expr, expr_env_t* env) { return read(get_istream(list_ref(expr, 0))); });
   register_primitive_proc(&global_env, "write", [this](expr_t* expr, expr_env_t* env) {
     ostream& os = get_ostream(list_ref(expr, 0));
@@ -455,7 +468,10 @@ void interpreter_t::register_primitive_procs() {
   register_primitive_proc(&global_env, "apply", [this](expr_t* expr, expr_env_t* env) { return apply(list_ref(expr, 0), list_ref(expr, 1), env); });
   register_primitive_proc(&global_env, "read-char", [this](expr_t* expr, expr_env_t* env) {
     if (&cin == &get_istream(car(expr))) {
-      assert(read_char(get_istream(car(expr))) == '\n');
+      // todo: this was introduced so that (list (read-char cin)) would work, but it doesn't work for cases where read-char is invoked with cin in some deeper context by some procedure:
+      // (defmacro "hello" (lambda (is) (read-char is)))
+      // helloa
+      //assert(read_char(get_istream(car(expr))) == '\n');
     }
     char c = read_char(get_istream(car(expr)));
     if (c == EOF) {
@@ -586,14 +602,6 @@ expr_t* interpreter_t::eval(expr_t* expr) {
 
 expr_t* interpreter_t::eval(expr_t* expr, expr_env_t* env) {
   switch (expr->type) {
-  case expr_type_t::END_OF_FILE:
-  case expr_type_t::VOID:
-  case expr_type_t::NIL:
-  case expr_type_t::BOOLEAN:
-  case expr_type_t::CHAR:
-  case expr_type_t::INTEGER:
-  case expr_type_t::REAL:
-  case expr_type_t::STRING: return expr;
   case expr_type_t::SYMBOL: {
     if (expr_t* result = env->get(expr)) {
       return result;
@@ -611,12 +619,7 @@ expr_t* interpreter_t::eval(expr_t* expr, expr_env_t* env) {
       return apply(the_operator, list_map(the_operands, [this, env](expr_t* expr) { return eval(expr, env); }), env);
     }
   } break ;
-  case expr_type_t::MACRO:
-  case expr_type_t::ENV:
-  case expr_type_t::PRIMITIVE_PROC: 
-  case expr_type_t::SPECIAL_FORM:
-  case expr_type_t::COMPOUND_PROC: throw expr_exception_t("eval: unexpected type", expr);
-  default: assert(0);
+  default: return expr;
   }
 }
 
