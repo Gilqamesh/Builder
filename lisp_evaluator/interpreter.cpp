@@ -1,36 +1,8 @@
 #include "interpreter.h"
 
 bool interpreter_t::is_whitespace(char c) const {
-  return c == '\t' || c == ' ' || c == '\f' || c == '\r' || c == '\n' || c == '\v';
-}
-
-bool interpreter_t::is_terminating_macro(char c) const {
-  return c == '"' || c == '\'' || c == '(' || c == ')' || c == ',' || c == ';' || c == '`';
-}
-
-bool interpreter_t::is_non_terminating_macro(char c) const {
-  return c == '#';
-}
-
-bool interpreter_t::is_single_escape(char c) const {
-  return c == '\\';
-}
-
-bool interpreter_t::is_multiple_escape(char c) const {
-  return c == '|';
-}
-
-bool interpreter_t::is_constituent(char c) const {
-  return c == '!' || c == '$' || c == '%' || c == '&' || c == '*' || c == '+' || c == '-' || c == '.' || c == '/' || c == '0' || c == '1' || c == '2' || c == '3' || c == '4' || c == '5' ||
-         c == '6' || c == '7' || c == '8' || c == '9' || c == ':' || c == '<' || c == '=' || c == '>' || c == '?' || c == '\b' || c == '@' || c == 'A' || c == 'B' || c == 'C' || c == 'D' ||
-         c == 'E' || c == 'F' || c == 'G' || c == 'H' || c == 'I' || c == 'J' || c == 'K' || c == 'L' || c == 'M' || c == 'N' || c == 'O' || c == 'P' || c == 'Q' || c == 'R' || c == 'S' ||
-         c == 'T' || c == 'U' || c == 'V' || c == 'W' || c == 'X' || c == 'Y' || c == 'Z' || c == '[' || c == ']' || c == '^' || c == '_' || c == 'a' || c == 'b' || c == 'c' || c == 'd' ||
-         c == 'e' || c == 'f' || c == 'g' || c == 'h' || c == 'i' || c == 'j' || c == 'k' || c == 'l' || c == 'm' || c == 'n' || c == 'o' || c == 'p' || c == 'q' || c == 'r' || c == 's' ||
-         c == 't' || c == 'u' || c == 'v' || c == 'w' || c == 'x' || c == 'y' || c == 'z' || c == '{' || c == '}' || c == '~' || c == 127;
-}
-
-bool interpreter_t::is_illegal(char c) const {
-  return !is_whitespace(c) || !is_terminating_macro(c) || !is_non_terminating_macro(c) || !is_single_escape(c) || !is_multiple_escape(c) || !is_constituent(c);
+  assert((size_t) c < sizeof(m_whitespaces) / sizeof(m_whitespaces[0]));
+  return m_whitespaces[c];
 }
 
 char interpreter_t::read_char(istream& is) const {
@@ -76,154 +48,67 @@ bool interpreter_t::is_at_end(istream& is) const {
 }
 
 interpreter_t::interpreter_t() {
-  register_primitive_symbols();
+  register_symbols();
   register_reader_macros();
   register_primitive_procs();
   register_special_forms();
   register_macros();
 }
 
-expr_t* interpreter_t::read(istream& is, bool recursive) {
-  string lexeme;
-  return read(lexeme, is, recursive);
-}
-
-expr_t* interpreter_t::read(string& lexeme, istream& is, bool recursive) {
+expr_t* interpreter_t::read(istream& is) {
   if (is_at_end(is)) {
     return memory.make_eof();
   }
 
-  unsigned char c = (unsigned char) read_char(is);
-  if (is_whitespace(c)) {
-    return read_whitespace(lexeme, is, c, recursive);
-  } else if (is_terminating_macro(c)) {
-    return read_terminating_macro(lexeme, is, c, recursive);
-  } else if (is_non_terminating_macro(c)) {
-    return read_non_terminating_macro(lexeme, is, c, recursive);
-  } else if (is_single_escape(c)) {
-    return read_single_escape(lexeme, is, c, recursive);
-  } else if (is_multiple_escape(c)) {
-    return read_multiple_escape(lexeme, is, c, recursive);
-  } else if (is_constituent(c)) {
-    return read_constituent(lexeme, is, c, recursive);
-  } else {
-    assert(is_illegal(c));
-    return read_illegal();
-  }
-}
-
-expr_t* interpreter_t::read_illegal() {
-  throw runtime_error("illegal character");
-}
-
-expr_t* interpreter_t::read_whitespace(string& lexeme, istream& is, char c, bool recursive) {
-  if (recursive) {
-    lexeme.push_back(c);
-  }
-  return read(lexeme, is, recursive);
-}
-
-expr_t* interpreter_t::read_terminating_macro(string& lexeme, istream& is, char c, bool recursive) {
-  auto f = m_reader_macros[(unsigned char) c];
-  if (!f) {
-    throw runtime_error("not implemented macro character " + string(1, c));
-  }
-  expr_t* result = f(is, c);
-  if (result) {
-    return result;
-  }
-  return read(lexeme, is, recursive);
-}
-
-expr_t* interpreter_t::read_non_terminating_macro(string& lexeme, istream& is, char c, bool recursive) {
-  auto f = m_reader_macros[(unsigned char) c];
-  if (!f) {
-    throw runtime_error("not implemented macro character " + string(1, c));
-  }
-  expr_t* result = f(is, c);
-  if (result) {
-    return result;
-  }
-  return read(lexeme, is, recursive);
-}
-
-expr_t* interpreter_t::read_single_escape(string& lexeme, istream& is, char c, bool recursive) {
-  if (is_at_end(is)) {
-    throw runtime_error("single escape: end of file, expect character");
-  }
-  char y = read_char(is);
-  lexeme.clear();
-  lexeme.push_back(y);
-  return reader_step8(lexeme, is, y, recursive);
-}
-
-expr_t* interpreter_t::read_multiple_escape(string& lexeme, istream& is, char c, bool recursive) {
-  lexeme.clear();
-  return reader_step9(lexeme, is, c, recursive);
-}
-
-expr_t* interpreter_t::read_constituent(string& lexeme, istream& is, char c, bool recursive) {
-  lexeme.clear();
-  lexeme.push_back(c);
-  return reader_step8(lexeme, is, c, recursive);
-}
-
-expr_t* interpreter_t::reader_step8(string& lexeme, istream& is, char c, bool recursive) {
-  if (is_at_end(is)) {
-    return reader_step10(lexeme);
-  }
-  char y = read_char(is);
-  if (is_constituent(y) || is_non_terminating_macro(y)) {
-    lexeme.push_back(y);
-    return reader_step8(lexeme, is, y, recursive);
-  } else if (is_single_escape(y)) {
-    if (is_at_end(is)) {
-      throw runtime_error("expect char");
+  node_t* node = &m_reader_macro_root;
+  function<expr_t*(istream&)> reader_macro;
+  string prefix;
+  while (node && !is_at_end(is)) {
+    char c = read_char(is);
+    prefix.push_back(c);
+    size_t child_index = (size_t) c;
+    if (sizeof(node->children) / sizeof(node->children[0]) <= child_index) {
+      throw runtime_error("read: invalid character at the end of lexeme '" + prefix + "': " + to_string(child_index));
     }
-    char z = read_char(is);
-    lexeme.push_back(z);
-    return reader_step8(lexeme, is, z, recursive);
-  } else if (is_multiple_escape(y)) {
-    return reader_step9(lexeme, is, y, recursive);
-  } else if (is_terminating_macro(y)) {
-    unread_char(is, y);
-    return reader_step10(lexeme);
-  } else if (is_whitespace(y)) {
-    if (!recursive) {
-      unread_char(is, y);
+    node = node->children[child_index];
+    if (node && node->reader_macro) {
+      reader_macro = node->reader_macro;
+      prefix.clear();
     }
-    return reader_step10(lexeme);
-  } else {
-    assert(is_illegal(y));
-    throw runtime_error("illegal character");
   }
+
+  while (!prefix.empty()) {
+    char c = prefix.back();
+    prefix.pop_back();
+    unread_char(is, c);
+  }
+ 
+  expr_t* result = 0;
+  if (reader_macro) {
+    result = reader_macro(is);
+  } else {
+    result = default_reader_macro(is);
+  }
+  if (::is_void(result)) {
+    return read(is);
+  }
+  return result;
 }
 
-expr_t* interpreter_t::reader_step9(string& lexeme, istream& is, char c, bool recursive) {
-  if (is_at_end(is)) {
-    throw runtime_error("eof");
-  }
-
-  char y = read_char(is);
-  if (is_constituent(y) || is_terminating_macro(y) || is_non_terminating_macro(y) || is_whitespace(y)) {
-    lexeme.push_back(y);
-    return reader_step9(lexeme, is, y, recursive);
-  } else if (is_single_escape(y)) {
-    if (is_at_end(is)) {
-      throw runtime_error("eof");
+expr_t* interpreter_t::default_reader_macro(istream& is) {
+  string lexeme;
+  while (!is_at_end(is)) {
+    char c = peek_char(is);
+    size_t child_index = (size_t) c;
+    if (sizeof(m_reader_macro_root.children) / sizeof(m_reader_macro_root.children[0]) <= child_index) {
+      throw runtime_error("defaul_reader: invalid character found: '" + to_string(child_index) + "'");
     }
-    char z = read_char(is);
-    lexeme.push_back(z);
-    return reader_step9(lexeme, is, z, recursive);
-  } else if (is_multiple_escape(y)) {
-    return reader_step8(lexeme, is, y, recursive);
-  } else {
-    assert(is_illegal(y));
-    throw runtime_error("illegal character");
+    if (c == ')' || m_reader_macro_root.children[c]) {
+      break ;
+    }
+    lexeme.push_back(read_char(is));
   }
-}
 
-expr_t* interpreter_t::reader_step10(string& lexeme) {
   if ((lexeme[0] == '.' && 1 < lexeme.size()) || ('0' <= lexeme[0] && lexeme[0] <= '9')) {
     bool had_dot = false;
     for (int i = 0; i < lexeme.size(); ++i) {
@@ -240,6 +125,7 @@ expr_t* interpreter_t::reader_step10(string& lexeme) {
     }
     return memory.make_real(stod(lexeme));
   }
+
   return memory.make_symbol(lexeme);
 }
 
@@ -296,11 +182,19 @@ void interpreter_t::repl() {
     try {
       expr_t* expr = read(cin);
       assert(expr);
+      expr = compile(expr);
+      if (!expr) {
+        continue ;
+      } 
       if (is_eof(expr)) {
         break ;
       }
-      //assert(read_char(cin) == '\n');
-      print(cout, eval(expr));
+      expr = eval(expr);
+      expr = compile(expr);
+      if (!expr) {
+        continue ;
+      }
+      print(cout, expr);
     } catch (expr_exception_t& e) {
       cout << "exception: " << e.what() << " " << expr_type_to_str(e.expr->type) << ": " <<  e.expr->to_string() << endl;
     } catch (exception& e) {
@@ -309,8 +203,165 @@ void interpreter_t::repl() {
   }
 }
 
-void interpreter_t::register_primitive_proc(expr_env_t* env, const string& name, function<expr_t*(expr_t*, expr_env_t*)> f) {
-  global_env.define(memory.make_symbol(name), memory.make_primitive_proc(name, f));
+void interpreter_t::register_symbols() {
+  global_env.define(memory.make_symbol("cin"),  memory.make_istream(cin));
+  global_env.define(memory.make_symbol("cout"), memory.make_ostream(cout));
+  global_env.define(memory.make_symbol("*global-environment*"), (expr_t*) &global_env);
+}
+
+interpreter_t::node_t::node_t() {
+  for (size_t i = 0; i < sizeof(children) / sizeof(children[0]); ++i) {
+    children[i] = 0;
+  }
+}
+
+void interpreter_t::register_reader_macro(const string& prefix, function<expr_t*(istream&)> f) {
+  node_t* node = &m_reader_macro_root;
+  size_t prefix_index = 0;
+  while (prefix_index < prefix.size()) {
+    size_t child_index = (size_t) prefix[prefix_index++];
+    assert(child_index < sizeof(node->children) / sizeof(node->children[0]));
+    if (!node->children[child_index]) {
+      node->children[child_index] = new node_t;
+    }
+    node = node->children[child_index];
+  }
+  node->reader_macro = f;
+}
+
+void interpreter_t::register_reader_macros() {
+  for (size_t i = 0; i < sizeof(m_whitespaces) / sizeof(m_whitespaces[0]); ++i) {
+    m_whitespaces[i] = false;
+  }
+  m_whitespaces['\t'] = true;
+  m_whitespaces[' '] = true;
+  m_whitespaces['\f'] = true;
+  m_whitespaces['\r'] = true;
+  m_whitespaces['\n'] = true;
+  m_whitespaces['\v'] = true;
+ 
+  for (size_t i = 0; i < sizeof(m_whitespaces) / sizeof(m_whitespaces[0]); ++i) {
+    if (m_whitespaces[i]) {
+      register_reader_macro(string(1, (char) i), [this](istream& is) {
+        while (!is_at_end(is) && is_whitespace(peek_char(is))) {
+          read_char(is);
+        }
+        return memory.make_void();
+      });
+    }
+  }
+  register_reader_macro("\"", [this](istream& is) {
+    string lexeme;
+    while (!is_at_end(is)) {
+      char y = read_char(is);
+      lexeme.push_back(y);
+      if (y == '\"') {
+        lexeme.pop_back();
+        return (expr_t*) new expr_string_t(lexeme);
+      }
+    }
+    throw runtime_error("reader macro \": expect \" at the end of lexeme: '" + lexeme + "'");
+  });
+  register_reader_macro("'", [this](istream& is) {
+    return make_list({ memory.make_symbol("quote"), read(is) });
+  });
+  register_reader_macro("`", [this](istream& is) {
+    return make_list({ memory.make_symbol("quasiquote"), read(is) });
+  });
+  register_reader_macro(",", [this](istream& is) {
+    if (is_at_end(is)) {
+      throw runtime_error("reader macro ',': unexpected eof");
+    }
+    char y = read_char(is);
+    switch (y) {
+      case '@': {
+        return make_list({ memory.make_symbol("unquote-splicing"), read(is) });
+      } break ;
+      default: {
+        unread_char(is, y);
+        return make_list({ memory.make_symbol("unquote"), read(is) });
+      }
+    }
+  });
+  register_reader_macro(")", [this](istream& is) {
+    return memory.make_symbol(")");
+  });
+  register_reader_macro("(", [this](istream& is) {
+    expr_t* result = 0;
+    expr_t* prev = 0;
+    while (!is_at_end(is)) {
+      expr_t* expr = read(is);
+      if (is_eq(expr, memory.make_symbol(")"))) {
+        break ;
+      }
+      expr_t* cur = cons(expr, memory.make_nil());
+      if (!result) {
+        result = cur;
+      } else {
+        ((expr_cons_t*)prev)->second = cur;
+      }
+      prev = cur;
+    }
+    if (is_at_end(is)) {
+      throw runtime_error("reached eof, expect ')'");
+    }
+    if (result) {
+      return result;
+    }
+    return memory.make_nil();
+  });
+
+  register_reader_macro("#\\", [this](istream& is) {
+    expr_t* expr = read(is);
+    if (is_eof(expr)) {
+      throw runtime_error("reader macro '#': unexpected EOF");
+    } else if (is_symbol(expr)) {
+      if (expr_t* result = memory.make_char(get_symbol(expr))) {
+        return result;
+      } else {
+        throw expr_exception_t("reader macro '#': undefined mapping from symbol to character", expr);
+      }
+    } else if (is_integer(expr)) {
+      if (expr_t* result = memory.make_char('0' + get_integer(expr))) {
+        return result;
+      } else {
+        throw expr_exception_t("reader macro '#': undefined mapping from integer to character", expr);
+      }
+    } else {
+      throw expr_exception_t("reader macro '#': macro undefined for expr type", expr);
+    }
+  });
+  register_reader_macro("#|", [this](istream& is) {
+    int depth = 1;
+    while (!is_at_end(is)) {
+      if (read_char(is, "|#")) {
+        if (--depth == 0) {
+          return memory.make_void();
+        }
+      } else if (read_char(is, "#|")) {
+        ++depth;
+      }
+      read_char(is);
+    }
+    throw runtime_error("reader macro '#|': unterminated comment");
+  });
+  register_reader_macro("#t", [this](istream& is) {
+    return memory.make_boolean(true);
+  });
+  register_reader_macro("#f", [this](istream& is) {
+    return memory.make_boolean(false);
+  });
+}  
+
+expr_t* interpreter_t::register_macro(expr_env_t* env, const string& name, function<expr_t*(expr_t*, expr_env_t*)> f) {
+  return global_env.define(memory.make_symbol(name), memory.make_macro(name, f));
+}
+
+void interpreter_t::register_macros() {
+}
+
+expr_t* interpreter_t::register_primitive_proc(expr_env_t* env, const string& name, function<expr_t*(expr_t*, expr_env_t*)> f) {
+  return global_env.define(memory.make_symbol(name), memory.make_primitive_proc(name, f));
 }
 
 void interpreter_t::register_primitive_procs() {
@@ -439,10 +490,17 @@ void interpreter_t::register_primitive_procs() {
       throw expr_exception_t("unsupported mode", list_ref(expr, 1));
     }
   });
+  register_primitive_proc(&global_env, "defreader", [this](expr_t* expr, expr_env_t* env) {
+    // (defreader prefix f)
+    register_reader_macro(get_string(list_ref(expr, 0)), [expr, env, this](istream& is) {
+      return apply(eval(list_ref(expr, 1)), make_list({ memory.make_istream(is) }), env);
+    });
+    return memory.make_void();
+  });
 }
 
-void interpreter_t::register_special_form(expr_env_t* env, const string& name, function<expr_t*(expr_t*, expr_env_t*)> f) {
-  global_env.define(memory.make_symbol(name), memory.make_special_form(name, f));
+expr_t* interpreter_t::register_special_form(expr_env_t* env, const string& name, function<expr_t*(expr_t*, expr_env_t*)> f) {
+  return global_env.define(memory.make_symbol(name), memory.make_special_form(name, f));
 }
 
 void interpreter_t::register_special_forms() {
@@ -481,18 +539,10 @@ void interpreter_t::register_special_forms() {
   });
   register_special_form(&global_env, "defmacro", [this](expr_t* expr, expr_env_t* env) {
     // (defmacro symbol (params) expand-to)
-    return env->define(list_ref(expr, 0), memory.make_macro(get_symbol(list_ref(expr, 0)), [this, expr](expr_t* args, expr_env_t* env) {
+    return register_macro(env, get_symbol(list_ref(expr, 0)), [this, expr](expr_t* args, expr_env_t* env) {
       return begin(list_tail(expr, 2), extend_env(env, list_ref(expr, 1), args));
-    }));
+    });
   });
-  //register_special_form(&global_env, "defreader", [this](expr_t* expr, expr_env_t* env) {
-  //  expr_t* symbol = list_ref(expr, 0);
-  //  expr_t* body = list_ref(expr, 1);
-  //  register_reader_macro(get_char(symbol), [this, body](reader_t& reader, const string&, istream& is) {
-  //    return eval(body);
-  //  });
-  //  return body;
-  //}));
   register_special_form(&global_env, "macroexpand", [this](expr_t* expr, expr_env_t* env) {
     return macroexpand(eval(car(expr)), env);
   });
@@ -527,144 +577,6 @@ void interpreter_t::register_special_forms() {
       throw expr_exception_t("lambda: unrecognized special form", expr);
     }
     return memory.make_compound_proc(params, body);
-  });
-}
-
-void interpreter_t::register_macro(expr_env_t* env, const string& name, function<expr_t*(expr_t*, expr_env_t*)> f) {
-  global_env.define(memory.make_symbol(name), memory.make_macro(name, f));
-}
-
-void interpreter_t::register_macros() {
-}
-
-void interpreter_t::register_reader_macro(char c, function<expr_t*(istream&, char)> f) {
-  m_reader_macros[(unsigned char)c] = f;
-}
-
-void interpreter_t::register_primitive_symbols() {
-  global_env.define(memory.make_symbol("cin"),  memory.make_istream(cin));
-  global_env.define(memory.make_symbol("cout"), memory.make_ostream(cout));
-}
-
-void interpreter_t::register_reader_macros() {
-  for (int i = 0; i < sizeof(m_reader_macros) / sizeof(m_reader_macros[0]); ++i) {
-    m_reader_macros[i] = 0;
-  }
-
-  register_reader_macro('"', [this](istream& is, char c) {
-    string lexeme;
-    while (!is_at_end(is)) {
-      char y = read_char(is);
-      lexeme.push_back(y);
-      if (y == '\"') {
-        lexeme.pop_back();
-        return (expr_t*) new expr_string_t(lexeme);
-      }
-    }
-    throw runtime_error("reader macro \": expect \" at the end of lexeme: '" + lexeme + "'");
-  });
-  register_reader_macro('\'', [this](istream& is, char c) {
-    return make_list({ memory.make_symbol("quote"), read(is, true) });
-  });
-  register_reader_macro('`', [this](istream& is, char c) {
-    return make_list({ memory.make_symbol("quasiquote"), read(is, true) });
-  });
-  register_reader_macro(',', [this](istream& is, char c) {
-    if (is_at_end(is)) {
-      throw runtime_error("reader macro ',': unexpected eof");
-    }
-    char y = read_char(is);
-    switch (y) {
-      case '@': {
-        return make_list({ memory.make_symbol("unquote-splicing"), read(is, true) });
-      } break ;
-      default: {
-        unread_char(is, y);
-        return make_list({ memory.make_symbol("unquote"), read(is, true) });
-      }
-    }
-  });
-  register_reader_macro('(', [this](istream& is, char c) {
-    expr_t* result = 0;
-    expr_t* prev = 0;
-    while (!is_at_end(is) && peek_char(is) != ')') {
-      while (!is_at_end(is) && is_whitespace(peek_char(is))) {
-        read_char(is);
-      }
-      expr_t* cur = cons(read(is, true), memory.make_nil());
-      while (!is_at_end(is) && is_whitespace(peek_char(is))) {
-        read_char(is);
-      }
-      if (!result) {
-        result = cur;
-      } else {
-        ((expr_cons_t*)prev)->second = cur;
-      }
-      prev = cur;
-    }
-    if (is_at_end(is)) {
-      throw runtime_error("reached eof, expect ')'");
-    }
-    if (read_char(is) != ')') {
-      throw runtime_error("expect ')'");
-    }
-    if (result) {
-      return result;
-    }
-    return memory.make_nil();
-  });
-
-  register_reader_macro('#', [this](istream& is, char c) {
-    if (is_at_end(is)) {
-      throw runtime_error("reader macro '#': unexpected eof");
-    }
-    char y = read_char(is);
-    switch (y) {
-      case '\\': {
-        expr_t* expr = read(is, true);
-        if (is_eof(expr)) {
-          throw runtime_error("reader macro '#': unexpected EOF");
-        } else if (is_symbol(expr)) {
-          if (expr_t* result = memory.make_char(get_symbol(expr))) {
-            return result;
-          } else {
-            throw expr_exception_t("reader macro '#': undefined mapping from symbol to character", expr);
-          }
-        } else if (is_integer(expr)) {
-          if (expr_t* result = memory.make_char('0' + get_integer(expr))) {
-            return result;
-          } else {
-            throw expr_exception_t("reader macro '#': undefined mapping from integer to character", expr);
-          }
-        } else {
-          throw expr_exception_t("reader macro '#': macro undefined for expr type", expr);
-        }
-      } break ;
-      case '|': {
-        int depth = 1;
-        while (!is_at_end(is)) {
-          if (read_char(is, "|#")) {
-            if (--depth == 0) {
-              return (expr_t*) 0;
-            }
-          } else if (read_char(is, "#|")) {
-            ++depth;
-          }
-          read_char(is);
-        }
-        throw runtime_error("reader macro '#|': unterminated comment");
-        return (expr_t*) 0;
-      } break ;
-      case 't': {
-        return memory.make_boolean(true);
-      } break ;
-      case 'f': {
-        return memory.make_boolean(false);
-      } break ;
-      default: throw runtime_error("reader macro '#': undefined macro for character: '" + string(1, y) + "'");
-    }
-    assert(0);
-    return (expr_t*) 0;
   });
 }
 
@@ -858,6 +770,37 @@ bool interpreter_t::is_unquote(expr_t* expr) {
 
 bool interpreter_t::is_unquote_splicing(expr_t* expr) {
   return is_eq(expr, memory.make_symbol("unquote-splicing"));
+}
+
+expr_t* interpreter_t::compile(expr_t* expr) {
+  expr = compile_void_exprs_out(expr);
+  if (!expr) {
+    return 0;
+  }
+  // do other compile stuff
+  return expr;
+}
+
+expr_t* interpreter_t::compile_void_exprs_out(expr_t* expr) {
+  if (is_cons(expr)) {
+    expr_t* new_car = compile_void_exprs_out(car(expr));
+    expr_t* new_cdr = compile_void_exprs_out(cdr(expr));
+    if (!new_car && !new_cdr) {
+      return 0;
+    } else if (!new_car) {
+      return new_cdr;
+    } else if (!new_cdr) {
+      return new_car;
+    } else {
+      set_car(expr, new_car);
+      set_cdr(expr, new_cdr);
+      return expr;
+    }
+  } else if (::is_void(expr)) {
+    return 0;
+  } else {
+    return expr;
+  }
 }
 
 expr_t* interpreter_t::number_add(expr_t* a, expr_t* b) {

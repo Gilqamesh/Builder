@@ -164,10 +164,12 @@ expr_void_t::expr_void_t():
 }
 
 string expr_void_t::to_string() {
+  assert("void expression must be compiled out" && 0);
   return "";
 }
 
 void expr_void_t::print(ostream& os, const string& prefix, bool is_last) {
+  assert("void expression must be compiled out" && 0);
 }
 
 expr_nil_t::expr_nil_t():
@@ -309,7 +311,7 @@ expr_t* expr_env_t::define(expr_t* symbol, expr_t* expr) {
 string expr_env_t::to_string() {
   string result = "env: ";
   for (const auto& p : bindings) {
-    result += "{ " + p.first->to_string() + ": " + p.second->to_string() + " } ";
+    result += "{ " + p.first->to_string() + ": " + (p.second == (expr_t*) this ? "this" : p.second->to_string()) + " } ";
   }
   return result;
 }
@@ -325,7 +327,7 @@ expr_primitive_proc_t::expr_primitive_proc_t(const string& name, const function<
 }
 
 string expr_primitive_proc_t::to_string() {
-  return "primitive procedure '" + name + "'";
+  return "#<primitive procedure '" + name + "'>";
 }
 
 void expr_primitive_proc_t::print(ostream& os, const string& prefix, bool is_last) {
@@ -339,7 +341,7 @@ expr_special_form_t::expr_special_form_t(const string& name, const function<expr
 }
 
 string expr_special_form_t::to_string() {
-  return "special form '" + name + "'";
+  return "#<special form '" + name + "'>";
 }
 
 void expr_special_form_t::print(ostream& os, const string& prefix, bool is_last) {
@@ -353,7 +355,7 @@ expr_macro_t::expr_macro_t(const string& name, const function<expr_t*(expr_t*, e
 }
 
 string expr_macro_t::to_string() {
-  return "macro '" + name + "'";
+  return "#<macro '" + name + "'>";
 }
 
 void expr_macro_t::print(ostream& os, const string& prefix, bool is_last) {
@@ -367,7 +369,7 @@ expr_compound_proc_t::expr_compound_proc_t(expr_t* params, expr_t* body):
 }
 
 string expr_compound_proc_t::to_string() {
-  return "compound proc: params: { " + params->to_string() + " }, body: { " + body->to_string() + " }";
+  return "#<compound proc: params: { " + params->to_string() + " }, body: { " + body->to_string() + " }>";
 }
 
 void expr_compound_proc_t::print(ostream& os, const string& prefix, bool is_last) {
