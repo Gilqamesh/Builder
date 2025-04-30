@@ -29,36 +29,24 @@ struct expr_t {
   expr_t(expr_type_t type);
 
   expr_type_t type;
-
-  string to_string();
-  void print(ostream& os = cout, const string& prefix = "", bool is_last = true);
 };
 
 struct expr_eof_t {
   expr_eof_t();
 
   expr_t base;
- 
-  string to_string();
-  void print(ostream& os = cout, const string& prefix = "", bool is_last = true);
 };
 
 struct expr_void_t {
   expr_void_t();
 
   expr_t base;
-
-  string to_string();
-  void print(ostream& os = cout, const string& prefix = "", bool is_last = true);
 };
 
 struct expr_nil_t {
   expr_nil_t();
 
   expr_t base;
-
-  string to_string();
-  void print(ostream& os = cout, const string& prefix = "", bool is_last = true);
 };
 
 struct expr_boolean_t {
@@ -66,9 +54,6 @@ struct expr_boolean_t {
 
   expr_t base;
   bool boolean;
-
-  string to_string();
-  void print(ostream& os = cout, const string& prefix = "", bool is_last = true);
 };
 
 struct expr_char_t {
@@ -76,9 +61,6 @@ struct expr_char_t {
 
   expr_t base;
   char c;
-
-  string to_string();
-  void print(ostream& os = cout, const string& prefix = "", bool is_last = true);
 };
 
 struct expr_integer_t {
@@ -86,9 +68,6 @@ struct expr_integer_t {
 
   expr_t base;
   int64_t integer;
-
-  string to_string();
-  void print(ostream& os = cout, const string& prefix = "", bool is_last = true);
 };
 
 struct expr_real_t {
@@ -96,9 +75,6 @@ struct expr_real_t {
 
   expr_t base;
   double real;
-
-  string to_string();
-  void print(ostream& os = cout, const string& prefix = "", bool is_last = true);
 };
 
 struct expr_string_t {
@@ -106,9 +82,6 @@ struct expr_string_t {
 
   expr_t base;
   string str;
-
-  string to_string();
-  void print(ostream& os = cout, const string& prefix = "", bool is_last = true);
 };
 
 struct expr_symbol_t {
@@ -116,9 +89,6 @@ struct expr_symbol_t {
 
   expr_t base;
   string symbol;
-
-  string to_string();
-  void print(ostream& os = cout, const string& prefix = "", bool is_last = true);
 };
 
 struct expr_env_t {
@@ -131,9 +101,6 @@ struct expr_env_t {
   expr_t* set(expr_t* symbol, expr_t* expr);
   expr_t* get(expr_t* symbol);
   expr_t* define(expr_t* symbol, expr_t* expr);
-
-  string to_string();
-  void print(ostream& os = cout, const string& prefix = "", bool is_last = true);
 };
 
 struct expr_primitive_proc_t {
@@ -142,9 +109,6 @@ struct expr_primitive_proc_t {
   expr_t base;
   string name;
   function<expr_t*(expr_t*, expr_env_t*)> f;
-
-  string to_string();
-  void print(ostream& os = cout, const string& prefix = "", bool is_last = true);
 };
 
 struct expr_special_form_t {
@@ -153,9 +117,6 @@ struct expr_special_form_t {
   expr_t base;
   string name;
   function<expr_t*(expr_t*, expr_env_t*)> f;
-
-  string to_string();
-  void print(ostream& os = cout, const string& prefix = "", bool is_last = true);
 };
 
 struct expr_macro_t {
@@ -164,9 +125,6 @@ struct expr_macro_t {
   expr_t base;
   string name;
   function<expr_t*(expr_t*, expr_env_t*)> f;
-
-  string to_string();
-  void print(ostream& os = cout, const string& prefix = "", bool is_last = true);
 };
 
 struct expr_compound_proc_t {
@@ -175,9 +133,6 @@ struct expr_compound_proc_t {
   expr_t base;
   expr_t* params;
   expr_t* body;
-
-  string to_string();
-  void print(ostream& os = cout, const string& prefix = "", bool is_last = true);
 };
 
 struct expr_cons_t {
@@ -186,9 +141,6 @@ struct expr_cons_t {
   expr_t base;
   expr_t* first;
   expr_t* second;
-
-  string to_string();
-  void print(ostream& os = cout, const string& prefix = "", bool is_last = true);
 };
 
 struct expr_istream_t {
@@ -197,9 +149,6 @@ struct expr_istream_t {
 
   expr_t base;
   unique_ptr<istream, function<void(istream*)>> is;
-
-  string to_string();
-  void print(ostream& os = cout, const string& prefix = "", bool is_last = true);
 };
 
 struct expr_ostream_t {
@@ -208,9 +157,6 @@ struct expr_ostream_t {
 
   expr_t base;
   unique_ptr<ostream, function<void(ostream*)>> os;
-
-  string to_string();
-  void print(ostream& os = cout, const string& prefix = "", bool is_last = true);
 };
 
 struct expr_exception_t : public exception {
@@ -252,11 +198,17 @@ string get_string(expr_t* expr);
 bool is_symbol(expr_t* expr);
 string get_symbol(expr_t* expr);
 
+bool is_env(expr_t* expr);
+unordered_map<expr_t*, expr_t*>& get_env_bindings(expr_t* expr);
+
 bool is_primitive_proc(expr_t* expr);
+string get_primitive_proc_name(expr_t* expr);
 
 bool is_special_form(expr_t* expr);
+string get_special_form_name(expr_t* expr);
 
 bool is_macro(expr_t* expr);
+string get_macro_name(expr_t* expr);
 
 bool is_compound_proc(expr_t* expr);
 expr_t* get_compound_proc_params(expr_t* expr);
@@ -267,6 +219,14 @@ istream& get_istream(expr_t* expr);
 
 bool is_ostream(expr_t* expr);
 ostream& get_ostream(expr_t* expr);
+
+// ---
+
+// todo: move to interprer
+string to_string(expr_t* expr);
+void print(expr_t* expr, ostream& os = cout);
+
+bool is_list(expr_t* expr);
 
 #endif // EXPR_H
 

@@ -1,5 +1,7 @@
 #include "interpreter.h"
 
+#include <x86intrin.h>
+
 bool interpreter_t::is_whitespace(char c) const {
   assert((size_t) c < sizeof(m_whitespaces) / sizeof(m_whitespaces[0]));
   return m_whitespaces[c];
@@ -89,6 +91,7 @@ expr_t* interpreter_t::read(istream& is) {
   } else {
     result = default_reader_macro(is);
   }
+
   if (::is_void(result)) {
     return read(is);
   }
@@ -126,13 +129,14 @@ expr_t* interpreter_t::default_reader_macro(istream& is) {
     return memory.make_real(stod(lexeme));
   }
 
+  if (lexeme.empty()) {
+    return memory.make_void();
+  }
   return memory.make_symbol(lexeme);
 }
 
 void interpreter_t::print(ostream& os, expr_t* expr) {
-  if (!::is_void(expr)) {
-    os << expr->to_string() << endl;
-  }
+  os << to_string(expr) << endl;
 }
 
 void interpreter_t::source(const char* filepath) {
@@ -148,12 +152,18 @@ void interpreter_t::source(ostream& os, istream& is) {
     try {
       expr_t* expr = read(is);
       assert(expr);
-      print(os, eval(expr));
+      assert(!::is_void(expr));
       if (is_eof(expr)) {
         break ;
       }
+      expr = eval(expr);
+      expr = compile(expr);
+      if (!expr) {
+        continue ;
+      }
+      print(os, expr);
     } catch (expr_exception_t& e) {
-      os << "exception: " << e.what() << " " << expr_type_to_str(e.expr->type) << ": " <<  e.expr->to_string() << endl;
+      os << "exception: " << e.what() << " " << expr_type_to_str(e.expr->type) << ": " << to_string(e.expr) << endl;
     } catch (exception& e) {
       os << "exception: " << e.what() << endl;
     }
@@ -165,12 +175,14 @@ void interpreter_t::source(istream& is) {
     try {
       expr_t* expr = read(is);
       assert(expr);
-      eval(expr);
+      assert(!::is_void(expr));
       if (is_eof(expr)) {
         break ;
       }
+      expr = eval(expr);
+      expr = compile(expr);
     } catch (expr_exception_t& e) {
-      cerr << "exception: " << e.what() << " " << expr_type_to_str(e.expr->type) << ": " <<  e.expr->to_string() << endl;
+      cerr << "exception: " << e.what() << " " << expr_type_to_str(e.expr->type) << ": " << to_string(e.expr) << endl;
     } catch (exception& e) {
       cerr << "exception: " << e.what() << endl;
     }
@@ -182,10 +194,7 @@ void interpreter_t::repl() {
     try {
       expr_t* expr = read(cin);
       assert(expr);
-      expr = compile(expr);
-      if (!expr) {
-        continue ;
-      } 
+      assert(!::is_void(expr));
       if (is_eof(expr)) {
         break ;
       }
@@ -196,7 +205,7 @@ void interpreter_t::repl() {
       }
       print(cout, expr);
     } catch (expr_exception_t& e) {
-      cout << "exception: " << e.what() << " " << expr_type_to_str(e.expr->type) << ": " <<  e.expr->to_string() << endl;
+      cout << "exception: " << e.what() << " " << expr_type_to_str(e.expr->type) << ": " << to_string(e.expr) << endl;
     } catch (exception& e) {
       cout << "exception: " << e.what() << endl;
     }
@@ -331,17 +340,31 @@ void interpreter_t::register_reader_macros() {
       throw expr_exception_t("reader macro '#': macro undefined for expr type", expr);
     }
   });
+  register_reader_macro("|#", [this](istream& is) {
+    throw runtime_error("|#: unstarted comment");
+    return (expr_t*) 0;
+  });
   register_reader_macro("#|", [this](istream& is) {
-    int depth = 1;
+    size_t depth = 1;
     while (!is_at_end(is)) {
-      if (read_char(is, "|#")) {
-        if (--depth == 0) {
-          return memory.make_void();
+      char c = read_char(is);
+      if (c == '|') {
+        if (is_at_end(is)) {
+          throw runtime_error("reader macro '#|': unterminated comment");
         }
-      } else if (read_char(is, "#|")) {
-        ++depth;
+        if (read_char(is) == '#') {
+          if (--depth == 0) {
+            return memory.make_void();
+          }
+        }
+      } else if (c == '#') {
+        c = read_char(is);
+        if (c == '|') {
+          ++depth;
+        } else {
+          unread_char(is, c);
+        }
       }
-      read_char(is);
     }
     throw runtime_error("reader macro '#|': unterminated comment");
   });
@@ -365,6 +388,13 @@ expr_t* interpreter_t::register_primitive_proc(expr_env_t* env, const string& na
 }
 
 void interpreter_t::register_primitive_procs() {
+  register_primitive_proc(&global_env, "perf", [this](expr_t* expr, expr_env_t* env) {
+    cout << "total eval: " << m_total_eval_cy / 1000000.0 << "MCy" << endl;
+    cout << "total apply: " << m_total_apply_cy / 1000000.0 << "MCy" << endl;
+    cout << "total compile: " << m_total_compile_cy / 1000000.0 << "MCy" << endl;
+    return memory.make_void();
+  });
+
   register_primitive_proc(&global_env, "car",      [this](expr_t* expr, expr_env_t* env) { return car(car(expr)); });
   register_primitive_proc(&global_env, "cdr",      [this](expr_t* expr, expr_env_t* env) { return cdr(car(expr)); });
   register_primitive_proc(&global_env, "cons",     [this](expr_t* expr, expr_env_t* env) { return cons(car(expr), car(cdr(expr))); });
@@ -379,10 +409,10 @@ void interpreter_t::register_primitive_procs() {
   register_primitive_proc(&global_env, "display",  [this](expr_t* expr, expr_env_t* env) {
     expr = car(expr);
     if (is_string(expr)) {
-      string s = expr->to_string();
+      string s = to_string(expr);
       cout << s.substr(1, s.size() - 2);
     } else {
-      cout << expr->to_string();
+      cout << to_string(expr);
     }
     return memory.make_void();
   });
@@ -460,12 +490,11 @@ void interpreter_t::register_primitive_procs() {
   register_primitive_proc(&global_env, "read", [this](expr_t* expr, expr_env_t* env) { return read(get_istream(list_ref(expr, 0))); });
   register_primitive_proc(&global_env, "write", [this](expr_t* expr, expr_env_t* env) {
     ostream& os = get_ostream(list_ref(expr, 0));
-    os << list_ref(expr, 1)->to_string();
+    os << to_string(list_ref(expr, 1));
     os.flush();
     return list_ref(expr, 1);
   });
   register_primitive_proc(&global_env, "eval", [this](expr_t* expr, expr_env_t* env) { return eval(list_ref(expr, 0), env); });
-  register_primitive_proc(&global_env, "apply", [this](expr_t* expr, expr_env_t* env) { return apply(list_ref(expr, 0), list_ref(expr, 1), env); });
   register_primitive_proc(&global_env, "read-char", [this](expr_t* expr, expr_env_t* env) {
     if (&cin == &get_istream(car(expr))) {
       // todo: this was introduced so that (list (read-char cin)) would work, but it doesn't work for cases where read-char is invoked with cin in some deeper context by some procedure:
@@ -520,6 +549,25 @@ expr_t* interpreter_t::register_special_form(expr_env_t* env, const string& name
 }
 
 void interpreter_t::register_special_forms() {
+  register_special_form(&global_env, "apply", [this](expr_t* expr, expr_env_t* env) { return apply(eval(list_ref(expr, 0), env), list_ref(expr, 1), env); });
+  register_special_form(&global_env, "and", [this](expr_t* expr, expr_env_t* env) {
+    while (!is_nil(expr)) {
+      if (is_false(eval(car(expr), env))) {
+        return memory.make_boolean(false);
+      }
+      expr = cdr(expr);
+    }
+    return memory.make_boolean(true);
+  });
+  register_special_form(&global_env, "or", [this](expr_t* expr, expr_env_t* env) {
+    while (!is_nil(expr)) {
+      if (is_true(eval(car(expr), env))) {
+        return memory.make_boolean(true);
+      }
+      expr = cdr(expr);
+    }
+    return memory.make_boolean(false);
+  });
   register_special_form(&global_env, "begin", [this](expr_t* expr, expr_env_t* env) {
     expr_t* result = memory.make_void();
     while (!is_nil(expr)) {
@@ -597,7 +645,10 @@ void interpreter_t::register_special_forms() {
 }
 
 expr_t* interpreter_t::eval(expr_t* expr) {
-  return eval(expr, &global_env);
+  size_t t_start = __rdtsc();
+  expr_t* result = eval(expr, &global_env);
+  m_total_eval_cy += __rdtsc() - t_start;
+  return result;
 }
 
 expr_t* interpreter_t::eval(expr_t* expr, expr_env_t* env) {
@@ -655,13 +706,17 @@ expr_t* interpreter_t::begin(expr_t* expr, expr_env_t* env) {
 }
 
 expr_t* interpreter_t::apply(expr_t* expr, expr_t* args, expr_env_t* env) {
+  size_t t_start = __rdtsc();
+  expr_t* result = 0;
   if (is_primitive_proc(expr)) {
-    return apply_primitive_proc(expr, args, env);
+    result = apply_primitive_proc(expr, args, env);
   } else if (is_compound_proc(expr)) {
-    return apply_compound_proc(expr, args, env);
+    result = apply_compound_proc(expr, args, env);
   } else {
     throw expr_exception_t("unexpected type in apply", expr);
   }
+  m_total_apply_cy += __rdtsc() - t_start;
+  return result;
 }
 
 expr_t* interpreter_t::apply_special_form(expr_t* expr, expr_t* args, expr_env_t* env) {
@@ -776,18 +831,26 @@ bool interpreter_t::is_unquote_splicing(expr_t* expr) {
 }
 
 expr_t* interpreter_t::compile(expr_t* expr) {
-  expr = compile_void_exprs_out(expr);
+  size_t t_start = __rdtsc();
+  unordered_set<expr_t*> seen;
+  expr = compile_void_exprs_out(expr, seen);
   if (!expr) {
     return 0;
   }
   // do other compile stuff
+  m_total_compile_cy += __rdtsc() - t_start;
   return expr;
 }
 
-expr_t* interpreter_t::compile_void_exprs_out(expr_t* expr) {
+expr_t* interpreter_t::compile_void_exprs_out(expr_t* expr, unordered_set<expr_t*>& seen) {
+  if (seen.find(expr) != seen.end()) {
+    return expr;
+  }
+  seen.insert(expr);
+
   if (is_cons(expr)) {
-    expr_t* new_car = compile_void_exprs_out(car(expr));
-    expr_t* new_cdr = compile_void_exprs_out(cdr(expr));
+    expr_t* new_car = compile_void_exprs_out(car(expr), seen);
+    expr_t* new_cdr = compile_void_exprs_out(cdr(expr), seen);
     if (!new_car && !new_cdr) {
       return 0;
     } else if (!new_car) {
@@ -801,6 +864,25 @@ expr_t* interpreter_t::compile_void_exprs_out(expr_t* expr) {
     }
   } else if (::is_void(expr)) {
     return 0;
+  } else if (is_env(expr)) {
+    auto& m = get_env_bindings(expr);
+    auto it = m.begin();
+    while (it != m.end()) {
+      expr_t* old_first = it->first;
+      expr_t* old_second = it->second;
+      expr_t* new_first = compile_void_exprs_out(old_first, seen);
+      expr_t* new_second = compile_void_exprs_out(old_second, seen);
+      if (old_first != new_first) {
+        assert(0);
+      }
+      if (!new_second) {
+        it = m.erase(it);
+      } else {
+        it->second = new_second;
+        ++it;
+      }
+    }
+    return expr;
   } else {
     return expr;
   }

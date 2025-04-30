@@ -19,6 +19,10 @@ struct interpreter_t {
   void repl();
 
 private:
+  size_t m_total_eval_cy = 0;
+  size_t m_total_apply_cy = 0;
+  size_t m_total_compile_cy = 0;
+
   // todo: add system_env where all initial stuff lives, expose user_env to users
   expr_env_t global_env;
   expr_env_t global_reader_env;
@@ -79,7 +83,7 @@ private:
   bool is_unquote_splicing(expr_t* expr);
 
   expr_t* compile(expr_t* expr);
-  expr_t* compile_void_exprs_out(expr_t* expr);
+  expr_t* compile_void_exprs_out(expr_t* expr, unordered_set<expr_t*>& seen);
 
   // ---
 
