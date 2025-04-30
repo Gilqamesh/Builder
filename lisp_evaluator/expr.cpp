@@ -397,7 +397,7 @@ string to_string(expr_t* expr) {
     return "";
   } break ;
   case expr_type_t::NIL: {
-    return "nil";
+    return "()";
   } break ;
   case expr_type_t::BOOLEAN: {
     return get_boolean(expr) ? "true" : "false";
