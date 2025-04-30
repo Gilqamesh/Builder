@@ -22,27 +22,41 @@
   (car (list-tail l n)))
 
 #|
-  (let ((x 10) (y 20)) (+ x y)) -> ((lambda (x y) (+ x y)) 10 20)
-  (let f ((x 10) (y 20)) (f x y)) -> (let ((f (lambda (x y) (+ x y))))
-                                          (let ((x 10) (y 20))
-                                               (f x y)))
-                                  -> ((lambda (f) ((lambda (x y) (f x y)) 10 20)) (lambda (x y) (f x y)))
 (let fib-iter ((a 1)
               (b 0)
               (count n))
      (if (= count 0)
          b
          (fib-iter (+ a b) a (- count 1))))
-(let ((fib-iter (lambda (a b count) 
 
-(let* ((a 10) (b (+ a 20)) (c (+ b a)))
-      (+ a b c))
-
-((lambda (a) ((lambda (b) ((lambda (c) (+ a b c)) (+ a 20))) (+ a 20))) 10)
+((lambda ()
+  (define (fib-iter a b count)
+    (if (= count 0)
+        b
+        (fib-iter (+ a b) a (- count 1))))
+  (let ((a 1)
+        (b 0)
+        (count n))
+       (if (= count 0)
+           b
+           (fib-iter (+ a b) a (- count 1))))))
 
 |#
+
+(defreader ";"
+  (lambda (is)
+    (define (read-until)
+      (if (and (not (is-at-end? is))
+          (not (eq-char? (read-char is) #\newline)))
+          (read-until)))
+    (read-until)))
+
 (defmacro let (var-val-pair-list . body-list)
-  `((lambda ,(map (lambda (e) (car e)) var-val-pair-list) ,@body-list) ,@(map (lambda (e) (cadr e)) var-val-pair-list)))
+  (if (symbol? var-val-pair-list) ; Ex 4.8
+      `((lambda ()
+        (define (,var-val-pair-list ,@(map (lambda (e) (car e)) (car body-list))) ,@(cdr body-list))
+        (let ,(car body-list) ,@(cdr body-list))))
+      `((lambda ,(map (lambda (e) (car e)) var-val-pair-list) ,@body-list) ,@(map (lambda (e) (cadr e)) var-val-pair-list))))
 
 (defmacro let* (var-val-pair-list . body-list)
   (define (let*-helper pair-list)
@@ -56,7 +70,7 @@
     (when rem-cond-cons-pairs
       (if (eq? (caar rem-cond-cons-pairs) 'else)
           `(begin ,@(cdar rem-cond-cons-pairs))
-          (if (eq? '=> (list-ref (car rem-cond-cons-pairs) 1)) #| Exercise 4.5 |#
+          (if (eq? '=> (list-ref (car rem-cond-cons-pairs) 1)) ; Ex 4.5
               (let ((cond-val (list-ref (car rem-cond-cons-pairs) 0)))
                    `(if ,cond-val
                         (apply ,(list-ref (car rem-cond-cons-pairs) 2) (,cond-val))

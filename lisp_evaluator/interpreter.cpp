@@ -508,6 +508,10 @@ void interpreter_t::register_primitive_procs() {
     }
     return memory.make_char(c);
   });
+
+  register_primitive_proc(&global_env, "eq-char?", [this](expr_t* expr, expr_env_t* env) { return memory.make_boolean(get_char(list_ref(expr, 0)) == get_char(list_ref(expr, 1))); });
+  register_primitive_proc(&global_env, "is-whitespace?", [this](expr_t* expr, expr_env_t* env) { return memory.make_boolean(is_whitespace(get_char(car(expr)))); });
+  register_primitive_proc(&global_env, "is-at-end?", [this](expr_t* expr, expr_env_t* env) { return memory.make_boolean(is_at_end(get_istream(car(expr)))); });
   register_primitive_proc(&global_env, "unread-char", [this](expr_t* expr, expr_env_t* env) { unread_char(get_istream(car(expr)), get_char(list_ref(expr, 1))); return memory.make_void(); });
   register_primitive_proc(&global_env, "peek-char", [this](expr_t* expr, expr_env_t* env) {
     char c = peek_char(get_istream(car(expr)));
