@@ -15,7 +15,7 @@ struct memory_t {
   expr_t* make_integer(int64_t integer);
   expr_t* make_real(double real);
   expr_t* make_string(const string& str);
-  expr_t* make_symbol(const string& symbol);
+  expr_t* make_symbol(const string& symbol, bool is_interned = true);
   expr_t* make_istream(istream& is);
   expr_t* make_istream(unique_ptr<istream> is);
   expr_t* make_ostream(ostream& os);
