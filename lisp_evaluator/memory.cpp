@@ -67,13 +67,15 @@ expr_t* memory_t::make_string(const string& str) {
   return (expr_t*) new expr_string_t(str);
 }
 
-expr_t* memory_t::make_symbol(const string& symbol) {
+expr_t* memory_t::make_symbol(const string& symbol, bool is_interned) {
   auto it = m_interned_symbols.find(symbol);
   if (it != m_interned_symbols.end()) {
     return it->second;
   }
   expr_t* result = (expr_t*) new expr_symbol_t(symbol);
-  m_interned_symbols[symbol] = result;
+  if (is_interned) {
+    m_interned_symbols[symbol] = result;
+  }
   return result;
 }
 

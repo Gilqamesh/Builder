@@ -204,6 +204,8 @@ void interpreter_t::repl() {
         continue ;
       }
       print(cout, expr);
+    } catch (expr_t* expr) {
+      cout << "thrown expression caught: " << to_string(expr) << endl;
     } catch (expr_exception_t& e) {
       cout << "exception: " << e.what() << " " << expr_type_to_str(e.expr->type) << ": " << to_string(e.expr) << endl;
     } catch (exception& e) {
@@ -388,6 +390,11 @@ expr_t* interpreter_t::register_primitive_proc(expr_env_t* env, const string& na
 }
 
 void interpreter_t::register_primitive_procs() {
+  register_primitive_proc(&global_env, "throw", [this](expr_t* expr, expr_env_t* env) {
+    throw car(expr);
+    return (expr_t*) 0;
+  });
+
   register_primitive_proc(&global_env, "perf", [this](expr_t* expr, expr_env_t* env) {
     cout << "total eval: " << m_total_eval_cy / 1000000.0 << "MCy" << endl;
     cout << "total apply: " << m_total_apply_cy / 1000000.0 << "MCy" << endl;
@@ -400,6 +407,7 @@ void interpreter_t::register_primitive_procs() {
   register_primitive_proc(&global_env, "cons",     [this](expr_t* expr, expr_env_t* env) { return cons(car(expr), car(cdr(expr))); });
   register_primitive_proc(&global_env, "list",     [this](expr_t* expr, expr_env_t* env) { return expr; });
   register_primitive_proc(&global_env, "eq?",      [this](expr_t* expr, expr_env_t* env) { return memory.make_boolean(is_eq(car(expr), car(cdr(expr)))); });
+  register_primitive_proc(&global_env, "equal?",   [this](expr_t* expr, expr_env_t* env) { return memory.make_boolean(is_equal(car(expr), car(cdr(expr)))); });
   register_primitive_proc(&global_env, "symbol?",  [this](expr_t* expr, expr_env_t* env) { return memory.make_boolean(is_symbol(car(expr))); });
   register_primitive_proc(&global_env, "string?",  [this](expr_t* expr, expr_env_t* env) { return memory.make_boolean(is_string(car(expr))); });
   register_primitive_proc(&global_env, "list?",    [this](expr_t* expr, expr_env_t* env) { return memory.make_boolean(is_list(car(expr))); });
@@ -546,6 +554,9 @@ void interpreter_t::register_primitive_procs() {
     });
     return memory.make_void();
   });
+  register_primitive_proc(&global_env, "gensym", [this](expr_t* expr, expr_env_t* env) {
+    return memory.make_symbol("#:G" + to_string(m_gensym_counter++));
+  });
 }
 
 expr_t* interpreter_t::register_special_form(expr_env_t* env, const string& name, function<expr_t*(expr_t*, expr_env_t*)> f) {
@@ -571,6 +582,9 @@ void interpreter_t::register_special_forms() {
       expr = cdr(expr);
     }
     return memory.make_boolean(false);
+  });
+  register_special_form(&global_env, "not", [this](expr_t* expr, expr_env_t* env) {
+    return memory.make_boolean(!is_true(eval(car(expr), env)));
   });
   register_special_form(&global_env, "begin", [this](expr_t* expr, expr_env_t* env) {
     expr_t* result = memory.make_void();
@@ -975,6 +989,101 @@ expr_t* interpreter_t::cons(expr_t* expr1, expr_t* expr2) {
 
 bool interpreter_t::is_eq(expr_t* expr1, expr_t* expr2) {
   return expr1 == expr2;
+}
+
+bool interpreter_t::is_equal(expr_t* expr1, expr_t* expr2) {
+  unordered_map<expr_t*, size_t> seen;
+  size_t id;
+  return is_equal(expr1, expr2, seen, id);
+}
+
+bool interpreter_t::is_equal(expr_t* expr1, expr_t* expr2, unordered_map<expr_t*, size_t>& seen, size_t& id) {
+  if (expr1->type != expr2->type) {
+    return false;
+  }
+  auto it1 = seen.find(expr1);
+  auto it2 = seen.find(expr2);
+  if (it1 == seen.end() && it2 == seen.end()) {
+    seen[expr1] = id;
+    seen[expr2] = id;
+    ++id;
+  } else if (it1 == seen.end()) {
+    return false;
+  } else if (it2 == seen.end()) {
+    return false;
+  } else {
+    return it1->second == it2->second;
+  }
+
+  switch (expr1->type) {
+  case expr_type_t::END_OF_FILE: {
+    return true;
+  } break ;
+  case expr_type_t::VOID: {
+    return true;
+  } break ;
+  case expr_type_t::NIL: {
+    return true;
+  } break ;
+  case expr_type_t::BOOLEAN: {
+    return get_boolean(expr1) == get_boolean(expr2);
+  } break ;
+  case expr_type_t::CHAR: {
+    return get_char(expr1) == get_char(expr2);
+  } break ;
+  case expr_type_t::INTEGER: {
+    return get_integer(expr1) == get_integer(expr2);
+  } break ;
+  case expr_type_t::REAL: {
+    return get_real(expr1) == get_real(expr2);
+  } break ;
+  case expr_type_t::STRING: {
+    return get_string(expr1) == get_string(expr2);
+  } break ;
+  case expr_type_t::SYMBOL: {
+    return get_symbol(expr1) == get_symbol(expr2);
+  } break ;
+  case expr_type_t::ENV: {
+    const auto& bindings1 = get_env_bindings(expr1);
+    const auto& bindings2 = get_env_bindings(expr2);
+    if (bindings1.size() != bindings2.size()) {
+      return false;
+    }
+    auto it1 = bindings1.begin();
+    auto it2 = bindings2.begin();
+    while (it1 != bindings1.end() && it2 != bindings2.end()) {
+      if (!is_equal(it1->first, it2->first, seen, id) || !is_equal(it1->second, it2->second, seen,id)) {
+        return false;
+      }
+      ++it1;
+      ++it2;
+    }
+    assert(it1 == bindings1.end() && it2 == bindings2.end());
+    return true;
+  } break ;
+  case expr_type_t::PRIMITIVE_PROC: {
+    return get_primitive_proc_name(expr1) == get_primitive_proc_name(expr2);
+  } break ;
+  case expr_type_t::SPECIAL_FORM: {
+    return get_special_form_name(expr1) == get_special_form_name(expr2);
+  } break ;
+  case expr_type_t::MACRO: {
+    return get_macro_name(expr1) == get_macro_name(expr2);
+  } break ;
+  case expr_type_t::COMPOUND_PROC: {
+    return is_equal(get_compound_proc_params(expr1), get_compound_proc_params(expr2), seen, id) && is_equal(get_compound_proc_body(expr1), get_compound_proc_body(expr2), seen, id);
+  } break ;
+  case expr_type_t::CONS: {
+    return is_equal(car(expr1), car(expr2), seen, id) && is_equal(cdr(expr1), cdr(expr2), seen, id);
+  } break ;
+  case expr_type_t::ISTREAM: {
+    return &get_istream(expr1) == &get_istream(expr2);
+  } break ;
+  case expr_type_t::OSTREAM: {
+    return &get_ostream(expr1) == &get_ostream(expr2);
+  } break ;
+  default: assert(0);
+  }
 }
 
 bool interpreter_t::is_true(expr_t* expr) {

@@ -28,6 +28,8 @@ private:
   expr_env_t global_reader_env;
   memory_t memory;
 
+  size_t m_gensym_counter = 0;
+
   struct node_t {
     node_t();
 
@@ -100,6 +102,8 @@ private:
   // ---
 
   bool is_eq(expr_t* expr1, expr_t* expr2);
+  bool is_equal(expr_t* expr1, expr_t* expr2);
+  bool is_equal(expr_t* expr1, expr_t* expr2, unordered_map<expr_t*, size_t>& seen, size_t& id);
   bool is_true(expr_t* expr);
   bool is_false(expr_t* expr);
 
