@@ -3,7 +3,7 @@
 void repl() {
   interpreter_t interpreter;
 
-  interpreter.source("global_env.lisp");
+  //interpreter.source("global_env.lisp");
   interpreter.repl();
 
   // while (1) {

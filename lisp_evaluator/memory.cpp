@@ -21,12 +21,12 @@ expr_t* memory_t::make_eof() {
   return m_eof;
 }
 
-expr_t* memory_t::make_void() {
-  return m_void;
-}
-
 expr_t* memory_t::make_nil() {
   return m_nil;
+}
+
+expr_t* memory_t::make_void() {
+  return m_void;
 }
 
 expr_t* memory_t::make_char(char c) {
@@ -99,20 +99,8 @@ expr_t* memory_t::make_cons(expr_t* expr1, expr_t* expr2) {
   return (expr_t*) new expr_cons_t(expr1, expr2);
 }
 
-expr_t* memory_t::make_compound_proc(expr_t* params, expr_t* body) {
-  return (expr_t*) new expr_compound_proc_t(params, body);
-}
-
-expr_t* memory_t::make_macro(const string& name, const function<expr_t*(expr_t*, expr_env_t*)>& f) {
-  return (expr_t*) new expr_macro_t(name, f);
-}
-
-expr_t* memory_t::make_special_form(const string& name, const function<expr_t*(expr_t*, expr_env_t*)>& f) {
-  return (expr_t*) new expr_special_form_t(name, f);
-}
-
-expr_t* memory_t::make_primitive_proc(const string& name, const function<expr_t*(expr_t*, expr_env_t*)>& f) {
-  return (expr_t*) new expr_primitive_proc_t(name, f);
+expr_t* memory_t::make_macro(function<expr_t*(expr_t* args, expr_t* call_env)> f) {
+  return (expr_t*) new expr_macro_t(f);
 }
 
 expr_t* memory_t::make_env() {

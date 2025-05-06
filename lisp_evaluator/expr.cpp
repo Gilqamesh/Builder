@@ -3,8 +3,8 @@
 const char* expr_type_to_str(expr_type_t expr_type) {
   switch (expr_type) {
   case expr_type_t::END_OF_FILE: return "EOF";
-  case expr_type_t::VOID: return "VOID";
   case expr_type_t::NIL: return "NIL";
+  case expr_type_t::VOID: return "VOID";
   case expr_type_t::BOOLEAN: return "BOOLEAN";
   case expr_type_t::CHAR: return "CHAR";
   case expr_type_t::INTEGER: return "INTEGER";
@@ -12,10 +12,7 @@ const char* expr_type_to_str(expr_type_t expr_type) {
   case expr_type_t::STRING: return "STRING";
   case expr_type_t::SYMBOL: return "SYMBOL";
   case expr_type_t::ENV: return "ENV";
-  case expr_type_t::PRIMITIVE_PROC: return "PRIMITIVE PROC";
-  case expr_type_t::SPECIAL_FORM: return "SPECIAL FORM";
   case expr_type_t::MACRO: return "MACRO";
-  case expr_type_t::COMPOUND_PROC: return "COMPOUND PROC";
   case expr_type_t::CONS: return "CONS";
   case expr_type_t::ISTREAM: return "ISTREAM";
   case expr_type_t::OSTREAM: return "OSTREAM";
@@ -34,13 +31,13 @@ expr_eof_t::expr_eof_t():
 {
 }
 
-expr_void_t::expr_void_t():
-  base(expr_type_t::VOID)
+expr_nil_t::expr_nil_t():
+  base(expr_type_t::NIL)
 {
 }
 
-expr_nil_t::expr_nil_t():
-  base(expr_type_t::NIL)
+expr_void_t::expr_void_t():
+  base(expr_type_t::VOID)
 {
 }
 
@@ -96,7 +93,7 @@ expr_t* expr_env_t::get(expr_t* symbol) {
     if (it != cur->bindings.end()) {
       return it->second;
     }
-    cur = cur->parent;
+    cur = (expr_env_t*) cur->parent;
   }
   return 0;
 }
@@ -112,7 +109,7 @@ expr_t* expr_env_t::set(expr_t* symbol, expr_t* expr) {
       it->second = expr;
       return expr;
     }
-    cur = cur->parent;
+    cur = (expr_env_t*) cur->parent;
   }
   throw expr_exception_t("set: expr not found", expr);
 }
@@ -125,31 +122,9 @@ expr_t* expr_env_t::define(expr_t* symbol, expr_t* expr) {
   return expr;
 }
 
-expr_primitive_proc_t::expr_primitive_proc_t(const string& name, const function<expr_t*(expr_t*, expr_env_t*)>& f):
-  base(expr_type_t::PRIMITIVE_PROC),
-  name(name),
-  f(f)
-{
-}
-
-expr_special_form_t::expr_special_form_t(const string& name, const function<expr_t*(expr_t*, expr_env_t*)>& f):
-  base(expr_type_t::SPECIAL_FORM),
-  name(name),
-  f(f)
-{
-}
-
-expr_macro_t::expr_macro_t(const string& name, const function<expr_t*(expr_t*, expr_env_t*)>& f):
+expr_macro_t::expr_macro_t(function<expr_t*(expr_t* args, expr_t* call_env)> f):
   base(expr_type_t::MACRO),
-  name(name),
   f(f)
-{
-}
-
-expr_compound_proc_t::expr_compound_proc_t(expr_t* params, expr_t* body):
-  base(expr_type_t::COMPOUND_PROC),
-  params(params),
-  body(body)
 {
 }
 
@@ -198,12 +173,12 @@ bool is_eof(expr_t* expr) {
   return expr->type == expr_type_t::END_OF_FILE;
 }
 
-bool is_void(expr_t* expr) {
-  return expr->type == expr_type_t::VOID;
-}
-
 bool is_nil(expr_t* expr) {
   return expr->type == expr_type_t::NIL;
+}
+
+bool is_void(expr_t* expr) {
+  return expr->type == expr_type_t::VOID;
 }
 
 bool is_boolean(expr_t* expr) {
@@ -308,59 +283,65 @@ bool is_env(expr_t* expr) {
   return expr->type == expr_type_t::ENV;
 }
 
-unordered_map<expr_t*, expr_t*>& get_env_bindings(expr_t* expr) {
-  return ((expr_env_t*)expr)->bindings;
-}
-
-bool is_primitive_proc(expr_t* expr) {
-  return expr->type == expr_type_t::PRIMITIVE_PROC;
-}
-
-string get_primitive_proc_name(expr_t* expr) {
-  if (!is_primitive_proc(expr)) {
-    throw expr_exception_t("get_primitive_proc_name: primitive_proc expected", expr);
+expr_t* env_get_parent(expr_t* env) {
+  if (!is_env(env)) {
+    throw expr_exception_t("env_get_parent: env expected", env);
   }
-  return ((expr_primitive_proc_t*)expr)->name;
+  expr_env_t* expr_env = (expr_env_t*)env;
+  return expr_env->parent;
+}
+
+void env_set_parent(expr_t* env, expr_t* new_parent) {
+  if (!is_env(env)) {
+    throw expr_exception_t("env_set_parent: env expected", env);
+  }
+  if (!is_env(new_parent)) {
+    throw expr_exception_t("env_set_parent: env expected", new_parent);
+  }
+  expr_env_t* expr_env = (expr_env_t*)env;
+  expr_env->parent = new_parent;
+}
+
+expr_t* env_define(expr_t* env, expr_t* symbol, expr_t* expr) {
+  if (!is_env(env)) {
+    throw expr_exception_t("env_define: env expected", env);
+  }
+  expr_env_t* expr_env = (expr_env_t*)env;
+  return expr_env->define(symbol, expr);
+}
+
+expr_t* env_get(expr_t* env, expr_t* symbol) {
+  if (!is_env(env)) {
+    throw expr_exception_t("env_get: env expected", env);
+  }
+  expr_env_t* expr_env = (expr_env_t*)env;
+  return expr_env->get(symbol);
+}
+
+expr_t* env_set(expr_t* env, expr_t* symbol, expr_t* expr) {
+  if (!is_env(env)) {
+    throw expr_exception_t("env_set: env expected", env);
+  }
+  expr_env_t* expr_env = (expr_env_t*)env;
+  return expr_env->set(symbol, expr);
+}
+
+unordered_map<expr_t*, expr_t*>& get_env_bindings(expr_t* env) {
+  if (!is_env(env)) {
+    throw expr_exception_t("get_env_bindings: env expected", env);
+  }
+  return ((expr_env_t*)env)->bindings;
 }
 
 bool is_macro(expr_t* expr) {
   return expr->type == expr_type_t::MACRO;
 }
 
-string get_macro_name(expr_t* expr) {
+const function<expr_t*(expr_t* args, expr_t* call_env)>& macro_f(expr_t* expr) {
   if (!is_macro(expr)) {
-    throw expr_exception_t("get_macro_name: macro expected", expr);
+    throw expr_exception_t("macro_f: macro expected", expr);
   }
-  return ((expr_macro_t*)expr)->name;
-}
-
-bool is_special_form(expr_t* expr) {
-  return expr->type == expr_type_t::SPECIAL_FORM;
-}
-
-string get_special_form_name(expr_t* expr) {
-  if (!is_special_form(expr)) {
-    throw expr_exception_t("get_special_form: special form expected", expr);
-  }
-  return ((expr_special_form_t*)expr)->name;
-}
-
-bool is_compound_proc(expr_t* expr) {
-  return expr->type == expr_type_t::COMPOUND_PROC;
-}
-
-expr_t* get_compound_proc_params(expr_t* expr) {
-  if (!is_compound_proc(expr)) {
-    throw expr_exception_t("get_compound_proc_params: compound proc expected", expr);
-  }
-  return ((expr_compound_proc_t*)expr)->params;
-}
-
-expr_t* get_compound_proc_body(expr_t* expr) {
-  if (!is_compound_proc(expr)) {
-    throw expr_exception_t("get_compound_proc_body: compound proc expected", expr);
-  }
-  return ((expr_compound_proc_t*)expr)->body;
+  return ((expr_macro_t*)expr)->f;
 }
 
 bool is_istream(expr_t* expr) {
@@ -387,81 +368,104 @@ ostream& get_ostream(expr_t* expr) {
 
 // ---
 
-string to_string(expr_t* expr) {
+static string to_string_recursive(expr_t* const expr, unordered_set<expr_t*>& seen) {
+  string result;
+
+  if (seen.find(expr) != seen.end()) {
+    return "...";
+  }
+  seen.insert(expr);
+
   switch (expr->type) {
   case expr_type_t::END_OF_FILE: {
-    return "EOF";
-  } break ;
-  case expr_type_t::VOID: {
-    assert("void expression must be compiled out" && 0);
-    return "";
+    result = "EOF";
   } break ;
   case expr_type_t::NIL: {
-    return "()";
+    result = "()";
+  } break ;
+  case expr_type_t::VOID: {
+    assert(0 && "to_string_recursive: void exprs should not be evaluated");
   } break ;
   case expr_type_t::BOOLEAN: {
-    return get_boolean(expr) ? "true" : "false";
+    result = get_boolean(expr) ? "true" : "false";
   } break ;
   case expr_type_t::CHAR: {
     // need the mapping from char to symbol
-    return "'" + string(1, get_char(expr)) + "'";
+    result = "'" + string(1, get_char(expr)) + "'";
   } break ;
   case expr_type_t::INTEGER: {
-    return std::to_string(get_integer(expr));
+    result = std::to_string(get_integer(expr));
   } break ;
   case expr_type_t::REAL: {
-    return std::to_string(get_real(expr));
+    result = std::to_string(get_real(expr));
   } break ;
   case expr_type_t::STRING: {
-    return "\"" + get_string(expr) + "\"";
+    result = "\"" + get_string(expr) + "\"";
   } break ;
   case expr_type_t::SYMBOL: {
-    return get_symbol(expr);
+    result = get_symbol(expr);
   } break ;
   case expr_type_t::ENV: {
-    string result = "env: ";
-    for (const auto& p : get_env_bindings(expr)) {
-      result += "{ " + to_string(p.first) + ": " + (p.second == (expr_t*) expr ? "expr" : to_string(p.second)) + " } ";
+    size_t depth = 0;
+    expr_t* parent = env_get_parent(expr);
+    while (parent) {
+      ++depth;
+      parent = env_get_parent(parent);
     }
-    return result;
-  } break ;
-  case expr_type_t::PRIMITIVE_PROC: {
-    return "#<primitive procedure '" + get_primitive_proc_name(expr) + "'>";
-  } break ;
-  case expr_type_t::SPECIAL_FORM: {
-    return "#<special form '" + get_special_form_name(expr) + "'>";
+    result = "('env (depth " + to_string(depth) + ") ";
+    auto& bindings = get_env_bindings(expr);
+    result += "(";
+    auto it = bindings.begin();
+    while (it != bindings.end()) {
+      auto nit = it;
+      ++nit;
+      result += "(" + to_string_recursive(it->first, seen) + " " + to_string_recursive(it->second, seen) + ")";
+      it = nit;
+      if (nit != bindings.end()) {
+        result += " ";
+      }
+    }
+    result += "))";
+    if (expr_t* parent = env_get_parent(expr)) {
+      result += " -> " + to_string_recursive(parent, seen);
+    }
   } break ;
   case expr_type_t::MACRO: {
-    return "#<macro '" + get_macro_name(expr) + "'>";
-  } break ;
-  case expr_type_t::COMPOUND_PROC: {
-    return "#<compound proc: params: { " + to_string(get_compound_proc_params(expr)) + " }, body: { " + to_string(get_compound_proc_body(expr)) + " }>";
+    result = "#<macro>";
   } break ;
   case expr_type_t::CONS: {
-    string result = "(";
-    while (is_cons(expr)) {
-      result += to_string(car(expr));
-      if (is_cons(cdr(expr))) {
+    result = "(";
+    expr_t* cur = expr;
+    while (is_cons(cur)) {
+      result += to_string_recursive(car(cur), seen);
+      if (is_cons(cdr(cur))) {
         result += " ";
-        expr = cdr(expr);
-      } else if (is_nil(cdr(expr))) {
+        cur = cdr(cur);
+      } else if (is_nil(cdr(cur))) {
         break ;
       } else {
-        result += " . " + to_string(cdr(expr));
+        result += " . " + to_string_recursive(cdr(cur), seen);
         break ;
       }
     }
     result += ")";
-    return result;
   } break ;
   case expr_type_t::ISTREAM: {
-    return "istream";
+    result = "istream";
   } break ;
   case expr_type_t::OSTREAM: {
-    return "ostream";
+    result = "ostream";
   } break ;
   default: assert(0);
   }
+
+  seen.erase(expr);
+  return result;
+}
+
+string to_string(expr_t* expr) {
+  unordered_set<expr_t*> seen;
+  return to_string_recursive(expr, seen);
 }
 
 void print(expr_t* expr, ostream& os, const string& prefix, bool is_last) {
@@ -471,10 +475,10 @@ void print(expr_t* expr, ostream& os, const string& prefix, bool is_last) {
   switch (expr->type) {
   case expr_type_t::END_OF_FILE: {
   } break ;
-  case expr_type_t::VOID: {
-    assert("void expression must be compiled out" && 0);
-  } break ;
   case expr_type_t::NIL: {
+  } break ;
+  case expr_type_t::VOID: {
+    assert(0 && "print: void exprs should not be evaluated");
   } break ;
   case expr_type_t::BOOLEAN: {
   } break ;
@@ -490,15 +494,7 @@ void print(expr_t* expr, ostream& os, const string& prefix, bool is_last) {
   } break ;
   case expr_type_t::ENV: {
   } break ;
-  case expr_type_t::PRIMITIVE_PROC: {
-  } break ;
-  case expr_type_t::SPECIAL_FORM: {
-  } break ;
   case expr_type_t::MACRO: {
-  } break ;
-  case expr_type_t::COMPOUND_PROC: {
-    print(get_compound_proc_params(expr), os, new_prefix, false);
-    print(get_compound_proc_body(expr), os, new_prefix, true);
   } break ;
   case expr_type_t::CONS: {
     print(car(expr), os, prefix, false);
