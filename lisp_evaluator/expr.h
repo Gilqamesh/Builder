@@ -5,8 +5,8 @@
 
 enum class expr_type_t : int {
   END_OF_FILE,
-  VOID,
   NIL,
+  VOID,
   BOOLEAN,
   CHAR,
   INTEGER,
@@ -14,10 +14,8 @@ enum class expr_type_t : int {
   STRING,
   SYMBOL,
   ENV,
-  PRIMITIVE_PROC,
-  SPECIAL_FORM,
+  PRIMITIVE,
   MACRO,
-  COMPOUND_PROC,
   CONS,
   ISTREAM,
   OSTREAM
@@ -37,14 +35,14 @@ struct expr_eof_t {
   expr_t base;
 };
 
-struct expr_void_t {
-  expr_void_t();
+struct expr_nil_t {
+  expr_nil_t();
 
   expr_t base;
 };
 
-struct expr_nil_t {
-  expr_nil_t();
+struct expr_void_t {
+  expr_void_t();
 
   expr_t base;
 };
@@ -96,43 +94,18 @@ struct expr_env_t {
 
   expr_t base;
   unordered_map<expr_t*, expr_t*> bindings;
-  expr_env_t* parent;
+  expr_t* parent;
 
-  expr_t* set(expr_t* symbol, expr_t* expr);
   expr_t* get(expr_t* symbol);
+  expr_t* set(expr_t* symbol, expr_t* expr);
   expr_t* define(expr_t* symbol, expr_t* expr);
 };
 
-struct expr_primitive_proc_t {
-  expr_primitive_proc_t(const string& name, const function<expr_t*(expr_t*, expr_env_t*)>& f);
-
-  expr_t base;
-  string name;
-  function<expr_t*(expr_t*, expr_env_t*)> f;
-};
-
-struct expr_special_form_t {
-  expr_special_form_t(const string& name, const function<expr_t*(expr_t*, expr_env_t*)>& f);
-
-  expr_t base;
-  string name;
-  function<expr_t*(expr_t*, expr_env_t*)> f;
-};
-
 struct expr_macro_t {
-  expr_macro_t(const string& name, const function<expr_t*(expr_t*, expr_env_t*)>& f);
+  expr_macro_t(function<expr_t*(expr_t* args, expr_t* call_env)> f);
 
   expr_t base;
-  string name;
-  function<expr_t*(expr_t*, expr_env_t*)> f;
-};
-
-struct expr_compound_proc_t {
-  expr_compound_proc_t(expr_t* params, expr_t* body);
-
-  expr_t base;
-  expr_t* params;
-  expr_t* body;
+  function<expr_t*(expr_t* args, expr_t* call_env)> f;
 };
 
 struct expr_cons_t {
@@ -170,9 +143,9 @@ struct expr_exception_t : public exception {
 
 bool is_eof(expr_t* expr);
 
-bool is_void(expr_t* expr);
-
 bool is_nil(expr_t* expr);
+
+bool is_void(expr_t* expr);
 
 bool is_boolean(expr_t* expr);
 bool get_boolean(expr_t* expr);
@@ -199,20 +172,16 @@ bool is_symbol(expr_t* expr);
 string get_symbol(expr_t* expr);
 
 bool is_env(expr_t* expr);
-unordered_map<expr_t*, expr_t*>& get_env_bindings(expr_t* expr);
-
-bool is_primitive_proc(expr_t* expr);
-string get_primitive_proc_name(expr_t* expr);
-
-bool is_special_form(expr_t* expr);
-string get_special_form_name(expr_t* expr);
+expr_t* env_get_parent(expr_t* env);
+void env_set_parent(expr_t* env, expr_t* new_parent);
+expr_t* env_define(expr_t* env, expr_t* symbol, expr_t* expr);
+expr_t* env_get(expr_t* env, expr_t* symbol);
+expr_t* env_set(expr_t* env, expr_t* symbol, expr_t* expr);
+unordered_map<expr_t*, expr_t*>& get_env_bindings(expr_t* env);
 
 bool is_macro(expr_t* expr);
-string get_macro_name(expr_t* expr);
-
-bool is_compound_proc(expr_t* expr);
-expr_t* get_compound_proc_params(expr_t* expr);
-expr_t* get_compound_proc_body(expr_t* expr);
+expr_t* macro_def_env(expr_t* expr);
+const function<expr_t*(expr_t* args, expr_t* call_env)>& macro_f(expr_t* expr);
 
 bool is_istream(expr_t* expr);
 istream& get_istream(expr_t* expr);

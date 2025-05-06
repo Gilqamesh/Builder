@@ -1,12 +1,60 @@
-(define (caar expr) (car (car expr)))
-(define (cdar expr) (cdr (car expr)))
-(define (cadr expr) (car (cdr expr)))
-(define (cddr expr) (cdr (cdr expr)))
+(define quote (macro (e) e))
 
-(define (map f l)
+(define not (lambda (e) (if e #f #t)))
+(define atom? (lambda (e) (not (cons? e))))
+
+(define caar (lambda (e) (car (car e))))
+(define cadr (lambda (e) (car (cdr e))))
+(define cdar (lambda (e) (cdr (car e))))
+(define cddr (lambda (e) (cdr (cdr e))))
+
+(define nil '())
+(define nil? (lambda (e) (eq? e nil)))
+
+(define-special and (lambda (. args)
+  (if (nil? args)
+      #t
+      (if (eval (car args))
+          (apply and (cdr args))
+          #f))))
+
+(define-special or (lambda (. args)
+  (if (nil? args)
+      #f
+      (if (eval (car args))
+          #t
+          (apply or (cdr args))))))
+
+(define map (lambda (f l)
   (if (eq? l '())
       '()
-      (cons (f (car l)) (map f (cdr l)))))
+      (cons (f (car l)) (map f (cdr l))))))
+
+(define begin (lambda (. args)
+  (define result (eval (car args)))
+  (if (nil? (cdr args))
+      result
+      (apply begin (cdr args)))))
+
+(define list (lambda (. args)
+  (if (nil? args)
+      nil
+      (cons (car args) (apply list (cdr args))))))
+
+(define-special quasiquote
+  (lambda (e)
+    (define qq
+      (lambda (x)
+        (if (atom? x)
+            x
+            (if (eq? (car x) 'unquote)
+                (cadr x)
+                (if (and (eq? (car x) 'unquote-splicing))
+                    (throw "unquote-splicing not valid here")
+                    (if (and (cons? (car x)) (eq? (car (car x)) 'unquote-splicing))
+                        (list 'append (cadr (car x)) (qq (cdr x)))
+                        (list 'cons (qq (car x)) (qq (cdr x)))))))))
+    (qq e)))
 
 (define (list-tail l n)
   (if (= n 0)
@@ -80,10 +128,11 @@
                    ,(cond-helper (cdr rem-cond-cons-pairs)))))))
   (cond-helper cond-cons-pairs))
 
+
+; example usage: (when (< 0 i)
+;                  (display i) (newline)
+;                  i)
 (defmacro when (condition . consequence)
-  ; example usage: (when (< 0 i)
-  ;                  (display i) (newline)
-  ;                  i)
   `(if ,condition (begin ,@consequence)))
 
 (define (iter start f-get f-apply f-next f-cond)
