@@ -384,6 +384,7 @@ static string to_string_recursive(expr_t* const expr, unordered_set<expr_t*>& se
     result = "()";
   } break ;
   case expr_type_t::VOID: {
+    return "";
     assert(0 && "to_string_recursive: void exprs should not be evaluated");
   } break ;
   case expr_type_t::BOOLEAN: {

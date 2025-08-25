@@ -138,7 +138,9 @@ expr_t* interpreter_t::default_reader_macro(istream& is) {
 }
 
 void interpreter_t::print(ostream& os, expr_t* expr) {
-  os << to_string(expr) << endl;
+  if (!::is_void(expr)) {
+    os << to_string(expr) << endl;
+  }
 }
 
 void interpreter_t::source(const char* filepath) {
@@ -154,9 +156,6 @@ void interpreter_t::source(ostream& os, istream& is) {
     try {
       expr_t* read_expr = read(is);
       assert(read_expr);
-      if (::is_void(read_expr)) {
-        continue ;
-      }
       if (is_eof(read_expr)) {
         break ;
       }
@@ -176,9 +175,6 @@ void interpreter_t::source(istream& is) {
     try {
       expr_t* read_expr = read(is);
       assert(read_expr);
-      if (::is_void(read_expr)) {
-        continue ;
-      }
       if (is_eof(read_expr)) {
         break ;
       }
@@ -197,9 +193,6 @@ void interpreter_t::repl() {
     try {
       expr_t* read_expr = read(cin);
       assert(read_expr);
-      if (::is_void(read_expr)) {
-        continue ;
-      }
       if (is_eof(read_expr)) {
         break ;
       }
@@ -666,26 +659,7 @@ void interpreter_t::register_macros() {
   env_define(global_env, symbol("macroexpand"), macro([this](expr_t* expr, expr_t* call_env) {
     expr_t* arg = list_ref(expr, 0);
     expr_t* evaled_arg = eval(arg, call_env);
-    if (!is_cons(evaled_arg)) {
-      return evaled_arg;
-    }
-
-    expr_t* name = car(evaled_arg);
-    if (!is_symbol(name)) {
-      return evaled_arg;
-    }
-
-    expr_t* op = env_get(call_env, name);
-    if (!op) {
-      throw expr_exception_t("macroexpand: undefined expr '" + to_string(expr) + "'" + "in environment", call_env);
-    }
-
-    if (is_macro(op)) {
-      expr_t* args = list_tail(evaled_arg, 1);
-      return apply(op, args, call_env);
-    } else {
-      return evaled_arg;
-    }
+    return evaled_arg;
   }));
   env_define(global_env, symbol("if"), macro([this](expr_t* expr, expr_t* call_env) {
     expr_t* condition = list_ref(expr, 0);
@@ -752,6 +726,16 @@ expr_t* interpreter_t::eval(expr_t* expr) {
 
 expr_t* interpreter_t::eval(expr_t* expr, expr_t* env) {
   expr_t* result = 0;
+
+  if (is_symbol(expr)) {
+    result = env_get(env, expr);
+    if (!result) {
+      throw expr_exception_t("eval: symbol not defined", expr);
+    }
+  } else if (is_cons(expr)) {
+    while (is_cons(expr)) {
+    }
+  }
 
   switch (expr->type) {
   case expr_type_t::SYMBOL: {
@@ -979,6 +963,7 @@ expr_t* interpreter_t::extend_env(expr_t* parent_env, expr_t* params, expr_t* ar
 }
 
 expr_t* interpreter_t::cons(expr_t* expr1, expr_t* expr2) {
+  assert(!::is_void(expr1) && !::is_void(expr2));
   return memory.make_cons(expr1, expr2);
 }
 
@@ -1089,7 +1074,9 @@ bool interpreter_t::is_false(expr_t* expr) {
 expr_t* interpreter_t::make_list(const initializer_list<expr_t*>& exprs) {
   expr_t* result = memory.make_nil();
   for (auto cur = rbegin(exprs); cur != rend(exprs); ++cur) {
-    result = cons(*cur, result);
+    if (!::is_void(*cur)) {
+      result = cons(*cur, result);
+    }
   }
   return result;
 }

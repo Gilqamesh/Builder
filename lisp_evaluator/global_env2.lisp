@@ -29,6 +29,9 @@
     (b-helper e)))
   (b ,e)))
 
+(define when (macro (condition . consequence)
+  (if condition (apply begin consequence))))
+
 (define quasiquote (macro (e)
   (define quasiquote-helper (lambda (e )))
   (quasiquote-helper e))
