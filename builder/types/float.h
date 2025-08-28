@@ -1,3 +1,6 @@
-using float_t = float;
+#ifndef FLOAT_H
+# define FLOAT_H
 
-float_t add(float_t a, float_t b);
+float add(float a, float b);
+
+#endif // FLOAT_H

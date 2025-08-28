@@ -1,8 +1,14 @@
 #ifndef INT_H
 # define INT_H
 
-using int_t = int;
+# include "core/process.h"
 
-int_t add(int_t a, int_t b);
+namespace int_t {
+
+process_t* process_constant(int constant);
+
+process_t* process_add();
+
+};
 
 #endif // INT_H

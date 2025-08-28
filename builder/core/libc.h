@@ -14,6 +14,7 @@
 # include <utility>
 # include <memory>
 # include <functional>
+# include <chrono>
 
 # include <cassert>
 # include <cctype>
@@ -27,5 +28,8 @@
 # include <csetjmp>
 # include <cstdalign>
 # include <cmath>
+
+// arch specific
+# include <x86intrin.h> // __rdtsc
 
 #endif // LIBC_H
