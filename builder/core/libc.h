@@ -14,6 +14,7 @@
 # include <utility>
 # include <memory>
 # include <functional>
+# include <stack>
 # include <chrono>
 
 # include <cassert>
