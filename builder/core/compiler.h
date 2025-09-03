@@ -1,63 +1,56 @@
 #ifndef COMPILER_H
 # define COMPILER_H
 
-# include "wire.h"
+# include "node.h"
 
 enum op_t {
-    OP_CREATE_WIRE, // [op <u8>]
-    OP_EXPOSE_PINS, // [op <u8>, n_exposed_pins <u8>]
-    OP_CREATE_COMPONENT, // [op <u8>, component_name <null-terminated string>]
-    OP_CREATE_STUB_COMPONENT, // [op <u8>, n_exposed_pins <u8>, component_name <null-terminated string>]
-    OP_CONNECT_WIRE_TO_COMPONENT, // [op <u8>, wire_index <u8>, component_index <u8>, component_pin_index <u8>]
-    OP_CONNECT_COMPONENT_PIN_TO_RESULT_PIN, // [op <u8>, result_pin_index <u8>, component_index <u8>, component_pin_index <u8>]
+    OP_CREATE_NODE,   // [op <u8>, name <null-terminated string>]
+    OP_CONNECT_PORTS, // [op <u8>, from_node_index <u8>, from_node_port_index <u8>, to_node_index <u8>, to_node_port_index <u8>]
+                      // - (node_index == (uint8_t) -1) refers to result node
 };
 
-struct compiler_t {
+class compiler_t {
 public:
-    void add(std::string name, const std::vector<unsigned char> instructions);
+    bool register_node(const std::vector<uint8_t>& binary);
 
     template <typename T>
-    void add(std::string name);
+    bool register_node(std::string name);
 
-    component_t* create(std::string name);
+    node_t* create_node(std::string name);
 
-    // disassemble instructions into human-readable format
-    std::string disassemble(const std::vector<unsigned char> instructions);
+    bool expand_compound_node(std::string name, node_t* node);
 
-    bool find(std::string name);
+    bool binary_to_node(const std::vector<uint8_t>& binary, node_t* out);
+    bool binary_to_human_readable(const std::vector<uint8_t>& binary, std::string& out);
+    std::vector<uint8_t> node_to_binary(node_t* node);
 
-    // create a blueprint from existing wires and components
-    std::vector<unsigned char> assemble(
-        unsigned char n_exposed_pins,
-        std::vector<component_t*> components_connected_to_exposed_pins,
-        std::vector<unsigned char> component_pin_indices,
-        std::vector<wire_t*> wires,
-        std::vector<component_t*> components
-    );
+    // todo: implement, need to realias nodes..
+    // bool are_binaries_equal(const std::vector<uint8_t>& a, const std::vector<uint8_t>& b);
+
+    bool exists(std::string node);
+
+    void clear();
 
 private:
-    std::unordered_map<std::string, std::vector<unsigned char>> m_components;
-    std::unordered_map<std::string, std::function<component_t*()>> m_primitive_components;
+    std::unordered_map<std::string, std::vector<uint8_t>> m_node_binaries;
+    std::unordered_map<std::string, std::function<node_t*()>> m_primitive_nodes;
 };
 
 extern compiler_t COMPILER;
 
 template <typename T>
-void compiler_t::add(std::string name) {
-    if (find(name)) {
-        return ;
+bool compiler_t::register_node(std::string name) {
+    if (exists(name)) {
+        return false;
     }
 
-    m_primitive_components.emplace(std::move(name), [] -> component_t* {
-        return new T();
-    });
-}
+    return m_primitive_nodes.emplace(name, [name] -> node_t* {
+        node_t* result = new T();
 
-// todo: create primitive_component_t as a base for all primitive components
-//   - automatically registers itself in the COMPILER
-//   - exposes pins based on template parameters
-// template <typename T>
-// struct primitive_component_t : public component_t {
-// }
+        result->name(name);
+
+        return result;
+    }).second;
+}
 
 #endif // COMPILER_H

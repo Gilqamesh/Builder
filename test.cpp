@@ -1,29 +1,25 @@
 #include <iostream>
-#include <functional>
+#include <vector>
+#include <cstdint>
 
-struct b_t {
-    template <typename F>
-    b_t(F&& f): f(f) {}
+#include "x86intrin.h"
 
-    void (*f)();
-};
+void f() {
+    std::vector<uint8_t> v;
+    std::string s;
+
+    s += "asdasdasdasdasd";
+    v.push_back(8);
+}
 
 int main() {
-    int a = 3;
+    size_t t_start = __rdtsc();
 
-    auto f = [a] mutable {
-        std::cout << a << std::endl;
-        ++a;
-    };
+    f();
 
-    b_t b(std::move(f));
-    
-    b.f();
-    b.f();
-    b.f();
-    b.f();
+    size_t t_end = __rdtsc();
 
-    std::cout << "a: " << a << std::endl;
+    std::cout << ((t_end - t_start) / 1000.0) << " kCy" << std::endl;
 
     return 0;
 }

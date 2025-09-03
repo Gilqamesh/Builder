@@ -1,286 +1,362 @@
 #include "compiler.h"
-#include "components.h"
+#include "nodes.h"
 
 compiler_t COMPILER;
 
-void compiler_t::add(std::string name, const std::vector<unsigned char> instructions) {
-    if (
-        m_primitive_components.find(name) != m_primitive_components.end() ||
-        m_components.find(name) != m_components.end()
-    ) {
-        throw std::runtime_error("component with the same name is already registered: '" + name + "'");
+bool compiler_t::register_node(const std::vector<uint8_t>& binary) {
+    std::string name;
+    size_t ip = 0;
+    while (ip < binary.size() && binary[ip] != 0) {
+        name.push_back(binary[ip]);
+        ++ip;
+    }
+    if (ip == binary.size()) {
+        // throw std::runtime_error("unterminated component name");
+        return false;
     }
 
-    m_components.emplace(std::move(name), instructions);
+    if (
+        m_node_binaries.find(name) != m_node_binaries.end() ||
+        m_primitive_nodes.find(name) != m_primitive_nodes.end()
+    ) {
+        return false;
+        //throw std::runtime_error("node with the same name is already registered: '" + name + "'");
+    }
+
+    return m_node_binaries.emplace(std::move(name), binary).second;
 }
 
-component_t* compiler_t::create(std::string name) {
-    auto it = m_primitive_components.find(name);
-    if (it != m_primitive_components.end()) {
-        return it->second();
-    }
+node_t* compiler_t::create_node(std::string name) {
+    node_t* result = nullptr;
 
-    auto it2 = m_components.find(name);
-    if (it2 == m_components.end()) {
-        throw std::runtime_error("unregistered component name: " + name);
-    }
-
-    const std::vector<unsigned char>& instructions = it2->second;
-
-    component_t* result = new component_t;
-    result->set_name(std::move(name));
-
-    std::vector<wire_t*> wires;
-    std::vector<component_t*> components;
-
-    size_t ip = 0;
-    const size_t instructions_size = instructions.size();
-    while (ip < instructions_size) {
-        unsigned char op = instructions[ip++];
-        switch (op) {
-        case OP_CREATE_WIRE: {
-            wires.push_back(new wire_t);
-        } break ;
-        case OP_EXPOSE_PINS: {
-            if (instructions_size < ip + 1) {
-                throw std::runtime_error("expected 1 byte for expose pins of resulting component");
-            }
-            size_t n_exposed_pins = instructions[ip++];
-            for (size_t i = 0; i < n_exposed_pins; ++i) {
-                result->expose(i);
-            }
-        } break ;
-        case OP_CREATE_COMPONENT: {
-            std::string component_name;
-            while (ip < instructions_size && instructions[ip] != 0) {
-                component_name.push_back(instructions[ip]);
-                ++ip;
-            }
-            if (ip == instructions_size) {
-                throw std::runtime_error("unterminated component name");
-            }
-            assert(instructions[ip] == 0);
-            ++ip;
-            components.push_back(create(component_name));
-        } break ;
-        case OP_CREATE_STUB_COMPONENT: {
-            std::string component_name;
-            while (ip < instructions_size && instructions[ip] != 0) {
-                component_name.push_back(instructions[ip]);
-                ++ip;
-            }
-            if (ip == instructions_size) {
-                throw std::runtime_error("unterminated component name");
-            }
-            assert(instructions[ip] == 0);
-            ++ip;
-            size_t n_exposed_pins = instructions[ip++];
-            stub_component_t* stub = new stub_component_t(n_exposed_pins);
-            stub->set_name(component_name);
-            components.push_back(stub);
-        } break ;
-        case OP_CONNECT_WIRE_TO_COMPONENT: {
-            if (instructions_size < ip + 3) {
-                throw std::runtime_error("expected 3 bytes for connect wire to component input");
-            }
-            uint8_t wire_index = instructions[ip++];
-            uint8_t component_index = instructions[ip++];
-            uint8_t component_input_index = instructions[ip++];
-            if (wires.size() <= wire_index) {
-                throw std::runtime_error("wire index is out of bounds");
-            }
-            if (components.size() <= component_index) {
-                throw std::runtime_error("component index is out of bounds");
-            }
-            components[component_index]->connect(component_input_index, 
-            wires[wire_index]);
-        } break ;
-        case OP_CONNECT_COMPONENT_PIN_TO_RESULT_PIN: {
-            if (instructions_size < ip + 3) {
-                throw std::runtime_error("expected 3 bytes for connect component pin to resulting component pin");
-            }
-            uint8_t result_pin_index = instructions[ip++];
-            uint8_t component_index = instructions[ip++];
-            uint8_t component_pin_index = instructions[ip++];
-            if (result->m_exposed_pins.size() <= result_pin_index) {
-                throw std::runtime_error("resulting component pin index is out of bounds");
-            }
-            if (components.size() <= component_index) {
-                throw std::runtime_error("component index is out of bounds");
-            }
-            wire_t* result_wire = result->at(result_pin_index);
-            if (!result_wire) {
-                throw std::runtime_error("resulting component pin is not exposed");
-            }
-            components[component_index]->connect(component_pin_index, result_wire);
-        } break ;
-        default: {
-            throw std::runtime_error("unknown opcode: " + std::to_string(op));
-        } break ;
-        }
+    auto it = m_primitive_nodes.find(name);
+    if (it != m_primitive_nodes.end()) {
+        result = it->second();
+    } else {
+        result = new node_t;
+        result->name(name);
     }
 
     return result;
 }
 
-std::string compiler_t::disassemble(const std::vector<unsigned char> instructions) {
+bool compiler_t::expand_compound_node(std::string name, node_t* node) {
+    auto it = m_node_binaries.find(name);
+    if (it == m_node_binaries.end()) {
+        return false;
+    }
+
+    if (binary_to_node(it->second, node)) {
+        return true;
+    }
+
+    return true;
+}
+
+// todo: cleanup on failure
+bool compiler_t::binary_to_node(const std::vector<uint8_t>& binary, node_t* out) {
+    size_t ip = 0;
+
+    std::string name;
+    while (ip < binary.size() && binary[ip] != 0) {
+        name.push_back(binary[ip]);
+        ++ip;
+    }
+    if (ip == binary.size()) {
+        return false;
+        // throw std::runtime_error("unterminated component name in binary");
+    }
+    ++ip;
+
+    out->name(std::move(name));
+
+    std::vector<node_t*>& nodes = out->m_inner_nodes;
+
+    while (ip < binary.size()) {
+        const uint8_t op = binary[ip++];
+        switch (op) {
+        case OP_CREATE_NODE: {
+            std::string node_name;
+            while (ip < binary.size() && binary[ip] != 0) {
+                node_name.push_back(binary[ip]);
+                ++ip;
+            }
+            if (ip == binary.size()) {
+                return false;
+                // throw std::runtime_error("unterminated node name in binary");
+            }
+            assert(binary[ip] == 0);
+            ++ip;
+            node_t* node = nullptr;
+            auto it = m_primitive_nodes.find(node_name);
+            if (it != m_primitive_nodes.end()) {
+                node = it->second();
+            } else {
+                node = new node_t;
+            }
+            assert(node);
+            node->name(node_name);
+            nodes.emplace_back(node);
+        } break ;
+        case OP_CONNECT_PORTS: {
+            if (binary.size() < ip + 4) {
+                return false;
+                // throw std::runtime_error("expected 4 bytes for connect ports");
+            }
+            port_index_t from_node_index = (port_index_t) binary[ip++];
+            port_index_t from_port_index = (port_index_t) binary[ip++];
+            port_index_t to_node_index = (port_index_t) binary[ip++];
+            port_index_t to_port_index = (port_index_t) binary[ip++];
+
+            if (__PORT_SIZE < from_port_index) {
+                return false;
+                // throw std::runtime_error("from port index out of range: " + std::to_string(from_port_index));
+            }
+
+            if (__PORT_SIZE < to_port_index) {
+                return false;
+                // throw std::runtime_error("to port index out of range: " + std::to_string(to_port_index));
+            }
+
+            node_t* from_node = nullptr;
+            if (from_node_index == (uint8_t) -1) {
+                from_node = out;
+            } else if (from_node_index < nodes.size()) {
+                from_node = nodes[from_node_index];
+            } else {
+                return false;
+                // throw std::runtime_error("from node index out of range: " + std::to_string(from_node_index));
+            }
+
+            node_t* to_node = nullptr;
+            if (to_node_index == (uint8_t) -1) {
+                to_node = out;
+            } else if (to_node_index < nodes.size()) {
+                to_node = nodes[to_node_index];
+            } else {
+                return false;
+                // throw std::runtime_error("to node index out of range: " + std::to_string(to_node_index));
+            }
+
+            assert(from_node && to_node);
+            from_node->connect(to_node, to_port_index, from_port_index);
+        } break ;
+        default: {
+            return false;
+            // throw std::runtime_error("unknown opcode: " + std::to_string(op));
+        } break ;
+        }
+    }
+
+    return true;
+}
+
+bool compiler_t::binary_to_human_readable(const std::vector<uint8_t>& binary, std::string& out) {
     std::string result;
 
-    size_t wire_index = 0;
-    size_t component_index = 0;
-    std::unordered_map<size_t, std::string> component_names;
-
+    std::string result_node_name;
     size_t ip = 0;
-    const size_t instructions_size = instructions.size();
-    while (ip < instructions_size) {
-        unsigned char op = instructions[ip++];
+    while (ip < binary.size() && binary[ip] != 0) {
+        result_node_name.push_back(binary[ip]);
+        ++ip;
+    }
+    if (ip == binary.size()) {
+        return false;
+        // throw std::runtime_error("unterminated component name in binary");
+    }
+    assert(binary[ip] == 0);
+    ++ip;
+    result += result_node_name + ":\n";
+
+    std::unordered_map<uint8_t, std::string> component_names;
+
+    while (ip < binary.size()) {
+        uint8_t op = binary[ip++];
         switch (op) {
-        case OP_CREATE_WIRE: {
-            result += "w" + std::to_string(wire_index++) + " = create wire\n";
-        } break ;
-        case OP_EXPOSE_PINS: {
-            if (instructions_size < ip + 1) {
-                throw std::runtime_error("expected 1 byte for expose pins of resulting component");
-            }
-            size_t n_exposed_pins = instructions[ip++];
-            result += "expose " + std::to_string(n_exposed_pins) + " pins\n";
-        } break ;
-        case OP_CREATE_COMPONENT: {
-            std::string component_name;
-            while (ip < instructions_size && instructions[ip] != 0) {
-                component_name.push_back(instructions[ip]);
+        case OP_CREATE_NODE: {
+            std::string node_name;
+            while (ip < binary.size() && binary[ip] != 0) {
+                node_name.push_back(binary[ip]);
                 ++ip;
             }
-            if (ip == instructions_size) {
-                throw std::runtime_error("unterminated component name");
+            if (ip == binary.size()) {
+                return false;
+                // throw std::runtime_error("unterminated node name in binary");
             }
-            assert(instructions[ip] == 0);
+            assert(binary[ip] == 0);
             ++ip;
-            component_names[component_index] = component_name;
-            result += "c" + std::to_string(component_index++) + " = component " + component_name + "\n";
+            size_t node_index = component_names.size();
+            component_names[node_index] = node_name;
+            result += "  " + node_name + " " + std::to_string(node_index) + "\n";
         } break ;
-        case OP_CREATE_STUB_COMPONENT: {
-            std::string component_name;
-            while (ip < instructions_size && instructions[ip] != 0) {
-                component_name.push_back(instructions[ip]);
-                ++ip;
+        case OP_CONNECT_PORTS: {
+            if (binary.size() < ip + 4) {
+                throw std::runtime_error("expected 4 bytes for connect ports");
             }
-            if (ip == instructions_size) {
-                throw std::runtime_error("unterminated component name");
+            uint8_t from_node_index = binary[ip++];
+            uint8_t from_port_index = binary[ip++];
+            uint8_t to_node_index = binary[ip++];
+            uint8_t to_port_index = binary[ip++];
+            if (__PORT_SIZE < from_port_index) {
+                return false;
+                // throw std::runtime_error("from port index out of range: " + std::to_string(from_port_index));
             }
-            assert(instructions[ip] == 0);
-            ++ip;
-            size_t n_exposed_pins = instructions[ip++];
-            component_names[component_index] = component_name;
-            result += "c" + std::to_string(component_index++) + " = stub( " + std::to_string(n_exposed_pins) + ") " + component_name + "\n";
-        } break ;
-        case OP_CONNECT_WIRE_TO_COMPONENT: {
-            if (instructions_size < ip + 3) {
-                throw std::runtime_error("expected 3 bytes for connect wire to component");
+            if (__PORT_SIZE < to_port_index) {
+                return false;
+                // throw std::runtime_error("to port index out of range: " + std::to_string(to_port_index));
             }
-            uint8_t wire_index = instructions[ip++];
-            uint8_t component_index = instructions[ip++];
-            uint8_t component_input_index = instructions[ip++];
-            result += "w" + std::to_string(wire_index) + " -> c" + std::to_string(component_index) + "[" + std::to_string(component_input_index) + "]\n";
-        } break ;
-        case OP_CONNECT_COMPONENT_PIN_TO_RESULT_PIN: {
-            if (instructions_size < ip + 3) {
-                throw std::runtime_error("expected 3 bytes for connect component pin to resulting component pin");
+            std::string from_node_name;
+            if (from_node_index == (uint8_t) -1) {
+                from_node_name = result_node_name;
+            } else if (component_names.find(from_node_index) != component_names.end()) {
+                from_node_name = component_names[from_node_index];
+            } else {
+                return false;
+                // throw std::runtime_error("from node index out of range: " + std::to_string(from_node_index));
             }
-            uint8_t result_pin_index = instructions[ip++];
-            uint8_t component_index = instructions[ip++];
-            uint8_t component_pin_index = instructions[ip++];
-            result += "result[" + std::to_string(result_pin_index) + "] -> c" + std::to_string(component_index) + "[" + std::to_string(component_pin_index) + "]\n";
+            std::string to_node_name;
+            if (to_node_index == (uint8_t) -1) {
+                to_node_name = result_node_name;
+            } else if (component_names.find(to_node_index) != component_names.end()) {
+                to_node_name = component_names[to_node_index];
+            } else {
+                return false;
+                // throw std::runtime_error("to node index out of range: " + std::to_string(to_node_index));
+            }
+            result += "  " + from_node_name;
+            if (from_node_index != (uint8_t) -1) {
+                result += " " + std::to_string(from_node_index);
+            }
+            result += " [" + std::to_string(from_port_index) + "] -> " "[" + std::to_string(to_port_index) + "] " + to_node_name;
+            if (to_node_index != (uint8_t) -1) {
+                result += " " + std::to_string(to_node_index);
+            }
+            result += "\n";
         } break ;
         default: {
-            throw std::runtime_error("unknown opcode: " + std::to_string(op));
+            return false;
+            // throw std::runtime_error("unknown opcode: " + std::to_string(op));
         } break ;
         }
     }
 
-    return result;
+    out = result;
+
+    return true;
 }
 
-bool compiler_t::find(std::string name) {
-    return m_primitive_components.find(name) != m_primitive_components.end() || m_components.find(name) != m_components.end();
-}
+std::vector<uint8_t> compiler_t::node_to_binary(node_t* node) {
+    std::vector<uint8_t> result;
 
-std::vector<unsigned char> compiler_t::assemble(
-    unsigned char n_exposed_pins,
-    std::vector<component_t*> components_connected_to_exposed_pins,
-    std::vector<unsigned char> component_pin_indices,
-    std::vector<wire_t*> wires,
-    std::vector<component_t*> components
-) {
-    std::vector<unsigned char> result;
-
-    std::unordered_map<wire_t*, unsigned char> wire_indices;
-    std::unordered_map<component_t*, unsigned char> component_indices;
-
-    for (size_t i = 0; i < wires.size(); ++i) {
-        wire_t* wire = wires[i];
-        result.push_back(OP_CREATE_WIRE);
-        unsigned char wire_index = (unsigned char) wire_indices.size();
-        wire_indices[wire] = wire_index;
+    for (char c : node->name()) {
+        result.push_back((uint8_t) c);
     }
+    result.push_back(0);
 
-    result.push_back(OP_EXPOSE_PINS);
-    result.push_back(n_exposed_pins);
+    std::unordered_set<node_t*> unvisited_nodes;
 
-    if ((unsigned char) -1 <= components.size()) {
-        throw std::runtime_error("too many inner components, max: " + std::to_string((unsigned char) -1));
-    }
-    for (size_t component_index = 0; component_index < components.size(); ++component_index) {
-        component_t* component = components[component_index];
-        component_indices[component] = (unsigned char) component_index;
-        if (find(component->m_name)) {
-            result.push_back(OP_CREATE_COMPONENT);
-        } else {
-            result.push_back(OP_CREATE_STUB_COMPONENT);
-            assert(component->m_exposed_pins.size() <= (size_t) -1);
-            result.push_back((unsigned char) component->m_exposed_pins.size());
-        }
-        for (unsigned char c : component->m_name) {
-            result.push_back(c);
-        }
-        result.push_back(0);
+    std::unordered_map<node_t*, uint8_t> node_to_index;
 
-        for (size_t component_wire_index = 0; component_wire_index < component->m_wires.size(); ++component_wire_index) {
-            wire_t* wire = component->m_wires[component_wire_index];
-            if (!wire) {
-                continue ;
+    node_to_index[node] = (uint8_t) -1;
+    unvisited_nodes.insert(node);
+    std::unordered_set<node_t*> visited_nodes;
+    while (!unvisited_nodes.empty()) {
+        node_t* unvisited_node = *unvisited_nodes.begin();
+        unvisited_nodes.erase(unvisited_node);
+        visited_nodes.insert(unvisited_node);
+
+        if (unvisited_node != node) {
+            result.push_back(OP_CREATE_NODE);
+            for (char c : unvisited_node->name()) {
+                result.push_back((uint8_t) c);
             }
+            result.push_back(0);
+            assert(node_to_index.size() < UINT8_MAX + 1);
+            uint8_t node_index = (uint8_t) node_to_index.size() - 1;
+            node_to_index[unvisited_node] = node_index;
+        }
 
-            auto it = wire_indices.find(wire);
-            assert(it != wire_indices.end());
-            unsigned char wire_index = it->second;
-            result.push_back(OP_CONNECT_WIRE_TO_COMPONENT);
-            result.push_back(wire_index);
-            result.push_back((unsigned char) component_index);
-            result.push_back(component_wire_index);
+        for (int i = 0; i < __PORT_SIZE; ++i) {
+            node_t* connection = unvisited_node->connection((port_index_t) i);
+            if (connection && visited_nodes.find(connection) == visited_nodes.end()) {
+                unvisited_nodes.insert(connection);
+            }
         }
     }
 
-    if (n_exposed_pins != components_connected_to_exposed_pins.size()) {
-        throw std::runtime_error("number of exposed pins does not match number of components connected to exposed pins");
-    }
-    if (n_exposed_pins != component_pin_indices.size()) {
-        throw std::runtime_error("number of exposed pins does not match number of component pin indices");
-    }
-    for (size_t i = 0; i < components_connected_to_exposed_pins.size(); ++i) {
-        component_t* component = components_connected_to_exposed_pins[i];
-        if (component == nullptr) {
-            continue ;
+    while (!visited_nodes.empty()) {
+        node_t* from_node = *visited_nodes.begin();
+        visited_nodes.erase(from_node);
+
+        for (uint8_t from_port_index = 0; from_port_index < __PORT_SIZE; ++from_port_index) {
+            if (from_node->is_connected((port_index_t) from_port_index)) {
+                node_t::port_t& from_port = from_node->m_ports[from_port_index];
+                node_t* to_node = from_port.m_connection;
+                uint8_t to_port_index = from_port.m_connection_port_index;
+                assert(to_node);
+
+                auto from_it = node_to_index.find(from_node);
+                assert(from_it != node_to_index.end());
+                auto to_it = node_to_index.find(to_node);
+                assert(to_it != node_to_index.end());
+
+                result.push_back(OP_CONNECT_PORTS);
+                result.push_back(from_it->second);
+                result.push_back(from_port_index);
+                result.push_back(to_it->second);
+                result.push_back(to_port_index);                
+            }
         }
-        auto it = component_indices.find(component);
-        if (it == component_indices.end()) {
-            throw std::runtime_error("component connected to exposed pin is not in the list of inner components");
-        }
-        result.push_back(OP_CONNECT_COMPONENT_PIN_TO_RESULT_PIN);
-        result.push_back((unsigned char) i);
-        result.push_back(it->second);
-        result.push_back(component_pin_indices[i]);
     }
 
     return result;
+}
+
+// bool compiler_t::are_binaries_equal(const std::vector<uint8_t>& a, const std::vector<uint8_t>& b) {
+//     if (a.size() != b.size()) {
+//         return false;
+//     }
+
+//     std::string a_name;
+//     size_t ip_a = 0;
+//     while (ip_a < a.size() && a[ip_a] != 0) {
+//         a_name.push_back(a[ip_a]);
+//         ++ip_a;
+//     }
+//     if (ip_a == a.size()) {
+//         return false;
+//     }
+//     assert(a[ip_a] == 0);
+//     ++ip_a;
+
+//     std::string b_name;
+//     size_t ip_b = 0;
+//     while (ip_b < b.size() && b[ip_b] != 0) {
+//         b_name.push_back(b[ip_b]);
+//         ++ip_b;
+//     }
+//     if (ip_b == b.size()) {
+//         return false;
+//     }
+//     assert(b[ip_b] == 0);
+
+//     if (a_name != b_name) {
+//         return false;
+//     }
+
+//     std::unordered_set<uint32_t> a_connections;
+//     std::unordered_map<std::string, uint8_t> a_node_to_index;
+//     while (ip_a < a.size()) {
+//     }
+
+//     return true;
+// }
+
+bool compiler_t::exists(std::string name) {
+    return m_node_binaries.find(name) != m_node_binaries.end() || m_primitive_nodes.find(name) != m_primitive_nodes.end();
+}
+
+void compiler_t::clear() {
+    m_node_binaries.clear();
+    m_primitive_nodes.clear();
 }

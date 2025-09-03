@@ -2,6 +2,7 @@
 # define LIBC_H
 
 # include <iostream>
+# include <fstream>
 # include <unordered_map>
 # include <map>
 # include <unordered_set>
@@ -16,6 +17,11 @@
 # include <functional>
 # include <stack>
 # include <chrono>
+# include <thread>
+# include <mutex>
+# include <atomic>
+# include <limits>
+# include <condition_variable>
 
 # include <cassert>
 # include <cctype>
@@ -29,9 +35,6 @@
 # include <csetjmp>
 # include <cstdalign>
 # include <cmath>
-
-// arch specific
-# include <x86intrin.h> // __rdtsc
 
 # define LOG() std::cout << __FILE__ << ":" << __LINE__ << " (" << __func__ << "): " << std::endl
 # define LOG_M(m) std::cout << __FILE__ << ":" << __LINE__ << " (" << __func__ << "): " << m << std::endl
