@@ -4,6 +4,7 @@
 **/example
 **/build_example
 build_examples
+build/
 .vscode/
 a.out
 test.c

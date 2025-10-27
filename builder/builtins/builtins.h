@@ -11,7 +11,6 @@
  * 4: output (int)
 */
 class if_node_t : public node_t {
-public:
     void call(port_index_t caller_port_index) override;
 };
 

@@ -1,5 +1,7 @@
 #include "typesystem.h"
 
+#include <x86intrin.h>
+
 typesystem_t TYPESYSTEM;
 
 bool typesystem_t::coerce(void* from, int id_from, void* to, int id_to) {

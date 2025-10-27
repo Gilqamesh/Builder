@@ -2,9 +2,9 @@ file(GLOB_RECURSE SRC *.cpp)
 
 add_library(builder_lib ${SRC})
 
-target_precompile_headers(builder_lib PRIVATE core/libc.h)
+target_precompile_headers(builder_lib PRIVATE ${CMAKE_SOURCE_DIR}/libc.h)
 
-target_include_directories(builder_lib PUBLIC .)
+target_include_directories(builder_lib PUBLIC . ${CMAKE_SOURCE_DIR})
 
 if (MSVC)
     target_compile_options(builder_lib PRIVATE /W4 /WX /permissive-)

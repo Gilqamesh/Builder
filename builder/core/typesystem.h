@@ -19,6 +19,9 @@ public:
 
     bool coerce(void* from, int id_from, void* to, int id_to);
 
+    template <typename From, typename To>
+    To cast(From& from);
+
     template <typename T>
     T& cast(void* data, int id_data);
 

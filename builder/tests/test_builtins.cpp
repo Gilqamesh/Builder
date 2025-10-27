@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 
-#include "builder.h"
+#include "builtins/builtins.h"
 
 TEST(IfNode, Happy) {
     if_node_t node;

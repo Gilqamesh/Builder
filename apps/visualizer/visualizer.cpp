@@ -1,5 +1,6 @@
 #include "builder.h"
 #include "editor.h"
+#include "builtins/builtins.h"
 
 #include "rlImGui.h"
 #include <raylib.h>
@@ -108,6 +109,18 @@ editor_t editor;
 node_t* dragged_node = nullptr;
 int dragged_offset_x = 0;
 int dragged_offset_y = 0;
+
+void update_key_event(float dt) {
+    if ((IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL)) && IsKeyPressed(KEY_S)) {
+        assert(current_node);
+        node_t* node_to_save = current_node;
+        while (node_to_save->parent()) {
+            node_to_save = node_to_save->parent();
+        }
+        assert(node_to_save);
+        builder::save(node_to_save);
+    }
+}
 
 void update_mouse_event(float dt) {
     if (editor.is_captured_mouse()) {
@@ -329,6 +342,7 @@ void update_mouse_event(float dt) {
 }
 
 void update(float dt) {
+    update_key_event(dt);
     update_mouse_event(dt);
 }
 
@@ -477,14 +491,13 @@ void draw() {
 }
 
 int main() {
-    compiler_t compiler;
-    compiler.register_node<if_node_t>("if");
-    compiler.register_node<sub_t>("sub");
-    compiler.register_node<mul_node_t>("mul");
-    compiler.register_node<is_zero_t>("is_zero");
-    compiler.register_node<int_node_t>("int");
-    compiler.register_node<logger_node_t>("logger");
-    compiler.register_node<pin_node_t>("pin");
+    COMPILER.register_node<if_node_t>("if");
+    COMPILER.register_node<sub_t>("sub");
+    COMPILER.register_node<mul_node_t>("mul");
+    COMPILER.register_node<is_zero_t>("is_zero");
+    COMPILER.register_node<int_node_t>("int");
+    COMPILER.register_node<logger_node_t>("logger");
+    COMPILER.register_node<pin_node_t>("pin");
 
     window.left = 0.0f;
     window.top = 0.0f;
@@ -504,6 +517,7 @@ int main() {
 
     node_t canvas_node;
     current_node = &canvas_node;
+    canvas_node.name("defined_node");
     canvas_node.left(-10000);
     canvas_node.right(10000);
     canvas_node.top(-10000);

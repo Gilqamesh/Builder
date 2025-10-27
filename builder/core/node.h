@@ -12,19 +12,45 @@ enum port_index_t {
     __PORT_SIZE
 };
 
+struct node_id_t {
+    std::string name;
+};
+
+struct node_binary_t {
+    std::vector<uint8_t> binary;
+};
+
+struct node_assembly_t {
+    std::string assembly;
+};
+
 /**
  * Acts as an abstraction for a combination of nodes.
  * Override `call` to implement a primitive node.
 */
 class node_t {
 public:
+    struct port_t {
+        port_t();
+
+        node_t* m_connection;
+        port_index_t m_connection_port_index;
+        std::string m_name;
+        int m_data_type_id;
+        std::vector<uint8_t> m_data;
+    };
+
+public:
     node_t();
 
     virtual ~node_t();
 
-    void name(std::string name);
+    void id(node_id_t id);
 
-    const std::string& name();
+    const node_id_t& id();
+
+    node_t* parent();
+    void parent(node_t* parent);
 
     /**
      * Give a `name` to `port_index`.
@@ -97,22 +123,65 @@ public:
     */
     void copy(port_index_t from_port_index, port_index_t to_port_index);
 
-    std::string m_name;
+    std::vector<node_t*>& inner_nodes();
+
+    std::array<port_t, __PORT_SIZE> ports();
+
+    int left();
+    int right();
+    int top();
+    int bottom();
+
+    void left(int left);
+    void right(int right);
+    void top(int top);
+    void bottom(int bottom);
+
+    void finalize_dimensions();
+
+    float coordinate_system_width();
+    float coordinate_system_height();
+
+    /**
+     * Converts `x` from this node's coordinate system to the child's coordinate system.
+    */
+    int to_child_x(int x);
+
+    /**
+     * Converts `y` from this node's coordinate system to the child's coordinate system.
+    */
+    int to_child_y(int y);
+
+    /**
+     * Converts `x` from the child's coordinate system to this node's coordinate system.
+    */
+    int from_child_x(int x);
+
+    /**
+     * Converts `y` from the child's coordinate system to this node's coordinate system.
+    */
+    int from_child_y(int y);
+
+private:
+
+    node_id_t m_id;
 
     std::vector<node_t*> m_inner_nodes;
 
     bool m_is_expanded;
 
-    struct port_t {
-        port_t();
+    int m_left;
+    int m_right;
+    int m_top;
+    int m_bottom;
 
-        node_t* m_connection;
-        port_index_t m_connection_port_index;
-        std::string m_name;
-        int m_data_type_id;
-        std::vector<uint8_t> m_data;
-    };
-    port_t m_ports[__PORT_SIZE];
+    float m_coordinate_system_width;
+    float m_coordinate_system_height;
+
+    bool m_is_dimensions_finalized;
+
+    node_t* m_parent;
+    std::array<port_t, __PORT_SIZE> m_ports;
 };
 
 template <typename T>

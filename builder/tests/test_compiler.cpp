@@ -1,23 +1,19 @@
 #include <gtest/gtest.h>
 
 #include "builder.h"
+#include "builtins/builtins.h"
 
-TEST(Compiler, RegisterPrimitiveNode) {
-    COMPILER.clear();
-    
+TEST(Compiler, RegisterPrimitiveNode) {    
+    builder::init();
     std::string node_name("mul");
-    ASSERT_EQ(COMPILER.register_node<mul_node_t>(node_name), true);
-    node_t* node = COMPILER.create_node(node_name);
-    ASSERT_EQ(node->name(), node_name);
+    node_t* node = builder::create_node(node_name);
+    ASSERT_EQ(node->id().name, node_name);
 }
 
 TEST(Compiler, RegisterBinary) {
-    COMPILER.clear();
-
-    std::string mul_node_name("mul");
-    std::string logger_node_name("logger");
-    ASSERT_EQ(COMPILER.register_node<mul_node_t>(mul_node_name), true);
-    ASSERT_EQ(COMPILER.register_node<logger_node_t>(logger_node_name), true);
+    builder::init();
+    node_t* mul_node = builder::create_node<mul_node_t>();
+    node_t* logger_node = builder::create_node<logger_node_t>();
 
     std::string result_node_name = "mul-display";
     std::vector<uint8_t> binary;
@@ -35,6 +31,18 @@ TEST(Compiler, RegisterBinary) {
         binary.push_back(c);
     }
     binary.push_back(0);
+    int mul_display_left = 0;
+    int mul_display_right = 100;
+    int mul_display_top = 0;
+    int mul_display_bottom = 100;
+    binary.push_back((uint8_t) (mul_display_left >> 8));
+    binary.push_back((uint8_t) (mul_display_left & 0xFF));
+    binary.push_back((uint8_t) (mul_display_right >> 8));
+    binary.push_back((uint8_t) (mul_display_right & 0xFF));
+    binary.push_back((uint8_t) (mul_display_top >> 8));
+    binary.push_back((uint8_t) (mul_display_top & 0xFF));
+    binary.push_back((uint8_t) (mul_display_bottom >> 8));
+    binary.push_back((uint8_t) (mul_display_bottom & 0xFF));
 
     uint8_t logger_node_index = cur_node_index++;
     binary.push_back(OP_CREATE_NODE);
@@ -42,6 +50,18 @@ TEST(Compiler, RegisterBinary) {
         binary.push_back(c);
     }
     binary.push_back(0);
+    int logger_display_left = 100;
+    int logger_display_right = 200;
+    int logger_display_top = 0;
+    int logger_display_bottom = 100;
+    binary.push_back((uint8_t) (logger_display_left >> 8));
+    binary.push_back((uint8_t) (logger_display_left & 0xFF));
+    binary.push_back((uint8_t) (logger_display_right >> 8));
+    binary.push_back((uint8_t) (logger_display_right & 0xFF));
+    binary.push_back((uint8_t) (logger_display_top >> 8));
+    binary.push_back((uint8_t) (logger_display_top & 0xFF));
+    binary.push_back((uint8_t) (logger_display_bottom >> 8));
+    binary.push_back((uint8_t) (logger_display_bottom & 0xFF));
 
     // connect result port 0 to mul port 0
     binary.push_back(OP_CONNECT_PORTS);
@@ -87,22 +107,13 @@ TEST(Compiler, RegisterBinary) {
     result_node->write(PORT_1, in_b);
     ASSERT_EQ(ss.str(), "12\n");
 
-    std::string human_readable;
-    std::cout << "Handcrafted binary:\n";
+    std::stringstream human_readable;
     ASSERT_TRUE(COMPILER.binary_to_human_readable(binary, human_readable));
-    std::cout << human_readable << std::endl;
     std::vector<uint8_t> binary_result = COMPILER.node_to_binary(result_node);
     ASSERT_TRUE(COMPILER.binary_to_human_readable(binary_result, human_readable));
-    std::cout << "Generated binary:\n";
-    std::cout << human_readable << std::endl;
-
-    // ASSERT_EQ(binary, binary_result);
-    // ASSERT_EQ(COMPILER.are_binaries_equal(binary, binary_result), true);
 }
 
 TEST(Compiler, FactorialMachine) {
-    COMPILER.clear();
-
     std::string if_node_name("if");
     std::string mul_node_name("mul");
     std::string sub_node_name("sub");
@@ -134,6 +145,18 @@ TEST(Compiler, FactorialMachine) {
         binary.push_back(c);
     }
     binary.push_back(0);
+    int pin_0_left = 0;
+    int pin_0_right = 100;
+    int pin_0_top = 0;
+    int pin_0_bottom = 100;
+    binary.push_back((uint8_t) (pin_0_left >> 8));
+    binary.push_back((uint8_t) (pin_0_left & 0xFF));
+    binary.push_back((uint8_t) (pin_0_right >> 8));
+    binary.push_back((uint8_t) (pin_0_right & 0xFF));
+    binary.push_back((uint8_t) (pin_0_top >> 8));
+    binary.push_back((uint8_t) (pin_0_top & 0xFF));
+    binary.push_back((uint8_t) (pin_0_bottom >> 8));
+    binary.push_back((uint8_t) (pin_0_bottom & 0xFF));
 
     uint8_t pin_1_node_index = cur_node_index++;
     binary.push_back(OP_CREATE_NODE);
@@ -141,6 +164,18 @@ TEST(Compiler, FactorialMachine) {
         binary.push_back(c);
     }
     binary.push_back(0);
+    int pin_1_left = 100;
+    int pin_1_right = 200;
+    int pin_1_top = 0;
+    int pin_1_bottom = 100;
+    binary.push_back((uint8_t) (pin_1_left >> 8));
+    binary.push_back((uint8_t) (pin_1_left & 0xFF));
+    binary.push_back((uint8_t) (pin_1_right >> 8));
+    binary.push_back((uint8_t) (pin_1_right & 0xFF));
+    binary.push_back((uint8_t) (pin_1_top >> 8));
+    binary.push_back((uint8_t) (pin_1_top & 0xFF));
+    binary.push_back((uint8_t) (pin_1_bottom >> 8));
+    binary.push_back((uint8_t) (pin_1_bottom & 0xFF));
 
     uint8_t pin_2_node_index = cur_node_index++;
     binary.push_back(OP_CREATE_NODE);
@@ -148,6 +183,18 @@ TEST(Compiler, FactorialMachine) {
         binary.push_back(c);
     }
     binary.push_back(0);
+    int pin_2_left = 200;
+    int pin_2_right = 300;
+    int pin_2_top = 0;
+    int pin_2_bottom = 100;
+    binary.push_back((uint8_t) (pin_2_left >> 8));
+    binary.push_back((uint8_t) (pin_2_left & 0xFF));
+    binary.push_back((uint8_t) (pin_2_right >> 8));
+    binary.push_back((uint8_t) (pin_2_right & 0xFF));
+    binary.push_back((uint8_t) (pin_2_top >> 8));
+    binary.push_back((uint8_t) (pin_2_top & 0xFF));
+    binary.push_back((uint8_t) (pin_2_bottom >> 8));
+    binary.push_back((uint8_t) (pin_2_bottom & 0xFF));
 
     uint8_t one_0_node_index = cur_node_index++;
     binary.push_back(OP_CREATE_NODE);
@@ -155,6 +202,18 @@ TEST(Compiler, FactorialMachine) {
         binary.push_back(c);
     }
     binary.push_back(0);
+    int one_0_left = 300;
+    int one_0_right = 400;
+    int one_0_top = 0;
+    int one_0_bottom = 100;
+    binary.push_back((uint8_t) (one_0_left >> 8));
+    binary.push_back((uint8_t) (one_0_left & 0xFF));
+    binary.push_back((uint8_t) (one_0_right >> 8));
+    binary.push_back((uint8_t) (one_0_right & 0xFF));
+    binary.push_back((uint8_t) (one_0_top >> 8));
+    binary.push_back((uint8_t) (one_0_top & 0xFF));
+    binary.push_back((uint8_t) (one_0_bottom >> 8));
+    binary.push_back((uint8_t) (one_0_bottom & 0xFF));
 
     uint8_t one_1_node_index = cur_node_index++;
     binary.push_back(OP_CREATE_NODE);
@@ -162,6 +221,18 @@ TEST(Compiler, FactorialMachine) {
         binary.push_back(c);
     }
     binary.push_back(0);
+    int one_1_left = 400;
+    int one_1_right = 500;
+    int one_1_top = 0;
+    int one_1_bottom = 100;
+    binary.push_back((uint8_t) (one_1_left >> 8));
+    binary.push_back((uint8_t) (one_1_left & 0xFF));
+    binary.push_back((uint8_t) (one_1_right >> 8));
+    binary.push_back((uint8_t) (one_1_right & 0xFF));
+    binary.push_back((uint8_t) (one_1_top >> 8));
+    binary.push_back((uint8_t) (one_1_top & 0xFF));
+    binary.push_back((uint8_t) (one_1_bottom >> 8));
+    binary.push_back((uint8_t) (one_1_bottom & 0xFF));
 
     uint8_t sub_node_index = cur_node_index++;
     binary.push_back(OP_CREATE_NODE);
@@ -169,6 +240,18 @@ TEST(Compiler, FactorialMachine) {
         binary.push_back(c);
     }
     binary.push_back(0);
+    int sub_left = 500;
+    int sub_right = 600;
+    int sub_top = 0;
+    int sub_bottom = 100;
+    binary.push_back((uint8_t) (sub_left >> 8));
+    binary.push_back((uint8_t) (sub_left & 0xFF));
+    binary.push_back((uint8_t) (sub_right >> 8));
+    binary.push_back((uint8_t) (sub_right & 0xFF));
+    binary.push_back((uint8_t) (sub_top >> 8));
+    binary.push_back((uint8_t) (sub_top & 0xFF));
+    binary.push_back((uint8_t) (sub_bottom >> 8));
+    binary.push_back((uint8_t) (sub_bottom & 0xFF));
 
     uint8_t is_zero_node_index = cur_node_index++;
     binary.push_back(OP_CREATE_NODE);
@@ -176,6 +259,18 @@ TEST(Compiler, FactorialMachine) {
         binary.push_back(c);
     }
     binary.push_back(0);
+    int is_zero_left = 600;
+    int is_zero_right = 700;
+    int is_zero_top = 0;
+    int is_zero_bottom = 100;
+    binary.push_back((uint8_t) (is_zero_left >> 8));
+    binary.push_back((uint8_t) (is_zero_left & 0xFF));
+    binary.push_back((uint8_t) (is_zero_right >> 8));
+    binary.push_back((uint8_t) (is_zero_right & 0xFF));
+    binary.push_back((uint8_t) (is_zero_top >> 8));
+    binary.push_back((uint8_t) (is_zero_top & 0xFF));
+    binary.push_back((uint8_t) (is_zero_bottom >> 8));
+    binary.push_back((uint8_t) (is_zero_bottom & 0xFF));
 
     uint8_t if_node_index = cur_node_index++;
     binary.push_back(OP_CREATE_NODE);
@@ -183,6 +278,18 @@ TEST(Compiler, FactorialMachine) {
         binary.push_back(c);
     }
     binary.push_back(0);
+    int if_left = 700;
+    int if_right = 800;
+    int if_top = 0;
+    int if_bottom = 100;
+    binary.push_back((uint8_t) (if_left >> 8));
+    binary.push_back((uint8_t) (if_left & 0xFF));
+    binary.push_back((uint8_t) (if_right >> 8));
+    binary.push_back((uint8_t) (if_right & 0xFF));
+    binary.push_back((uint8_t) (if_top >> 8));
+    binary.push_back((uint8_t) (if_top & 0xFF));
+    binary.push_back((uint8_t) (if_bottom >> 8));
+    binary.push_back((uint8_t) (if_bottom & 0xFF));
 
     uint8_t mul_node_index = cur_node_index++;
     binary.push_back(OP_CREATE_NODE);
@@ -190,6 +297,18 @@ TEST(Compiler, FactorialMachine) {
         binary.push_back(c);
     }
     binary.push_back(0);
+    int mul_left = 800;
+    int mul_right = 900;
+    int mul_top = 0;
+    int mul_bottom = 100;
+    binary.push_back((uint8_t) (mul_left >> 8));
+    binary.push_back((uint8_t) (mul_left & 0xFF));
+    binary.push_back((uint8_t) (mul_right >> 8));
+    binary.push_back((uint8_t) (mul_right & 0xFF));
+    binary.push_back((uint8_t) (mul_top >> 8));
+    binary.push_back((uint8_t) (mul_top & 0xFF));
+    binary.push_back((uint8_t) (mul_bottom >> 8));
+    binary.push_back((uint8_t) (mul_bottom & 0xFF));
 
     uint8_t fact_node_index = cur_node_index++;
     binary.push_back(OP_CREATE_NODE);
@@ -197,6 +316,18 @@ TEST(Compiler, FactorialMachine) {
         binary.push_back(c);
     }
     binary.push_back(0);
+    int fact_left = 900;
+    int fact_right = 1000;
+    int fact_top = 0;
+    int fact_bottom = 100;
+    binary.push_back((uint8_t) (fact_left >> 8));
+    binary.push_back((uint8_t) (fact_left & 0xFF));
+    binary.push_back((uint8_t) (fact_right >> 8));
+    binary.push_back((uint8_t) (fact_right & 0xFF));
+    binary.push_back((uint8_t) (fact_top >> 8));
+    binary.push_back((uint8_t) (fact_top & 0xFF));
+    binary.push_back((uint8_t) (fact_bottom >> 8));
+    binary.push_back((uint8_t) (fact_bottom & 0xFF));
 
     // connect result port 0 to pin_0 port 0
     binary.push_back(OP_CONNECT_PORTS);
@@ -296,12 +427,15 @@ TEST(Compiler, FactorialMachine) {
     binary.push_back(pin_2_node_index);
     binary.push_back(PORT_1);
 
-    std::string human_readable;
-    ASSERT_TRUE(COMPILER.binary_to_human_readable(binary, human_readable));
-    std::cout << "Handcrafted fact binary:\n";
-    std::cout << human_readable << std::endl;
+    std::ofstream human_readable_file_path("factorial_machine.txt");
+    std::ofstream binary_file_path("factorial_machine.bin", std::ios::binary);
+
+    ASSERT_TRUE(COMPILER.binary_to_human_readable(binary, human_readable_file_path));
 
     ASSERT_TRUE(COMPILER.register_node(binary));
+
+    std::vector<uint8_t> retrieved_binary = COMPILER.node_to_binary(COMPILER.create_node(result_node_name));
+    binary_file_path.write((const char*) retrieved_binary.data(), (std::streamsize) retrieved_binary.size());
 
     node_t* node = COMPILER.create_node(result_node_name);
     ASSERT_NE(node, nullptr);
