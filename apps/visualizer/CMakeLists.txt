@@ -10,8 +10,7 @@ FetchContent_MakeAvailable(raylib)
 file(GLOB_RECURSE SRC *.cpp)
 add_executable(visualizer ${SRC})
 
-target_include_directories(visualizer PRIVATE "${CMAKE_SOURCE_DIR}")
-target_precompile_headers(visualizer PRIVATE "${CMAKE_SOURCE_DIR}/libc.h")
+target_link_libraries(visualizer PRIVATE project_interface)
 
 target_include_directories(visualizer PRIVATE third_party/imgui)
 target_include_directories(visualizer PRIVATE third_party/rlImGui)

@@ -1,0 +1,1 @@
+#include "node_binary.h"

@@ -2,41 +2,33 @@
 
 #include <x86intrin.h>
 
-typesystem_t TYPESYSTEM;
-
-bool typesystem_t::coerce(void* from, int id_from, void* to, int id_to) {
+void typesystem_t::coerce(void* from, int id_from, void* to, int id_to) {
     if (id_from == id_to) {
         memcpy(to, from, sizeof_type(id_from));
-        return true;
+        return ;
     }
 
     int id_subresult = m_type_parents[id_from][id_to];
     if (id_subresult == -1) {
-        return false;
+        throw std::runtime_error(std::format("no coercion procedure found between types ({}, {})", id_from, id_to));
     }
 
     std::vector<unsigned char> subresult(sizeof_type(id_subresult));
-    if (!coerce(from, id_from, (void*) subresult.data(), id_subresult)) {
-        return false;
-    }
+    coerce(from, id_from, (void*) subresult.data(), id_subresult);
 
     auto coercion_procedure = m_coercions[id_subresult][id_to];
     if (coercion_procedure == nullptr) {
-        return false;
+        throw std::runtime_error(std::format("no coercion procedure found between types ({}, {})", id_subresult, id_to));
     }
 
     size_t t_start = __rdtsc();
-    if (!coercion_procedure(subresult.data(), to)) {
-        return false;
-    }
+    coercion_procedure(subresult.data(), to);
     size_t t_end = __rdtsc();
 
     double& average_cost_kcy = m_type_distance[id_subresult][id_to];
     size_t& n_calls = m_type_calls[id_subresult][id_to];
     average_cost_kcy = ((average_cost_kcy * n_calls) + (double)(t_end - t_start) / 1000.0) / (double)(n_calls + 1);
     ++n_calls;
-
-    return true;
 }
 
 int typesystem_t::type_id(void* addr) {
@@ -80,4 +72,7 @@ size_t typesystem_t::sizeof_type(int type_id) {
     }
 
     return m_type_size[type_id];
+}
+
+static void test() {
 }
