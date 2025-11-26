@@ -38,8 +38,6 @@
 # include <cstdalign>
 # include <cmath>
 
-# include <ulid/ulid.h>
-
 # define LOG() std::cout << __FILE__ << ":" << __LINE__ << " (" << __func__ << "): " << std::endl
 # define LOG_M(m) std::cout << __FILE__ << ":" << __LINE__ << " (" << __func__ << "): " << m << std::endl
 

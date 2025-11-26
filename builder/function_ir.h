@@ -1,10 +1,10 @@
 #ifndef FUNCTION_IR_H
 # define FUNCTION_IR_H
 
-# include "libc.h"
+# include "function_id.h"
 
 struct function_ir_t {
-    ulid::ULID ulid;
+    function_id_t function_id;
 
     struct dependency_info_t {
         function_ir_t* function_dependency;

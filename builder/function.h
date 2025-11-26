@@ -2,7 +2,6 @@
 # define FUNCTION_H
 
 # include "function_ir.h"
-# include "typesystem.h"
 
 class function_t {
 public:
@@ -26,8 +25,8 @@ public:
     };
 
 public:
-    typedef void (*function_call_t)(function_t&, uint32_t);
-    function_t(typesystem_t* typesystem, function_ir_t ir, function_call_t);
+    typedef void (*function_call_t)(function_t*, argument_index_t);
+    function_t(function_id_t function_id, function_call_t call);
 
     virtual ~function_t();
 
@@ -140,6 +139,7 @@ public:
     int from_child_y(int y);
 
 private:
+    function_id_t function_id;
     function_call_t m_call;
     std::vector<function_t*> m_children;
     function_t* m_parent;

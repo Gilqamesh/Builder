@@ -11,13 +11,13 @@ void primitive_t::save(const primitive_locator_t& locator, call_t primitive) {
         throw std::runtime_error(std::format("primitive '{}' is already registered", primitive_key));
     }
 
-    ir_t* ir = new ir_t;
-    ir->call = primitive;
+    function_ir_t* function_ir = new function_ir_t;
+    function_ir->call = primitive;
 
-    primitives.emplace(primitive_key, ir);
+    primitives.emplace(primitive_key, function_ir);
 }
 
-ir_t* primitive_t::load(const primitive_locator_t& locator) {
+function_ir_t* primitive_t::load(const primitive_locator_t& locator) {
     const auto primitive_key = make_primitive_key(locator);
     auto it = primitives.find(primitive_key);
     if (it == primitives.end()) {
