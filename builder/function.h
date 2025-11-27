@@ -12,6 +12,8 @@ public:
         ARGUMENT_8,  ARGUMENT_9,  ARGUMENT_10, ARGUMENT_11,
         ARGUMENT_12, ARGUMENT_13, ARGUMENT_14, ARGUMENT_15,
 
+        RETURN_ARGUMENT,
+
         __ARGUMENT_SIZE
     };
 
@@ -102,6 +104,8 @@ public:
 
     std::array<argument_t, __ARGUMENT_SIZE> arguments();
 
+    void morph(typesystem_t* typesystem, function_ir_t* function_ir, function_call_t call);
+
     void expand();
 
     int left();
@@ -169,36 +173,16 @@ bool function_t::read(argument_index_t argument_index, T& out) {
     if (argument.m_data_type_id == -1) {
         return false;
     }
-    return TYPESYSTEM.coerce<T>((void*) argument.m_data.data(), argument.m_data_type_id, &out);
+    return m_typesystem->coerce<T>((void*) argument.m_data.data(), argument.m_data_type_id, &out);
 }
 
 template <typename T>
 void function_t::write(argument_index_t argument_index, T data) {
     assert(argument_index < __ARGUMENT_SIZE);
 
-    TYPESYSTEM.register_type<T>();
+    m_typesystem->register_type<T>();
 
-    write(argument_index, (void*) &data, TYPESYSTEM.type_id<T>());
+    write(argument_index, (void*) &data, m_typesystem->type_id<T>());
 }
-
-struct B {
-    template <typename RegistererType, typename Func>
-    void register_primitive(RegistererType* registerer, Func f, void (*call)(function_t*, function_t::argument_index_t)) {
-    }
-};
-
-struct A {
-    void register_primitives(B* b) {
-        b->register_primitive(this, f, +[this](function_t* self, function_t::argument_index_t index) {
-            double in;
-            if (read(index, in)) {
-                self->write<int>(function_t::argument_index_t::ARGUMENT_1, f(in));
-            }
-        });
-    }
-
-    int f(double d) {
-    }
-};
 
 #endif // FUNCTION_H

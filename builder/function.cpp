@@ -1,54 +1,9 @@
 #include "function.h"
 
-std::chrono::system_clock::time_point node_binary_t::deserialize_creation_time(uint64_t serialized_creation_time) {
-    const int year_field_length = 12;
-    const int month_field_length = 4;
-    const int day_field_length = 5;
-    const int hour_field_length = 5;
-    const int minute_field_length = 6;
-    const int second_field_length = 6;
-    const int year = (serialized_creation_time >> (64 - year_field_length)) & ((1 << year_field_length) - 1);
-    if (!(0 <= year && year < 4096)) {
-        throw std::runtime_error(std::format("invalid year {} in serialized creation time", year));
-    }
-    const int month = (serialized_creation_time >> (64 - year_field_length - month_field_length)) & ((1 << month_field_length) - 1);
-    if (!(1 <= month && month <= 12)) {
-        throw std::runtime_error(std::format("invalid month {} in serialized creation time", month));
-    }
-    const int day = (serialized_creation_time >> (64 - year_field_length - month_field_length - day_field_length)) & ((1 << day_field_length) - 1);
-    if (!(1 <= day && day <= 31)) {
-        throw std::runtime_error(std::format("invalid day {} in serialized creation time", day));
-    }
-    const int hour = (serialized_creation_time >> (64 - year_field_length - month_field_length - day_field_length - hour_field_length)) & ((1 << hour_field_length) - 1);
-    if (!(0 <= hour && hour < 24)) {
-        throw std::runtime_error(std::format("invalid hour {} in serialized creation time", hour));
-    }
-    const int minute = (serialized_creation_time >> (64 - year_field_length - month_field_length - day_field_length - hour_field_length - minute_field_length)) & ((1 << minute_field_length) - 1);
-    if (!(0 <= minute && minute < 60)) {
-        throw std::runtime_error(std::format("invalid minute {} in serialized creation time", minute));
-    }
-    const int second = (serialized_creation_time >> (64 - year_field_length - month_field_length - day_field_length - hour_field_length - minute_field_length - second_field_length)) & ((1 << second_field_length) - 1);
-    if (!(0 <= second && second < 60)) {
-        throw std::runtime_error(std::format("invalid second {} in serialized creation time", second));
-    }
-    return std::chrono::system_clock::time_point(
-        std::chrono::sys_days{
-            std::chrono::year(year) /
-            std::chrono::month(month) /
-            std::chrono::day(day)
-        } +
-        std::chrono::hours(hour) +
-        std::chrono::minutes(minute) +
-        std::chrono::seconds(second)
-    );
-}
-
-uint64_t node_binary_t::serialize_creation_time(const std::chrono::system_clock::time_point& creation_time) {
-    return std::chrono::duration_cast<std::chrono::seconds>(creation_time.time_since_epoch()).count();
-}
-
-function_t::function_t(const node_ir_t& ir):
-    m_ir(ir),
+function_t::function_t(typesystem_t* typesystem, function_ir_t* function_ir, function_call_t call):
+    m_typesystem(typesystem),
+    m_function_ir(function_ir),
+    m_call(call),
     m_parent(nullptr),
     m_is_expanded(false),
     m_left(0),
@@ -60,29 +15,6 @@ function_t::function_t(const node_ir_t& ir):
     m_is_dimensions_finalized(false)
 {
 }
-
-function_t::function_t(node_binary_t binary):
-    function_t(+[](function_t* self, argument_index_t argument_index) {
-        self->send(argument_index);
-    })
-{
-    morph(binary);
-}
-
-function_t::function_t(node_id_t id):
-    function_t(+[](argument_index_t argument_index) {
-        assert(argument_index < __ARGUMENT_SIZE);
-        
-        assert(m_arguments[argument_index].m_data_type_id != -1);
-
-        expand();
-        send(argument_index);
-    }),
-    m_id(std::move(id)),
-{
-}
-
-function_t::function_t(node_name_t name);
 
 function_t::~function_t() {
     for (int i = 0; i < __ARGUMENT_SIZE; ++i) {
@@ -162,7 +94,7 @@ void function_t::write(argument_index_t argument_index, void* data, int data_typ
 
     if (argument.m_data_type_id != data_type_id) {
         argument.m_data_type_id = data_type_id;
-        argument.m_data.resize(TYPESYSTEM.sizeof_type(data_type_id));
+        argument.m_data.resize(m_typesystem->sizeof_type(data_type_id));
     }
 
     std::memcpy((void*) argument.m_data.data(), data, argument.m_data.size());
@@ -234,9 +166,6 @@ std::vector<function_t*>& function_t::children() {
 
 std::array<function_t::argument_t, function_t::__ARGUMENT_SIZE> function_t::arguments() {
     return m_arguments;
-}
-
-void function_t::expand(void (*call)(function_t*, argument_index_t)) {
 }
 
 void function_t::expand(const node_binary_t& binary) {
@@ -316,7 +245,7 @@ void function_t::expand(const node_binary_t& binary) {
                 int bottom = (int16_t) binary.bytes[ip++] << 8;
                 bottom |= (int16_t) binary.bytes[ip++];
 
-                function_t* node = TYPESYSTEM.coerce(node_id);
+                function_t* node = m_typesystem->coerce(node_id);
                 assert(node);
                 node->left(left);
                 node->right(right);
@@ -371,10 +300,51 @@ void function_t::expand(const node_binary_t& binary) {
     m_is_expanded = true;
 }
 
-void function_t::expand(node_id_t id) {
+void function_t::morph(typesystem_t* typesystem, function_ir_t* function_ir, function_call_t call) {
 }
 
-void function_t::expand(node_name_t name) {
+void function_t::expand() {
+    if (m_is_expanded) {
+        return ;
+    }
+    assert(m_function_ir);
+    assert(m_children.empty());
+
+    for (const auto& child : m_function_ir->children) {
+        function_t* node = m_typesystem->coerce(child.id);
+        assert(node);
+        node->left(child.left);
+        node->right(child.right);
+        node->top(child.top);
+        node->bottom(child.bottom);
+        node->finalize_dimensions();
+        m_children.emplace_back(node);
+    }
+
+    for (const auto& connection : m_function_ir->connections) {
+        function_t* from_function = nullptr;
+        if (connection.from_function_index == static_cast<uint16_t>(-1)) {
+            from_function = this;
+        } else if (connection.from_function_index < m_children.size()) {
+            from_function = m_children[connection.from_function_index];
+        } else {
+            throw std::runtime_error(std::format("from function index out of range: {}", connection.from_function_index));
+        }
+
+        function_t* to_function = nullptr;
+        if (connection.to_function_index == static_cast<uint16_t>(-1)) {
+            to_function = this;
+        } else if (connection.to_function_index < m_children.size()) {
+            to_function = m_children[connection.to_function_index];
+        } else {
+            throw std::runtime_error(std::format("to function index out of range: {}", connection.to_function_index));
+        }
+
+        assert(from_function && to_function);
+        from_function->connect(to_function, connection.to_argument_index, connection.from_argument_index);
+    }
+
+    m_is_expanded = true;
 }
 
 void function_t::left(int left) {
@@ -453,98 +423,6 @@ function_t::argument_t::argument_t() {
 
 static function_t* node_binary_to_node(const node_binary_t& in) {
     return new function_t(in);
-}
-
-static node_assembly_t node_binary_to_human_readable(node_binary_t* in) {
-    node_assembly_t result;
-
-    std::string result_node_name;
-    size_t ip = 0;
-    while (ip < in->bytes.size() && in->bytes[ip] != 0) {
-        result_node_name.push_back(in->bytes[ip]);
-        ++ip;
-    }
-    if (ip == in->bytes.size()) {
-        throw std::runtime_error("unterminated component name in binary");
-    }
-    assert(in->bytes[ip] == 0);
-    ++ip;
-    result.str += result_node_name + ":\n";
-
-    std::unordered_map<uint8_t, std::string> component_names;
-
-    while (ip < in->bytes.size()) {
-        uint8_t op = in->bytes[ip++];
-        switch (op) {
-        case OP_CREATE_NODE: {
-            std::string node_name;
-            while (ip < in->bytes.size() && in->bytes[ip] != 0) {
-                node_name.push_back(in->bytes[ip]);
-                ++ip;
-            }
-            if (ip == in->bytes.size()) {
-                throw std::runtime_error("unterminated node name in binary");
-            }
-            assert(in->bytes[ip] == 0);
-            ++ip;
-
-            if (in->bytes.size() < ip + 8) {
-                throw std::runtime_error("expected 8 bytes for node dimensions");
-            }
-            int left = (int16_t) in->bytes[ip++] << 8;
-            left |= (int16_t) in->bytes[ip++];
-            int right = (int16_t) in->bytes[ip++] << 8;
-            right |= (int16_t) in->bytes[ip++];
-            int top = (int16_t) in->bytes[ip++] << 8;
-            top |= (int16_t) in->bytes[ip++];
-            int bottom = (int16_t) in->bytes[ip++] << 8;
-            bottom |= (int16_t) in->bytes[ip++];
-
-            size_t node_index = component_names.size();
-            component_names[node_index] = node_name;
-            result.str += "  " + node_name + " " + std::to_string(node_index) + " (" + std::to_string(left) + ", " + std::to_string(right) + ", " + std::to_string(top) + ", " + std::to_string(bottom) + ")\n";
-        } break ;
-        case OP_CONNECT_argumentS: {
-            if (in->bytes.size() < ip + 4) {
-                throw std::runtime_error("expected 4 bytes for connect arguments");
-            }
-            uint8_t from_node_index = in->bytes[ip++];
-            uint8_t from_argument_index = in->bytes[ip++];
-            uint8_t to_node_index = in->bytes[ip++];
-            uint8_t to_argument_index = in->bytes[ip++];
-            if (__ARGUMENT_SIZE < from_argument_index) {
-                throw std::runtime_error("from argument index out of range: " + std::to_string(from_argument_index));
-            }
-            if (__ARGUMENT_SIZE < to_argument_index) {
-                throw std::runtime_error("to argument index out of range: " + std::to_string(to_argument_index));
-            }
-            std::string from_node_name;        std::vector<function_t*>& nodes = out->children();
-
-            std::string to_node_name;
-            if (to_node_index == (uint8_t) -1) {
-                to_node_name = result_node_name;
-            } else if (component_names.find(to_node_index) != component_names.end()) {
-                to_node_name = component_names[to_node_index];
-            } else {
-                throw std::runtime_error("to node index out of range: " + std::to_string(to_node_index));
-            }
-            result.str += "  " + from_node_name;
-            if (from_node_index != (uint8_t) -1) {
-                result.str += " " + std::to_string(from_node_index);
-            }
-            result.str += " [" + std::to_string(from_argument_index) + "] -> " "[" + std::to_string(to_argument_index) + "] " + to_node_name;
-            if (to_node_index != (uint8_t) -1) {
-                result.str += " " + std::to_string(to_node_index);
-            }
-            result.str += "\n";
-        } break ;
-        default: {
-            throw std::runtime_error("unknown opcode: " + std::to_string(op));
-        } break ;
-        }
-    }
-
-    return result;
 }
 
 node_binary_t function_to_node_binary(function_t* in) {
@@ -753,17 +631,3 @@ function_t* string_to_node(const std::string& str) {
 
     return coerce(node_binary);
 }
-
-struct _install_module {
-    _install_module() {
-        register_coercion(&node_binary_to_node);
-        register_coercion(&node_binary_to_human_readable);
-        register_coercion(&function_to_node_binary);
-        register_coercion(&string_to_node);
-    }
-
-    ~_install_module() {
-    }
-};
-
-static _install_module g_builder;

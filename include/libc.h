@@ -24,6 +24,7 @@
 # include <condition_variable>
 # include <format>
 # include <filesystem>
+# include <optional>
 
 # include <cassert>
 # include <cctype>

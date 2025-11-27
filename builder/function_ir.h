@@ -6,14 +6,14 @@
 struct function_ir_t {
     function_id_t function_id;
 
-    struct dependency_info_t {
-        function_ir_t* function_dependency;
+    struct child_t {
+        const function_ir_t* function_ir;
         int left;
         int right;
         int top;
         int bottom;
     };
-    std::vector<dependency_info_t> dependency_infos;
+    std::vector<child_t> children;
 
     struct connection_info_t {
         uint16_t from_function_index;

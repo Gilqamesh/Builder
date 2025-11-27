@@ -1,9 +1,30 @@
-#ifndef PRIMITIVE_FUNCTION_H
-# define PRIMITIVE_FUNCTION_H
+#ifndef PRIMITIVE_REPOSITORY_H
+# define PRIMITIVE_REPOSITORY_H
 
+# include "typesystem_call.h"
 # include "function.h"
 
-struct primitive_function_t {
+class primitive_repository_t {
+public:
+    template <typename Func>
+    void save(const function_id_t& id, Func&& f) {
+        using traits    = function_traits<std::decay_t<Func>>;
+        using signature = typename traits::signature;
+
+        m_primitives[id] = [f = std::forward<Func>(f)](function_t* ft) mutable {
+            primitive_wrapper<signature>::call(ft, f);
+        };
+    }
+
+    function_t::function_call_t load(const function_id_t& id) {
+        auto it = m_primitives.find(id);
+        if (it == m_primitives.end()) {
+            return {};
+        }
+        return it->second;
+    }
+
+private:
     // -----------------------------------------------------------------------------
     // function_traits (minimal)
     // -----------------------------------------------------------------------------
@@ -42,7 +63,6 @@ struct primitive_function_t {
             constexpr size_t N = sizeof...(Args);
             constexpr size_t sizes[N] = { sizeof(Args)... };
 
-            // Allocate raw memory per argument
             void* buffer[N];
             for (size_t i = 0; i < N; i++)
                 buffer[i] = operator new(sizes[i]);
@@ -60,7 +80,7 @@ struct primitive_function_t {
                 invoke_with_args(f, buffer, std::index_sequence_for<Args...>{});
             } else {
                 Ret r = invoke_with_args_ret(f, buffer, std::index_sequence_for<Args...>{});
-                ft->write<Ret>(function_t::argument_index_t::ARG1, r);
+                ft->write<Ret>(function_t::argument_index_t::RETURN_ARGUMENT, r);
             }
         }
 
@@ -91,6 +111,9 @@ struct primitive_function_t {
         template <size_t Index>
         static void read_loop(function_t*, void**, bool&) {}
     };
+
+private:
+    std::unordered_map<function_id_t, function_t::function_call_t> m_primitives;
 };
 
-#endif // PRIMITIVE_FUNCTION_H
+#endif // PRIMITIVE_REPOSITORY_H
