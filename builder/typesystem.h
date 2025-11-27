@@ -2,6 +2,7 @@
 # define TYPESYSTEM_H
 
 # include "libc.h"
+# include <bit>
 
 class typesystem_t {
 public:
@@ -16,7 +17,20 @@ public:
         }
     };
 
-    using coercion_t = std::function<void(void*, void*)>;
+    struct coercion_t {
+        using caller_t = void (*)(void*, void*, void*);
+
+        caller_t caller = nullptr;
+        void* context = nullptr;
+
+        constexpr operator bool() const {
+            return caller != nullptr;
+        }
+
+        void operator()(void* from, void* to) const {
+            caller(from, to, context);
+        }
+    };
 
 public:
     template <typename T>
@@ -50,6 +64,10 @@ public:
     size_t sizeof_type(int type_id);
 
 private:
+    template <typename From, typename To>
+    static void coercion_bridge(void* from_raw, void* to_raw, void* context);
+
+private:
     std::unordered_map<void*, int> m_addr_to_typeid;
 
     std::vector<std::vector<int>> m_type_parents;
@@ -71,12 +89,12 @@ void typesystem_t::register_type() {
         m_type_parents[i].emplace_back(-1);
         m_type_distance[i].emplace_back(INFINITY);
         m_type_calls[i].emplace_back(0);
-        m_coercions[i].emplace_back(nullptr);
+        m_coercions[i].emplace_back(coercion_t{});
     }
     m_type_parents.emplace_back(std::vector<int>(old_size + 1, -1));
     m_type_distance.emplace_back(std::vector<double>(old_size + 1, INFINITY));
     m_type_calls.emplace_back(std::vector<size_t>(old_size + 1, 0));
-    m_coercions.emplace_back(std::vector<coercion_t>(old_size + 1, nullptr));
+    m_coercions.emplace_back(std::vector<coercion_t>(old_size + 1, coercion_t{}));
 
     m_type_parents[old_size][old_size] = old_size;
     m_type_distance[old_size][old_size] = 0.0;
@@ -96,8 +114,9 @@ void typesystem_t::register_coercion(To (*coercion_procedure)(From)) {
     m_type_parents[id_from][id_to] = id_from;
     m_type_distance[id_from][id_to] = 0.0;
     m_type_calls[id_from][id_to] = 0;
-    m_coercions[id_from][id_to] = [coercion_procedure](void* from_raw, void* to_raw) {
-        *reinterpret_cast<To*>(to_raw) = coercion_procedure(*reinterpret_cast<From*>(from_raw));
+    m_coercions[id_from][id_to] = coercion_t {
+        .caller = &coercion_bridge<From, To>,
+        .context = std::bit_cast<void*>(coercion_procedure)
     };
     update_coercion_graph(id_from, id_to);
 }
@@ -140,6 +159,12 @@ int typesystem_t::type_id() {
 template <typename T>
 size_t typesystem_t::sizeof_type() {
     return sizeof(T);
+}
+
+template <typename From, typename To>
+void typesystem_t::coercion_bridge(void* from_raw, void* to_raw, void* context) {
+    auto procedure = std::bit_cast<To (*)(From)>(context);
+    *reinterpret_cast<To*>(to_raw) = procedure(*reinterpret_cast<From*>(from_raw));
 }
 
 #endif // TYPESYSTEM_H
