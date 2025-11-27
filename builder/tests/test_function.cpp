@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 
-#include "core/node.h"
+#include "function.h"
 
 TEST(Node, Happy) {
     node_t node;

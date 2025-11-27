@@ -73,6 +73,3 @@ size_t typesystem_t::sizeof_type(int type_id) {
 
     return m_type_size[type_id];
 }
-
-static void test() {
-}

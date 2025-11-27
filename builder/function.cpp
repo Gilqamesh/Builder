@@ -17,7 +17,7 @@ function_t::function_t(typesystem_t& typesystem, function_ir_t function_ir, func
 }
 
 function_t::~function_t() {
-    for (int i = 0; i < m_arguments.size(); ++i) {
+    for (size_t i = 0; i < m_arguments.size(); ++i) {
         disconnect((uint8_t) i);
     }
 }
@@ -88,6 +88,13 @@ void function_t::disconnect(uint8_t argument_index) {
 
 void function_t::call(uint8_t caller_argument_index) {
     m_call(*this, caller_argument_index);
+}
+
+function_t::reader_t function_t::read(uint8_t index) {
+    return reader_t {
+        .self = this,
+        .index = index
+    };
 }
 
 void function_t::write(uint8_t argument_index, void* data, int data_type_id) {
@@ -180,7 +187,7 @@ std::vector<function_t::argument_t>& function_t::arguments() {
     return m_arguments;
 }
 
-void function_t::morph(typesystem_t* typesystem, function_ir_t function_ir, function_call_t call) {
+void function_t::morph(typesystem_t& typesystem, function_ir_t function_ir, function_call_t call) {
     if (m_is_expanded) {
         if (m_function_ir.function_id != function_ir.function_id) {
             shrink();
@@ -201,7 +208,7 @@ void function_t::expand() {
     assert(m_children.empty());
 
     for (const auto& child : m_function_ir.children) {
-        function_t* node = m_typesystem.coerce(child.function_ir);
+        function_t* node = m_typesystem.coerce(child.function_id);
         assert(node);
         node->left(child.left);
         node->right(child.right);

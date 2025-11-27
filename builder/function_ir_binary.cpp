@@ -158,4 +158,7 @@ function_id_t function_ir_binary_t::deserialize_function_id(size_t& offset) cons
         creation_time_serialized |= ((uint64_t) m_bytes[offset + i]) << (56 - i * 8);
     }
     result.creation_time = deserialize_creation_time(creation_time_serialized);
+    offset += 8;
+
+    return result;
 }

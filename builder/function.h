@@ -16,6 +16,16 @@ public:
         std::vector<uint8_t> m_data;
     };
 
+    struct reader_t {
+        function_t* self;
+        uint8_t index;
+
+        template <typename T>
+        operator T() {
+            return self->read<T>(index);
+        }
+    };
+
 public:
     typedef void (*function_call_t)(function_t& function, uint8_t argument_index);
     function_t(typesystem_t& typesystem, function_ir_t function_ir, function_call_t function_call);
@@ -56,12 +66,10 @@ public:
     void call(uint8_t caller_argument_index);
 
     /**
-     * Reads data of type `T` from `argument_index`.
-     * Returns false if no data is present or if the data cannot be coerced to type `T`.
-     * Returns true and sets `out` otherwise.
+     * Returns coerced data of type `T` from the `index` argument.
+     * T is deduced from the call site.
     */
-    template <typename T>
-    bool read(uint8_t argument_index, T& out);
+    reader_t read(uint8_t index);
 
     /**
      * Writes data of type `T` to the `argument_index`.
@@ -93,7 +101,7 @@ public:
 
     std::vector<argument_t>& arguments();
 
-    void morph(typesystem_t* typesystem, function_ir_t function_ir, function_call_t call);
+    void morph(typesystem_t& typesystem, function_ir_t function_ir, function_call_t call);
 
     void expand();
     void shrink();
@@ -134,6 +142,10 @@ public:
     int from_child_y(int y);
 
 private:
+    template <typename T>
+    T read(uint8_t argument_index);
+
+private:
     typesystem_t& m_typesystem;
     function_ir_t m_function_ir;
     function_call_t m_call;
@@ -156,22 +168,22 @@ private:
 };
 
 template <typename T>
-bool function_t::read(uint8_t argument_index, T& out) {
+T function_t::read(uint8_t argument_index) {
     if (m_arguments.size() <= argument_index) {
         throw std::runtime_error(std::format("argument_index out of range: {}", argument_index));
     }
     argument_t& argument = m_arguments[argument_index];
     if (argument.m_data_type_id == -1) {
-        return false;
+        throw std::runtime_error(std::format("argument {} has no data", argument_index));
     }
-    return m_typesystem->coerce<T>((void*) argument.m_data.data(), argument.m_data_type_id, &out);
+    return m_typesystem.coerce<T>((void*) argument.m_data.data(), argument.m_data_type_id);
 }
 
 template <typename T>
 void function_t::write(uint8_t argument_index, T data) {
-    m_typesystem->register_type<T>();
+    m_typesystem.register_type<T>();
 
-    write(argument_index, (void*) &data, m_typesystem->type_id<T>());
+    write(argument_index, (void*) &data, m_typesystem.type_id<T>());
 }
 
 #endif // FUNCTION_H

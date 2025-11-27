@@ -9,6 +9,10 @@ function_t function_primitive_lang_t::function(typesystem_t& typesystem, std::st
                 .name = std::move(name),
                 .creation_time = std::chrono::system_clock::now()
             },
+            .left = {},
+            .right = {},
+            .top = {},
+            .bottom = {},
             .children = {},
             .connections = {}
         },

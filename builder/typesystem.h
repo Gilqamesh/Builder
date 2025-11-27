@@ -5,14 +5,26 @@
 
 class typesystem_t {
 public:
+    struct reader_t {
+        typesystem_t* self;
+        void* from;
+        int type_id_from;
+
+        template <typename T>
+        operator T() {
+            return self->coerce<T>(from, type_id_from);
+        }
+    };
+
+public:
     template <typename T>
     void register_type();
 
     template <typename From, typename To>
     void register_coercion(To (*coercion_procedure)(From));
 
-    template <typename From, typename To>
-    To coerce(From from);
+    template <typename From>
+    reader_t coerce(From& from);
 
     template <typename To>
     To coerce(void* from, int id_from);
@@ -34,6 +46,10 @@ public:
     size_t sizeof_type();
 
     size_t sizeof_type(int type_id);
+
+private:
+    template <typename From, typename To>
+    To coerce(From from);
 
 private:
     std::unordered_map<void*, int> m_addr_to_typeid;
@@ -88,9 +104,13 @@ void typesystem_t::register_coercion(To (*coercion_procedure)(From)) {
     update_coercion_graph(id_from, id_to);
 }
 
-template <typename From, typename To>
-To typesystem_t::coerce(From from) {
-    return coerce(from, type_id<From>());
+template <typename From>
+typesystem_t::reader_t typesystem_t::coerce(From& from) {
+    return reader_t {
+        .self = this,
+        .from = (void*) &from,
+        .type_id_from = type_id<From>()
+    };
 }
 
 template <typename To>

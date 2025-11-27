@@ -2,7 +2,12 @@
 
 #include "function_ir_binary.h"
 
-function_ir_file_repository_t::function_ir_file_repository_t(const std::filesystem::path& directory_path) {
+function_ir_file_repository_t::function_ir_file_repository_t(const std::filesystem::path& directory_path):
+    m_directory_path(directory_path)
+{
+    if (!std::filesystem::exists(m_directory_path)) {
+        std::filesystem::create_directories(m_directory_path);
+    }
 }
 
 void function_ir_file_repository_t::save(const function_id_t& id, const function_ir_t& function_ir) {
@@ -52,7 +57,7 @@ function_ir_t function_ir_file_repository_t::load_latest(const std::string& ns, 
     }
 
     if (!latest_function_id) {
-        throw std::runtime_error(std::format("no latest function found for {}::{} in directory {}", ns, name, m_directory_path));
+        throw std::runtime_error(std::format("no latest function found for {}::{} in directory {}", ns, name, m_directory_path.string()));
     }
 
     function_ir_t result = load(latest_function_id);

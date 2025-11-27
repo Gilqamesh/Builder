@@ -15,14 +15,18 @@ public:
                     .name = std::move(name),
                     .creation_time = std::chrono::system_clock::now()
                 },
+                .left = {},
+                .right = {},
+                .top = {},
+                .bottom = {},
                 .children = {},
                 .connections = {}
             },
-            [f = std::forward<FunctionSignature>(f)](function_t* function, argument_index_t argument_index) {
-                // unused, TODO: coerce all arguments from 0 to N, and store argument in argument_index_t::RETURN_ARGUMENT
+            [f = std::forward<FunctionSignature>(function)](function_t* function, uint8_t argument_index) {
+                // unused, TODO: coerce all arguments and store the result in a special argument index
                 (void) argument_index;
 
-                primitive_wrapper<signature>::call(ft, f);
+                primitive_wrapper<FunctionSignature>::call(function, f);
             }
         );
     }
@@ -83,7 +87,8 @@ private:
                 invoke_with_args(f, buffer, std::index_sequence_for<Args...>{});
             } else {
                 Ret r = invoke_with_args_ret(f, buffer, std::index_sequence_for<Args...>{});
-                ft->write<Ret>(function_t::argument_index_t::RETURN_ARGUMENT, r);
+                throw std::runtime_error("Return value handling not implemented.");
+                ft->write<Ret>(-1, r);
             }
         }
 
@@ -98,17 +103,17 @@ private:
             return f(*reinterpret_cast<Args*>(buffer[I])...);
         }
 
-        static void read_args(function_t* ft, void** buffer, bool& ok) {
-            read_loop<0, Args...>(ft, buffer, ok);
+        static void read_args(function_t* ft, void** buffer) {
+            read_loop<0, Args...>(ft, buffer);
         }
 
         template <size_t Index, typename T, typename... Rest>
-        static void read_loop(function_t* ft, void** buffer, bool& ok) {
-            if (!ok) return;
-            ft->read(static_cast<typename function_t::argument_index_t>(Index),
-                    *reinterpret_cast<T*>(buffer[Index]));
-            if constexpr (sizeof...(Rest) > 0)
-                read_loop<Index + 1, Rest...>(ft, buffer, ok);
+        static void read_loop(function_t* ft, void** buffer) {
+            *static_cast<T*>(buffer[Index]) = ft->read(Index);
+
+            if constexpr (0 < sizeof...(Rest)) {
+                read_loop<Index + 1, Rest...>(ft, buffer);
+            }
         }
 
         template <size_t Index>
