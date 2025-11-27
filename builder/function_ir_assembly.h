@@ -11,9 +11,6 @@ public:
     function_ir_t function_ir() const;
 
 private:
-    void serialize_function_id(const function_id_t& function_id);
-
-private:
     std::string m_assembly;
 };
 

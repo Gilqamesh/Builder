@@ -1,24 +1,20 @@
 #include "function_repository.h"
 
-void function_repository_t::save(function_id_t id, function_ir_t ir) {
+void function_repository_t::save(function_id_t id, function_t::function_call_t call, function_ir_t ir) {
     m_functions.emplace(
         std::move(id),
         entry_t {
-            .call = [](function_t* function, function_t::argument_index_t argument_index) {
-                function->expand();
-                function->send(argument_index);
-            },
+            .call = call,
             .ir = std::move(ir)
         }
     );
 }
 
-void function_repository_t::save(function_id_t id, function_t::function_call_t call) {
-    m_functions.emplace(
-        std::move(id),
-        entry_t {
-            .call = std::move(call),
-            .ir = function_ir_t{}
-        }
-    );
+function_repository_t::entry_t function_repository_t::load(const function_id_t& id) {
+    auto it = m_functions.find(id);
+    if (it == m_functions.end()) {
+        throw std::runtime_error("function not found in repository");
+    }
+
+    return it->second;
 }

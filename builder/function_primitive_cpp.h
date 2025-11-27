@@ -1,27 +1,30 @@
-#ifndef PRIMITIVE_REPOSITORY_H
-# define PRIMITIVE_REPOSITORY_H
+#ifndef FUNCTION_PRIMITIVE_CPP_H
+# define FUNCTION_PRIMITIVE_CPP_H
 
-# include "typesystem_call.h"
 # include "function.h"
 
-class primitive_repository_t {
+template <typename FunctionSignature>
+class function_primitive_cpp_t {
 public:
-    template <typename Func>
-    void save(const function_id_t& id, Func&& f) {
-        using traits    = function_traits<std::decay_t<Func>>;
-        using signature = typename traits::signature;
+    function_t function(typesystem_t& typesystem, std::string ns, std::string name, FunctionSignature&& function) {
+        return function_t(
+            typesystem,
+            function_ir_t {
+                .function_id = function_id_t {
+                    .ns = std::move(ns),
+                    .name = std::move(name),
+                    .creation_time = std::chrono::system_clock::now()
+                },
+                .children = {},
+                .connections = {}
+            },
+            [f = std::forward<FunctionSignature>(f)](function_t* function, argument_index_t argument_index) {
+                // unused, TODO: coerce all arguments from 0 to N, and store argument in argument_index_t::RETURN_ARGUMENT
+                (void) argument_index;
 
-        m_primitives[id] = [f = std::forward<Func>(f)](function_t* ft) mutable {
-            primitive_wrapper<signature>::call(ft, f);
-        };
-    }
-
-    function_t::function_call_t load(const function_id_t& id) {
-        auto it = m_primitives.find(id);
-        if (it == m_primitives.end()) {
-            return {};
-        }
-        return it->second;
+                primitive_wrapper<signature>::call(ft, f);
+            }
+        );
     }
 
 private:
@@ -111,9 +114,6 @@ private:
         template <size_t Index>
         static void read_loop(function_t*, void**, bool&) {}
     };
-
-private:
-    std::unordered_map<function_id_t, function_t::function_call_t> m_primitives;
 };
 
-#endif // PRIMITIVE_REPOSITORY_H
+#endif // FUNCTION_PRIMITIVE_CPP_H

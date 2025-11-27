@@ -5,9 +5,13 @@
 
 struct function_ir_t {
     function_id_t function_id;
+    int left;
+    int right;
+    int top;
+    int bottom;
 
     struct child_t {
-        const function_ir_t* function_ir;
+        function_id_t function_id;
         int left;
         int right;
         int top;
