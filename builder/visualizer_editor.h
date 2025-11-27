@@ -1,11 +1,11 @@
-#ifndef EDITOR_H
-# define EDITOR_H
+#ifndef VISUALIZER_EDITOR_H
+#define VISUALIZER_EDITOR_H
 
-# include "libc.h"
+#include "libc.h"
 
-class editor_t {
+class visualizer_editor_t {
 public:
-    editor_t();
+    visualizer_editor_t();
 
     void init();
     void deinit();
@@ -24,4 +24,4 @@ private:
     std::function<void(std::string)> m_on_complete;
 };
 
-#endif // EDITOR_H
+#endif // VISUALIZER_EDITOR_H
