@@ -22,5 +22,5 @@ TEST(FunctionRepositoryTest, StoresEntries) {
     const auto entry = repo.load(ir.function_id);
 
     EXPECT_EQ(entry.ir.function_id, ir.function_id);
-    EXPECT_EQ(entry.call.target<decltype(noop_call)>(), &noop_call);
+    EXPECT_EQ(entry.call, &noop_call);
 }

@@ -2,6 +2,8 @@
 # define FUNCTION_PRIMITIVE_CPP_H
 
 # include "function.h"
+# include <type_traits>
+# include <utility>
 
 template <typename FunctionSignature = void()>
 class function_primitive_cpp_t {
@@ -17,6 +19,11 @@ public:
 private:
     template <typename Sig, typename F>
     static function_t* function_impl(typesystem_t& typesystem, std::string ns, std::string name, F&& f) {
+        using traits = function_traits<std::decay_t<F>>;
+        using fn_ptr = typename traits::pointer;
+
+        fn_ptr fn = static_cast<fn_ptr>(std::forward<F>(f));
+
         return new function_t(
             typesystem,
             function_ir_t {
@@ -32,9 +39,7 @@ private:
                 .children = {},
                 .connections = {}
             },
-            [fn = std::forward<F>(f)](function_t& ft, uint8_t idx) {
-                primitive_wrapper<Sig>::call(ft, fn);
-            }
+            &primitive_wrapper<Sig>::template call<fn>
         );
     }
 
@@ -47,18 +52,21 @@ private:
     template <typename Ret, typename... Args>
     struct function_traits<Ret(*)(Args...)> {
         using signature = Ret(Args...);
+        using pointer = Ret(*)(Args...);
         static constexpr size_t arity = sizeof...(Args);
     };
 
     template <typename C, typename Ret, typename... Args>
     struct function_traits<Ret(C::*)(Args...)> {
         using signature = Ret(Args...);
+        using pointer = Ret(*)(Args...);
         static constexpr size_t arity = sizeof...(Args);
     };
 
     template <typename C, typename Ret, typename... Args>
     struct function_traits<Ret(C::*)(Args...) const> {
         using signature = Ret(Args...);
+        using pointer = Ret(*)(Args...);
         static constexpr size_t arity = sizeof...(Args);
     };
 
@@ -71,8 +79,8 @@ private:
     template <typename Ret, typename... Args>
     struct primitive_wrapper<Ret(Args...)> {
 
-        template <typename F>
-        static void call(function_t& ft, F&& f) {
+        template <auto Fn>
+        static void call(function_t& ft, uint8_t) {
             constexpr size_t N = sizeof...(Args);
             constexpr size_t sizes[N] = { sizeof(Args)... };
 
@@ -86,9 +94,9 @@ private:
 
             // Call with dereferenced pointers
             if constexpr (std::is_void_v<Ret>) {
-                invoke_with_args(f, buffer, std::index_sequence_for<Args...>{});
+                invoke_with_args<Fn>(buffer, std::index_sequence_for<Args...>{});
             } else {
-                Ret r = invoke_with_args_ret(f, buffer, std::index_sequence_for<Args...>{});
+                Ret r = invoke_with_args_ret<Fn>(buffer, std::index_sequence_for<Args...>{});
                 throw std::runtime_error("Return value handling not implemented.");
                 ft.write<Ret>(-1, r);
             }
@@ -96,13 +104,13 @@ private:
 
     private:
         template <size_t... I>
-        static void invoke_with_args(auto& f, void** buffer, std::index_sequence<I...>) {
-            f(*reinterpret_cast<Args*>(buffer[I])...);
+        static void invoke_with_args(auto buffer, std::index_sequence<I...>) {
+            Fn(*reinterpret_cast<Args*>(buffer[I])...);
         }
 
         template <size_t... I>
-        static auto invoke_with_args_ret(auto& f, void** buffer, std::index_sequence<I...>) {
-            return f(*reinterpret_cast<Args*>(buffer[I])...);
+        static auto invoke_with_args_ret(auto buffer, std::index_sequence<I...>) {
+            return Fn(*reinterpret_cast<Args*>(buffer[I])...);
         }
 
         static void read_args(function_t& ft, void** buffer) {
