@@ -25,6 +25,7 @@
 # include <format>
 # include <filesystem>
 # include <optional>
+# include <type_traits>
 
 # include <cassert>
 # include <cctype>

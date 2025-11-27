@@ -2,8 +2,6 @@
 # define FUNCTION_PRIMITIVE_CPP_H
 
 # include "function.h"
-# include <type_traits>
-# include <utility>
 
 template <typename FunctionSignature = void()>
 class function_primitive_cpp_t {
