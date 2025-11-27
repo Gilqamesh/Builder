@@ -17,7 +17,7 @@ void typesystem_t::coerce(void* from, int id_from, void* to, int id_to) {
     coerce(from, id_from, (void*) subresult.data(), id_subresult);
 
     auto coercion_procedure = m_coercions[id_subresult][id_to];
-    if (coercion_procedure == nullptr) {
+    if (!coercion_procedure) {
         throw std::runtime_error(std::format("no coercion procedure found between types ({}, {})", id_subresult, id_to));
     }
 

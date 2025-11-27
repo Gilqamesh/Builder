@@ -26,7 +26,7 @@ public:
         }
     };
 
-    using function_call_t = std::function<void(function_t&, uint8_t)>;
+    using function_call_t = void (*)(function_t&, uint8_t);
 
 public:
     function_t(typesystem_t& typesystem, function_ir_t function_ir, function_call_t function_call);
