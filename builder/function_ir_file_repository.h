@@ -8,9 +8,9 @@ class function_ir_file_repository_t {
 public:
     function_ir_file_repository_t(const std::filesystem::path& directory_path);
 
-    void save(const function_id_t& id, const function_ir_t& function_ir);
+    void save(const function_ir_t& function_ir);
 
-    function_ir_t load(const function_id_t& id) const;
+    function_ir_t load(const function_id_t& function_id) const;
     function_ir_t load_latest(const std::string& ns, const std::string& name) const;
 
 private:

@@ -26,14 +26,18 @@ public:
         }
     };
 
+    using function_call_t = std::function<void(function_t&, uint8_t)>;
+
 public:
-    typedef void (*function_call_t)(function_t& function, uint8_t argument_index);
     function_t(typesystem_t& typesystem, function_ir_t function_ir, function_call_t function_call);
 
     virtual ~function_t();
 
     function_t* parent();
     void parent(function_t* parent);
+
+    function_ir_t& function_ir();
+    function_call_t& function_call();
 
     void argument_name(uint8_t argument_index, std::string name);
     const std::string& argument_name(uint8_t argument_index);

@@ -6,10 +6,10 @@
 
 struct typesystem_call_t : public call_t {
 public:
-    typesystem_call_t(typesystem_t* typesystem, void* function_symbol);
+    typesystem_call_t(typesystem_t& typesystem, void* function_symbol);
 
 private:
-    typesystem_t* m_typesystem;
+    typesystem_t& m_typesystem;
 };
 
 #endif // TYPESYSTEM_CALL_H

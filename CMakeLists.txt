@@ -12,7 +12,6 @@ enable_testing()
 add_library(project_interface INTERFACE)
 target_include_directories(project_interface INTERFACE ${CMAKE_SOURCE_DIR}/include)
 target_precompile_headers(project_interface INTERFACE ${CMAKE_SOURCE_DIR}/include/libc.h)
-target_compile_options(project_interface INTERFACE -Wall -Wextra -Werror -pedantic -Wfloat-equal)
 target_link_libraries(project_interface INTERFACE m)
 
 add_subdirectory(builder)

@@ -11,6 +11,6 @@ TEST(FunctionCallRepositoryTest, StoresFunctionPointers) {
     const function_id_t id{ .ns = "ns", .name = "call", .creation_time = std::chrono::system_clock::now() };
 
     repo.save(id, &noop_call);
-    EXPECT_EQ(repo.load(id), &noop_call);
-    EXPECT_EQ(repo.load(function_id_t{}), nullptr);
+    EXPECT_EQ(repo.load(id).target<decltype(noop_call)>(), &noop_call);
+    EXPECT_EQ(repo.load(function_id_t{}).target<decltype(noop_call)>(), nullptr);
 }

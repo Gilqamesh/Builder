@@ -15,5 +15,5 @@ TEST(FunctionCompoundTest, ConstructsFromIr) {
     };
 
     auto fn = function_compound_t::function(typesystem, ir);
-    EXPECT_TRUE(fn.children().empty());
+    EXPECT_TRUE(fn->children().empty());
 }

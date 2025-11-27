@@ -11,7 +11,7 @@ public:
     };
 
 public:
-    void save(function_id_t id, function_t::function_call_t call, function_ir_t ir);
+    void save(function_ir_t ir, function_t::function_call_t call);
 
     entry_t load(const function_id_t& id);
 

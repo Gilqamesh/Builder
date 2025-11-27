@@ -18,9 +18,9 @@ TEST(FunctionRepositoryTest, StoresEntries) {
         .connections = {}
     };
 
-    repo.save(ir.function_id, &noop_call, ir);
+    repo.save(ir, &noop_call);
     const auto entry = repo.load(ir.function_id);
 
     EXPECT_EQ(entry.ir.function_id, ir.function_id);
-    EXPECT_EQ(entry.call, &noop_call);
+    EXPECT_EQ(entry.call.target<decltype(noop_call)>(), &noop_call);
 }

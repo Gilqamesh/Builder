@@ -3,9 +3,6 @@
 
 # include "libc.h"
 
-# define NS_NAME __NAMESPACE__
-# define FUNC_NAME __func__
-
 struct function_id_t {
     std::string ns;
     std::string name;

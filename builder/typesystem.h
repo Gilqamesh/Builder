@@ -16,6 +16,8 @@ public:
         }
     };
 
+    using coercion_t = std::function<void(void*, void*)>;
+
 public:
     template <typename T>
     void register_type();
@@ -48,16 +50,12 @@ public:
     size_t sizeof_type(int type_id);
 
 private:
-    template <typename From, typename To>
-    To coerce(From from);
-
-private:
     std::unordered_map<void*, int> m_addr_to_typeid;
 
     std::vector<std::vector<int>> m_type_parents;
     std::vector<std::vector<double>> m_type_distance;
     std::vector<std::vector<size_t>> m_type_calls;
-    std::vector<std::vector<void (*)(void*, void*)>> m_coercions;
+    std::vector<std::vector<coercion_t>> m_coercions;
     std::vector<size_t> m_type_size;
 };
 
@@ -78,7 +76,7 @@ void typesystem_t::register_type() {
     m_type_parents.emplace_back(std::vector<int>(old_size + 1, -1));
     m_type_distance.emplace_back(std::vector<double>(old_size + 1, INFINITY));
     m_type_calls.emplace_back(std::vector<size_t>(old_size + 1, 0));
-    m_coercions.emplace_back(std::vector<void (*)(void*, void*)>(old_size + 1, nullptr));
+    m_coercions.emplace_back(std::vector<coercion_t>(old_size + 1, nullptr));
 
     m_type_parents[old_size][old_size] = old_size;
     m_type_distance[old_size][old_size] = 0.0;
@@ -90,15 +88,15 @@ template <typename From, typename To>
 void typesystem_t::register_coercion(To (*coercion_procedure)(From)) {
     int id_from = type_id<From>();
     int id_to = type_id<To>();
-    assert(id_from < m_coercions.size());
-    assert(id_to < m_coercions[id_from].size());
+    assert(static_cast<size_t>(id_from) < m_coercions.size());
+    assert(static_cast<size_t>(id_to) < m_coercions[id_from].size());
     if (m_coercions[id_from][id_to]) {
         throw std::runtime_error("coercion is already registered between types");
     }
     m_type_parents[id_from][id_to] = id_from;
     m_type_distance[id_from][id_to] = 0.0;
     m_type_calls[id_from][id_to] = 0;
-    m_coercions[id_from][id_to] = +[coercion_procedure](void* from_raw, void* to_raw) {
+    m_coercions[id_from][id_to] = [coercion_procedure](void* from_raw, void* to_raw) {
         *reinterpret_cast<To*>(to_raw) = coercion_procedure(*reinterpret_cast<From*>(from_raw));
     };
     update_coercion_graph(id_from, id_to);

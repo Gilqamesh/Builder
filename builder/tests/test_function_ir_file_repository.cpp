@@ -25,7 +25,7 @@ TEST(FunctionIrFileRepositoryTest, SavesAndLoads) {
         .connections = {}
     };
 
-    repo.save(id, ir);
+    repo.save(ir);
     const auto loaded = repo.load(id);
 
     EXPECT_EQ(loaded.function_id.ns, ir.function_id.ns);

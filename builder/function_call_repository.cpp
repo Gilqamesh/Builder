@@ -9,5 +9,6 @@ function_t::function_call_t function_call_repository_t::load(const function_id_t
     if (it == m_function_calls.end()) {
         return nullptr;
     }
+    
     return it->second;
 }

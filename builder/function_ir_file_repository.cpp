@@ -10,10 +10,10 @@ function_ir_file_repository_t::function_ir_file_repository_t(const std::filesyst
     }
 }
 
-void function_ir_file_repository_t::save(const function_id_t& id, const function_ir_t& function_ir) {
+void function_ir_file_repository_t::save(const function_ir_t& function_ir) {
     function_ir_binary_t function_ir_binary(function_ir);
 
-    const auto path = function_id_to_path(id);
+    const auto path = function_id_to_path(function_ir.function_id);
     std::ofstream ofs(path, std::ios::binary);
     if (!ofs.is_open()) {
         throw std::runtime_error(std::format("failed to open file for writing: {}", path.string()));
@@ -23,8 +23,8 @@ void function_ir_file_repository_t::save(const function_id_t& id, const function
     ofs.write((const char*) bytes.data(), (std::streamsize) bytes.size());
 }
 
-function_ir_t function_ir_file_repository_t::load(const function_id_t& id) const {
-    const auto path = function_id_to_path(id);
+function_ir_t function_ir_file_repository_t::load(const function_id_t& function_id) const {
+    const auto path = function_id_to_path(function_id);
     std::ifstream ifs(path, std::ios::binary);
     if (!ifs.is_open()) {
         throw std::runtime_error(std::format("failed to open file for reading: {}", path.string()));

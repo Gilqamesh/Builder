@@ -2,7 +2,7 @@
 
 #include "function_primitive_lang.h"
 
-function_t function_alu_t::add(typesystem_t& typesystem) {
+function_t* function_alu_t::add(typesystem_t& typesystem) {
     return function_primitive_lang_t::function(typesystem, "function_alu_t", "add", [](function_t& function, uint8_t argument_index) {
         (void) argument_index;
 
@@ -12,7 +12,7 @@ function_t function_alu_t::add(typesystem_t& typesystem) {
     });
 }
 
-function_t function_alu_t::sub(typesystem_t& typesystem) {
+function_t* function_alu_t::sub(typesystem_t& typesystem) {
     return function_primitive_lang_t::function(typesystem, "function_alu_t", "sub", [](function_t& function, uint8_t argument_index) {
         (void) argument_index;
 
@@ -22,7 +22,7 @@ function_t function_alu_t::sub(typesystem_t& typesystem) {
     });
 }
 
-function_t function_alu_t::mul(typesystem_t& typesystem) {
+function_t* function_alu_t::mul(typesystem_t& typesystem) {
     return function_primitive_lang_t::function(typesystem, "function_alu_t", "mul", [](function_t& function, uint8_t argument_index) {
         (void) argument_index;
         
@@ -32,7 +32,7 @@ function_t function_alu_t::mul(typesystem_t& typesystem) {
     });
 }
 
-function_t function_alu_t::div(typesystem_t& typesystem) {
+function_t* function_alu_t::div(typesystem_t& typesystem) {
     return function_primitive_lang_t::function(typesystem, "function_alu_t", "div", [](function_t& function, uint8_t argument_index) {
         (void) argument_index;
         
@@ -46,7 +46,7 @@ function_t function_alu_t::div(typesystem_t& typesystem) {
     });
 }
 
-function_t function_alu_t::cond(typesystem_t& typesystem) {
+function_t* function_alu_t::cond(typesystem_t& typesystem) {
     return function_primitive_lang_t::function(typesystem, "function_alu_t", "cond", [](function_t& function, uint8_t argument_index) {
         (void) argument_index;
 
@@ -59,7 +59,7 @@ function_t function_alu_t::cond(typesystem_t& typesystem) {
     });
 }
 
-function_t function_alu_t::is_zero(typesystem_t& typesystem) {
+function_t* function_alu_t::is_zero(typesystem_t& typesystem) {
     return function_primitive_lang_t::function(typesystem, "function_alu_t", "is_zero", [](function_t& function, uint8_t argument_index) {
         (void) argument_index;
 
@@ -69,7 +69,7 @@ function_t function_alu_t::is_zero(typesystem_t& typesystem) {
     });
 }
 
-function_t function_alu_t::integer(typesystem_t& typesystem) {
+function_t* function_alu_t::integer(typesystem_t& typesystem) {
     return function_primitive_lang_t::function(typesystem, "function_alu_t", "integer", [](function_t& function, uint8_t argument_index) {
         (void) argument_index;
 
@@ -77,7 +77,7 @@ function_t function_alu_t::integer(typesystem_t& typesystem) {
     });
 }
 
-function_t function_alu_t::logger(typesystem_t& typesystem) {
+function_t* function_alu_t::logger(typesystem_t& typesystem) {
     return function_primitive_lang_t::function(typesystem, "function_alu_t", "logger", [](function_t& function, uint8_t argument_index) {
         (void) argument_index;
         
@@ -91,7 +91,7 @@ function_t function_alu_t::logger(typesystem_t& typesystem) {
     });
 }
 
-function_t function_alu_t::pin(typesystem_t& typesystem) {
+function_t* function_alu_t::pin(typesystem_t& typesystem) {
     return function_primitive_lang_t::function(typesystem, "function_alu_t", "pin", [](function_t& function, uint8_t argument_index) {
         for (size_t i = 0; i < function.arguments().size(); ++i) {
             if (i != argument_index && function.is_connected(i)) {

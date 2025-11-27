@@ -30,6 +30,14 @@ void function_t::parent(function_t* parent) {
     m_parent = parent;
 }
 
+function_ir_t& function_t::function_ir() {
+    return m_function_ir;
+}
+
+function_t::function_call_t& function_t::function_call() {
+    return m_call;
+}
+
 void function_t::argument_name(uint8_t argument_index, std::string name) {
     if (m_arguments.size() <= argument_index) {
         throw std::runtime_error(std::format("argument_index out of range: {}", argument_index));

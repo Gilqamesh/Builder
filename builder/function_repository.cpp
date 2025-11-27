@@ -1,11 +1,11 @@
 #include "function_repository.h"
 
-void function_repository_t::save(function_id_t id, function_t::function_call_t call, function_ir_t ir) {
+void function_repository_t::save(function_ir_t ir, function_t::function_call_t call) {
     m_functions.emplace(
-        std::move(id),
+        ir.function_id,
         entry_t {
             .call = call,
-            .ir = std::move(ir)
+            .ir = ir
         }
     );
 }

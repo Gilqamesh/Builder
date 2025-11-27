@@ -10,6 +10,6 @@ TEST(FunctionPrimitiveLangTest, CreatesFunctionWithMetadata) {
     typesystem_t typesystem;
     auto fn = function_primitive_lang_t::function(typesystem, "lang", "noop", &noop_lang_function);
 
-    EXPECT_TRUE(fn.children().empty());
-    EXPECT_EQ(fn.arguments().size(), 0u);
+    EXPECT_TRUE(fn->children().empty());
+    EXPECT_EQ(fn->arguments().size(), 0u);
 }

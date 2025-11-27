@@ -3,11 +3,21 @@
 
 # include "function.h"
 
-template <typename FunctionSignature>
+template <typename FunctionSignature = void()>
 class function_primitive_cpp_t {
 public:
-    function_t function(typesystem_t& typesystem, std::string ns, std::string name, FunctionSignature&& function) {
-        return function_t(
+    template <typename F>
+    static function_t* function(typesystem_t& typesystem, std::string ns, std::string name, F&& f) {
+        using traits = function_traits<F>;
+        using signature = typename traits::signature;
+
+        return function_impl<signature>(typesystem, std::move(ns), std::move(name), std::forward<F>(f));
+    }
+
+private:
+    template <typename Sig, typename F>
+    static function_t* function_impl(typesystem_t& typesystem, std::string ns, std::string name, F&& f) {
+        return new function_t(
             typesystem,
             function_ir_t {
                 .function_id = function_id_t {
@@ -22,16 +32,12 @@ public:
                 .children = {},
                 .connections = {}
             },
-            [f = std::forward<FunctionSignature>(function)](function_t* function, uint8_t argument_index) {
-                // unused, TODO: coerce all arguments and store the result in a special argument index
-                (void) argument_index;
-
-                primitive_wrapper<FunctionSignature>::call(function, f);
+            [fn = std::forward<F>(f)](function_t& ft, uint8_t idx) {
+                primitive_wrapper<Sig>::call(ft, fn);
             }
         );
     }
 
-private:
     // -----------------------------------------------------------------------------
     // function_traits (minimal)
     // -----------------------------------------------------------------------------
@@ -66,21 +72,17 @@ private:
     struct primitive_wrapper<Ret(Args...)> {
 
         template <typename F>
-        static void call(function_t* ft, F&& f) {
+        static void call(function_t& ft, F&& f) {
             constexpr size_t N = sizeof...(Args);
             constexpr size_t sizes[N] = { sizeof(Args)... };
 
             void* buffer[N];
-            for (size_t i = 0; i < N; i++)
+            for (size_t i = 0; i < N; i++) {
                 buffer[i] = operator new(sizes[i]);
+            }
 
             // Read into raw memory (your coercion would memcpy here)
-            bool ok = true;
-            read_args(ft, buffer, ok);
-            if (!ok) {
-                std::cout << "Argument read failed.\n";
-                return;
-            }
+            read_args(ft, buffer);
 
             // Call with dereferenced pointers
             if constexpr (std::is_void_v<Ret>) {
@@ -88,7 +90,7 @@ private:
             } else {
                 Ret r = invoke_with_args_ret(f, buffer, std::index_sequence_for<Args...>{});
                 throw std::runtime_error("Return value handling not implemented.");
-                ft->write<Ret>(-1, r);
+                ft.write<Ret>(-1, r);
             }
         }
 
@@ -103,13 +105,13 @@ private:
             return f(*reinterpret_cast<Args*>(buffer[I])...);
         }
 
-        static void read_args(function_t* ft, void** buffer) {
+        static void read_args(function_t& ft, void** buffer) {
             read_loop<0, Args...>(ft, buffer);
         }
 
         template <size_t Index, typename T, typename... Rest>
-        static void read_loop(function_t* ft, void** buffer) {
-            *static_cast<T*>(buffer[Index]) = ft->read(Index);
+        static void read_loop(function_t& ft, void** buffer) {
+            *static_cast<T*>(buffer[Index]) = ft.read(Index);
 
             if constexpr (0 < sizeof...(Rest)) {
                 read_loop<Index + 1, Rest...>(ft, buffer);
@@ -117,7 +119,7 @@ private:
         }
 
         template <size_t Index>
-        static void read_loop(function_t*, void**, bool&) {}
+        static void read_loop(function_t&, void**, bool&) {}
     };
 };
 
