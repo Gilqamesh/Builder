@@ -23,12 +23,8 @@ set(BUILDER_CORE_SOURCES
 )
 
 set(VISUALIZER_SOURCES
-    ${BUILDER_ROOT}/builder/visualizer_app.cpp
+    ${BUILDER_ROOT}/builder/visualizer.cpp
     ${BUILDER_ROOT}/builder/visualizer_editor.cpp
-    ${BUILDER_ROOT}/builder/visualizer_interaction.cpp
-    ${BUILDER_ROOT}/builder/visualizer_render.cpp
-    ${BUILDER_ROOT}/builder/visualizer_space.cpp
-    ${BUILDER_ROOT}/builder/visualizer_state.cpp
 )
 
 set(IMGUI_SOURCES

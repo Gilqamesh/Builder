@@ -96,11 +96,16 @@ void draw_function(function_t* function, function_t* focus_function, rec_t view_
 
     if (function != focus_function) {
         const char* function_name = function->function_ir().function_id.name.c_str();
-        fitted_text_t text_fit = fit_text_wrapped(font, function_name, function_rec, 1.0f);
+
+        // Fit and render text based on the visible portion of the rectangle so that partially clipped
+        // functions still show centered labels within their on-screen area.
+        fitted_text_t text_fit = fit_text_wrapped(font, function_name, clipped_rec, 1.0f);
 
         Vector2 size = MeasureTextEx(font, text_fit.wrapped.c_str(), text_fit.font_size, text_fit.spacing);
-        Vector2 pos = { function_rec.left + (function_rec.right - function_rec.left - size.x) / 2,
-                        function_rec.top + (function_rec.bottom - function_rec.top - size.y) / 2 };
+        Vector2 pos = {
+            clipped_rec.left + (clipped_rec.right - clipped_rec.left - size.x) / 2,
+            clipped_rec.top + (clipped_rec.bottom - clipped_rec.top - size.y) / 2,
+        };
 
         DrawTextEx(font, text_fit.wrapped.c_str(), pos, text_fit.font_size, text_fit.spacing, Fade(BLACK, fade));
     }
