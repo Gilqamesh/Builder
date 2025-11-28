@@ -1,4 +1,4 @@
-#include "function_ir.h"
+#include <function_ir.h>
 
 #ifdef BUILDER_ENABLE_TESTS
 #include <gtest/gtest.h>

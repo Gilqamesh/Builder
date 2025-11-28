@@ -1,4 +1,4 @@
-#include "function_ir_binary.h"
+#include <function_ir_binary.h>
 
 enum class opcode_t : uint8_t {
     CREATE_FUNCTION,

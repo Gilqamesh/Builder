@@ -1,6 +1,6 @@
-#include "visualizer_interaction.h"
-#include "visualizer_render.h"
-#include "visualizer_state.h"
+#include <visualizer_interaction.h>
+#include <visualizer_render.h>
+#include <visualizer_state.h>
 
 #include <raylib.h>
 
