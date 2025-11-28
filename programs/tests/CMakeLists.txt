@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.14)
-project(builder_tests)
+project(tests)
 
 get_filename_component(SRC_DIR "${CMAKE_CURRENT_LIST_DIR}/../../src" ABSOLUTE)
 set(EXTERNAL_DIR "${CMAKE_CURRENT_LIST_DIR}/external")
@@ -26,24 +26,24 @@ set(SRC
 include(FetchContent)
 FetchContent_Declare(
     googletest
-    URL https://github.com/google/googletest/archive/refs/tags/v1.15.2.zip
+    URL https://github.com/google/googletest/archive/refs/tags/v1.17.0.zip
     DOWNLOAD_EXTRACT_TIMESTAMP TRUE
 )
 set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(googletest)
 
-add_executable(builder_tests ${SRC})
-target_compile_features(builder_tests PRIVATE cxx_std_23)
-target_compile_definitions(builder_tests PRIVATE BUILDER_ENABLE_TESTS)
-target_include_directories(builder_tests PRIVATE
+add_executable(tests ${SRC})
+target_compile_features(tests PRIVATE cxx_std_23)
+target_compile_definitions(tests PRIVATE BUILDER_ENABLE_TESTS)
+target_include_directories(tests PRIVATE
     ${SRC_DIR}
     ${EXTERNAL_DIR}
     ${EXTERNAL_DIR}/ulid
 )
-target_link_libraries(builder_tests PRIVATE GTest::gtest_main)
+target_link_libraries(tests PRIVATE GTest::gtest_main)
 
 enable_testing()
 if(NOT CMAKE_CROSSCOMPILING)
     include(GoogleTest)
-    gtest_discover_tests(builder_tests)
+    gtest_discover_tests(tests)
 endif()
