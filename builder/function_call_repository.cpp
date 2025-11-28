@@ -1,4 +1,6 @@
 #include <function_call_repository.h>
+#include <chrono>
+#include <utility>
 
 void function_call_repository_t::save(function_id_t id, function_t::function_call_t call) {
     m_function_calls.emplace(std::move(id), std::move(call));

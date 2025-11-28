@@ -1,5 +1,9 @@
 #include <function_ir_binary.h>
 #include <cassert>
+#include <chrono>
+#include <cstdint>
+#include <stdexcept>
+#include <utility>
 
 enum class opcode_t : uint8_t {
     CREATE_FUNCTION,

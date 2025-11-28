@@ -1,7 +1,9 @@
 #ifndef FUNCTION_IR_BINARY_H
 # define FUNCTION_IR_BINARY_H
 
-# include "function_ir.h"
+#include <cstddef>
+#include <vector>
+#include <function_ir.h>
 
 struct function_ir_binary_t {
 public:

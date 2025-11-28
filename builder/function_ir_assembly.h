@@ -1,7 +1,8 @@
 #ifndef FUNCTION_IR_ASSEMBLY_H
 # define FUNCTION_IR_ASSEMBLY_H
 
-# include "function_ir.h"
+#include <string>
+#include <function_ir.h>
 
 class function_ir_assembly_t {
 public:

@@ -1,4 +1,10 @@
 #include <function_ir_file_repository.h>
+#include <chrono>
+#include <filesystem>
+#include <format>
+#include <fstream>
+#include <stdexcept>
+#include <vector>
 #include <function_ir_binary.h>
 
 function_ir_file_repository_t::function_ir_file_repository_t(const std::filesystem::path& directory_path):
