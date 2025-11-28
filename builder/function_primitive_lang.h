@@ -1,7 +1,8 @@
 #ifndef FUNCTION_PRIMITIVE_LANG_H
 # define FUNCTION_PRIMITIVE_LANG_H
 
-# include "function.h"
+#include <string>
+#include <function.h>
 
 class function_primitive_lang_t {
 public:

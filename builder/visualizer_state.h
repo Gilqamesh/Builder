@@ -7,7 +7,6 @@
 #include <typesystem.h>
 #include <visualizer_editor.h>
 #include <visualizer_space.h>
-
 #include <raylib.h>
 
 struct visualizer_state_t {

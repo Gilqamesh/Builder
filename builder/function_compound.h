@@ -1,7 +1,7 @@
 #ifndef FUNCTION_COMPOUND_H
 # define FUNCTION_COMPOUND_H
 
-# include "function.h"
+#include <function.h>
 
 class function_compound_t {
 public:

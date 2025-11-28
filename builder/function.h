@@ -1,8 +1,13 @@
 #ifndef FUNCTION_H
 # define FUNCTION_H
 
-# include "function_ir.h"
-# include "typesystem.h"
+#include <cstdint>
+#include <format>
+#include <stdexcept>
+#include <string>
+#include <vector>
+#include <function_ir.h>
+#include <typesystem.h>
 
 class function_t {
 public:

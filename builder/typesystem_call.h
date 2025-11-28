@@ -1,8 +1,8 @@
 #ifndef TYPESYSTEM_CALL_H
 # define TYPESYSTEM_CALL_H
 
-# include "typesystem.h"
-# include "call.h"
+#include <typesystem.h>
+#include <call.h>
 
 struct typesystem_call_t : public call_t {
 public:

@@ -1,8 +1,10 @@
 #ifndef FUNCTION_IR_FILE_REPOSITORY_H
 # define FUNCTION_IR_FILE_REPOSITORY_H
 
-# include "function_ir.h"
-# include "typesystem.h"
+#include <filesystem>
+#include <string>
+#include <function_ir.h>
+#include <typesystem.h>
 
 class function_ir_file_repository_t {
 public:

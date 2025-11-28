@@ -1,7 +1,7 @@
 #ifndef FUNCTION_ALU_H
 # define FUNCTION_ALU_H
 
-# include "function.h"
+#include <function.h>
 
 class function_alu_t {
 public:
