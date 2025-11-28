@@ -1,4 +1,4 @@
-#include "function_compound.h"
+#include <function_compound.h>
 
 function_t* function_compound_t::function(typesystem_t& typesystem, function_ir_t function_ir) {
     return new function_t(

@@ -1,4 +1,4 @@
-#include "function_ir_assembly.h"
+#include <function_ir_assembly.h>
 
 function_ir_assembly_t::function_ir_assembly_t(const function_ir_t& function_ir) {
     function_id_t::to_string(function_ir.function_id);

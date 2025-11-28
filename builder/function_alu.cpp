@@ -1,6 +1,6 @@
-#include "function_alu.h"
+#include <function_alu.h>
 
-#include "function_primitive_lang.h"
+#include <function_primitive_lang.h>
 
 function_t* function_alu_t::add(typesystem_t& typesystem) {
     return function_primitive_lang_t::function(typesystem, "function_alu_t", "add", [](function_t& function, uint8_t argument_index) {

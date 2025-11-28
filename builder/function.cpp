@@ -1,4 +1,4 @@
-#include "function.h"
+#include <function.h>
 
 function_t::function_t(typesystem_t& typesystem, function_ir_t function_ir, function_call_t call):
     m_typesystem(typesystem),
