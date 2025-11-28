@@ -1,9 +1,3 @@
-*.o
-*.d
-*.so
-**/example
-**/build_example
-build_examples
+build/
 .vscode/
-a.out
-test.c
+imgui.ini
