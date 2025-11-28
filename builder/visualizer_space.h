@@ -1,7 +1,7 @@
 #ifndef VISUALIZER_SPACE_H
 #define VISUALIZER_SPACE_H
 
-#include "function.h"
+#include <function.h>
 
 struct rec_t {
     float left = 0.0f;
