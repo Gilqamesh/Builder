@@ -1,7 +1,11 @@
 #ifndef FUNCTION_ID
 # define FUNCTION_ID
 
-# include "libc.h"
+#include <chrono>
+#include <cstdint>
+#include <format>
+#include <functional>
+#include <string>
 
 struct function_id_t {
     std::string ns;

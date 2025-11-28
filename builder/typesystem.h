@@ -1,8 +1,14 @@
 #ifndef TYPESYSTEM_H
 # define TYPESYSTEM_H
 
-# include "libc.h"
 # include <bit>
+# include <cassert>
+# include <cmath>
+# include <cstddef>
+# include <stdexcept>
+# include <type_traits>
+# include <unordered_map>
+# include <vector>
 
 class typesystem_t {
 public:

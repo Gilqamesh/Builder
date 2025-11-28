@@ -1,7 +1,6 @@
 #ifndef VISUALIZER_STATE_H
 #define VISUALIZER_STATE_H
 
-#include "libc.h"
 #include "function_compound.h"
 #include "function_ir_file_repository.h"
 #include "function_repository.h"

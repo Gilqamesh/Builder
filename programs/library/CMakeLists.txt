@@ -1,6 +1,8 @@
+cmake_minimum_required(VERSION 3.14)
 project(builder_library)
 
-get_filename_component(BUILDER_ROOT "${CMAKE_CURRENT_LIST_DIR}/.." ABSOLUTE)
+get_filename_component(BUILDER_ROOT "${CMAKE_CURRENT_LIST_DIR}/../.." ABSOLUTE)
+set(BUILDER_EXTERNAL_DIR "${BUILDER_ROOT}/programs/external")
 
 set(BUILDER_CORE_SOURCES
     ${BUILDER_ROOT}/builder/call.cpp
@@ -22,5 +24,5 @@ set(BUILDER_CORE_SOURCES
 
 add_library(builder_lib ${BUILDER_CORE_SOURCES})
 target_compile_features(builder_lib PUBLIC cxx_std_23)
-target_include_directories(builder_lib PRIVATE ${BUILDER_ROOT}/builder/external)
+target_include_directories(builder_lib PRIVATE ${BUILDER_EXTERNAL_DIR})
 target_include_directories(builder_lib PUBLIC ${BUILDER_ROOT}/builder)

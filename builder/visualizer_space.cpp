@@ -1,5 +1,7 @@
 #include "visualizer_space.h"
 
+#include <cassert>
+
 float to_view_x(float x, rec_t view_rec, rec_t world_rec) {
     const float result = (x - world_rec.left) * (view_rec.right - view_rec.left) / (world_rec.right - world_rec.left) + view_rec.left;
     return result;
