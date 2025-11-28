@@ -1,28 +1,27 @@
 cmake_minimum_required(VERSION 3.14)
 project(builder_tests)
 
-get_filename_component(BUILDER_ROOT "${CMAKE_CURRENT_LIST_DIR}/../.." ABSOLUTE)
-set(TESTS_EXTERNAL_DIR "${CMAKE_CURRENT_LIST_DIR}/external")
+get_filename_component(SRC_DIR "${CMAKE_CURRENT_LIST_DIR}/../../src" ABSOLUTE)
+set(EXTERNAL_DIR "${CMAKE_CURRENT_LIST_DIR}/external")
 
-set(BUILDER_CORE_SOURCES
-    ${BUILDER_ROOT}/builder/call.cpp
-    ${BUILDER_ROOT}/builder/function.cpp
-    ${BUILDER_ROOT}/builder/function_alu.cpp
-    ${BUILDER_ROOT}/builder/function_call_repository.cpp
-    ${BUILDER_ROOT}/builder/function_compound.cpp
-    ${BUILDER_ROOT}/builder/function_id.cpp
-    ${BUILDER_ROOT}/builder/function_ir.cpp
-    ${BUILDER_ROOT}/builder/function_ir_assembly.cpp
-    ${BUILDER_ROOT}/builder/function_ir_binary.cpp
-    ${BUILDER_ROOT}/builder/function_ir_file_repository.cpp
-    ${BUILDER_ROOT}/builder/function_primitive_cpp.cpp
-    ${BUILDER_ROOT}/builder/function_primitive_lang.cpp
-    ${BUILDER_ROOT}/builder/function_repository.cpp
-    ${BUILDER_ROOT}/builder/typesystem.cpp
-    ${BUILDER_ROOT}/builder/typesystem_call.cpp
+set(SRC
+    ${SRC_DIR}/call.cpp
+    ${SRC_DIR}/function.cpp
+    ${SRC_DIR}/function_alu.cpp
+    ${SRC_DIR}/function_call_repository.cpp
+    ${SRC_DIR}/function_compound.cpp
+    ${SRC_DIR}/function_id.cpp
+    ${SRC_DIR}/function_ir.cpp
+    ${SRC_DIR}/function_ir_assembly.cpp
+    ${SRC_DIR}/function_ir_binary.cpp
+    ${SRC_DIR}/function_ir_file_repository.cpp
+    ${SRC_DIR}/function_primitive_cpp.cpp
+    ${SRC_DIR}/function_primitive_lang.cpp
+    ${SRC_DIR}/function_repository.cpp
+    ${SRC_DIR}/typesystem.cpp
+    ${SRC_DIR}/typesystem_call.cpp
+    ${SRC_DIR}/tests_main.cpp
 )
-
-set(TEST_MAIN ${BUILDER_ROOT}/builder/tests_main.cpp)
 
 include(FetchContent)
 FetchContent_Declare(
@@ -33,13 +32,13 @@ FetchContent_Declare(
 set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(googletest)
 
-add_executable(builder_tests ${BUILDER_CORE_SOURCES} ${TEST_MAIN})
+add_executable(builder_tests ${SRC})
 target_compile_features(builder_tests PRIVATE cxx_std_23)
 target_compile_definitions(builder_tests PRIVATE BUILDER_ENABLE_TESTS)
 target_include_directories(builder_tests PRIVATE
-    ${BUILDER_ROOT}/builder
-    ${TESTS_EXTERNAL_DIR}
-    ${TESTS_EXTERNAL_DIR}/ulid
+    ${SRC_DIR}
+    ${EXTERNAL_DIR}
+    ${EXTERNAL_DIR}/ulid
 )
 target_link_libraries(builder_tests PRIVATE GTest::gtest_main)
 
