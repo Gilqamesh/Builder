@@ -1,10 +1,9 @@
-#include "editor.h"
-#include "function_repository.h"
-#include "function_alu.h"
-#include "function_compound.h"
-#include "function_ir_file_repository.h"
-
-#include "rlImGui.h"
+#include <visualizer_editor.h>
+#include <function_repository.h>
+#include <function_alu.h>
+#include <function_compound.h>
+#include <function_ir_file_repository.h>
+#include <rlImGui.h>
 #include <raylib.h>
 
 struct rec_t {
@@ -110,7 +109,7 @@ rec_t to_view(function_t* function, rec_t view_rec, rec_t world_rec) {
 
 function_t* created_function = nullptr;
 
-editor_t editor;
+visualizer_editor_t editor;
 
 function_t* dragged_function = nullptr;
 int dragged_offset_x = 0;

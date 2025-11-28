@@ -1,4 +1,6 @@
 #include <typesystem.h>
+#include <cstring>
+#include <format>
 #include <x86intrin.h>
 
 void typesystem_t::coerce(void* from, int id_from, void* to, int id_to) {
