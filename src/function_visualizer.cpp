@@ -1,4 +1,4 @@
-#include <visualizer_editor.h>
+#include <function_visualizer_editor.h>
 #include <function_repository.h>
 #include <function_alu.h>
 #include <function_compound.h>
@@ -109,7 +109,7 @@ rec_t to_view(function_t* function, rec_t view_rec, rec_t world_rec) {
 
 function_t* created_function = nullptr;
 
-visualizer_editor_t editor;
+function_visualizer_editor_t editor;
 
 function_t* dragged_function = nullptr;
 int dragged_offset_x = 0;

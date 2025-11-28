@@ -23,8 +23,8 @@ set(BUILDER_CORE_SOURCES
 )
 
 set(VISUALIZER_SOURCES
-    ${BUILDER_ROOT}/builder/visualizer.cpp
-    ${BUILDER_ROOT}/builder/visualizer_editor.cpp
+    ${BUILDER_ROOT}/builder/function_visualizer.cpp
+    ${BUILDER_ROOT}/builder/function_visualizer_editor.cpp
 )
 
 set(IMGUI_SOURCES
@@ -51,15 +51,15 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(raylib)
 
-add_executable(visualizer
+add_executable(function_visualizer
     ${BUILDER_CORE_SOURCES}
     ${VISUALIZER_SOURCES}
     ${IMGUI_SOURCES}
     ${RLIMGUI_SOURCES}
 )
 
-target_compile_features(visualizer PRIVATE cxx_std_23)
-target_include_directories(visualizer PRIVATE
+target_compile_features(function_visualizer PRIVATE cxx_std_23)
+target_include_directories(function_visualizer PRIVATE
     ${BUILDER_ROOT}/builder
     ${CMAKE_CURRENT_LIST_DIR}/external
     ${VISUALIZER_EXTERNAL_DIR}/imgui
@@ -67,5 +67,5 @@ target_include_directories(visualizer PRIVATE
     ${VISUALIZER_EXTERNAL_DIR}/rlImGui
     ${VISUALIZER_EXTERNAL_DIR}/rlImGui/extras
 )
-target_link_libraries(visualizer PRIVATE raylib)
-set_target_properties(visualizer PROPERTIES LINK_FLAGS_RELEASE -s)
+target_link_libraries(function_visualizer PRIVATE raylib)
+set_target_properties(function_visualizer PROPERTIES LINK_FLAGS_RELEASE -s)

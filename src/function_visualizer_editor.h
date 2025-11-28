@@ -1,12 +1,12 @@
-#ifndef VISUALIZER_EDITOR_H
-#define VISUALIZER_EDITOR_H
+#ifndef FUNCTION_VISUALIZER_EDITOR_H
+#define FUNCTION_VISUALIZER_EDITOR_H
 
 #include <functional>
 #include <string>
 
-class visualizer_editor_t {
+class function_visualizer_editor_t {
 public:
-    visualizer_editor_t();
+    function_visualizer_editor_t();
 
     void init();
     void deinit();
@@ -25,4 +25,4 @@ private:
     std::function<void(std::string)> m_on_complete;
 };
 
-#endif // VISUALIZER_EDITOR_H
+#endif // FUNCTION_VISUALIZER_EDITOR_H

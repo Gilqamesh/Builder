@@ -1,23 +1,23 @@
-#include <visualizer_editor.h>
+#include <function_visualizer_editor.h>
 #include <imgui.h>
 #include <rlImGui.h>
 #include <utility>
 
-visualizer_editor_t::visualizer_editor_t():
+function_visualizer_editor_t::function_visualizer_editor_t():
     m_open(false),
     m_just_opened(false)
 {
 }
 
-void visualizer_editor_t::init() {
+void function_visualizer_editor_t::init() {
     rlImGuiSetup(true);
 }
 
-void visualizer_editor_t::deinit() {
+void function_visualizer_editor_t::deinit() {
     rlImGuiShutdown();
 }
 
-void visualizer_editor_t::create_text_editor(std::function<void(std::string)> on_text_complete) {
+void function_visualizer_editor_t::create_text_editor(std::function<void(std::string)> on_text_complete) {
     if (m_open) {
         return ;
     }
@@ -28,7 +28,7 @@ void visualizer_editor_t::create_text_editor(std::function<void(std::string)> on
     m_just_opened = true;
 }
 
-void visualizer_editor_t::draw() {
+void function_visualizer_editor_t::draw() {
     if (!m_open) {
         return ;
     }
@@ -53,14 +53,14 @@ void visualizer_editor_t::draw() {
     ImGui::End();
 }
 
-bool visualizer_editor_t::open() {
+bool function_visualizer_editor_t::open() {
     return m_open;
 }
 
-bool visualizer_editor_t::is_captured_mouse() {
+bool function_visualizer_editor_t::is_captured_mouse() {
     return open() && ImGui::GetIO().WantCaptureMouse;
 }
 
-bool visualizer_editor_t::is_captured_keyboard() {
+bool function_visualizer_editor_t::is_captured_keyboard() {
     return open() && ImGui::GetIO().WantCaptureKeyboard;
 }
