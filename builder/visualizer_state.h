@@ -1,12 +1,12 @@
 #ifndef VISUALIZER_STATE_H
 #define VISUALIZER_STATE_H
 
-#include "function_compound.h"
-#include "function_ir_file_repository.h"
-#include "function_repository.h"
-#include "typesystem.h"
-#include "visualizer_editor.h"
-#include "visualizer_space.h"
+#include <function_compound.h>
+#include <function_ir_file_repository.h>
+#include <function_repository.h>
+#include <typesystem.h>
+#include <visualizer_editor.h>
+#include <visualizer_space.h>
 
 #include <raylib.h>
 

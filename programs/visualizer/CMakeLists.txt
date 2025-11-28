@@ -2,8 +2,7 @@ cmake_minimum_required(VERSION 3.14)
 project(builder_visualizer)
 
 get_filename_component(BUILDER_ROOT "${CMAKE_CURRENT_LIST_DIR}/../.." ABSOLUTE)
-set(BUILDER_EXTERNAL_DIR "${BUILDER_ROOT}/programs/external")
-set(VISUALIZER_EXTERNAL_DIR "${BUILDER_EXTERNAL_DIR}/visualizer/third_party")
+set(VISUALIZER_EXTERNAL_DIR "${CMAKE_CURRENT_LIST_DIR}/external/third_party")
 
 set(BUILDER_CORE_SOURCES
     ${BUILDER_ROOT}/builder/call.cpp
@@ -66,7 +65,7 @@ add_executable(visualizer
 target_compile_features(visualizer PRIVATE cxx_std_23)
 target_include_directories(visualizer PRIVATE
     ${BUILDER_ROOT}/builder
-    ${BUILDER_EXTERNAL_DIR}
+    ${CMAKE_CURRENT_LIST_DIR}/external
     ${VISUALIZER_EXTERNAL_DIR}/imgui
     ${VISUALIZER_EXTERNAL_DIR}/imgui/backends
     ${VISUALIZER_EXTERNAL_DIR}/rlImGui
