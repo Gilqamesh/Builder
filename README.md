@@ -1,6 +1,6 @@
 # Builder
 
-Builder is a C++ playground for experimenting with any kind of program by composing building blocks you place in `src/`. Each block is regular code you author; it can pull in other pieces from the same directory or operate alone. Programs sit in `programs/` as entrypoints that declare the blocks they rely on and any external code they carry with them.
+Builder is a coding playground for experimenting with any kind of program by composing building blocks you place in `src/`. Each block is regular code you author; it can pull in other pieces from the same directory or operate alone. Programs sit in `programs/` as entrypoints that declare the blocks they rely on and any external code they carry with them.
 
 ## What you can do
 - Add new building blocks under `src/` that provide whatever functionality you need, reusing other files in that directory when helpful.

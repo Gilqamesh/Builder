@@ -18,10 +18,6 @@ rec_t window; // in view space
 rec_t world; // in view space
 rec_t overlay; // in view space
 
-struct transform_result_t {
-    rec_t rec;
-};
-
 function_t* current_function = nullptr;
 
 function_repository_t function_repository;
@@ -47,18 +43,18 @@ float to_view_y(float y, rec_t view_rec, rec_t world_rec) {
 /**
  * Transforms x view space coordinate to world space
 */
-    float from_view_x(float x, rec_t view_rec, rec_t world_rec) {
-        const float result = (x - view_rec.left) * (world_rec.right - world_rec.left) / (view_rec.right - view_rec.left) + world_rec.left;
-        return result;
-    }
+float from_view_x(float x, rec_t view_rec, rec_t world_rec) {
+    const float result = (x - view_rec.left) * (world_rec.right - world_rec.left) / (view_rec.right - view_rec.left) + world_rec.left;
+    return result;
+}
 
-    /**
-     * Transforms y view space coordinate to world space
-    */
-    float from_view_y(float y, rec_t view_rec, rec_t world_rec) {
-        const float result = (y - view_rec.top) * (world_rec.bottom - world_rec.top) / (view_rec.bottom - view_rec.top) + world_rec.top;
-        return result;
-    }
+/**
+ * Transforms y view space coordinate to world space
+*/
+float from_view_y(float y, rec_t view_rec, rec_t world_rec) {
+    const float result = (y - view_rec.top) * (world_rec.bottom - world_rec.top) / (view_rec.bottom - view_rec.top) + world_rec.top;
+    return result;
+}
 
 /**
  * Transforms rectangle from world space to view space
