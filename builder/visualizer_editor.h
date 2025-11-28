@@ -1,7 +1,8 @@
 #ifndef VISUALIZER_EDITOR_H
 #define VISUALIZER_EDITOR_H
 
-#include "libc.h"
+#include <functional>
+#include <string>
 
 class visualizer_editor_t {
 public:

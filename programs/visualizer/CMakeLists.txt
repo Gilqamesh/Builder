@@ -1,6 +1,9 @@
+cmake_minimum_required(VERSION 3.14)
 project(builder_visualizer)
 
-get_filename_component(BUILDER_ROOT "${CMAKE_CURRENT_LIST_DIR}/.." ABSOLUTE)
+get_filename_component(BUILDER_ROOT "${CMAKE_CURRENT_LIST_DIR}/../.." ABSOLUTE)
+set(BUILDER_EXTERNAL_DIR "${BUILDER_ROOT}/programs/external")
+set(VISUALIZER_EXTERNAL_DIR "${BUILDER_EXTERNAL_DIR}/visualizer/third_party")
 
 set(BUILDER_CORE_SOURCES
     ${BUILDER_ROOT}/builder/call.cpp
@@ -29,6 +32,21 @@ set(VISUALIZER_SOURCES
     ${BUILDER_ROOT}/builder/visualizer_state.cpp
 )
 
+set(IMGUI_SOURCES
+    ${VISUALIZER_EXTERNAL_DIR}/imgui/imgui.cpp
+    ${VISUALIZER_EXTERNAL_DIR}/imgui/imgui_demo.cpp
+    ${VISUALIZER_EXTERNAL_DIR}/imgui/imgui_draw.cpp
+    ${VISUALIZER_EXTERNAL_DIR}/imgui/imgui_tables.cpp
+    ${VISUALIZER_EXTERNAL_DIR}/imgui/imgui_widgets.cpp
+    ${VISUALIZER_EXTERNAL_DIR}/imgui/misc/cpp/imgui_stdlib.cpp
+    ${VISUALIZER_EXTERNAL_DIR}/imgui/backends/imgui_impl_glfw.cpp
+    ${VISUALIZER_EXTERNAL_DIR}/imgui/backends/imgui_impl_opengl3.cpp
+)
+
+set(RLIMGUI_SOURCES
+    ${VISUALIZER_EXTERNAL_DIR}/rlImGui/rlImGui.cpp
+)
+
 include(FetchContent)
 FetchContent_Declare(
   raylib
@@ -38,13 +56,21 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(raylib)
 
-add_executable(visualizer ${BUILDER_CORE_SOURCES} ${VISUALIZER_SOURCES})
+add_executable(visualizer
+    ${BUILDER_CORE_SOURCES}
+    ${VISUALIZER_SOURCES}
+    ${IMGUI_SOURCES}
+    ${RLIMGUI_SOURCES}
+)
+
 target_compile_features(visualizer PRIVATE cxx_std_23)
 target_include_directories(visualizer PRIVATE
     ${BUILDER_ROOT}/builder
-    ${BUILDER_ROOT}/builder/external
-    ${BUILDER_ROOT}/builder/external/visualizer/third_party/imgui
-    ${BUILDER_ROOT}/builder/external/visualizer/third_party/rlImGui
+    ${BUILDER_EXTERNAL_DIR}
+    ${VISUALIZER_EXTERNAL_DIR}/imgui
+    ${VISUALIZER_EXTERNAL_DIR}/imgui/backends
+    ${VISUALIZER_EXTERNAL_DIR}/rlImGui
+    ${VISUALIZER_EXTERNAL_DIR}/rlImGui/extras
 )
 target_link_libraries(visualizer PRIVATE raylib)
 set_target_properties(visualizer PROPERTIES LINK_FLAGS_RELEASE -s)

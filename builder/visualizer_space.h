@@ -1,7 +1,6 @@
 #ifndef VISUALIZER_SPACE_H
 #define VISUALIZER_SPACE_H
 
-#include "libc.h"
 #include "function.h"
 
 struct rec_t {

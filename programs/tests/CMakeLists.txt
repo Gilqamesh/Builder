@@ -1,6 +1,8 @@
+cmake_minimum_required(VERSION 3.14)
 project(builder_tests)
 
-get_filename_component(BUILDER_ROOT "${CMAKE_CURRENT_LIST_DIR}/.." ABSOLUTE)
+get_filename_component(BUILDER_ROOT "${CMAKE_CURRENT_LIST_DIR}/../.." ABSOLUTE)
+set(BUILDER_EXTERNAL_DIR "${BUILDER_ROOT}/programs/external")
 
 set(BUILDER_CORE_SOURCES
     ${BUILDER_ROOT}/builder/call.cpp
@@ -34,7 +36,7 @@ FetchContent_MakeAvailable(googletest)
 add_executable(builder_tests ${BUILDER_CORE_SOURCES} ${TEST_MAIN})
 target_compile_features(builder_tests PRIVATE cxx_std_23)
 target_compile_definitions(builder_tests PRIVATE BUILDER_ENABLE_TESTS)
-target_include_directories(builder_tests PRIVATE ${BUILDER_ROOT}/builder ${BUILDER_ROOT}/builder/external)
+target_include_directories(builder_tests PRIVATE ${BUILDER_ROOT}/builder ${BUILDER_EXTERNAL_DIR})
 target_link_libraries(builder_tests PRIVATE GTest::gtest_main)
 
 enable_testing()

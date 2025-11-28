@@ -1,5 +1,7 @@
 #include "visualizer_state.h"
 
+#include <chrono>
+
 visualizer_state_t::visualizer_state_t():
     current_function(nullptr),
     created_function(nullptr),
