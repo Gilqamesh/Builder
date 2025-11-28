@@ -1,6 +1,8 @@
 #ifndef FUNCTION_IR_H
 # define FUNCTION_IR_H
 
+# include <vector>
+
 # include "function_id.h"
 
 struct function_ir_t {

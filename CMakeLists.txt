@@ -1,14 +1,4 @@
 cmake_minimum_required(VERSION 3.14)
+project(builder NONE)
 
-project(builder)
-
-set(CMAKE_CXX_STANDARD 23)
-set(CMAKE_CXX_EXTENSIONS OFF)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-
-enable_testing()
-
-option(ENABLE_VISUALIZER "Build visualizer application" ON)
-
-add_subdirectory(builder)
+message(FATAL_ERROR "Configure one of the program-specific CMake files under programs/ by running the helper scripts in scripts/ or invoking CMake with -S programs -DPROGRAM_FILE=programs/<name>.cmake.")

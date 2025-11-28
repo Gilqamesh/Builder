@@ -335,3 +335,23 @@ function_t::argument_t::argument_t() {
     m_connection_argument_index = -1;
     m_data_type_id = -1;
 }
+
+#ifdef BUILDER_ENABLE_TESTS
+#include <gtest/gtest.h>
+
+namespace {
+void noop_function(function_t&, uint8_t) {}
+}
+
+TEST(FunctionTest, InitializesWithNoParent) {
+    typesystem_t typesystem;
+    function_ir_t ir{};
+
+    function_t fn(typesystem, ir, &noop_function);
+    EXPECT_EQ(fn.parent(), nullptr);
+
+    function_t parent(typesystem, ir, &noop_function);
+    fn.parent(&parent);
+    EXPECT_EQ(fn.parent(), &parent);
+}
+#endif
