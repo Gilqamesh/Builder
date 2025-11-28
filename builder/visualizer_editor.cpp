@@ -1,8 +1,6 @@
 #include <visualizer_editor.h>
-
 #include <imgui.h>
 #include <rlImGui.h>
-
 #include <utility>
 
 visualizer_editor_t::visualizer_editor_t():

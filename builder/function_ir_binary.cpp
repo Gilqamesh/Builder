@@ -1,4 +1,5 @@
 #include <function_ir_binary.h>
+#include <cassert>
 
 enum class opcode_t : uint8_t {
     CREATE_FUNCTION,

@@ -1,7 +1,5 @@
 #include <visualizer_interaction.h>
-
 #include <visualizer_space.h>
-
 #include <raylib.h>
 
 namespace {

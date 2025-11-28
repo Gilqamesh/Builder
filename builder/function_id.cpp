@@ -1,5 +1,4 @@
 #include <function_id.h>
-
 #include <stdexcept>
 
 bool function_id_t::operator==(const function_id_t& other) const {

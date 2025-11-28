@@ -1,5 +1,4 @@
 #include <visualizer_space.h>
-
 #include <cassert>
 
 float to_view_x(float x, rec_t view_rec, rec_t world_rec) {

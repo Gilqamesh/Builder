@@ -1,5 +1,4 @@
 #include <function_ir_file_repository.h>
-
 #include <function_ir_binary.h>
 
 function_ir_file_repository_t::function_ir_file_repository_t(const std::filesystem::path& directory_path):
