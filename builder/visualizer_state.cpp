@@ -1,6 +1,6 @@
 #include "visualizer_state.h"
 
-visualizer_state_t::visualizer_state():
+visualizer_state_t::visualizer_state_t():
     current_function(nullptr),
     created_function(nullptr),
     dragged_function(nullptr),
