@@ -21,7 +21,7 @@ pub fn build(b: *std.Build) void {
     });
 
     lib.addCSourceFiles(.{
-        .files = &.{ "rlImGui.cpp" },
+        .files = &.{ b.path("rlImGui.cpp") },
         .flags = &.{ "-std=c++23" },
     });
 

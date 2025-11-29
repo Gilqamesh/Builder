@@ -11,7 +11,7 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
-    exe.addCSourceFiles(.{ .files = &.{ "function_primitive_lang_test.cpp" }, .flags = &.{ "-std=c++23" } });
+    exe.addCSourceFiles(.{ .files = &.{ b.path("function_primitive_lang_test.cpp") }, .flags = &.{ "-std=c++23" } });
     exe.addIncludePath(b.path("."));
     exe.addIncludePath(dep.path(""));
     exe.linkLibrary(dep.artifact("function_primitive_lang"));
