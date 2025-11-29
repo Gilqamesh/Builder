@@ -11,7 +11,7 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
-    exe.addCxxSourceFile(.{ .file = "function_compound_test.cpp", .flags = &.{} });
+    exe.addCSourceFiles(.{ .files = &.{ "function_compound_test.cpp" }, .flags = &.{} });
     exe.addIncludePath(.{ .path = "." });
     exe.addIncludePath(compound_dep.path("."));
     exe.linkLibrary(compound_dep.artifact("function_compound"));

@@ -12,7 +12,7 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
-    lib.addCxxSourceFile(.{ .file = "function_call_repository.cpp", .flags = &.{} });
+    lib.addCSourceFiles(.{ .files = &.{ "function_call_repository.cpp" }, .flags = &.{} });
     lib.addIncludePath(.{ .path = "." });
     lib.addIncludePath(function_dep.path("."));
     lib.addIncludePath(function_id_dep.path("."));

@@ -11,7 +11,7 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
-    exe.addCxxSourceFile(.{ .file = "function_ir_assembly_test.cpp", .flags = &.{} });
+    exe.addCSourceFiles(.{ .files = &.{ "function_ir_assembly_test.cpp" }, .flags = &.{} });
     exe.addIncludePath(.{ .path = "." });
     exe.addIncludePath(dep.path("."));
     exe.linkLibrary(dep.artifact("function_ir_assembly"));

@@ -17,7 +17,7 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
-    exe.addCxxSourceFile(.{ .file = "function_visualizer.cpp", .flags = &.{} });
+    exe.addCSourceFiles(.{ .files = &.{ "function_visualizer.cpp" }, .flags = &.{} });
     exe.addIncludePath(.{ .path = "." });
     exe.addIncludePath(rlimgui_dep.path("."));
     exe.addIncludePath(imgui_dep.path("."));

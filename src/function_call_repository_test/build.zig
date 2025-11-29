@@ -11,7 +11,7 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
-    exe.addCxxSourceFile(.{ .file = "function_call_repository_test.cpp", .flags = &.{} });
+    exe.addCSourceFiles(.{ .files = &.{ "function_call_repository_test.cpp" }, .flags = &.{} });
     exe.addIncludePath(.{ .path = "." });
     exe.addIncludePath(repo_dep.path("."));
     exe.linkLibrary(repo_dep.artifact("function_call_repository"));

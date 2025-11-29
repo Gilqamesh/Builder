@@ -11,7 +11,7 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
-    exe.addCxxSourceFile(.{ .file = "typesystem_call_test.cpp", .flags = &.{} });
+    exe.addCSourceFiles(.{ .files = &.{ "typesystem_call_test.cpp" }, .flags = &.{} });
     exe.addIncludePath(.{ .path = "." });
     exe.addIncludePath(dep.path("."));
     exe.linkLibrary(dep.artifact("typesystem_call"));

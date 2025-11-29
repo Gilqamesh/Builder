@@ -11,7 +11,7 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
-    lib.addCxxSourceFile(.{ .file = "function_primitive_lang.cpp", .flags = &.{} });
+    lib.addCSourceFiles(.{ .files = &.{ "function_primitive_lang.cpp" }, .flags = &.{} });
     lib.addIncludePath(.{ .path = "." });
     lib.addIncludePath(function_dep.path("."));
     lib.linkLibrary(function_dep.artifact("function"));

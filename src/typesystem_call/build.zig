@@ -12,7 +12,7 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
-    lib.addCxxSourceFile(.{ .file = "typesystem_call.cpp", .flags = &.{} });
+    lib.addCSourceFiles(.{ .files = &.{ "typesystem_call.cpp" }, .flags = &.{} });
     lib.addIncludePath(.{ .path = "." });
     lib.addIncludePath(call_dep.path("."));
     lib.addIncludePath(typesystem_dep.path("."));

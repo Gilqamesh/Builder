@@ -12,7 +12,7 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
-    lib.addCxxSourceFile(.{ .file = "function_visualizer_editor.cpp", .flags = &.{} });
+    lib.addCSourceFiles(.{ .files = &.{ "function_visualizer_editor.cpp" }, .flags = &.{} });
     lib.addIncludePath(.{ .path = "." });
     lib.addIncludePath(imgui_dep.path("."));
     lib.addIncludePath(rlimgui_dep.path("."));
