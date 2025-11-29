@@ -5,6 +5,6 @@ cc_test(
     srcs = ["typesystem_test.cpp"],
     deps = [
         "//src/typesystem:typesystem",
-        "@gtest//:gtest_main",
+        "//src/google_test:gtest_main",
     ],
 )

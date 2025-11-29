@@ -5,6 +5,6 @@ cc_test(
     srcs = ["function_id_test.cpp"],
     deps = [
         "//src/function_id:function_id",
-        "@gtest//:gtest_main",
+        "//src/google_test:gtest_main",
     ],
 )
