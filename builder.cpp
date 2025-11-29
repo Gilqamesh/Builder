@@ -1,38 +1,4 @@
 // builder.cpp
-// Simple module-based build system with:
-//  - per-module build.module
-//  - recursive globbing in MODULE_SOURCES (e.g. "*.cpp", "backends/*.cpp")
-//  - automatic header dependency scanning (#include "foo.h")
-//  - incremental builds (only recompile / relink when needed)
-//  - remote_cmake modules (fetch+build CMake projects)
-//  - Option C link order: each module's libs followed by its deps' libs.
-//
-// Usage:
-//   g++ -std=c++17 -O2 builder.cpp -o builder -Wall -Wextra -Werror
-//   ./builder <module_name>
-//
-// Example build.module:
-//
-//   MODULE_NAME=function
-//   MODULE_TYPE=static_lib     // static_lib | shared_lib | executable | header_only | meta | remote_cmake
-//   MODULE_SOURCES="function.cpp *.cpp backends/*.cpp"
-//   MODULE_DEPS="function_ir typesystem"
-//   MODULE_SYS_LIBS="pthread"
-//   MODULE_CXX_FLAGS="-std=c++23 -Wall -Wextra -O2"
-//   MODULE_LD_FLAGS=""
-//
-// For remote CMake modules:
-//
-//   MODULE_NAME=raylib
-//   MODULE_TYPE=remote_cmake
-//   MODULE_FETCH_URL="https://github.com/raysan5/raylib/archive/refs/tags/5.5.tar.gz"
-//   MODULE_DEPS=""
-//   // MODULE_SOURCES / SYS_LIBS are ignored for remote_cmake.
-//
-// Layout:
-//   <root>/src/<module_name>/build.module
-//   <root>/build/...
-//   <root>/.cache/remote/<module_name>/...
 
 #include <algorithm>
 #include <cctype>
@@ -74,11 +40,8 @@ static std::vector<std::string> split_ws(const std::string &s) {
 static std::string shell_escape(const std::string &s) {
     std::string out = "'";
     for (char c : s) {
-        if (c == '\'') {
-            out += "'\"'\"'";
-        } else {
-            out += c;
-        }
+        if (c == '\'') out += "'\"'\"'";
+        else out += c;
     }
     out += "'";
     return out;
@@ -97,14 +60,13 @@ static bool has_glob_chars(const std::string &s) {
     return s.find_first_of("*?") != std::string::npos;
 }
 
-// very small wildcard matcher supporting '*' and '?'
+// wildcard matcher supporting '*' and '?'
 static bool wildcard_match(const std::string &pattern, const std::string &text) {
     std::size_t p = 0, t = 0;
     std::size_t star = std::string::npos, match = 0;
 
     while (t < text.size()) {
-        if (p < pattern.size() &&
-            (pattern[p] == '?' || pattern[p] == text[t])) {
+        if (p < pattern.size() && (pattern[p] == '?' || pattern[p] == text[t])) {
             ++p; ++t;
         } else if (p < pattern.size() && pattern[p] == '*') {
             star = p++;
@@ -124,25 +86,23 @@ static bool wildcard_match(const std::string &pattern, const std::string &text) 
 
 struct Module {
     std::string name;
-    std::string type; // static_lib, shared_lib, executable, header_only, meta, remote_cmake
+    std::string type;
     fs::path dir;
 
-    std::vector<std::string> source_patterns; // raw patterns from MODULE_SOURCES
-    std::vector<std::string> sources;         // expanded, relative to dir
+    std::vector<std::string> source_patterns;
+    std::vector<std::string> sources;
     std::vector<std::string> deps;
     std::vector<std::string> sys_libs;
     std::string cxx_flags;
     std::string ld_flags;
 
-    // remote_cmake
     std::string fetch_url;
 
-    // Build outputs
     fs::path build_dir;
     std::vector<fs::path> objects;
-    std::vector<fs::path> output_libs;   // local libs (.a/.so)
-    std::vector<fs::path> produced_libs; // remote_cmake libs
-    std::vector<fs::path> include_dirs;  // include dirs exposed to dependents
+    std::vector<fs::path> output_libs;
+    std::vector<fs::path> produced_libs;
+    std::vector<fs::path> include_dirs;
 
     bool built = false;
     bool visiting = false;
@@ -181,7 +141,6 @@ static void parse_build_module(Module &m) {
         std::string key = trim(line.substr(0, eq));
         std::string val = trim(line.substr(eq + 1));
 
-        // strip surrounding quotes if present
         if (!val.empty() && (val.front() == '"' || val.front() == '\'')) {
             char q = val.front();
             if (val.size() >= 2 && val.back() == q) {
@@ -213,7 +172,6 @@ static void parse_build_module(Module &m) {
         std::exit(1);
     }
 
-    // default include dir for *local* modules: their own directory
     if (m.type != "remote_cmake") {
         m.include_dirs.push_back(m.dir);
     }
@@ -239,7 +197,6 @@ static Module &get_module(const std::string &name) {
 // ------------------------ JSON graph dumper ---------------------------------
 
 static void dump_dep_graph(const std::string &root_name) {
-    // DFS in current "link-style" order: module, then deps. Each module once.
     std::unordered_set<std::string> seen;
     std::vector<std::string> order;
 
@@ -248,9 +205,7 @@ static void dump_dep_graph(const std::string &root_name) {
             if (!seen.insert(name).second) return;
             Module &m = get_module(name);
             order.push_back(m.name);
-            for (const auto &d : m.deps) {
-                dfs(d);
-            }
+            for (const auto &d : m.deps) dfs(d);
         };
 
     dfs(root_name);
@@ -301,14 +256,12 @@ static void expand_sources(Module &m) {
     m.sources.clear();
 
     if (m.type == "remote_cmake" || m.type == "header_only" || m.type == "meta") {
-        return; // no local sources to compile
-    }
-
-    if (m.source_patterns.empty()) {
         return;
     }
 
-    std::set<std::string> uniq; // to avoid duplicates
+    if (m.source_patterns.empty()) return;
+
+    std::set<std::string> uniq;
 
     for (const auto &pat : m.source_patterns) {
         if (!has_glob_chars(pat)) {
@@ -317,7 +270,7 @@ static void expand_sources(Module &m) {
         }
 
         fs::path rel = pat;
-        fs::path pat_dir = rel.parent_path();      // may be "."
+        fs::path pat_dir = rel.parent_path();
         std::string fname_pattern = rel.filename().string();
 
         fs::path base_dir = m.dir / pat_dir;
@@ -330,7 +283,6 @@ static void expand_sources(Module &m) {
             std::string fn = entry.path().filename().string();
             if (!wildcard_match(fname_pattern, fn)) continue;
 
-            // compute path relative to module dir
             fs::path rel_path = fs::relative(entry.path(), m.dir);
             uniq.insert(rel_path.generic_string());
         }
@@ -394,14 +346,6 @@ static void discover_remote_libs(Module &m, const fs::path &build_dir) {
             m.produced_libs.push_back(e.path());
         }
     }
-
-    if (m.produced_libs.empty()) {
-        std::cerr << "[warn] remote_cmake module '" << m.name
-                  << "' built but no libraries found under " << build_dir << "\n";
-    } else {
-        std::cout << "[remote_cmake] module '" << m.name << "' produced "
-                  << m.produced_libs.size() << " libraries\n";
-    }
 }
 
 static void build_remote_cmake(Module &m) {
@@ -409,7 +353,6 @@ static void build_remote_cmake(Module &m) {
     fs::path build_dir = src_root.parent_path() / ("build_" + m.name);
     fs::create_directories(build_dir);
 
-    // simple incremental behaviour: if we already have libs, reuse them
     bool has_lib = false;
     for (auto &e : fs::recursive_directory_iterator(build_dir)) {
         if (!e.is_regular_file()) continue;
@@ -432,7 +375,6 @@ static void build_remote_cmake(Module &m) {
 
     discover_remote_libs(m, build_dir);
 
-    // heuristic include dirs
     m.include_dirs.clear();
     m.include_dirs.push_back(src_root);
     if (fs::exists(src_root / "include")) m.include_dirs.push_back(src_root / "include");
@@ -455,11 +397,8 @@ static void collect_file_dependencies(
     out_deps.insert(norm);
 
     std::ifstream in(file);
-    if (!in) {
-        return; // non-fatal
-    }
+    if (!in) return;
 
-    // Simple local include matcher: #include "foo.h"
     static const std::regex include_re("^\\s*#\\s*include\\s*\"([^\"]+)\"");
 
     std::string line;
@@ -474,7 +413,7 @@ static void collect_file_dependencies(
             fs::path candidate = inc_dir / header_name;
             if (fs::exists(candidate) && fs::is_regular_file(candidate)) {
                 collect_file_dependencies(candidate, include_search_dirs, visited, out_deps);
-                break; // stop after first hit
+                break;
             }
         }
     }
@@ -482,16 +421,15 @@ static void collect_file_dependencies(
 
 // --------------------- Local compilation & archiving ------------------------
 
-static void compile_module(const std::string &name); // fwd
+static void compile_module(const std::string &name);
 
-// collect include_dirs from all transitive deps
 static void collect_dep_include_dirs(
     Module &m,
     std::vector<fs::path> &dirs,
     std::unordered_set<std::string> &seen)
 {
     for (const auto &dep_name : m.deps) {
-        if (!seen.insert(dep_name).second) continue; // already processed
+        if (!seen.insert(dep_name).second) continue;
         Module &dep = get_module(dep_name);
         for (const auto &inc : dep.include_dirs) {
             dirs.push_back(inc);
@@ -504,7 +442,6 @@ static void compile_sources(Module &m) {
     fs::create_directories(m.build_dir);
     m.objects.clear();
 
-    // gather include dirs: global src/, this module, all transitive deps
     std::vector<fs::path> include_search_dirs;
     include_search_dirs.push_back(g_src_root);
     for (const auto &d : m.include_dirs) {
@@ -515,7 +452,6 @@ static void compile_sources(Module &m) {
         collect_dep_include_dirs(m, include_search_dirs, seen);
     }
 
-    // de-duplicate include dirs
     std::sort(include_search_dirs.begin(), include_search_dirs.end());
     include_search_dirs.erase(
         std::unique(include_search_dirs.begin(), include_search_dirs.end()),
@@ -532,7 +468,6 @@ static void compile_sources(Module &m) {
         fs::path obj = m.build_dir / (src_path.filename().string() + ".o");
         m.objects.push_back(obj);
 
-        // Collect dependencies: source + included headers (transitively)
         std::unordered_set<std::string> visited;
         std::unordered_set<fs::path> deps;
         collect_file_dependencies(src_path, include_search_dirs, visited, deps);
@@ -664,34 +599,19 @@ static void make_shared_lib(Module &m) {
     m.output_libs = {so_path};
 }
 
-// --------------------------- Link ordering (C) -------------------------------
-//
-// Option C: each dependency module's libs are linked in a DFS order where each
-// module's libs appear before its children: for A->B we get: A, then B.
-//
-// For executables we start from the target's deps, so libs for deep deps
-// appear later (as required by --start-group-less linkers).
+// --------------------------- Link ordering (DFS) -----------------------------
 
 static void append_libs_for_module(
     const Module &m,
     std::vector<fs::path> &libs,
     std::unordered_set<std::string> &visiting)
 {
-    if (visiting.count(m.name)) {
-        // cycle guard
-        return;
-    }
+    if (visiting.count(m.name)) return;
     visiting.insert(m.name);
 
-    // this module's libs first
-    for (const auto &lib : m.output_libs) {
-        libs.push_back(lib);
-    }
-    for (const auto &lib : m.produced_libs) {
-        libs.push_back(lib);
-    }
+    for (const auto &lib : m.output_libs) libs.push_back(lib);
+    for (const auto &lib : m.produced_libs) libs.push_back(lib);
 
-    // then its dependencies
     for (const auto &dep_name : m.deps) {
         const Module &dep = get_module(dep_name);
         append_libs_for_module(dep, libs, visiting);
@@ -705,7 +625,6 @@ static fs::path make_executable(Module &m) {
 
     fs::path exe_path = m.build_dir / m.name;
 
-    // Build libs list using Option C from the target's deps
     std::vector<fs::path> libs;
     std::unordered_set<std::string> visiting;
     for (const auto &dep_name : m.deps) {
@@ -713,7 +632,6 @@ static fs::path make_executable(Module &m) {
         append_libs_for_module(dep, libs, visiting);
     }
 
-    // Decide if relink is necessary
     bool need_link = false;
     if (!fs::exists(exe_path)) {
         need_link = true;
@@ -789,7 +707,6 @@ static void compile_module(const std::string &name) {
     m.visiting = true;
     std::cout << "[build] module: " << m.name << "\n";
 
-    // Build deps first
     for (const auto &dep : m.deps) {
         compile_module(dep);
     }
@@ -807,7 +724,6 @@ static void compile_module(const std::string &name) {
         return;
     }
 
-    // local module
     expand_sources(m);
     compile_sources(m);
 
@@ -851,17 +767,13 @@ int main(int argc, char **argv) {
             std::cerr << "Usage: " << argv[0] << " --graph <module_name>\n";
             return 1;
         }
-        std::string target_module = argv[2];
-        // Just parse modules and dump graph, no build
-        dump_dep_graph(target_module);
+        dump_dep_graph(argv[2]);
         return 0;
     }
 
-    // Normal build mode
     std::string target_module = arg1;
     compile_module(target_module);
 
-    // Run executable modules
     Module &m = get_module(target_module);
     if (m.type == "executable") {
         fs::path exe_path = m.build_dir / m.name;
