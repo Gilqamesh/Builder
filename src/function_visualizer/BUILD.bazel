@@ -1,0 +1,20 @@
+package(default_visibility = ["//visibility:public"])
+
+cc_library(
+    name = "function_visualizer_lib",
+    srcs = ["function_visualizer.cpp"],
+    deps = [
+        "//rlImGui:rlimgui",
+        "//imgui:imgui",
+        "//function_alu:function_alu",
+        "//function_compound:function_compound",
+        "//function_ir_file_repository:function_ir_file_repository",
+        "//function_repository:function_repository",
+        "//function_visualizer_editor:function_visualizer_editor",
+    ],
+)
+
+cc_binary(
+    name = "function_visualizer",
+    deps = [":function_visualizer_lib"],
+)

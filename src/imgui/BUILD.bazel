@@ -1,0 +1,18 @@
+package(default_visibility = ["//visibility:public"])
+
+cc_library(
+    name = "imgui",
+    srcs = [
+        "imgui.cpp",
+        "imgui_demo.cpp",
+        "imgui_draw.cpp",
+        "imgui_tables.cpp",
+        "imgui_widgets.cpp",
+    ],
+    hdrs = glob([
+        "*.h",
+        "backends/*.h",
+        "misc/**/*.h",
+    ]),
+    includes = ["."],
+)

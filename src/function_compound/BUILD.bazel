@@ -1,0 +1,26 @@
+package(default_visibility = ["//visibility:public"])
+
+cc_library(
+    name = "function_compound",
+    srcs = ["function_compound.cpp"],
+    hdrs = ["function_compound.h"],
+    deps = [
+        "//function:function",
+        "//function_id:function_id",
+        "//typesystem:typesystem",
+    ],
+)
+
+cc_library(
+    name = "function_compound_tests",
+    srcs = ["function_compound_test.cpp"],
+    hdrs = ["function_compound.h"],
+    deps = [
+        ":function_compound",
+        "//function:function",
+        "//function_id:function_id",
+        "//typesystem:typesystem",
+        "@com_google_googletest//:gtest",
+    ],
+    testonly = True,
+)

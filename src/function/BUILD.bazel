@@ -1,0 +1,22 @@
+package(default_visibility = ["//visibility:public"])
+
+cc_library(
+    name = "function",
+    srcs = ["function.cpp"],
+    hdrs = ["function.h"],
+    deps = [
+        "//function_ir:function_ir",
+        "//typesystem:typesystem",
+    ],
+)
+
+cc_library(
+    name = "function_tests",
+    srcs = ["function_test.cpp"],
+    hdrs = ["function.h"],
+    deps = [
+        ":function",
+        "@com_google_googletest//:gtest",
+    ],
+    testonly = True,
+)
