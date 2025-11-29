@@ -1,0 +1,8 @@
+.{
+    .name = "function_repository_test",
+    .version = "0.0.0",
+    .paths = .{ "." },
+    .dependencies = .{
+        .function_repository = .{ .path = "../function_repository" },
+    },
+}

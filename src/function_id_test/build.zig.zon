@@ -1,0 +1,8 @@
+.{
+    .name = "function_id_test",
+    .version = "0.0.0",
+    .paths = .{ "." },
+    .dependencies = .{
+        .function_id = .{ .path = "../function_id" },
+    },
+}
