@@ -18,7 +18,7 @@ pub fn build(b: *std.Build) void {
         "backends/imgui_impl_glfw.cpp",
         "backends/imgui_impl_opengl3.cpp",
     };
-    lib.addCSourceFiles(.{ .files = sources, .flags = &.{} });
+    lib.addCSourceFiles(.{ .files = sources, .flags = &.{ "-std=c++23" } });
     lib.addIncludePath(b.path("."));
     lib.addIncludePath(b.path("backends"));
     lib.addIncludePath(b.path("misc"));

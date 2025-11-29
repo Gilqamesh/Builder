@@ -9,7 +9,7 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
-    lib.addCSourceFiles(.{ .files = &.{ "typesystem.cpp" }, .flags = &.{} });
+    lib.addCSourceFiles(.{ .files = &.{ "typesystem.cpp" }, .flags = &.{ "-std=c++23" } });
     lib.addIncludePath(b.path("."));
     lib.linkLibCpp();
     b.installArtifact(lib);

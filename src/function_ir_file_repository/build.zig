@@ -13,7 +13,7 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
-    lib.addCSourceFiles(.{ .files = &.{ "function_ir_file_repository.cpp" }, .flags = &.{} });
+    lib.addCSourceFiles(.{ .files = &.{ "function_ir_file_repository.cpp" }, .flags = &.{ "-std=c++23" } });
     lib.addIncludePath(b.path("."));
     lib.addIncludePath(function_ir_dep.path(""));
     lib.addIncludePath(function_ir_binary_dep.path(""));

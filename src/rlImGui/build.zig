@@ -11,7 +11,7 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
-    lib.addCSourceFiles(.{ .files = &.{ "rlImGui.cpp" }, .flags = &.{} });
+    lib.addCSourceFiles(.{ .files = &.{ "rlImGui.cpp" }, .flags = &.{ "-std=c++23" } });
     lib.addIncludePath(b.path("."));
     lib.addIncludePath(b.path("extras"));
     lib.addIncludePath(imgui_dep.path(""));

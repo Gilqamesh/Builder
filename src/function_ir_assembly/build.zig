@@ -11,7 +11,7 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
-    lib.addCSourceFiles(.{ .files = &.{ "function_ir_assembly.cpp" }, .flags = &.{} });
+    lib.addCSourceFiles(.{ .files = &.{ "function_ir_assembly.cpp" }, .flags = &.{ "-std=c++23" } });
     lib.addIncludePath(b.path("."));
     lib.addIncludePath(function_ir_dep.path(""));
     lib.linkLibrary(function_ir_dep.artifact("function_ir"));
