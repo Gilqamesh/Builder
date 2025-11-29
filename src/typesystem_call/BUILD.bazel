@@ -1,0 +1,24 @@
+package(default_visibility = ["//visibility:public"])
+
+cc_library(
+    name = "typesystem_call",
+    srcs = ["typesystem_call.cpp"],
+    hdrs = ["typesystem_call.h"],
+    deps = [
+        "//call:call",
+        "//typesystem:typesystem",
+    ],
+)
+
+cc_library(
+    name = "typesystem_call_tests",
+    srcs = ["typesystem_call_test.cpp"],
+    hdrs = ["typesystem_call.h"],
+    deps = [
+        ":typesystem_call",
+        "//call:call",
+        "//typesystem:typesystem",
+        "@com_google_googletest//:gtest",
+    ],
+    testonly = True,
+)

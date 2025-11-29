@@ -1,0 +1,22 @@
+package(default_visibility = ["//visibility:public"])
+
+cc_library(
+    name = "function_repository",
+    srcs = ["function_repository.cpp"],
+    hdrs = ["function_repository.h"],
+    deps = [
+        "//function:function",
+    ],
+)
+
+cc_library(
+    name = "function_repository_tests",
+    srcs = ["function_repository_test.cpp"],
+    hdrs = ["function_repository.h"],
+    deps = [
+        ":function_repository",
+        "//function:function",
+        "@com_google_googletest//:gtest",
+    ],
+    testonly = True,
+)

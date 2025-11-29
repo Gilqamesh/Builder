@@ -1,0 +1,21 @@
+package(default_visibility = ["//visibility:public"])
+
+cc_library(
+    name = "function_ir_binary",
+    srcs = ["function_ir_binary.cpp"],
+    hdrs = ["function_ir_binary.h"],
+    deps = [
+        "//function_ir:function_ir",
+    ],
+)
+
+cc_library(
+    name = "function_ir_binary_tests",
+    srcs = ["function_ir_binary_test.cpp"],
+    hdrs = ["function_ir_binary.h"],
+    deps = [
+        ":function_ir_binary",
+        "@com_google_googletest//:gtest",
+    ],
+    testonly = True,
+)

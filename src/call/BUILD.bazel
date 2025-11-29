@@ -1,0 +1,18 @@
+package(default_visibility = ["//visibility:public"])
+
+cc_library(
+    name = "call",
+    srcs = ["call.cpp"],
+    hdrs = ["call.h"],
+)
+
+cc_library(
+    name = "call_tests",
+    srcs = ["call_test.cpp"],
+    hdrs = ["call.h"],
+    deps = [
+        ":call",
+        "@com_google_googletest//:gtest",
+    ],
+    testonly = True,
+)

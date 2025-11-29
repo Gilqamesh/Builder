@@ -1,0 +1,21 @@
+package(default_visibility = ["//visibility:public"])
+
+cc_library(
+    name = "function_primitive_lang",
+    srcs = ["function_primitive_lang.cpp"],
+    hdrs = ["function_primitive_lang.h"],
+    deps = [
+        "//function:function",
+    ],
+)
+
+cc_library(
+    name = "function_primitive_lang_tests",
+    srcs = ["function_primitive_lang_test.cpp"],
+    hdrs = ["function_primitive_lang.h"],
+    deps = [
+        ":function_primitive_lang",
+        "@com_google_googletest//:gtest",
+    ],
+    testonly = True,
+)
