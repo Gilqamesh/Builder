@@ -1,7 +1,6 @@
 .{
     .name = "typesystem_call_test",
     .version = "0.0.0",
-    .paths = .{ "." },
     .dependencies = .{
         .typesystem_call = .{ .path = "../typesystem_call" },
     },

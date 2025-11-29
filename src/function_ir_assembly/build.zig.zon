@@ -1,7 +1,6 @@
 .{
     .name = "function_ir_assembly",
     .version = "0.0.0",
-    .paths = .{ "." },
     .dependencies = .{
         .function_ir = .{ .path = "../function_ir" },
     },

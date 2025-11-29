@@ -1,7 +1,6 @@
 .{
     .name = "function_compound",
     .version = "0.0.0",
-    .paths = .{ "." },
     .dependencies = .{
         .function = .{ .path = "../function" },
         .function_id = .{ .path = "../function_id" },

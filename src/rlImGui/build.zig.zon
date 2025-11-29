@@ -1,7 +1,6 @@
 .{
     .name = "rlImGui",
     .version = "0.0.0",
-    .paths = .{ "." },
     .dependencies = .{
         .imgui = .{ .path = "../imgui" },
     },
