@@ -1,4 +1,0 @@
-module(name = "function_visualizer_editor", version = "0.0.0")
-
-bazel_dep(name = "imgui", version = "0.0.0")
-bazel_dep(name = "rlImGui", version = "0.0.0")

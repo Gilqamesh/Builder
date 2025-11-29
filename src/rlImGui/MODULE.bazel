@@ -1,4 +1,0 @@
-module(name = "rlImGui", version = "0.0.0")
-
-bazel_dep(name = "imgui", version = "0.0.0")
-bazel_dep(name = "raylib", version = "5.0.0")
