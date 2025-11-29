@@ -1,4 +1,0 @@
-module(name = "raylib")
-
-raylib_ext = use_extension("//:extension.bzl", "raylib_ext")
-use_repo(raylib_ext, "raylib")
