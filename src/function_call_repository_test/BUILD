@@ -5,6 +5,6 @@ cc_test(
     srcs = ["function_call_repository_test.cpp"],
     deps = [
         "//src/function_call_repository:function_call_repository",
-        "@gtest//:gtest_main",
+        "//src/google_test:gtest_main",
     ],
 )

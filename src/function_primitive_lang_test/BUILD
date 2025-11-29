@@ -5,6 +5,6 @@ cc_test(
     srcs = ["function_primitive_lang_test.cpp"],
     deps = [
         "//src/function_primitive_lang:function_primitive_lang",
-        "@gtest//:gtest_main",
+        "//src/google_test:gtest_main",
     ],
 )

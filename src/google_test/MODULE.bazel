@@ -1,0 +1,4 @@
+module(name = "google_test")
+
+gtest = use_extension("//:extensions.bzl", "gtest")
+use_repo(gtest, "com_google_googletest")

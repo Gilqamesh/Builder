@@ -5,6 +5,6 @@ cc_test(
     srcs = ["function_ir_file_repository_test.cpp"],
     deps = [
         "//src/function_ir_file_repository:function_ir_file_repository",
-        "@gtest//:gtest_main",
+        "//src/google_test:gtest_main",
     ],
 )
