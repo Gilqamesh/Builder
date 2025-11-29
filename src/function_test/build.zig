@@ -11,7 +11,7 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
-    exe.addCSourceFiles(.{ .files = &.{ "function_test.cpp" }, .flags = &.{} });
+    exe.addCSourceFiles(.{ .files = &.{ "function_test.cpp" }, .flags = &.{ "-std=c++23" } });
     exe.addIncludePath(b.path("."));
     exe.addIncludePath(function_dep.path(""));
     exe.linkLibrary(function_dep.artifact("function"));

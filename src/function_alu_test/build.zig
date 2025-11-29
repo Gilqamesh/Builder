@@ -11,7 +11,7 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
-    exe.addCSourceFiles(.{ .files = &.{ "function_alu_test.cpp" }, .flags = &.{} });
+    exe.addCSourceFiles(.{ .files = &.{ "function_alu_test.cpp" }, .flags = &.{ "-std=c++23" } });
     exe.addIncludePath(b.path("."));
     exe.addIncludePath(function_alu_dep.path(""));
     exe.linkLibrary(function_alu_dep.artifact("function_alu"));
