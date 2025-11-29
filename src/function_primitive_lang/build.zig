@@ -12,7 +12,7 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
     lib.addCSourceFiles(.{ .files = &.{ "function_primitive_lang.cpp" }, .flags = &.{} });
-    lib.addIncludePath(".");
+    lib.addIncludePath(b.path("."));
     lib.addIncludePath(function_dep.path(""));
     lib.linkLibrary(function_dep.artifact("function"));
     lib.linkLibCpp();

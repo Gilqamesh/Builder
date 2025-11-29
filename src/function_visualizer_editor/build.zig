@@ -13,7 +13,7 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
     lib.addCSourceFiles(.{ .files = &.{ "function_visualizer_editor.cpp" }, .flags = &.{} });
-    lib.addIncludePath(".");
+    lib.addIncludePath(b.path("."));
     lib.addIncludePath(imgui_dep.path(""));
     lib.addIncludePath(rlimgui_dep.path(""));
     lib.linkLibrary(imgui_dep.artifact("imgui"));

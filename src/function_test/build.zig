@@ -12,7 +12,7 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
     exe.addCSourceFiles(.{ .files = &.{ "function_test.cpp" }, .flags = &.{} });
-    exe.addIncludePath(".");
+    exe.addIncludePath(b.path("."));
     exe.addIncludePath(function_dep.path(""));
     exe.linkLibrary(function_dep.artifact("function"));
     exe.linkSystemLibrary("gtest");

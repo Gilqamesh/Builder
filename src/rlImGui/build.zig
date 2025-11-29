@@ -12,8 +12,8 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
     lib.addCSourceFiles(.{ .files = &.{ "rlImGui.cpp" }, .flags = &.{} });
-    lib.addIncludePath(".");
-    lib.addIncludePath("extras");
+    lib.addIncludePath(b.path("."));
+    lib.addIncludePath(b.path("extras"));
     lib.addIncludePath(imgui_dep.path(""));
     lib.linkLibrary(imgui_dep.artifact("imgui"));
     lib.linkSystemLibrary("raylib");

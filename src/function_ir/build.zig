@@ -12,7 +12,7 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
     lib.addCSourceFiles(.{ .files = &.{ "function_ir.cpp" }, .flags = &.{} });
-    lib.addIncludePath(".");
+    lib.addIncludePath(b.path("."));
     lib.addIncludePath(function_id_dep.path(""));
     lib.linkLibrary(function_id_dep.artifact("function_id"));
     lib.linkLibCpp();

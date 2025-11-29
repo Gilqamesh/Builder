@@ -10,7 +10,7 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
     lib.addCSourceFiles(.{ .files = &.{ "typesystem.cpp" }, .flags = &.{} });
-    lib.addIncludePath(".");
+    lib.addIncludePath(b.path("."));
     lib.linkLibCpp();
     b.installArtifact(lib);
 }

@@ -12,7 +12,7 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
     exe.addCSourceFiles(.{ .files = &.{ "typesystem_call_test.cpp" }, .flags = &.{} });
-    exe.addIncludePath(".");
+    exe.addIncludePath(b.path("."));
     exe.addIncludePath(dep.path(""));
     exe.linkLibrary(dep.artifact("typesystem_call"));
     exe.linkSystemLibrary("gtest");
