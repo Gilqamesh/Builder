@@ -12,8 +12,8 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
     lib.addCSourceFiles(.{ .files = &.{ "function_ir.cpp" }, .flags = &.{} });
-    lib.addIncludePath(.{ .path = "." });
-    lib.addIncludePath(function_id_dep.path("."));
+    lib.addIncludePath(".");
+    lib.addIncludePath(function_id_dep.path(""));
     lib.linkLibrary(function_id_dep.artifact("function_id"));
     lib.linkLibCpp();
     b.installArtifact(lib);

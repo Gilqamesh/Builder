@@ -24,9 +24,9 @@ fi
 
 cd "$MODULE_DIR"
 
-if grep -q 'step\("run"' build.zig; then
+if grep -Fq 'step\("run"' build.zig; then
     exec zig build run "$@"
-elif grep -q 'step\("test"' build.zig; then
+elif grep -Fq 'step\("test"' build.zig; then
     exec zig build test "$@"
 else
     echo "No explicit run or test step found; running plain build." >&2

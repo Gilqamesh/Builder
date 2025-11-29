@@ -10,7 +10,7 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
     lib.addCSourceFiles(.{ .files = &.{ "function_id.cpp" }, .flags = &.{} });
-    lib.addIncludePath(.{ .path = "." });
+    lib.addIncludePath(".");
     lib.linkLibCpp();
     b.installArtifact(lib);
 }

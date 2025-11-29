@@ -14,10 +14,10 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
     lib.addCSourceFiles(.{ .files = &.{ "function_ir_file_repository.cpp" }, .flags = &.{} });
-    lib.addIncludePath(.{ .path = "." });
-    lib.addIncludePath(function_ir_dep.path("."));
-    lib.addIncludePath(function_ir_binary_dep.path("."));
-    lib.addIncludePath(typesystem_dep.path("."));
+    lib.addIncludePath(".");
+    lib.addIncludePath(function_ir_dep.path(""));
+    lib.addIncludePath(function_ir_binary_dep.path(""));
+    lib.addIncludePath(typesystem_dep.path(""));
     lib.linkLibrary(function_ir_dep.artifact("function_ir"));
     lib.linkLibrary(function_ir_binary_dep.artifact("function_ir_binary"));
     lib.linkLibrary(typesystem_dep.artifact("typesystem"));

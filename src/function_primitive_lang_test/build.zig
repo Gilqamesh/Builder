@@ -12,8 +12,8 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
     exe.addCSourceFiles(.{ .files = &.{ "function_primitive_lang_test.cpp" }, .flags = &.{} });
-    exe.addIncludePath(.{ .path = "." });
-    exe.addIncludePath(dep.path("."));
+    exe.addIncludePath(".");
+    exe.addIncludePath(dep.path(""));
     exe.linkLibrary(dep.artifact("function_primitive_lang"));
     exe.linkSystemLibrary("gtest");
     exe.linkSystemLibrary("gtest_main");

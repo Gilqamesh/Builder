@@ -1,7 +1,7 @@
 .{
     .name = "function_alu_test",
     .version = "0.0.0",
-    .paths = .{ "." },
+    .paths = .{ "" },
     .dependencies = .{
         .function_alu = .{ .path = "../function_alu" },
     },
