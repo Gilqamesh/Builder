@@ -1,5 +1,5 @@
 .{
-    .name = "function_compound_test",
+    .name = .function_compound_test,
     .version = "0.0.0",
     .paths = .{ "" },
     .dependencies = .{

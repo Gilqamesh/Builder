@@ -1,5 +1,5 @@
 .{
-    .name = "function_repository",
+    .name = .function_repository,
     .version = "0.0.0",
     .paths = .{ "" },
     .dependencies = .{

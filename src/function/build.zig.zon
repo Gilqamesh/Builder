@@ -1,5 +1,5 @@
 .{
-    .name = "function",
+    .name = .function,
     .version = "0.0.0",
     .paths = .{ "" },
     .dependencies = .{

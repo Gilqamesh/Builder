@@ -1,5 +1,5 @@
 .{
-    .name = "typesystem_test",
+    .name = .typesystem_test,
     .version = "0.0.0",
     .paths = .{ "" },
     .dependencies = .{

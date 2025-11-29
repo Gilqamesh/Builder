@@ -1,5 +1,5 @@
 .{
-    .name = "function_alu_test",
+    .name = .function_alu_test,
     .version = "0.0.0",
     .paths = .{ "" },
     .dependencies = .{

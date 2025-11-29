@@ -1,5 +1,5 @@
 .{
-    .name = "function_ir_assembly",
+    .name = .function_ir_assembly,
     .version = "0.0.0",
     .paths = .{ "" },
     .dependencies = .{
