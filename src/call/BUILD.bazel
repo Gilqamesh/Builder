@@ -6,13 +6,11 @@ cc_library(
     hdrs = ["call.h"],
 )
 
-cc_library(
+cc_test(
     name = "call_tests",
     srcs = ["call_test.cpp"],
-    hdrs = ["call.h"],
     deps = [
         ":call",
-        "@com_google_googletest//:gtest",
+        "@com_google_googletest//:gtest_main",
     ],
-    testonly = True,
 )

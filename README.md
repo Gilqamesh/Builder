@@ -16,8 +16,13 @@ Bazel builds are expected to run from whatever workspace imports this repository
 
 ```bash
 # From your workspace root
-bazel test //tests_main:tests
 bazel build //function_visualizer:function_visualizer
+```
+
+To exercise an individual test target quickly from this repository, use the helper script:
+
+```bash
+./scripts/run_test.sh //call:call_tests
 ```
 
 ## Adding or modifying an entrypoint

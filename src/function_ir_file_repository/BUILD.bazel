@@ -11,16 +11,14 @@ cc_library(
     ],
 )
 
-cc_library(
+cc_test(
     name = "function_ir_file_repository_tests",
     srcs = ["function_ir_file_repository_test.cpp"],
-    hdrs = ["function_ir_file_repository.h"],
     deps = [
         ":function_ir_file_repository",
         "//function_ir:function_ir",
         "//function_ir_binary:function_ir_binary",
         "//typesystem:typesystem",
-        "@com_google_googletest//:gtest",
+        "@com_google_googletest//:gtest_main",
     ],
-    testonly = True,
 )

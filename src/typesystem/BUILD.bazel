@@ -6,13 +6,11 @@ cc_library(
     hdrs = ["typesystem.h"],
 )
 
-cc_library(
+cc_test(
     name = "typesystem_tests",
     srcs = ["typesystem_test.cpp"],
-    hdrs = ["typesystem.h"],
     deps = [
         ":typesystem",
-        "@com_google_googletest//:gtest",
+        "@com_google_googletest//:gtest_main",
     ],
-    testonly = True,
 )
