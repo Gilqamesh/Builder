@@ -8,22 +8,18 @@ Builder is a coding playground for experimenting with any kind of program by com
 - Explore different ideas by changing which blocks an entrypoint pulls in while keeping each package self-contained.
 
 ## Repository layout
-- `src/`: Building blocks and supporting code you author; each file lives in its own folder with a `BUILD.bazel` that describes how to build that block and its dependencies. External helper code that needs to be shared (e.g., imgui, rlImGui, ulid) also sits here in dedicated folders.
-- `scripts/`: Convenience wrappers for common builds.
+- `src/`: Building blocks and supporting code you author; each file lives in its own folder with a Meson build description that declares its sources and any sibling dependencies. External helper code that needs to be shared (e.g., imgui, rlImGui, ulid) also sits here in dedicated folders.
 
-## Building
-Bazel builds are expected to run from whatever workspace imports this repository (for example via `local_repository`). The packages live under `src/`, so reference them from your own workspace instead of creating another workspace file here. When invoked from a parent workspace, the packages are addressed the same way as before, e.g.:
-
-```bash
-# From your workspace root
-bazel build //function_visualizer:function_visualizer
-```
-
-To exercise an individual test target quickly from this repository, use the helper script:
+## Building with Meson
+Every package under `src/` is self-contained. To build or test one, point Meson directly at the package folder:
 
 ```bash
-./scripts/run_test.sh //call:call_tests
+meson setup build-call src/call -Dtests=enabled
+meson compile -C build-call
+meson test -C build-call
 ```
+
+Packages that depend on siblings use local `subprojects/*.wrap` files to resolve them automatically during `meson setup`, so you do not need any top-level workspace files.
 
 ## Adding or modifying an entrypoint
 1. Create a new folder under `src/` with its own build description.
