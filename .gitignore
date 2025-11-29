@@ -1,5 +1,6 @@
 build/
 .vscode/
 imgui.ini
-bazel-*
-.bazel*
+zig-cache
+.zig-cache
+
