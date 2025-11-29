@@ -5,7 +5,7 @@ cc_library(
     srcs = ["function_primitive_cpp.cpp"],
     hdrs = ["function_primitive_cpp.h"],
     deps = [
-        "//function:function",
+        "@function//:function",
     ],
 )
 

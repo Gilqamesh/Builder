@@ -5,7 +5,7 @@ cc_library(
     srcs = ["function_ir.cpp"],
     hdrs = ["function_ir.h"],
     deps = [
-        "//function_id:function_id",
+        "@function_id//:function_id",
     ],
 )
 

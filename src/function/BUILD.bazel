@@ -5,8 +5,8 @@ cc_library(
     srcs = ["function.cpp"],
     hdrs = ["function.h"],
     deps = [
-        "//function_ir:function_ir",
-        "//typesystem:typesystem",
+        "@function_ir//:function_ir",
+        "@typesystem//:typesystem",
     ],
 )
 

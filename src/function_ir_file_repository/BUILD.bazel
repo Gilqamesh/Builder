@@ -5,9 +5,9 @@ cc_library(
     srcs = ["function_ir_file_repository.cpp"],
     hdrs = ["function_ir_file_repository.h"],
     deps = [
-        "//function_ir:function_ir",
-        "//function_ir_binary:function_ir_binary",
-        "//typesystem:typesystem",
+        "@function_ir//:function_ir",
+        "@function_ir_binary//:function_ir_binary",
+        "@typesystem//:typesystem",
     ],
 )
 
@@ -16,9 +16,9 @@ cc_test(
     srcs = ["function_ir_file_repository_test.cpp"],
     deps = [
         ":function_ir_file_repository",
-        "//function_ir:function_ir",
-        "//function_ir_binary:function_ir_binary",
-        "//typesystem:typesystem",
+        "@function_ir//:function_ir",
+        "@function_ir_binary//:function_ir_binary",
+        "@typesystem//:typesystem",
         "@com_google_googletest//:gtest_main",
     ],
 )
