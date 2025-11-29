@@ -4,31 +4,27 @@ pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
-    const imgui_dep = b.dependency("imgui", .{
-        .target = target,
-        .optimize = optimize,
-    });
+    const imgui_dep = b.dependency("imgui", .{});
+    const raylib_dep = b.dependency("raylib_wrapper", .{});
 
-    const raylib_dep = b.dependency("raylib_wrapper", .{
-        .target = target,
-        .optimize = optimize,
-    });
-
-    const lib = b.addStaticLibrary(.{
+    const lib = b.addLibrary(.{
         .name = "rlImGui",
-        .target = target,
-        .optimize = optimize,
+        .linkage = .static,
+        .root_module = b.createModule(.{
+            .target = target,
+            .optimize = optimize,
+        }),
     });
 
     lib.addCSourceFiles(.{
-        .files = &.{ b.path("rlImGui.cpp") },
+        .files = &.{ "rlImGui.cpp" },
         .flags = &.{ "-std=c++23" },
     });
 
-    lib.addIncludePath(b.path("."));         // local rlImGui/
-    lib.addIncludePath(b.path("extras"));    // rlImGui/extras
-    lib.addIncludePath(imgui_dep.path(""));  // imgui headers
-    lib.addIncludePath(raylib_dep.path("src"));  // raylib’s headers
+    lib.addIncludePath(b.path("."));           // local rlImGui/
+    lib.addIncludePath(b.path("extras"));      // rlImGui/extras
+    lib.addIncludePath(imgui_dep.path(""));    // imgui headers
+    lib.addIncludePath(raylib_dep.path("src")); // raylib headers
 
     lib.linkLibrary(imgui_dep.artifact("imgui"));
     lib.linkLibrary(raylib_dep.artifact("raylib"));

@@ -4,20 +4,28 @@ pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
-    const call_dep = b.dependency("call", .{ .target = target, .optimize = optimize });
+    const call_dep = b.dependency("call", .{});
 
     const exe = b.addExecutable(.{
         .name = "call_test",
-        .target = target,
-        .optimize = optimize,
+        .root_module = b.createModule(.{
+            .target = target,
+            .optimize = optimize,
+        }),
     });
-    exe.addCSourceFiles(.{ .files = &.{ b.path("call_test.cpp") }, .flags = &.{ "-std=c++23" } });
+
+    exe.addCSourceFiles(.{
+        .files = &.{ "call_test.cpp" },
+        .flags = &.{ "-std=c++23" },
+    });
+
     exe.addIncludePath(b.path("."));
     exe.addIncludePath(call_dep.path(""));
     exe.linkLibrary(call_dep.artifact("call"));
     exe.linkSystemLibrary("gtest");
     exe.linkSystemLibrary("gtest_main");
     exe.linkLibCpp();
+
     b.installArtifact(exe);
 
     const run_cmd = b.addRunArtifact(exe);

@@ -4,20 +4,30 @@ pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
-    const function_dep = b.dependency("function", .{ .target = target, .optimize = optimize });
-    const function_id_dep = b.dependency("function_id", .{ .target = target, .optimize = optimize });
+    const function_dep = b.dependency("function", .{});
+    const function_id_dep = b.dependency("function_id", .{});
 
-    const lib = b.addStaticLibrary(.{
+    const lib = b.addLibrary(.{
         .name = "function_call_repository",
-        .target = target,
-        .optimize = optimize,
+        .linkage = .static,
+        .root_module = b.createModule(.{
+            .target = target,
+            .optimize = optimize,
+        }),
     });
-    lib.addCSourceFiles(.{ .files = &.{ b.path("function_call_repository.cpp") }, .flags = &.{ "-std=c++23" } });
+
+    lib.addCSourceFiles(.{
+        .files = &.{ "function_call_repository.cpp" },
+        .flags = &.{ "-std=c++23" },
+    });
+
     lib.addIncludePath(b.path("."));
     lib.addIncludePath(function_dep.path(""));
     lib.addIncludePath(function_id_dep.path(""));
+
     lib.linkLibrary(function_dep.artifact("function"));
     lib.linkLibrary(function_id_dep.artifact("function_id"));
     lib.linkLibCpp();
+
     b.installArtifact(lib);
 }

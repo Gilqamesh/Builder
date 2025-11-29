@@ -1,4 +1,5 @@
 .{
+    .fingerprint = 0x3f345aaa8792264d,
     .name = .function_visualizer,
     .version = "0.0.0",
     .paths = .{ "" },
