@@ -1,0 +1,12 @@
+[package]
+name = "function_call_repository"
+version = "0.1.0"
+edition = "2021"
+build = "build.rs"
+
+[dependencies]
+function = { path = "../function" }
+function_id = { path = "../function_id" }
+
+[build-dependencies]
+cc = "1"

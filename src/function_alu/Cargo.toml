@@ -1,0 +1,12 @@
+[package]
+name = "function_alu"
+version = "0.1.0"
+edition = "2021"
+build = "build.rs"
+
+[dependencies]
+function = { path = "../function" }
+typesystem = { path = "../typesystem" }
+
+[build-dependencies]
+cc = "1"

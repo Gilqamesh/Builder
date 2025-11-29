@@ -1,0 +1,13 @@
+[package]
+name = "function_ir_file_repository"
+version = "0.1.0"
+edition = "2021"
+build = "build.rs"
+
+[dependencies]
+function_ir = { path = "../function_ir" }
+function_ir_binary = { path = "../function_ir_binary" }
+typesystem = { path = "../typesystem" }
+
+[build-dependencies]
+cc = "1"

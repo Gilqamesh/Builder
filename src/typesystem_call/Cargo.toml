@@ -1,0 +1,12 @@
+[package]
+name = "typesystem_call"
+version = "0.1.0"
+edition = "2021"
+build = "build.rs"
+
+[dependencies]
+call = { path = "../call" }
+typesystem = { path = "../typesystem" }
+
+[build-dependencies]
+cc = "1"

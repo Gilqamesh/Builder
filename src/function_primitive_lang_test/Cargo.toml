@@ -1,0 +1,13 @@
+[package]
+name = "function_primitive_lang_test"
+version = "0.1.0"
+edition = "2021"
+build = "build.rs"
+
+[dependencies]
+builder_runner = { path = "../../tools/builder_runner" }
+function_primitive_lang = { path = "../function_primitive_lang" }
+google_test = { path = "../google_test" }
+
+[build-dependencies]
+cc = "1"

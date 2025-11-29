@@ -1,9 +1,0 @@
-.{
-    .name = .function_test,
-    .version = "0.0.0",
-    .paths = .{ "" },
-    .dependencies = .{
-        .function = .{ .path = "../function" },
-        .googletest = .{ .path = "../google_test" },
-    },
-}
