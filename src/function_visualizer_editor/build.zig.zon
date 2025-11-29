@@ -1,0 +1,8 @@
+.{
+    .name = "function_visualizer_editor",
+    .version = "0.0.0",
+    .dependencies = .{
+        .imgui = .{ .path = "../imgui" },
+        .rlImGui = .{ .path = "../rlImGui" },
+    },
+}

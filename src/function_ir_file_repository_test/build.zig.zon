@@ -1,0 +1,7 @@
+.{
+    .name = "function_ir_file_repository_test",
+    .version = "0.0.0",
+    .dependencies = .{
+        .function_ir_file_repository = .{ .path = "../function_ir_file_repository" },
+    },
+}

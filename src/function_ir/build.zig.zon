@@ -1,0 +1,7 @@
+.{
+    .name = "function_ir",
+    .version = "0.0.0",
+    .dependencies = .{
+        .function_id = .{ .path = "../function_id" },
+    },
+}

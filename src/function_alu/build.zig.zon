@@ -1,0 +1,8 @@
+.{
+    .name = "function_alu",
+    .version = "0.0.0",
+    .dependencies = .{
+        .function = .{ .path = "../function" },
+        .typesystem = .{ .path = "../typesystem" },
+    },
+}

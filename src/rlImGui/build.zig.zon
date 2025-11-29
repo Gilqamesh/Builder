@@ -1,0 +1,7 @@
+.{
+    .name = "rlImGui",
+    .version = "0.0.0",
+    .dependencies = .{
+        .imgui = .{ .path = "../imgui" },
+    },
+}

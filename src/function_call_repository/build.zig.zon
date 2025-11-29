@@ -1,0 +1,8 @@
+.{
+    .name = "function_call_repository",
+    .version = "0.0.0",
+    .dependencies = .{
+        .function = .{ .path = "../function" },
+        .function_id = .{ .path = "../function_id" },
+    },
+}
