@@ -1,30 +1,107 @@
 # Builder
 
-Builder is a coding playground for experimenting with any kind of program by composing building blocks you place in `src/`. Each block is regular code you author; it can pull in other pieces from the same directory or operate alone. Entrypoints (tests, visualizers, etc.) live alongside those blocks in the same `src/` tree and are built by a single Meson project.
+**Builder** is a minimal, fast, self-contained C++ build system for
+experimenting with ideas through small, composable modules.
 
-## What you can do
-- Add new building blocks under `src/` that provide whatever functionality you need, reusing other files in that directory when helpful.
-- Declare entrypoints in the corresponding `src/` package that list the exact blocks they depend on.
-- Explore different ideas by changing which blocks an entrypoint pulls in while keeping each package self-contained.
+Each module lives in `src/<module>/` and defines its behavior in a
+simple `build.module` file.\
+The `builder` executable reads these descriptions, resolves
+dependencies, performs automatic header scanning, globs sources, and
+executes incremental builds.
 
-## Repository layout
-- `src/`: Building blocks and supporting code you author; each file lives in its own folder with a Meson build description that declares its sources and any sibling dependencies. External helper code that needs to be shared (e.g., imgui, rlImGui, ulid) also sits here in dedicated folders.
+------------------------------------------------------------------------
 
-## Building with Meson
-Every package under `src/` is self-contained. To build or test one, point Meson directly at the package folder:
+## Why Builder?
 
-```bash
-meson setup build-call src/call -Dtests=enabled
-meson compile -C build-call
-meson test -C build-call
+-   **No CMake, Meson, or Bazel**
+-   **No workspaces or top-level build files**
+-   **Every module self-describes**
+-   **Extremely fast incremental rebuilds**
+-   **Automatic header dependency scanning**
+-   **Recursive source globbing**
+-   **Seamless consumption of external CMake projects (`remote_cmake`)**
+-   **Simple & hackable --- a single \~1000-line C++ file**
+
+------------------------------------------------------------------------
+
+## Layout
+
+    <root>/builder.cpp        # The build tool
+    <root>/src/<module>/      # Each module has:
+        build.module          #   - its own build descriptor
+        *.cpp / *.h / ...     #   - sources
+    <root>/build/<module>/    # Build artifacts
+    <root>/.cache/remote/     # Cached remote CMake projects
+
+------------------------------------------------------------------------
+
+## Using Builder
+
+Compile the tool:
+
+``` bash
+g++ -std=c++17 -O2 builder.cpp -o builder -Wall -Wextra -Werror
 ```
 
-Packages that depend on siblings use local `subprojects/*.wrap` files to resolve them automatically during `meson setup`, so you do not need any top-level workspace files.
+Build a module:
 
-## Adding or modifying an entrypoint
-1. Create a new folder under `src/` with its own build description.
-2. Point that file at any external code it needs from elsewhere in `src/`, then list the exact sources you want to compile.
-3. Declare only the blocks from `src/` your entrypoint depends on, and add new ones there as needed.
-4. Add a helper script in `scripts/` if you want a one-liner to build or run the entrypoint.
+``` bash
+./builder <module_name>
+```
 
-This setup keeps entrypoints independent while letting you reuse or extend the code in `src/` however you choose.
+For example:
+
+``` bash
+./builder function
+```
+
+------------------------------------------------------------------------
+
+## Example `build.module`
+
+    MODULE_NAME=function
+    MODULE_TYPE=static_lib
+    MODULE_SOURCES="function.cpp *.cpp backend/*.cpp"
+    MODULE_DEPS="typesystem function_ir"
+    MODULE_SYS_LIBS="pthread"
+    MODULE_CXX_FLAGS="-std=c++23 -O2 -Wall -Wextra"
+    MODULE_LD_FLAGS=""
+
+### Remote CMake modules
+
+    MODULE_NAME=raylib
+    MODULE_TYPE=remote_cmake
+    MODULE_FETCH_URL="https://github.com/raysan5/raylib/archive/refs/tags/5.5.tar.gz"
+    MODULE_DEPS=""
+
+------------------------------------------------------------------------
+
+## Adding a New Module
+
+1.  Create a directory: `src/<module>/`
+2.  Add a `build.module` file describing:
+    -   name, type, source patterns, deps, flags, etc.
+3.  Add your `.cpp`/`.h` files
+4.  Build it:
+
+``` bash
+./builder <module>
+```
+
+------------------------------------------------------------------------
+
+## Philosophy
+
+Builder aims to be:
+
+-   **Tiny** --- one C++ file you can fully understand\
+-   **Deterministic** --- predictable builds and dependency resolution\
+-   **Hackable** --- simple enough to extend or modify freely\
+-   **Exploratory** --- ideal for rapid prototyping, language
+    experiments, and modular architectures
+
+------------------------------------------------------------------------
+
+## License
+
+Builder is released under the MIT License; see LICENSE for details.
