@@ -1,5 +1,3 @@
-// builder.cpp
-
 #include <algorithm>
 #include <cctype>
 #include <cstdlib>
