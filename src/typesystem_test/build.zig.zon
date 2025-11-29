@@ -4,5 +4,6 @@
     .paths = .{ "" },
     .dependencies = .{
         .typesystem = .{ .path = "../typesystem" },
+        .googletest = .{ .path = "../google_test" },
     },
 }

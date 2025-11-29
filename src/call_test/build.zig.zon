@@ -4,5 +4,6 @@
     .paths = .{ "" },
     .dependencies = .{
         .call = .{ .path = "../call" },
+        .googletest = .{ .path = "../google_test" },
     },
 }

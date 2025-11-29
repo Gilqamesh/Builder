@@ -4,5 +4,6 @@
     .paths = .{ "" },
     .dependencies = .{
         .function_primitive_lang = .{ .path = "../function_primitive_lang" },
+        .googletest = .{ .path = "../google_test" },
     },
 }

@@ -1,8 +1,7 @@
 const std = @import("std");
 
 pub fn build(b: *std.Build) void {
-    _ = b.standardTargetOptions(.{});
-    _ = b.standardOptimizeOption(.{});
-
-    // This wrapper expects a system-provided raylib; dependent modules link it directly.
+    // Pull raylib upstream and run its own build.zig
+    const upstream = b.dependency("upstream", .{});
+    _ = upstream;
 }

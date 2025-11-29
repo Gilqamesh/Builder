@@ -4,5 +4,6 @@
     .paths = .{ "" },
     .dependencies = .{
         .function_ir = .{ .path = "../function_ir" },
+        .googletest = .{ .path = "../google_test" },
     },
 }
