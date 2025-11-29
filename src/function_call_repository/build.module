@@ -1,4 +1,3 @@
-# Auto-generated
 MODULE_NAME=function_call_repository
 MODULE_TYPE=static_lib
 MODULE_SOURCES="function_call_repository.cpp "

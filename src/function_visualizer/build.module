@@ -1,4 +1,3 @@
-# Auto-generated
 MODULE_NAME=function_visualizer
 MODULE_TYPE=executable
 MODULE_SOURCES="function_visualizer.cpp "

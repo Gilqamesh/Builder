@@ -1,4 +1,3 @@
-# Auto-generated
 MODULE_NAME=call
 MODULE_TYPE=static_lib
 MODULE_SOURCES="call.cpp "

@@ -1,4 +1,3 @@
-# Auto-generated
 MODULE_NAME=function_ir
 MODULE_TYPE=static_lib
 MODULE_SOURCES="function_ir.cpp "

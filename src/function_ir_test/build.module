@@ -1,4 +1,3 @@
-# Auto-generated
 MODULE_NAME=function_ir_test
 MODULE_TYPE=executable
 MODULE_SOURCES="function_ir_test.cpp "

@@ -1,4 +1,3 @@
-# Auto-generated
 MODULE_NAME=function_primitive_lang
 MODULE_TYPE=static_lib
 MODULE_SOURCES="function_primitive_lang.cpp "

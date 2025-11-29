@@ -52,19 +52,19 @@ Build a module:
 For example:
 
 ``` bash
-./builder function
+./builder function_visualizer
 ```
 
 ------------------------------------------------------------------------
 
 ## Example `build.module`
 
-    MODULE_NAME=function
-    MODULE_TYPE=static_lib
-    MODULE_SOURCES="function.cpp *.cpp backend/*.cpp"
-    MODULE_DEPS="typesystem function_ir"
-    MODULE_SYS_LIBS="pthread"
-    MODULE_CXX_FLAGS="-std=c++23 -O2 -Wall -Wextra"
+    MODULE_NAME=function_visualizer
+    MODULE_TYPE=executable
+    MODULE_SOURCES="function_visualizer.cpp "
+    MODULE_DEPS=" function_visualizer_editor function_repository function_alu function_compound function_ir_file_repository rlImGui"
+    MODULE_SYS_LIBS=""
+    MODULE_CXX_FLAGS="-std=c++23 -Wall -Wextra -O2"
     MODULE_LD_FLAGS=""
 
 ### Remote CMake modules

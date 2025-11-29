@@ -1,4 +1,3 @@
-# Auto-generated
 MODULE_NAME=typesystem_call_test
 MODULE_TYPE=executable
 MODULE_SOURCES="typesystem_call_test.cpp "

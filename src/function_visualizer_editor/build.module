@@ -1,4 +1,3 @@
-# Auto-generated
 MODULE_NAME=function_visualizer_editor
 MODULE_TYPE=static_lib
 MODULE_SOURCES="function_visualizer_editor.cpp "

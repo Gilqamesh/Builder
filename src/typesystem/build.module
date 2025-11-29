@@ -1,4 +1,3 @@
-# Auto-generated
 MODULE_NAME=typesystem
 MODULE_TYPE=static_lib
 MODULE_SOURCES="typesystem.cpp "
