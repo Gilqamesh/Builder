@@ -5,7 +5,7 @@ cc_library(
     srcs = ["function_visualizer_editor.cpp"],
     hdrs = ["function_visualizer_editor.h"],
     deps = [
-        "//imgui:imgui",
-        "//rlImGui:rlimgui",
+        "@imgui//:imgui",
+        "@rlImGui//:rlimgui",
     ],
 )

@@ -5,7 +5,7 @@ cc_library(
     srcs = ["function_ir_assembly.cpp"],
     hdrs = ["function_ir_assembly.h"],
     deps = [
-        "//function_ir:function_ir",
+        "@function_ir//:function_ir",
     ],
 )
 

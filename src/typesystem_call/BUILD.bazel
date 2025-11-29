@@ -5,8 +5,8 @@ cc_library(
     srcs = ["typesystem_call.cpp"],
     hdrs = ["typesystem_call.h"],
     deps = [
-        "//call:call",
-        "//typesystem:typesystem",
+        "@call//:call",
+        "@typesystem//:typesystem",
     ],
 )
 

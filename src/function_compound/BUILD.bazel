@@ -5,9 +5,9 @@ cc_library(
     srcs = ["function_compound.cpp"],
     hdrs = ["function_compound.h"],
     deps = [
-        "//function:function",
-        "//function_id:function_id",
-        "//typesystem:typesystem",
+        "@function//:function",
+        "@function_id//:function_id",
+        "@typesystem//:typesystem",
     ],
 )
 

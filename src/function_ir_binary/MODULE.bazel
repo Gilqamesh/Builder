@@ -1,0 +1,4 @@
+module(name = "function_ir_binary", version = "0.0.0")
+
+bazel_dep(name = "function_ir", version = "0.0.0")
+bazel_dep(name = "googletest", version = "1.14.0", repo_name = "com_google_googletest", dev_dependency = True)

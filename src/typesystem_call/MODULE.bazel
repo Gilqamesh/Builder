@@ -1,0 +1,5 @@
+module(name = "typesystem_call", version = "0.0.0")
+
+bazel_dep(name = "call", version = "0.0.0")
+bazel_dep(name = "typesystem", version = "0.0.0")
+bazel_dep(name = "googletest", version = "1.14.0", repo_name = "com_google_googletest", dev_dependency = True)

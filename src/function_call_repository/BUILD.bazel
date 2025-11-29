@@ -5,8 +5,8 @@ cc_library(
     srcs = ["function_call_repository.cpp"],
     hdrs = ["function_call_repository.h"],
     deps = [
-        "//function:function",
-        "//function_id:function_id",
+        "@function//:function",
+        "@function_id//:function_id",
     ],
 )
 
