@@ -1,0 +1,12 @@
+.{
+    .name = "raylib_wrapper",
+    .version = "5.5.0",
+    .paths = .{ "raylib-5.5" },
+
+    .dependencies = .{
+        .upstream = .{
+            .url = "https://github.com/raysan5/raylib/archive/refs/tags/5.5.zip",
+            .hash = "1220d93782859726c2c46a05450615b7edfc82b7319daac50cbc7c3345d660b022d7",
+        },
+    },
+}
