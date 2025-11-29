@@ -1,4 +1,4 @@
 build/
-.bazel_workspace/
+build-*/
 .vscode/
 imgui.ini
