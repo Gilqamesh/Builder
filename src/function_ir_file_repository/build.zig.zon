@@ -1,5 +1,5 @@
 .{
-    .name = "function_ir_file_repository",
+    .name = .function_ir_file_repository,
     .version = "0.0.0",
     .paths = .{ "" },
     .dependencies = .{

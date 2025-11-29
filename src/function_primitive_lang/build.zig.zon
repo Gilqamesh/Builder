@@ -1,5 +1,5 @@
 .{
-    .name = "function_primitive_lang",
+    .name = .function_primitive_lang,
     .version = "0.0.0",
     .paths = .{ "" },
     .dependencies = .{

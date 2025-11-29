@@ -1,5 +1,5 @@
 .{
-    .name = "function_visualizer_editor",
+    .name = .function_visualizer_editor,
     .version = "0.0.0",
     .paths = .{ "" },
     .dependencies = .{
