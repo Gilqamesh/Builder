@@ -10,3 +10,5 @@ function_tests = executable(
 )
 
 test('function_test', function_tests)
+
+test_exe = function_tests

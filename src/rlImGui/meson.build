@@ -2,8 +2,8 @@ project('rlImGui', 'cpp')
 
 inc = include_directories('.', 'extras')
 
-imgui_dep = dependency('imgui')
-raylib_dep = dependency('raylib')
+imgui_dep = subproject('../imgui').get_variable('imgui_dep')
+raylib_dep = dependency('raylib', required: true)
 
 rlimgui_lib = library(
   'rlimgui',
@@ -12,9 +12,8 @@ rlimgui_lib = library(
   dependencies: [imgui_dep, raylib_dep],
   install: false,
 )
-rlimgui_dep = declare_dependency(
-  link_with: rlimgui_lib,
+
+rlImGui_dep = declare_dependency(
   include_directories: inc,
-  dependencies: [imgui_dep, raylib_dep],
+  link_with: rlimgui_lib,
 )
-meson.override_dependency('rlImGui', rlimgui_dep)

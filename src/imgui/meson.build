@@ -11,5 +11,8 @@ imgui_sources = [
 ]
 
 imgui_lib = library('imgui', imgui_sources, include_directories: inc, install: false)
-imgui_dep = declare_dependency(link_with: imgui_lib, include_directories: inc)
-meson.override_dependency('imgui', imgui_dep)
+
+imgui_dep = declare_dependency(
+  include_directories: inc,
+  link_with: imgui_lib,
+)

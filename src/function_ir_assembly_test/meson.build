@@ -1,20 +1,20 @@
 project('function_ir_assembly_test', 'cpp')
 
-function_ir_assembly_dep = dependency('function_ir_assembly')
-function_ir_test_dep = dependency('function_ir_test')
-gtest_dep = dependency('gtest_support')
+function_ir_assembly_dep = subproject('../function_ir_assembly').get_variable('function_ir_assembly_dep')
+function_ir_test = subproject('../function_ir_test')
+gtest_dep = subproject('../gtest').get_variable('gtest_dep')
 
 function_ir_assembly_tests = executable(
   'function_ir_assembly_tests',
   ['function_ir_assembly_test.cpp'],
   dependencies: [function_ir_assembly_dep, gtest_dep],
 )
+
 test(
   'function_ir_assembly',
   function_ir_assembly_tests,
   suite: 'function_ir_assembly',
-  depends: [function_ir_test_dep.get_variable('test_exe')],
+  depends: [function_ir_test.get_variable('test_exe')],
 )
 
-function_ir_assembly_test_dep = declare_dependency(variables: {'test_exe': function_ir_assembly_tests})
-meson.override_dependency('function_ir_assembly_test', function_ir_assembly_test_dep)
+test_exe = function_ir_assembly_tests
