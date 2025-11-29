@@ -12,7 +12,7 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
-    lib.addCSourceFiles(.{ .files = &.{ "function.cpp" }, .flags = &.{ "-std=c++23" } });
+    lib.addCSourceFiles(.{ .files = &.{ b.path("function.cpp") }, .flags = &.{ "-std=c++23" } });
     lib.addIncludePath(b.path("."));
     lib.addIncludePath(function_ir_dep.path(""));
     lib.addIncludePath(typesystem_dep.path(""));

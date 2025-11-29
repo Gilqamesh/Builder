@@ -9,14 +9,14 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
-    const sources = &[_][]const u8{
-        "imgui.cpp",
-        "imgui_demo.cpp",
-        "imgui_draw.cpp",
-        "imgui_tables.cpp",
-        "imgui_widgets.cpp",
-        "backends/imgui_impl_glfw.cpp",
-        "backends/imgui_impl_opengl3.cpp",
+    const sources = &[_]std.Build.LazyPath{
+        b.path("imgui.cpp"),
+        b.path("imgui_demo.cpp"),
+        b.path("imgui_draw.cpp"),
+        b.path("imgui_tables.cpp"),
+        b.path("imgui_widgets.cpp"),
+        b.path("backends/imgui_impl_glfw.cpp"),
+        b.path("backends/imgui_impl_opengl3.cpp"),
     };
     lib.addCSourceFiles(.{ .files = sources, .flags = &.{ "-std=c++23" } });
     lib.addIncludePath(b.path("."));
