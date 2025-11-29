@@ -1,5 +1,13 @@
-inc = include_directories('.')
+project('typesystem', 'cpp')
 
-typesystem_lib = library('typesystem', ['typesystem.cpp'], include_directories: inc, install: false)
-typesystem_dep = declare_dependency(link_with: typesystem_lib, include_directories: inc)
+typesystem_lib = library(
+  'typesystem',
+  ['typesystem.cpp'],
+)
+
+typesystem_dep = declare_dependency(
+  include_directories: include_directories('.'),
+  link_with: typesystem_lib,
+)
+
 meson.override_dependency('typesystem', typesystem_dep)
