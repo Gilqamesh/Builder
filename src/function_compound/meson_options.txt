@@ -1,1 +1,1 @@
-option('tests', type: 'feature', default: 'auto', description: 'Build unit tests')
+option('tests', type: 'feature', value: 'auto', description: 'Build unit tests')
