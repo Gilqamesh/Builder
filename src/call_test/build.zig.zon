@@ -1,7 +1,7 @@
 .{
     .name = "call_test",
     .version = "0.0.0",
-    .paths = .{ "." },
+    .paths = .{ "" },
     .dependencies = .{
         .call = .{ .path = "../call" },
     },

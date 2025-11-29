@@ -12,8 +12,8 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
     exe.addCSourceFiles(.{ .files = &.{ "function_repository_test.cpp" }, .flags = &.{} });
-    exe.addIncludePath(.{ .path = "." });
-    exe.addIncludePath(dep.path("."));
+    exe.addIncludePath(".");
+    exe.addIncludePath(dep.path(""));
     exe.linkLibrary(dep.artifact("function_repository"));
     exe.linkSystemLibrary("gtest");
     exe.linkSystemLibrary("gtest_main");

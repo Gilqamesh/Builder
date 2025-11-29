@@ -18,14 +18,14 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
     exe.addCSourceFiles(.{ .files = &.{ "function_visualizer.cpp" }, .flags = &.{} });
-    exe.addIncludePath(.{ .path = "." });
-    exe.addIncludePath(rlimgui_dep.path("."));
-    exe.addIncludePath(imgui_dep.path("."));
-    exe.addIncludePath(function_alu_dep.path("."));
-    exe.addIncludePath(function_compound_dep.path("."));
-    exe.addIncludePath(function_ir_file_repository_dep.path("."));
-    exe.addIncludePath(function_repository_dep.path("."));
-    exe.addIncludePath(function_visualizer_editor_dep.path("."));
+    exe.addIncludePath(".");
+    exe.addIncludePath(rlimgui_dep.path(""));
+    exe.addIncludePath(imgui_dep.path(""));
+    exe.addIncludePath(function_alu_dep.path(""));
+    exe.addIncludePath(function_compound_dep.path(""));
+    exe.addIncludePath(function_ir_file_repository_dep.path(""));
+    exe.addIncludePath(function_repository_dep.path(""));
+    exe.addIncludePath(function_visualizer_editor_dep.path(""));
     exe.linkLibrary(rlimgui_dep.artifact("rlImGui"));
     exe.linkLibrary(imgui_dep.artifact("imgui"));
     exe.linkLibrary(function_alu_dep.artifact("function_alu"));

@@ -13,9 +13,9 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
     lib.addCSourceFiles(.{ .files = &.{ "typesystem_call.cpp" }, .flags = &.{} });
-    lib.addIncludePath(.{ .path = "." });
-    lib.addIncludePath(call_dep.path("."));
-    lib.addIncludePath(typesystem_dep.path("."));
+    lib.addIncludePath(".");
+    lib.addIncludePath(call_dep.path(""));
+    lib.addIncludePath(typesystem_dep.path(""));
     lib.linkLibrary(call_dep.artifact("call"));
     lib.linkLibrary(typesystem_dep.artifact("typesystem"));
     lib.linkLibCpp();

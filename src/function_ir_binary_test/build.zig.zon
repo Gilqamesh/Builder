@@ -1,7 +1,7 @@
 .{
     .name = "function_ir_binary_test",
     .version = "0.0.0",
-    .paths = .{ "." },
+    .paths = .{ "" },
     .dependencies = .{
         .function_ir_binary = .{ .path = "../function_ir_binary" },
     },

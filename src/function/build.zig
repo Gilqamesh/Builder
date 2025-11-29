@@ -13,9 +13,9 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
     lib.addCSourceFiles(.{ .files = &.{ "function.cpp" }, .flags = &.{} });
-    lib.addIncludePath(.{ .path = "." });
-    lib.addIncludePath(function_ir_dep.path("."));
-    lib.addIncludePath(typesystem_dep.path("."));
+    lib.addIncludePath(".");
+    lib.addIncludePath(function_ir_dep.path(""));
+    lib.addIncludePath(typesystem_dep.path(""));
     lib.linkLibrary(function_ir_dep.artifact("function_ir"));
     lib.linkLibrary(typesystem_dep.artifact("typesystem"));
     lib.linkLibCpp();
