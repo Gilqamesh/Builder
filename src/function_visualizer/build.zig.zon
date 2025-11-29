@@ -1,0 +1,14 @@
+.{
+    .name = "function_visualizer",
+    .version = "0.0.0",
+    .paths = .{ "." },
+    .dependencies = .{
+        .rlImGui = .{ .path = "../rlImGui" },
+        .imgui = .{ .path = "../imgui" },
+        .function_alu = .{ .path = "../function_alu" },
+        .function_compound = .{ .path = "../function_compound" },
+        .function_ir_file_repository = .{ .path = "../function_ir_file_repository" },
+        .function_repository = .{ .path = "../function_repository" },
+        .function_visualizer_editor = .{ .path = "../function_visualizer_editor" },
+    },
+}
