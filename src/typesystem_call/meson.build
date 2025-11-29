@@ -1,20 +1,17 @@
 project('typesystem_call', 'cpp')
 
-inc = include_directories('.')
-
-call_dep = dependency('call')
-typesystem_dep = dependency('typesystem')
+call_dep = subproject('../call').get_variable('call_dep')
+typesystem_dep = subproject('../typesystem').get_variable('typesystem_dep')
 
 typesystem_call_lib = library(
   'typesystem_call',
   ['typesystem_call.cpp'],
-  include_directories: inc,
+  include_directories: include_directories('.'),
   dependencies: [call_dep, typesystem_dep],
   install: false,
 )
+
 typesystem_call_dep = declare_dependency(
+  include_directories: include_directories('.'),
   link_with: typesystem_call_lib,
-  include_directories: inc,
-  dependencies: [call_dep, typesystem_dep],
 )
-meson.override_dependency('typesystem_call', typesystem_call_dep)

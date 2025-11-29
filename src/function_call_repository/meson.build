@@ -1,20 +1,17 @@
 project('function_call_repository', 'cpp')
 
-inc = include_directories('.')
+function_dep = subproject('../function').get_variable('function_dep')
+function_id_dep = subproject('../function_id').get_variable('function_id_dep')
 
-function_dep = dependency('function')
-function_id_dep = dependency('function_id')
-
-function_call_repo_lib = library(
+function_call_repository_lib = library(
   'function_call_repository',
   ['function_call_repository.cpp'],
-  include_directories: inc,
+  include_directories: include_directories('.'),
   dependencies: [function_dep, function_id_dep],
   install: false,
 )
+
 function_call_repository_dep = declare_dependency(
-  link_with: function_call_repo_lib,
-  include_directories: inc,
-  dependencies: [function_dep, function_id_dep],
+  include_directories: include_directories('.'),
+  link_with: function_call_repository_lib,
 )
-meson.override_dependency('function_call_repository', function_call_repository_dep)
