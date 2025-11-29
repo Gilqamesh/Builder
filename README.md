@@ -1,6 +1,6 @@
 # Builder
 
-Builder is a coding playground for experimenting with any kind of program by composing building blocks you place in `src/`. Each block is regular code you author; it can pull in other pieces from the same directory or operate alone. Entrypoints (tests, visualizers, etc.) live alongside those blocks in the same `src/` tree.
+Builder is a coding playground for experimenting with any kind of program by composing building blocks you place in `src/`. Each block is regular code you author; it can pull in other pieces from the same directory or operate alone. Entrypoints (tests, visualizers, etc.) live alongside those blocks in the same `src/` tree and are built by a single Meson project.
 
 ## What you can do
 - Add new building blocks under `src/` that provide whatever functionality you need, reusing other files in that directory when helpful.
