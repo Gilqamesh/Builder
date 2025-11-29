@@ -1,3 +1,5 @@
+project('typesystem_test', 'cpp')
+
 typesystem_dep = dependency('typesystem')
 gtest_dep = dependency('gtest_support')
 

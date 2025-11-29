@@ -1,3 +1,5 @@
+project('function_ir_file_repository', 'cpp')
+
 inc = include_directories('.')
 
 function_ir_dep = dependency('function_ir')

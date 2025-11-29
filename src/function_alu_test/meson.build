@@ -1,3 +1,5 @@
+project('function_alu_test', 'cpp')
+
 function_alu_dep = dependency('function_alu')
 function_test_dep = dependency('function_test')
 typesystem_test_dep = dependency('typesystem_test')

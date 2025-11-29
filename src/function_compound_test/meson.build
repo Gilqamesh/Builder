@@ -1,3 +1,5 @@
+project('function_compound_test', 'cpp')
+
 function_compound_dep = dependency('function_compound')
 function_test_dep = dependency('function_test')
 function_id_test_dep = dependency('function_id_test')

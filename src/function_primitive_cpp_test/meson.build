@@ -1,3 +1,5 @@
+project('function_primitive_cpp_test', 'cpp')
+
 function_primitive_cpp_dep = dependency('function_primitive_cpp')
 function_test_dep = dependency('function_test')
 gtest_dep = dependency('gtest_support')

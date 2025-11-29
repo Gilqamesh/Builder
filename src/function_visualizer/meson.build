@@ -1,3 +1,5 @@
+project('function_visualizer', 'cpp')
+
 inc = include_directories('.')
 
 rlimgui_dep = dependency('rlImGui')

@@ -1,3 +1,5 @@
+project('function_call_repository_test', 'cpp')
+
 function_call_repository_dep = dependency('function_call_repository')
 function_test_dep = dependency('function_test')
 gtest_dep = dependency('gtest_support')

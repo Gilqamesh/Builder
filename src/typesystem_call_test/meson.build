@@ -1,3 +1,5 @@
+project('typesystem_call_test', 'cpp')
+
 typesystem_call_dep = dependency('typesystem_call')
 call_test_dep = dependency('call_test')
 typesystem_test_dep = dependency('typesystem_test')

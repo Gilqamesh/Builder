@@ -1,3 +1,5 @@
+project('function_visualizer_editor', 'cpp')
+
 inc = include_directories('.')
 
 imgui_dep = dependency('imgui')

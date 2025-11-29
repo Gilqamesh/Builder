@@ -1,3 +1,5 @@
+project('function_ir_file_repository_test', 'cpp')
+
 function_ir_file_repository_dep = dependency('function_ir_file_repository')
 function_ir_test_dep = dependency('function_ir_test')
 function_ir_binary_test_dep = dependency('function_ir_binary_test')

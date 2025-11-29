@@ -1,3 +1,5 @@
+project('function_id_test', 'cpp')
+
 function_id_dep = dependency('function_id')
 gtest_dep = dependency('gtest_support')
 

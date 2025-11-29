@@ -1,3 +1,5 @@
+project('call', 'cpp')
+
 inc = include_directories('.')
 
 call_lib = library('call', ['call.cpp'], include_directories: inc, install: false)

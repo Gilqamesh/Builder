@@ -1,3 +1,5 @@
+project('function_call_repository', 'cpp')
+
 inc = include_directories('.')
 
 function_dep = dependency('function')
