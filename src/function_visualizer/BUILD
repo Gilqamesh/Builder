@@ -3,6 +3,7 @@ package(default_visibility = ["//visibility:public"])
 cc_binary(
     name = "function_visualizer",
     srcs = ["function_visualizer.cpp"],
+    includes = ["."],
     deps = [
         "//src/rlImGui:rlImGui",
         "//src/imgui:imgui",
