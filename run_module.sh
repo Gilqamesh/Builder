@@ -2,39 +2,33 @@
 set -euo pipefail
 
 if [[ $# -lt 1 ]]; then
-    echo "Usage: $0 <module|//label> [-- args]" >&2
+    echo "Usage: $0 <module> [-- zig-args]" >&2
     exit 1
 fi
 
-ROOT="$(pwd)"
-WORK="${ROOT}/.bazel_work"
-mkdir -p "$WORK"
-
-# Ensure Bazel sees real project sources
-if [[ ! -e "${WORK}/src" ]]; then
-    ln -s "${ROOT}/src" "${WORK}/src"
-fi
-
-# Disable ccache for Bazel, correctly
-echo "build --action_env=CCACHE_DISABLE=1" > "${WORK}/.bazelrc"
-echo "build --repo_env=CCACHE_DISABLE=1" >> "${WORK}/.bazelrc"
-
-# Regenerate MODULE.bazel
-cat > "${WORK}/MODULE.bazel" <<EOF
-module(name = "builder_workspace")
-
-# Load raylib module if present
-raylib_ext = use_extension("//src/raylib:extension.bzl", "raylib_ext")
-use_repo(raylib_ext, "raylib")
-EOF
-
-# Normalize target name
-target="$1"
+MODULE="$1"
 shift || true
 
-if [[ "$target" != //:* ]]; then
-    target="//src/${target}:${target}"
+ROOT="$(cd "$(dirname "$0")" && pwd)"
+MODULE_DIR="${ROOT}/src/${MODULE}"
+
+if [[ ! -d "$MODULE_DIR" ]]; then
+    echo "Unknown module: ${MODULE}" >&2
+    exit 1
 fi
 
-cd "$WORK"
-bazelisk run "$target" -- "$@"
+if [[ ! -f "${MODULE_DIR}/build.zig" ]]; then
+    echo "Module ${MODULE} is missing a build.zig" >&2
+    exit 1
+fi
+
+cd "$MODULE_DIR"
+
+if grep -q 'step\("run"' build.zig; then
+    exec zig build run "$@"
+elif grep -q 'step\("test"' build.zig; then
+    exec zig build test "$@"
+else
+    echo "No explicit run or test step found; running plain build." >&2
+    exec zig build "$@"
+fi
