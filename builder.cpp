@@ -8,7 +8,7 @@
 //  - Option C link order: each module's libs followed by its deps' libs.
 //
 // Usage:
-//   g++ -std=c++20 -O2 builder.cpp -o builder
+//   g++ -std=c++17 -O2 builder.cpp -o builder -Wall -Wextra -Werror
 //   ./builder <module_name>
 //
 // Example build.module:
