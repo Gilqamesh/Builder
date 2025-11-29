@@ -1,0 +1,13 @@
+[package]
+name = "function_id_test"
+version = "0.1.0"
+edition = "2021"
+build = "build.rs"
+
+[dependencies]
+builder_runner = { path = "../../tools/builder_runner" }
+function_id = { path = "../function_id" }
+google_test = { path = "../google_test" }
+
+[build-dependencies]
+cc = "1"

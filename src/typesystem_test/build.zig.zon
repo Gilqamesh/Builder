@@ -1,9 +1,0 @@
-.{
-    .name = .typesystem_test,
-    .version = "0.0.0",
-    .paths = .{ "" },
-    .dependencies = .{
-        .typesystem = .{ .path = "../typesystem" },
-        .googletest = .{ .path = "../google_test" },
-    },
-}

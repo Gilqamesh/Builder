@@ -1,0 +1,13 @@
+[package]
+name = "function_compound"
+version = "0.1.0"
+edition = "2021"
+build = "build.rs"
+
+[dependencies]
+function = { path = "../function" }
+function_id = { path = "../function_id" }
+typesystem = { path = "../typesystem" }
+
+[build-dependencies]
+cc = "1"

@@ -1,0 +1,11 @@
+[package]
+name = "function_ir"
+version = "0.1.0"
+edition = "2021"
+build = "build.rs"
+
+[dependencies]
+function_id = { path = "../function_id" }
+
+[build-dependencies]
+cc = "1"

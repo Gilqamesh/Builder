@@ -1,0 +1,13 @@
+[package]
+name = "typesystem_test"
+version = "0.1.0"
+edition = "2021"
+build = "build.rs"
+
+[dependencies]
+builder_runner = { path = "../../tools/builder_runner" }
+typesystem = { path = "../typesystem" }
+google_test = { path = "../google_test" }
+
+[build-dependencies]
+cc = "1"
