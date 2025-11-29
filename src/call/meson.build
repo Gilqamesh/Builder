@@ -1,3 +1,6 @@
+project('call', 'cpp', default_options: ['cpp_std=c++20'])
+
+tests_opt = get_option('tests')
 inc = include_directories('.')
 
 call_lib = library('call', ['call.cpp'], include_directories: inc, install: false)

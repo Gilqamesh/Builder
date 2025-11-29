@@ -1,4 +1,10 @@
+project('function_alu', 'cpp', default_options: ['cpp_std=c++20'])
+
+tests_opt = get_option('tests')
 inc = include_directories('.')
+
+function_dep = dependency('function', fallback: ['function', 'function_dep'])
+typesystem_dep = dependency('typesystem', fallback: ['typesystem', 'typesystem_dep'])
 
 function_alu_lib = library('function_alu', ['function_alu.cpp'],
   include_directories: inc,

@@ -1,4 +1,9 @@
+project('function_primitive_lang', 'cpp', default_options: ['cpp_std=c++20'])
+
+tests_opt = get_option('tests')
 inc = include_directories('.')
+
+function_dep = dependency('function', fallback: ['function', 'function_dep'])
 
 function_primitive_lang_lib = library('function_primitive_lang', ['function_primitive_lang.cpp'],
   include_directories: inc,

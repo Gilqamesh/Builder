@@ -1,4 +1,10 @@
+project('function', 'cpp', default_options: ['cpp_std=c++20'])
+
+tests_opt = get_option('tests')
 inc = include_directories('.')
+
+function_ir_dep = dependency('function_ir', fallback: ['function_ir', 'function_ir_dep'])
+typesystem_dep = dependency('typesystem', fallback: ['typesystem', 'typesystem_dep'])
 
 function_lib = library('function', ['function.cpp'],
   include_directories: inc,

@@ -1,4 +1,9 @@
+project('function_ir', 'cpp', default_options: ['cpp_std=c++20'])
+
+tests_opt = get_option('tests')
 inc = include_directories('.')
+
+function_id_dep = dependency('function_id', fallback: ['function_id', 'function_id_dep'])
 
 function_ir_lib = library('function_ir', ['function_ir.cpp'],
   include_directories: inc,

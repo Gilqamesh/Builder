@@ -1,3 +1,6 @@
+project('typesystem', 'cpp', default_options: ['cpp_std=c++20'])
+
+tests_opt = get_option('tests')
 inc = include_directories('.')
 
 typesystem_lib = library('typesystem', ['typesystem.cpp'], include_directories: inc, install: false)

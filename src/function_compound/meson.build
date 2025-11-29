@@ -1,4 +1,11 @@
+project('function_compound', 'cpp', default_options: ['cpp_std=c++20'])
+
+tests_opt = get_option('tests')
 inc = include_directories('.')
+
+function_dep = dependency('function', fallback: ['function', 'function_dep'])
+function_id_dep = dependency('function_id', fallback: ['function_id', 'function_id_dep'])
+typesystem_dep = dependency('typesystem', fallback: ['typesystem', 'typesystem_dep'])
 
 function_compound_lib = library('function_compound', ['function_compound.cpp'],
   include_directories: inc,

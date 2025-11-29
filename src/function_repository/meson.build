@@ -1,4 +1,9 @@
+project('function_repository', 'cpp', default_options: ['cpp_std=c++20'])
+
+tests_opt = get_option('tests')
 inc = include_directories('.')
+
+function_dep = dependency('function', fallback: ['function', 'function_dep'])
 
 function_repository_lib = library('function_repository', ['function_repository.cpp'],
   include_directories: inc,

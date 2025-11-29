@@ -11,15 +11,15 @@ Builder is a coding playground for experimenting with any kind of program by com
 - `src/`: Building blocks and supporting code you author; each file lives in its own folder with a Meson build description that declares its sources and any sibling dependencies. External helper code that needs to be shared (e.g., imgui, rlImGui, ulid) also sits here in dedicated folders.
 
 ## Building with Meson
-The repository uses a single Meson project. Configure it once, then build and test everything:
+Every package under `src/` is self-contained. To build or test one, point Meson directly at the package folder:
 
 ```bash
-meson setup build -Dtests=enabled
-meson compile -C build
-meson test -C build
+meson setup build-call src/call -Dtests=enabled
+meson compile -C build-call
+meson test -C build-call
 ```
 
-All internal dependencies are wired together through the top-level `src/meson.build`, so no wrap files or additional setup steps are required.
+Packages that depend on siblings use local `subprojects/*.wrap` files to resolve them automatically during `meson setup`, so you do not need any top-level workspace files.
 
 ## Adding or modifying an entrypoint
 1. Create a new folder under `src/` with its own build description.

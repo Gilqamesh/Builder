@@ -1,3 +1,6 @@
+project('function_id', 'cpp', default_options: ['cpp_std=c++20'])
+
+tests_opt = get_option('tests')
 inc = include_directories('.')
 
 function_id_lib = library('function_id', ['function_id.cpp'], include_directories: inc, install: false)

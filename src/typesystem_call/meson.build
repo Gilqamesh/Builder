@@ -1,4 +1,10 @@
+project('typesystem_call', 'cpp', default_options: ['cpp_std=c++20'])
+
+tests_opt = get_option('tests')
 inc = include_directories('.')
+
+call_dep = dependency('call', fallback: ['call', 'call_dep'])
+typesystem_dep = dependency('typesystem', fallback: ['typesystem', 'typesystem_dep'])
 
 typesystem_call_lib = library('typesystem_call', ['typesystem_call.cpp'],
   include_directories: inc,
