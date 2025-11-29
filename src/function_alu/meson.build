@@ -1,3 +1,5 @@
+project('function_alu', 'cpp')
+
 inc = include_directories('.')
 
 function_dep = dependency('function')

@@ -1,3 +1,5 @@
+project('rlImGui', 'cpp')
+
 inc = include_directories('.', 'extras')
 
 imgui_dep = dependency('imgui')

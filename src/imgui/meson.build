@@ -1,3 +1,5 @@
+project('imgui', 'cpp')
+
 inc = include_directories('.', 'backends', 'misc')
 
 imgui_sources = [

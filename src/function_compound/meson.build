@@ -1,3 +1,5 @@
+project('function_compound', 'cpp')
+
 inc = include_directories('.')
 
 function_dep = dependency('function')

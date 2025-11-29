@@ -1,3 +1,5 @@
+project('typesystem_call', 'cpp')
+
 inc = include_directories('.')
 
 call_dep = dependency('call')

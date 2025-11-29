@@ -1,3 +1,5 @@
+project('call_test', 'cpp')
+
 call_dep = dependency('call')
 gtest_dep = dependency('gtest_support')
 

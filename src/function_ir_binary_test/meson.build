@@ -1,3 +1,5 @@
+project('function_ir_binary_test', 'cpp')
+
 function_ir_binary_dep = dependency('function_ir_binary')
 function_ir_test_dep = dependency('function_ir_test')
 gtest_dep = dependency('gtest_support')
