@@ -1,0 +1,8 @@
+# Auto-generated
+MODULE_NAME=function_ir_file_repository
+MODULE_TYPE=static_lib
+MODULE_SOURCES="function_ir_file_repository.cpp "
+MODULE_DEPS=" function_ir typesystem function_ir_binary"
+MODULE_SYS_LIBS=""
+MODULE_CXX_FLAGS="-std=c++23 -Wall -Wextra -O2"
+MODULE_LD_FLAGS=""

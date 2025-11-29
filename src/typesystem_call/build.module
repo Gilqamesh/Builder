@@ -1,0 +1,8 @@
+# Auto-generated
+MODULE_NAME=typesystem_call
+MODULE_TYPE=static_lib
+MODULE_SOURCES="typesystem_call.cpp "
+MODULE_DEPS=" typesystem call typesystem"
+MODULE_SYS_LIBS=""
+MODULE_CXX_FLAGS="-std=c++23 -Wall -Wextra -O2"
+MODULE_LD_FLAGS=""

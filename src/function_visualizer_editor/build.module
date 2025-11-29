@@ -1,0 +1,8 @@
+# Auto-generated
+MODULE_NAME=function_visualizer_editor
+MODULE_TYPE=static_lib
+MODULE_SOURCES="function_visualizer_editor.cpp "
+MODULE_DEPS=" imgui rlImGui"
+MODULE_SYS_LIBS=""
+MODULE_CXX_FLAGS="-std=c++23 -Wall -Wextra -O2"
+MODULE_LD_FLAGS=""

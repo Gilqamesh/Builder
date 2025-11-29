@@ -1,0 +1,8 @@
+# Auto-generated
+MODULE_NAME=function_primitive_lang_test
+MODULE_TYPE=executable
+MODULE_SOURCES="function_primitive_lang_test.cpp "
+MODULE_DEPS=" function_primitive_lang"
+MODULE_SYS_LIBS="gtest gtest_main pthread"
+MODULE_CXX_FLAGS="-std=c++23 -Wall -Wextra -O2"
+MODULE_LD_FLAGS=""

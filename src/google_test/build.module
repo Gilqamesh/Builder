@@ -1,0 +1,4 @@
+MODULE_NAME=google_test
+MODULE_TYPE=remote_cmake
+MODULE_FETCH_URL="https://github.com/google/googletest/archive/refs/tags/v1.15.0.tar.gz"
+MODULE_DEPS=""
