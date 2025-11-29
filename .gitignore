@@ -1,4 +1,5 @@
 build/
-build-*/
 .vscode/
 imgui.ini
+bazel-*
+.bazel*
