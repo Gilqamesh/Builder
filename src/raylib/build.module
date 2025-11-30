@@ -1,4 +1,4 @@
 MODULE_NAME=raylib
 MODULE_TYPE=remote_cmake
-MODULE_FETCH_URL="https://github.com/raysan5/raylib/archive/refs/tags/5.0.tar.gz"
+MODULE_FETCH_URL="https://github.com/raysan5/raylib/archive/refs/tags/5.5.tar.gz"
 MODULE_DEPS=""

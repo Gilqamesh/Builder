@@ -599,23 +599,23 @@ static void make_shared_lib(Module &m) {
 
 // --------------------------- Link ordering (DFS) -----------------------------
 
-static void append_libs_for_module(
-    const Module &m,
-    std::vector<fs::path> &libs,
-    std::unordered_set<std::string> &visiting)
-{
-    if (visiting.count(m.name)) return;
-    visiting.insert(m.name);
+static void append_libs_for_module(const Module &m, std::vector<fs::path> &libs, std::unordered_set<std::string> &visited) {
+    if (visited.count(m.name)) {
+        return;
+    }
+    visited.insert(m.name);
 
-    for (const auto &lib : m.output_libs) libs.push_back(lib);
-    for (const auto &lib : m.produced_libs) libs.push_back(lib);
+    for (const auto &lib : m.output_libs) {
+        libs.push_back(lib);
+    }
+    for (const auto &lib : m.produced_libs) {
+        libs.push_back(lib);
+    }
 
     for (const auto &dep_name : m.deps) {
         const Module &dep = get_module(dep_name);
-        append_libs_for_module(dep, libs, visiting);
+        append_libs_for_module(dep, libs, visited);
     }
-
-    visiting.erase(m.name);
 }
 
 static fs::path make_executable(Module &m) {
