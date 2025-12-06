@@ -1,15 +1,15 @@
-#include <exception>
 #include <iostream>
+#include <string>
 
 #include "api.h"
-#include "context.h"
 
-int main(int argc, char **argv) {
-    try {
-        module_builder::Context ctx = module_builder::load_context(argc, argv);
-        return module_builder::build(ctx);
-    } catch (const std::exception &ex) {
-        std::cerr << "module_builder error: " << ex.what() << "\n";
+int main(int argc, char** argv) {
+    if (argc != 2) {
+        std::cerr << "usage: module_builder <module_name>" << std::endl;
+        return 1;
     }
-    return 1;
+
+    std::string module_name = argv[1];
+    return module_builder::build_module(module_name);
 }
+

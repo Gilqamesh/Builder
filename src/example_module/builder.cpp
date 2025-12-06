@@ -1,18 +1,16 @@
 #include <filesystem>
+#include <fstream>
 #include <iostream>
 #include <vector>
 
-#include <module/dep_one/dep_one.h>
-#include <module/dep_two/dep_two.h>
-
-#include "compiler_gcc/compiler.h"
+#include "module_builder/api.h"
 #include "module_builder/context.h"
 
-int main(int argc, char **argv) {
-    module_builder::Context ctx = module_builder::load_context(argc, argv);
+int main(int argc, char** argv) {
+    module_builder::context_t ctx = module_builder::load_context_from_argv(argc, argv);
 
     std::vector<std::filesystem::path> sources;
-    for (const auto &entry : std::filesystem::directory_iterator(ctx.module_dir)) {
+    for (const auto& entry : std::filesystem::directory_iterator(ctx.module_dir)) {
         if (entry.path().filename() == "builder.cpp") {
             continue;
         }
@@ -21,11 +19,20 @@ int main(int argc, char **argv) {
         }
     }
 
-    compiler_gcc::BuildConfig config;
-    std::vector<std::string> deps = {"dep_one", "dep_two"};
+    std::cout << "[example_module] sources:" << std::endl;
+    for (const auto& path : sources) {
+        std::cout << "  - " << path << std::endl;
+    }
 
-    compiler_gcc::build_static_library(ctx, ctx.module_name, sources, deps, config);
+    std::filesystem::path artifact = module_builder::artifact_path(
+        ctx, ctx.module_name, module_builder::artifact_kind_t::EXECUTABLE);
+    std::filesystem::create_directories(artifact.parent_path());
 
-    std::cout << "Built example_module static library" << std::endl;
+    std::ofstream out(artifact);
+    out << "dummy executable for " << ctx.module_name << "\n";
+    out.close();
+
+    std::cout << "[example_module] wrote artifact to " << artifact << std::endl;
     return 0;
 }
+

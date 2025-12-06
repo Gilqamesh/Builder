@@ -6,6 +6,7 @@
 
 namespace module_builder {
 
-int execute(const Context &ctx);
+int execute_build(const context_t& root_ctx);
 
 }  // namespace module_builder
+
