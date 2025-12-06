@@ -1,0 +1,4 @@
+MODULE_NAME=wayland
+MODULE_TYPE=meta
+MODULE_FETCH_APT_PACKAGES= libwayland-dev wayland-protocols wayland-scanner++ libxkbcommon-dev
+MODULE_SYS_LIBS=wayland-client xkbcommon

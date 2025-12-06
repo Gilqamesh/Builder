@@ -1,0 +1,7 @@
+MODULE_NAME=web_app
+MODULE_TYPE=executable
+MODULE_SOURCES="main.cpp"
+MODULE_DEPS="gil_web"
+MODULE_SYS_LIBS=""
+MODULE_CXX_FLAGS="-std=c++23 -Wall -Wextra -O2"
+MODULE_LD_FLAGS="-lssl -lcrypto"

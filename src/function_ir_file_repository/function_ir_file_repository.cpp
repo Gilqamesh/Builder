@@ -83,7 +83,7 @@ function_id_t function_ir_file_repository_t::path_to_function_id(const std::file
 
     const std::string filename = path.filename().string();
 
-    result = function_id_t::from_string(path.filename().string());
+    result = function_id_t::from_string(filename);
 
     return result;
 }

@@ -1,0 +1,4 @@
+MODULE_NAME=gil_riot
+MODULE_TYPE=remote_cmake
+MODULE_FETCH_URL=https://github.com/Gilqamesh/gil_riot/archive/refs/tags/v0.3.tar.gz
+MODULE_DEPS=""

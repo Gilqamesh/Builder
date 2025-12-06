@@ -1,0 +1,4 @@
+MODULE_NAME=glfw
+MODULE_TYPE=remote_cmake
+MODULE_FETCH_URL="https://github.com/glfw/glfw/archive/refs/tags/3.4.tar.gz"
+MODULE_DEPS=""

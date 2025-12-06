@@ -1,0 +1,4 @@
+MODULE_NAME=gil_web
+MODULE_TYPE=remote_cmake
+MODULE_FETCH_URL="https://github.com/Gilqamesh/gil_web/archive/refs/tags/v0.1.tar.gz"
+MODULE_DEPS=""

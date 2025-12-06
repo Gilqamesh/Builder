@@ -1,6 +1,6 @@
 .vscode
 .cache
 build
-builder
+./builder
 functions
 imgui.ini
