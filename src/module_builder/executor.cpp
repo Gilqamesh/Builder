@@ -1,117 +1,118 @@
 #include "executor.h"
 
 #include <cstdlib>
+#include <filesystem>
 #include <iostream>
-#include <set>
+#include <sstream>
 #include <string>
 #include <unordered_map>
-#include <unordered_set>
 #include <vector>
 
 #include "dependency_scan.h"
 
-namespace module_builder {
-
 namespace {
+std::unordered_map<std::string, std::vector<std::string>> build_dependency_graph(
+    const context_t& ctx,
+    const std::string& module_name) {
+    std::unordered_map<std::string, std::vector<std::string>> graph;
+    std::vector<std::string> stack{module_name};
 
-struct graph_state_t {
-    std::unordered_map<std::string, std::vector<std::string>> edges;
-    std::vector<std::string> ordered;
-    std::unordered_set<std::string> visiting;
-    std::unordered_set<std::string> visited;
-};
+    while (!stack.empty()) {
+        auto current = stack.back();
+        stack.pop_back();
+        if (graph.find(current) != graph.end()) {
+            continue;
+        }
 
-context_t make_module_context(const context_t& root_ctx, const std::string& module_name) {
-    context_t ctx = root_ctx;
-    ctx.module_name = module_name;
-    ctx.module_dir = ctx.modules_root / module_name;
-    return ctx;
+        auto deps = scan_builder_dependencies(ctx, current);
+        graph[current] = deps;
+        for (const auto& dep : deps) {
+            if (graph.find(dep) == graph.end()) {
+                stack.push_back(dep);
+            }
+        }
+    }
+
+    return graph;
 }
 
-void dfs_dependencies(const context_t& root_ctx, const std::string& module_name, graph_state_t& graph) {
-    if (graph.visiting.count(module_name)) {
-        std::cerr << "cycle detected involving module '" << module_name << "'" << std::endl;
-        std::exit(1);
-    }
-    if (graph.visited.count(module_name)) {
-        return;
-    }
-
-    graph.visiting.insert(module_name);
-    context_t ctx = make_module_context(root_ctx, module_name);
-    std::vector<std::string> deps = scan_builder_dependencies(ctx, module_name);
-    graph.edges[module_name] = deps;
-
-    for (const std::string& dep : deps) {
-        dfs_dependencies(root_ctx, dep, graph);
+bool topo_visit(
+    const std::string& module,
+    const std::unordered_map<std::string, std::vector<std::string>>& graph,
+    std::unordered_map<std::string, int>& state,
+    std::vector<std::string>& order) {
+    auto it = state.find(module);
+    if (it != state.end()) {
+        if (it->second == 1) {
+            std::cerr << "Cycle detected involving module: " << module << std::endl;
+            return false;
+        }
+        if (it->second == 2) {
+            return true;
+        }
     }
 
-    graph.visiting.erase(module_name);
-    graph.visited.insert(module_name);
-    graph.ordered.push_back(module_name);
+    state[module] = 1;
+    auto deps_it = graph.find(module);
+    if (deps_it != graph.end()) {
+        for (const auto& dep : deps_it->second) {
+            if (!topo_visit(dep, graph, state, order)) {
+                return false;
+            }
+        }
+    }
+
+    state[module] = 2;
+    order.push_back(module);
+    return true;
 }
-
-std::vector<std::string> compute_build_order(const context_t& root_ctx) {
-    graph_state_t graph;
-    dfs_dependencies(root_ctx, root_ctx.module_name, graph);
-    return graph.ordered;
 }
-
-bool should_rebuild(const std::filesystem::path& source, const std::filesystem::path& exe) {
-    if (!std::filesystem::exists(exe)) {
-        return true;
-    }
-    std::error_code ec;
-    auto source_time = std::filesystem::last_write_time(source, ec);
-    if (ec) {
-        return true;
-    }
-    auto exe_time = std::filesystem::last_write_time(exe, ec);
-    if (ec) {
-        return true;
-    }
-    return source_time > exe_time;
-}
-
-void build_builder_executable(const context_t& ctx, const std::string& module_name) {
-    context_t module_ctx = make_module_context(ctx, module_name);
-    std::filesystem::path source = builder_source_path(module_ctx, module_name);
-    std::filesystem::path output_dir = ctx.build_root / module_name;
-    std::filesystem::create_directories(output_dir);
-    std::filesystem::path builder_exe = output_dir / (module_name + ".builder");
-
-    if (!should_rebuild(source, builder_exe)) {
-        return;
-    }
-
-    std::string command = "g++ -std=c++20 -Wall -Isrc -o " + builder_exe.string() + " " + source.string();
-    std::cout << "[build] " << module_name << " builder" << std::endl;
-    int rc = std::system(command.c_str());
-    if (rc != 0) {
-        std::cerr << "failed to compile builder for module '" << module_name << "'" << std::endl;
-        std::exit(1);
-    }
-}
-
-int run_builder(const context_t& ctx) {
-    std::filesystem::path builder_exe = ctx.build_root / ctx.module_name / (ctx.module_name + ".builder");
-    std::string command = builder_exe.string() + " " + ctx.workspace_root.string() + " " +
-                          ctx.modules_root.string() + " " + ctx.build_root.string() + " " + ctx.module_name;
-    std::cout << "[run] " << ctx.module_name << " builder" << std::endl;
-    return std::system(command.c_str());
-}
-
-}  // namespace
 
 int execute_build(const context_t& root_ctx) {
-    std::vector<std::string> order = compute_build_order(root_ctx);
+    auto graph = build_dependency_graph(root_ctx, root_ctx.module_name);
 
-    for (const std::string& module_name : order) {
-        build_builder_executable(root_ctx, module_name);
+    std::vector<std::string> order;
+    std::unordered_map<std::string, int> state;
+    if (!topo_visit(root_ctx.module_name, graph, state, order)) {
+        return 1;
     }
 
-    return run_builder(root_ctx);
+    for (auto it = graph.begin(); it != graph.end(); ++it) {
+        const auto& module = it->first;
+        if (state.find(module) == state.end()) {
+            if (!topo_visit(module, graph, state, order)) {
+                return 1;
+            }
+        }
+    }
+
+    for (const auto& module : order) {
+        auto builder_exe = root_ctx.build_root / module / (module + ".builder");
+        auto builder_src = builder_source_path(root_ctx, module);
+        bool need_rebuild = !std::filesystem::exists(builder_exe) ||
+                            std::filesystem::last_write_time(builder_src) >
+                                std::filesystem::last_write_time(builder_exe);
+
+        if (need_rebuild) {
+            std::filesystem::create_directories(builder_exe.parent_path());
+            std::stringstream compile_cmd;
+            compile_cmd << "g++ -std=c++20 -Isrc -o " << builder_exe << " " << builder_src;
+            int compile_result = std::system(compile_cmd.str().c_str());
+            if (compile_result != 0) {
+                return compile_result;
+            }
+        }
+
+        std::stringstream run_cmd;
+        run_cmd << builder_exe << " " << root_ctx.workspace_root << " "
+                << root_ctx.modules_root << " " << root_ctx.build_root << " "
+                << module;
+
+        int run_result = std::system(run_cmd.str().c_str());
+        if (run_result != 0) {
+            return run_result;
+        }
+    }
+
+    return 0;
 }
-
-}  // namespace module_builder
-
