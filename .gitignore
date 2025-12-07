@@ -1,6 +1,5 @@
 .vscode
 .cache
-build
-./builder
+artifacts
 functions
 imgui.ini

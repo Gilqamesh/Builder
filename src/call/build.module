@@ -1,7 +1,0 @@
-MODULE_NAME=call
-MODULE_TYPE=static_lib
-MODULE_SOURCES="call.cpp "
-MODULE_DEPS=""
-MODULE_SYS_LIBS=""
-MODULE_CXX_FLAGS="-std=c++23 -Wall -Wextra -O2"
-MODULE_LD_FLAGS=""
