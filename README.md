@@ -1,107 +1,196 @@
 # Builder
 
-**Builder** is a minimal, fast, self-contained C++ build system for
-experimenting with ideas through small, composable modules.
+Builder is a tiny, modular, self-hosting C++ build system.
 
-Each module lives in `src/<module>/` and defines its behavior in a
-simple `build.module` file.\
-The `builder` executable reads these descriptions, resolves
-dependencies, performs automatic header scanning, globs sources, and
-executes incremental builds.
+Every *module* lives in `modules/<name>/` and describes how it is built
+in a single `builder.cpp` file. The top-level `builder` executable
+(orchestrator) discovers modules, resolves dependencies by scanning
+`#include <module/...>` in each `builder.cpp`, and runs the module
+builders in topological order.
 
-------------------------------------------------------------------------
+There are no global build files and no special DSL – just C++.
 
-## Why Builder?
+---
 
--   **No CMake, Meson, or Bazel**
--   **No workspaces or top-level build files**
--   **Every module self-describes**
--   **Extremely fast incremental rebuilds**
--   **Automatic header dependency scanning**
--   **Recursive source globbing**
--   **Seamless consumption of external CMake projects (`remote_cmake`)**
--   **Simple & hackable --- a single \~1000-line C++ file**
+## Core Ideas
 
-------------------------------------------------------------------------
+- **Modules, not projects**  
+  Each directory under `modules/` is a module.  
+  Example: `modules/builder/`, `modules/cpp_compiler/`, `modules/foo/`, …
+
+- **Per-module builder**  
+  Each module has a `builder.cpp` that is compiled into a small helper
+  executable (the *builder artifact* for that module).  
+  When the orchestrator runs that builder, it may produce any artifacts
+  it wants: static libs, shared libs, executables, generated code, etc.
+
+- **Dependencies via includes**  
+  The orchestrator parses `builder.cpp` and looks for lines like:
+
+  ```cpp
+  #include <builder/api.h>      // depends on module "builder"
+  #include <cpp_compiler/api.h> // depends on module "cpp_compiler"
+  ```
+
+  The token before the `/` inside `<…>` is treated as the module name
+  and used to build the dependency graph.
+
+- **Self-hosting**  
+  The `builder` module itself is just another module under `modules/`.
+  Its `builder.cpp` knows how to compile the orchestrator binary.  
+  This means the system can rebuild itself using its own mechanisms.
+
+---
 
 ## Layout
 
-    <root>/builder.cpp        # The build tool
-    <root>/src/<module>/      # Each module has:
-        build.module          #   - its own build descriptor
-        *.cpp / *.h / ...     #   - sources
-    <root>/build/<module>/    # Build artifacts
-    <root>/.cache/remote/     # Cached remote CMake projects
-
-------------------------------------------------------------------------
-
-## Using Builder
-
-Compile the tool:
-
-``` bash
-g++ -std=c++17 -O2 builder.cpp -o builder -Wall -Wextra -Werror
+```text
+<root>/
+    builder                # orchestrator executable (built from modules/builder)
+    modules/
+        builder/
+            builder.cpp    # builds the orchestrator itself
+            main.cpp
+            module.cpp
+            api.h
+            ...
+        cpp_compiler/
+            builder.cpp    # e.g. wraps g++/clang, manages .o/.a/.so
+            api.h
+            ...
+        <other_module>/
+            builder.cpp
+            ...
+    artifacts/             # all module artifacts live here
 ```
 
-Build a module:
+- `modules/<name>/builder.cpp` — how this module is built
+- `artifacts/` — outputs; each module is free to define its own naming
+  (often via a small helper API)
 
-``` bash
+---
+
+## Orchestrator CLI
+
+The root `builder` executable is the entrypoint.
+
+Basic usage:
+
+```bash
 ./builder <module_name>
 ```
 
-For example:
+It assumes:
 
-``` bash
-./builder function_visualizer
+- modules live under `./modules`
+- artifacts go under `./artifacts`
+
+You can override these with flags:
+
+```bash
+./builder [-B <artifacts_root>] [-S <modules_root>] <module_name>
 ```
 
-------------------------------------------------------------------------
+- `-S` — path to the modules root (default: `modules`)
+- `-B` — path to the artifacts root (default: `artifacts`)
+- `<module_name>` — the module you want to build
 
-## Example `build.module`
+The orchestrator will:
 
-    MODULE_NAME=function_visualizer
-    MODULE_TYPE=executable
-    MODULE_SOURCES="function_visualizer.cpp "
-    MODULE_DEPS=" function_visualizer_editor function_repository function_alu function_compound function_ir_file_repository rlImGui"
-    MODULE_SYS_LIBS=""
-    MODULE_CXX_FLAGS="-std=c++23 -Wall -Wextra -O2"
-    MODULE_LD_FLAGS=""
+1. Discover all modules in `<modules_root>`.
+2. Find their `builder.cpp` files.
+3. Build and run `builder` artifacts in dependency order.
+4. Stop on the first error.
 
-### Remote CMake modules
+---
 
-    MODULE_NAME=raylib
-    MODULE_TYPE=remote_cmake
-    MODULE_FETCH_URL="https://github.com/raysan5/raylib/archive/refs/tags/5.5.tar.gz"
-    MODULE_DEPS=""
+## Builder API (per-module)
 
-------------------------------------------------------------------------
+Modules that want a convenient view of the environment can use a minimal
+header-only API, typically included as:
 
-## Adding a New Module
-
-1.  Create a directory: `src/<module>/`
-2.  Add a `build.module` file describing:
-    -   name, type, source patterns, deps, flags, etc.
-3.  Add your `.cpp`/`.h` files
-4.  Build it:
-
-``` bash
-./builder <module>
+```cpp
+#include <builder/api.h>
 ```
 
-------------------------------------------------------------------------
+One example shape:
+
+```cpp
+builder_api_t api = builder_api_t::from_argv(argc, argv);
+
+auto modules_root   = api.modules_root();
+auto artifacts_root = api.artifacts_root();
+auto module_name    = api.module_name();
+auto module_dir     = api.module_dir();
+```
+
+The API’s job is deliberately small:
+
+- expose paths (modules root, artifacts root, current module name)
+- provide a conventional way to construct artifact paths *if desired*
+
+Each module is still free to invent its own naming scheme (e.g.
+`<name>.static_library`, `<name>.shared_library`, `<name>.executable`,
+or something custom).
+
+---
+
+## Example: a Simple Module
+
+`modules/foo/builder.cpp`:
+
+```cpp
+#include <builder/api.h>
+
+#include <format>
+#include <iostream>
+
+int main(int argc, char** argv) {
+    builder_api_t api = builder_api_t::from_argv(argc, argv);
+
+    auto exe_path = api.artifacts_root() / (api.module_name() + ".executable");
+    auto src      = api.module_dir() / "foo.cpp";
+
+    std::string cmd = std::format(
+        "g++ -g -O2 -std=c++23 -Wall -Wextra -I{} -o {} {}",
+        api.modules_root().string(),
+        exe_path.string(),
+        src.string()
+    );
+
+    std::cout << cmd << std::endl;
+    int rc = std::system(cmd.c_str());
+    if (rc != 0) {
+        throw std::runtime_error(std::format(
+            "module {} failed with exit code {}",
+            api.module_name(), rc
+        ));
+    }
+
+    return 0;
+}
+```
+
+This builder:
+
+1. Is compiled by the orchestrator into an internal “builder artifact”.
+2. When run, it compiles `foo.cpp` into `artifacts/foo.executable`.
+
+Other modules can then treat `foo` however they like (link it, run it,
+etc.).
+
+---
 
 ## Philosophy
 
-Builder aims to be:
+- **Minimal API** – as little shared machinery as possible
+- **Local reasoning** – each module is self-contained
+- **Topological builds** – dependencies first, then dependents
+- **Self-hosting** – the build system can build itself
+- **Hackable** – everything is just C++; no extra DSL to learn
 
--   **Tiny** --- one C++ file you can fully understand\
--   **Deterministic** --- predictable builds and dependency resolution\
--   **Hackable** --- simple enough to extend or modify freely\
--   **Exploratory** --- ideal for rapid prototyping, language
-    experiments, and modular architectures
-
-------------------------------------------------------------------------
+---
 
 ## License
 
-Builder is released under the MIT License; see LICENSE for details.
+Builder is released under the MIT License. See `LICENSE` for details.
