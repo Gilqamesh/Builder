@@ -37,22 +37,12 @@ MODULES_EXTERN void c_module__build_builder_artifacts(const c_module_t* c_module
     );
 }
 
-MODULES_EXTERN void c_module__build_module_artifacts(const c_module_t* c_module) {
+#include <iostream>
+MODULES_EXTERN void c_module__build_module_artifacts(const c_module_t* c_module, const char* static_libs) {
     // bin
     cpp_module_t cpp_module = cpp_module_t::from_c_module(*c_module);
 
-    auto module_dependency_paths = [&]() {
-        std::vector<std::filesystem::path> paths;
-        for (const auto& dependency : cpp_module.module_dependencies) {
-            const auto dependency_lib = dependency->artifact_dir / API_LIB_NAME;
-            if (!std::filesystem::exists(dependency_lib)) {
-                throw std::runtime_error(std::format("dependency lib does not exist '{}'", dependency_lib.string()));
-            }
-            paths.push_back(dependency_lib);
-        }
-        return paths;
-    }();
-    module_dependency_paths.push_back(
+    const auto main_obj = (
         compiler_t::update_object_file(
             cpp_module.module_dir / "main.cpp",
             {},
@@ -63,5 +53,6 @@ MODULES_EXTERN void c_module__build_module_artifacts(const c_module_t* c_module)
         )
     );
 
-    compiler_t::update_binary(module_dependency_paths, cpp_module.artifact_dir / "b_bin");
+    std::cout << "Installing to: " << cpp_module.artifact_dir / "b_bin" << std::endl;
+    compiler_t::update_binary({ main_obj, static_libs }, cpp_module.artifact_dir / "b_bin");
 }

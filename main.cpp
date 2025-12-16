@@ -30,7 +30,7 @@ int main(int argc, char** argv) {
         }
 
         if (!latest_builder_artifact_dir.empty()) {
-            const auto orchestrator_binary = latest_builder_artifact_dir / orchestrator_binary_name;
+            const auto orchestrator_binary = std::filesystem::absolute(latest_builder_artifact_dir / orchestrator_binary_name);
             if (!std::filesystem::exists(orchestrator_binary)) {
                 throw std::runtime_error(std::format("'{}' does not exist", orchestrator_binary.string()));
             }
@@ -42,7 +42,7 @@ int main(int argc, char** argv) {
             }
         } else {
             const auto time_now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
-            const auto tmp_binary_path = std::filesystem::temp_directory_path() / (orchestrator_binary_name + "@" + std::to_string(time_now));
+            const auto tmp_binary_path = std::filesystem::absolute(std::filesystem::temp_directory_path() / (orchestrator_binary_name + "@" + std::to_string(time_now)));
             const auto compile_command = std::format("clang++ -g -O3 -std=c++23 {}/*.cpp -I{} -o {}", builder_module_dir.string(), root_dir.string(), tmp_binary_path.string());
             std::cout << compile_command << std::endl;
             if (std::system(compile_command.c_str()) != 0) {

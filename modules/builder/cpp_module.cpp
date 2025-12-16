@@ -21,6 +21,7 @@ cpp_module_t cpp_module_t::from_c_module(const c_module_t& c_module) {
             return deps;
         }(),
         .state = c_module.state,
-        .version = c_module.version
+        .version = c_module.version,
+        .scc_id = c_module.scc_id
     };
 }

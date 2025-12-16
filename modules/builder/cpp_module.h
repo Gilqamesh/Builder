@@ -19,6 +19,7 @@ public:
     std::vector<cpp_module_t*> module_dependencies;
     c_module_state_t state;
     uint64_t version;
+    size_t scc_id;
 };
 
 #endif // BUILDER_CPP_MODULE_API_H

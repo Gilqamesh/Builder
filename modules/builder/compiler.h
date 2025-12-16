@@ -3,6 +3,7 @@
 
 # include <filesystem>
 # include <vector>
+# include <variant>
 
 class compiler_t {
 public:
@@ -22,7 +23,15 @@ public:
     // Returns the path to the output archive.
     // Throws std::runtime_error on failure.
     static std::filesystem::path update_static_library(
-        const std::vector<std::filesystem::path>& input_files,
+        const std::vector<std::filesystem::path>& objects,
+        const std::filesystem::path& output_static_library
+    );
+
+    // Creates an archive from the input archives.
+    // Returns the path to the output archive.
+    // Throws std::runtime_error on failure.
+    static std::filesystem::path bundle_static_libraries(
+        const std::vector<std::filesystem::path>& archives,
         const std::filesystem::path& output_static_library
     );
 
@@ -34,11 +43,17 @@ public:
         const std::filesystem::path& output_shared_libary
     );
 
+    using binary_input_t = std::variant<
+        std::filesystem::path,
+        std::string,
+        const char*
+    >;
+
     // Links input object files into a binary if any of them are newer than the output binary.
     // Returns true if the binary was updated, false otherwise.
     // Throws std::runtime_error on failure.
     static bool update_binary(
-        const std::vector<std::filesystem::path>& input_libraries,
+        const std::vector<binary_input_t>& input_libraries,
         const std::filesystem::path& output_binary
     );
 };

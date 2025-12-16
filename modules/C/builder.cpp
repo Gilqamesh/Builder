@@ -33,5 +33,5 @@ MODULES_EXTERN void c_module__build_builder_artifacts(const c_module_t* c_module
     );
 }
 
-MODULES_EXTERN void c_module__build_module_artifacts(const c_module_t* c_module) {
+MODULES_EXTERN void c_module__build_module_artifacts(const c_module_t* c_module, const char* static_libs) {
 }
