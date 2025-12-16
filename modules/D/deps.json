@@ -1,0 +1,8 @@
+{
+    "builder_deps": [
+        "B"
+    ],
+    "module_deps": [
+        "E"
+    ]
+}
