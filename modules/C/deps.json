@@ -3,5 +3,6 @@
         "builder"
     ],
     "module_deps": [
+        "B"
     ]
 }

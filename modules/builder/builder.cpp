@@ -1,24 +1,25 @@
-#include <modules/builder/cpp_module.h>
+#include <modules/builder/builder.h>
 #include <modules/builder/compiler.h>
 
 #include <string>
 #include <filesystem>
 #include <format>
 
-MODULES_EXTERN void c_module__build_builder_artifacts(const c_module_t* c_module) {
-    cpp_module_t cpp_module = cpp_module_t::from_c_module(*c_module);
+BUILDER_EXTERN void builder__build_self(builder_ctx_t* ctx, const builder_api_t* api) {
+    const auto root_dir = std::filesystem::path(api->root_dir(ctx));
+    const auto artifact_dir = std::filesystem::path(api->artifact_dir(ctx));
+    const auto module_dir = std::filesystem::path(api->module_dir(ctx));
 
-    const auto module_dir = cpp_module.root_dir / MODULES_DIR / BUILDER;
     if (!std::filesystem::exists(module_dir)) {
         throw std::runtime_error(std::format("module directory does not exist '{}'", module_dir.string()));
     }
 
     const auto builder_obj = compiler_t::update_object_file(
-        module_dir / BUILDER_CPP,
+        std::filesystem::path(module_dir) / BUILDER_CPP,
         {},
-        { cpp_module.root_dir },
+        { root_dir },
         {},
-        cpp_module.artifact_dir / (BUILDER + std::string(".o")),
+        artifact_dir / (BUILDER + std::string(".o")),
         true
     );
 
@@ -36,9 +37,9 @@ MODULES_EXTERN void c_module__build_builder_artifacts(const c_module_t* c_module
                 compiler_t::update_object_file(
                     path,
                     {},
-                    { cpp_module.root_dir },
+                    { root_dir },
                     {},
-                    cpp_module.artifact_dir / (stem + "_static.o"),
+                    artifact_dir / (stem + "_static.o"),
                     false
                 )
             );
@@ -60,9 +61,9 @@ MODULES_EXTERN void c_module__build_builder_artifacts(const c_module_t* c_module
                 compiler_t::update_object_file(
                     path,
                     {},
-                    { cpp_module.root_dir },
+                    { root_dir },
                     {},
-                    cpp_module.artifact_dir / (stem + ".o"),
+                    artifact_dir / (stem + ".o"),
                     true
                 )
             );
@@ -70,22 +71,22 @@ MODULES_EXTERN void c_module__build_builder_artifacts(const c_module_t* c_module
         return objs;
     }();
 
-    const auto so = compiler_t::update_shared_libary(lib_shared_objs, cpp_module.artifact_dir / API_SO_NAME);
-    const auto lib = compiler_t::update_static_library(lib_static_objs, cpp_module.artifact_dir / API_LIB_NAME);
+    const auto so = compiler_t::update_shared_libary(lib_shared_objs, artifact_dir / API_SO_NAME);
+    const auto lib = compiler_t::update_static_library(lib_static_objs, artifact_dir / API_LIB_NAME);
 
-    compiler_t::update_shared_libary({ builder_obj, so }, cpp_module.artifact_dir / BUILDER_SO);
+    compiler_t::update_shared_libary({ builder_obj, so }, artifact_dir / BUILDER_SO);
 
     const auto orchestrator_obj = compiler_t::update_object_file(
         module_dir / ORCHESTRATOR_CPP,
         { },
-        { cpp_module.root_dir },
+        { root_dir },
         { { "VERSION", std::to_string(VERSION) } },
-        cpp_module.artifact_dir / (ORCHESTRATOR_BIN + std::string(".o")),
+        artifact_dir / (ORCHESTRATOR_BIN + std::string(".o")),
         false
     );
 
-    const auto orchestrator_bin = compiler_t::update_binary({ orchestrator_obj, builder_obj, lib }, cpp_module.artifact_dir / ORCHESTRATOR_BIN);
+    const auto orchestrator_bin = compiler_t::update_binary({ orchestrator_obj, builder_obj, lib }, artifact_dir / ORCHESTRATOR_BIN);
 }
 
-MODULES_EXTERN void c_module__build_module_artifacts(const c_module_t* c_module, const char* static_libs) {
+BUILDER_EXTERN void builder__build_module(builder_ctx_t* ctx, const builder_api_t* api, const char* static_libs) {
 }

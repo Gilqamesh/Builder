@@ -1,37 +1,55 @@
-#include <modules/builder/cpp_module.h>
+#include <modules/builder/builder.h>
 #include <modules/builder/compiler.h>
 
-MODULES_EXTERN void c_module__build_builder_artifacts(const c_module_t* c_module) {
-    cpp_module_t cpp_module = cpp_module_t::from_c_module(*c_module);
+BUILDER_EXTERN void builder__build_self(builder_ctx_t* ctx, const builder_api_t* api) {
+    const auto root_dir = std::filesystem::path(api->root_dir(ctx));
+    const auto artifact_dir = std::filesystem::path(api->artifact_dir(ctx));
+    const auto module_dir = std::filesystem::path(api->module_dir(ctx));
 
     compiler_t::update_shared_libary(
         {
             compiler_t::update_object_file(
-                cpp_module.module_dir / "c.cpp",
+                module_dir / "c.cpp",
                 {},
-                { cpp_module.root_dir },
+                { root_dir },
                 {},
-                cpp_module.artifact_dir / "c.o",
+                artifact_dir / "c.o",
                 true
             )
         },
-        cpp_module.artifact_dir / API_SO_NAME
+        artifact_dir / API_SO_NAME
     );
 
     compiler_t::update_static_library(
         {
             compiler_t::update_object_file(
-                cpp_module.module_dir / "c.cpp",
+                module_dir / "c.cpp",
                 {},
-                { cpp_module.root_dir },
+                { root_dir },
                 {},
-                cpp_module.artifact_dir / "c_static.o",
+                artifact_dir / "c_static.o",
                 false
             )
         },
-        cpp_module.artifact_dir / API_LIB_NAME
+        artifact_dir / API_LIB_NAME
     );
 }
 
-MODULES_EXTERN void c_module__build_module_artifacts(const c_module_t* c_module, const char* static_libs) {
+BUILDER_EXTERN void builder__build_module(builder_ctx_t* ctx, const builder_api_t* api, const char* static_libs) {
+    const auto root_dir = std::filesystem::path(api->root_dir(ctx));
+    const auto artifact_dir = std::filesystem::path(api->artifact_dir(ctx));
+    const auto module_dir = std::filesystem::path(api->module_dir(ctx));
+
+    const auto main_obj = (
+        compiler_t::update_object_file(
+            module_dir / "main.cpp",
+            {},
+            { root_dir },
+            {},
+            artifact_dir / "main.o",
+            false
+        )
+    );
+
+    compiler_t::update_binary({ main_obj, static_libs }, artifact_dir / "c_bin");
 }
