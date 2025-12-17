@@ -158,6 +158,8 @@ std::filesystem::path compiler_t::update_shared_libary(
         link_command += " " + input_file.string();
     }
 
+
+
     if (std::filesystem::exists(output_shared_libary) && latest_input_file_time <= std::filesystem::last_write_time(output_shared_libary)) {
         return output_shared_libary;
     }
@@ -171,10 +173,7 @@ std::filesystem::path compiler_t::update_shared_libary(
     return output_shared_libary;
 }
 
-bool compiler_t::update_binary(
-    const std::vector<binary_input_t>& input_libraries,
-    const std::filesystem::path& output_binary
-) {
+std::filesystem::path compiler_t::update_binary(const std::vector<binary_input_t>& input_libraries, const std::filesystem::path& output_binary) {
     std::filesystem::file_time_type latest_input_library_time = std::filesystem::file_time_type::min();
     std::string link_command = "clang++ -o " + output_binary.string();
     const auto input_library_paths = [&]() {
@@ -228,7 +227,7 @@ bool compiler_t::update_binary(
     }
 
     if (std::filesystem::exists(output_binary) && latest_input_library_time <= std::filesystem::last_write_time(output_binary)) {
-        return false;
+        return output_binary;
     }
 
     std::cout << link_command << std::endl;
@@ -237,5 +236,5 @@ bool compiler_t::update_binary(
         throw std::runtime_error(std::format("failed to create binary '{}'", output_binary.string()));
     }
 
-    return true;
+    return output_binary;
 }

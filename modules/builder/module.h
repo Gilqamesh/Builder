@@ -8,10 +8,11 @@
 struct module_t {
 public:
     enum class module_state_t {
-        NOT_VISITED,
-        VISITING,
-        VISITED,
-        BUILT
+        NOT_DISCOVERED,
+        DISCOVERING,
+        DISCOVERED,
+        BUILT_SELF,
+        BUILT_MODULE
     };
 
 public:
@@ -22,6 +23,7 @@ public:
     std::vector<module_t*> builder_dependencies;
     std::vector<module_t*> module_dependencies;
     module_state_t state;
+    bool ran_builder_build_self;
     uint64_t version;
     size_t scc_id;
 };

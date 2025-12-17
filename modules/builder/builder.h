@@ -9,6 +9,9 @@
 
 # include <stdint.h>
 
+# define API_LIB_NAME "api.lib"
+# define API_SO_NAME  "api.so"
+
 typedef struct builder_ctx_t builder_ctx_t;
 
 typedef struct builder_api_t {
@@ -17,23 +20,6 @@ typedef struct builder_api_t {
     const char* (*artifact_dir)(builder_ctx_t* ctx);
     const char* (*module_dir)(builder_ctx_t* ctx);
 } builder_api_t;
-
-# ifndef VERSION
-#  define VERSION 0
-# endif
-
-# define MODULES_DIR             "modules"
-# define BUILDER                 "builder"
-# define BUILDER_CPP             "builder.cpp"
-# define BUILDER_SO              "builder.so"
-# define ORCHESTRATOR_CPP        "orchestrator.cpp"
-# define ORCHESTRATOR_BIN        "orchestrator"
-# define BUILDER_BUILD_SELF      "builder__build_self"
-# define BUILDER_BUILD_MODULE    "builder__build_module"
-# define API_LIB_NAME            "api.lib"
-# define API_SO_NAME             "api.so"
-# define DEPS_JSON               "deps.json"
-# define BUNDLE_NAME             "scc.lib"
 
 typedef void (*builder__build_self_t)(builder_ctx_t* ctx, const builder_api_t* api);
 typedef void (*builder__build_module_t)(builder_ctx_t* ctx, const builder_api_t* api, const char* static_libs);

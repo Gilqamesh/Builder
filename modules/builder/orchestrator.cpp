@@ -1,7 +1,7 @@
 #include <modules/builder/builder.h>
+#include <modules/builder/builder_internal.h>
 #include <modules/builder/compiler.h>
 #include <modules/builder/module.h>
-
 #include <modules/builder/external/nlohmann/json.hpp>
 
 #include <vector>
@@ -26,7 +26,7 @@
 #include <fcntl.h>
 
 struct builder_ctx_t {
-    module_t module;
+    const module_t& module;
 };
 
 static const char* root_dir_fn(builder_ctx_t* ctx) {
@@ -48,6 +48,10 @@ static builder_api_t builder_api = {
     .module_dir = &module_dir_fn
 };
 
+void log(const std::string& msg) {
+    std::cout << std::format("[{}] {}", ORCHESTRATOR_BIN, msg) << std::endl;
+}
+
 struct scc_t {
     int id;
     std::vector<module_t*> modules;
@@ -57,17 +61,31 @@ struct scc_t {
 void connect_components(std::vector<scc_t>& components) {
     for (int id = 0; id < components.size(); ++id) {
         auto& scc = components[id];
-        for (const auto& cpp_module : scc.modules) {
-            for (const auto& dep : cpp_module->builder_dependencies) {
+        for (const auto& module : scc.modules) {
+            for (const auto& dep : module->builder_dependencies) {
                 if (dep->scc_id != id) {
                     scc.deps.insert(&components[dep->scc_id]);
                 }
             }
-            for (const auto& dep : cpp_module->module_dependencies) {
+            for (const auto& dep : module->module_dependencies) {
                 if (dep->scc_id != id) {
                     scc.deps.insert(&components[dep->scc_id]);
                 }
             }
+        }
+    }
+}
+
+void print_strongly_connected_components(const std::vector<scc_t>& sccs) {
+    std::cout << "Strongly connected components:" << std::endl;
+    for (const auto& scc : sccs) {
+        std::cout << std::format("Component {}:", scc.id) << std::endl;
+        for (const auto& module : scc.modules) {
+            std::cout << " - " << module->module_name << std::endl;
+        }
+        std::cout << " deps:" << std::endl;
+        for (const auto& dep : scc.deps) {
+            std::cout << std::format("   - Component {}", dep->id) << std::endl;
         }
     }
 }
@@ -79,7 +97,7 @@ std::vector<scc_t> tarjan(const std::unordered_map<std::string, module_t*>& modu
         int index;
         int lowlink;
         bool on_stack;
-        module_t* cpp_module;
+        module_t* module;
     };
 
     std::unordered_map<module_t*, scc_metadata_t> metadata_by_module;
@@ -94,7 +112,7 @@ std::vector<scc_t> tarjan(const std::unordered_map<std::string, module_t*>& modu
         S.push(&metadata);
         metadata.on_stack = true;
 
-        for (const auto& module_dependency : metadata.cpp_module->module_dependencies) {
+        for (const auto& module_dependency : metadata.module->module_dependencies) {
             auto dep_it = metadata_by_module.find(module_dependency);
             if (dep_it == metadata_by_module.end()) {
                 throw std::runtime_error(std::format("module '{}' not found in metadata_by_module", module_dependency->module_name));
@@ -108,7 +126,7 @@ std::vector<scc_t> tarjan(const std::unordered_map<std::string, module_t*>& modu
             }
         }
 
-        for (const auto& builder_dependency : metadata.cpp_module->builder_dependencies) {
+        for (const auto& builder_dependency : metadata.module->builder_dependencies) {
             auto dep_it = metadata_by_module.find(builder_dependency);
             if (dep_it == metadata_by_module.end()) {
                 throw std::runtime_error(std::format("module '{}' not found in metadata_by_module", builder_dependency->module_name));
@@ -129,9 +147,9 @@ std::vector<scc_t> tarjan(const std::unordered_map<std::string, module_t*>& modu
                 scc_metadata_t* dep = S.top();
                 S.pop();
                 dep->on_stack = false;
-                dep->cpp_module->scc_id = scc.id;
-                scc.modules.push_back(dep->cpp_module);
-                if (dep->cpp_module == metadata.cpp_module) {
+                dep->module->scc_id = scc.id;
+                scc.modules.push_back(dep->module);
+                if (dep->module == metadata.module) {
                     break ;
                 }
             }
@@ -139,13 +157,13 @@ std::vector<scc_t> tarjan(const std::unordered_map<std::string, module_t*>& modu
         }
     };
 
-    for (const auto& [module_name, cpp_module] : modules_repository) {
-        if (metadata_by_module.emplace(cpp_module, scc_metadata_t{ .index = -1, .lowlink = -1, .on_stack = false, .cpp_module = cpp_module }).second == false) {
+    for (const auto& [module_name, module] : modules_repository) {
+        if (metadata_by_module.emplace(module, scc_metadata_t{ .index = -1, .lowlink = -1, .on_stack = false, .module = module }).second == false) {
             throw std::runtime_error(std::format("duplicate modules in modules_repository for module '{}'", module_name));
         }
     }
 
-    for (auto& [cpp_module, metadata] : metadata_by_module) {
+    for (auto& [module, metadata] : metadata_by_module) {
         if (metadata.index == -1) {
             strong_connect(metadata);
         }
@@ -153,17 +171,7 @@ std::vector<scc_t> tarjan(const std::unordered_map<std::string, module_t*>& modu
 
     connect_components(result);
 
-    std::cout << "Strongly connected components:" << std::endl;
-    for (const auto& scc : result) {
-        std::cout << std::format("Component {}:", scc.id) << std::endl;
-        for (const auto& module : scc.modules) {
-            std::cout << " - " << module->module_name << std::endl;
-        }
-        std::cout << " deps:" << std::endl;
-        for (const auto& dep : scc.deps) {
-            std::cout << std::format("   - Component {}", dep->id) << std::endl;
-        }
-    }
+    // print_strongly_connected_components(result);
 
     return result;
 }
@@ -262,6 +270,10 @@ void relaunch_newer_version(const std::filesystem::path& root_dir, const std::fi
     throw std::runtime_error(std::format("fexecve failed to run temporary next version of builder binary '{}', errno: {}, errno_msg: {}", tmp_binary_path_str, errno, std::strerror(errno)));
 }
 
+std::filesystem::path create_artifact_dir(const std::string& module_name, const std::filesystem::path& artifacts_dir, uint64_t version) {
+    return artifacts_dir / module_name / (module_name + "@" + std::to_string(version));
+}
+
 void discover_dependencies(const std::filesystem::path& root_dir, const std::filesystem::path& artifacts_dir, const std::filesystem::path& modules_dir, const std::string& module_name, std::unordered_map<std::string, module_t*>& modules_repository, std::stack<std::string>& visiting_stack) {
     const auto module_dir = modules_dir / module_name;
     if (!std::filesystem::exists(module_dir)) {
@@ -270,24 +282,24 @@ void discover_dependencies(const std::filesystem::path& root_dir, const std::fil
 
     auto it = modules_repository.find(module_name);
     if (it == modules_repository.end()) {
-        const auto module_version = get_module_version(module_name, root_dir);
-        const auto artifact_dir = artifacts_dir / module_name / (module_name + "@" + std::to_string(module_version));
-
         it = modules_repository.emplace(module_name, new module_t{
             .module_name = module_name,
             .module_dir = module_dir,
             .root_dir = root_dir,
-            .artifact_dir = artifact_dir,
-            .state = module_t::module_state_t::NOT_VISITED,
-            .version = module_version
+            .artifact_dir = "",
+            .state = module_t::module_state_t::NOT_DISCOVERED,
+            .ran_builder_build_self = false,
+            .version = get_module_version(module_name, root_dir),
+            .scc_id = 0
         }).first;
+        it->second->artifact_dir = create_artifact_dir(module_name, artifacts_dir, it->second->version);
     }
-    module_t* cpp_module = it->second;
+    module_t* module = it->second;
 
-    switch (cpp_module->state) {
-        case module_t::module_state_t::NOT_VISITED: {
+    switch (module->state) {
+        case module_t::module_state_t::NOT_DISCOVERED: {
         } break ;
-        case module_t::module_state_t::VISITING: {
+        case module_t::module_state_t::DISCOVERING: {
             std::string message = "circular dependency detected between modules: ";
             while (!visiting_stack.empty()) {
                 const auto& visiting_module_name = visiting_stack.top();
@@ -299,17 +311,20 @@ void discover_dependencies(const std::filesystem::path& root_dir, const std::fil
             }
             throw std::runtime_error(message);
         } break ;
-        case module_t::module_state_t::VISITED: {
+        case module_t::module_state_t::DISCOVERED: {
             return ;
         } break ;
-        case module_t::module_state_t::BUILT: {
+        case module_t::module_state_t::BUILT_SELF: {
+            return ;
+        } break ;
+        case module_t::module_state_t::BUILT_MODULE: {
             return ;
         } break ;
         default: {
             throw std::runtime_error("unhandled visit state");
         }
     }
-    cpp_module->state = module_t::module_state_t::VISITING;
+    module->state = module_t::module_state_t::DISCOVERING;
 
     const auto deps_json_path = module_dir / DEPS_JSON;
     if (!std::filesystem::exists(deps_json_path)) {
@@ -349,37 +364,36 @@ void discover_dependencies(const std::filesystem::path& root_dir, const std::fil
             throw std::runtime_error(std::format("invalid deps json file '{}': '{}' array must not contain empty strings", deps_json_path.string(), builder_deps_key));
         }
 
-        if (cpp_module->module_name == BUILDER && builder_dep_str == BUILDER) {
+        if (module->module_name == BUILDER && builder_dep_str == BUILDER) {
             continue ;
         }
 
         auto it = modules_repository.find(builder_dep_str);
         if (it == modules_repository.end()) {
             const auto module_version = get_module_version(builder_dep_str, root_dir);
-            const auto artifact_dir = artifacts_dir / builder_dep_str / (builder_dep_str + "@" + std::to_string(module_version));
-
             it = modules_repository.emplace(builder_dep_str, new module_t{
                 .module_name = builder_dep_str,
                 .module_dir = modules_dir / builder_dep_str,
                 .root_dir = root_dir,
-                .artifact_dir = artifact_dir,
-                .state = module_t::module_state_t::NOT_VISITED,
+                .artifact_dir = "",
+                .state = module_t::module_state_t::NOT_DISCOVERED,
                 .version = module_version
             }).first;
+            it->second->artifact_dir = create_artifact_dir(builder_dep_str, artifacts_dir, module_version);
         }
 
-        if (std::find(cpp_module->builder_dependencies.begin(), cpp_module->builder_dependencies.end(), it->second) != cpp_module->builder_dependencies.end()) {
+        if (std::find(module->builder_dependencies.begin(), module->builder_dependencies.end(), it->second) != module->builder_dependencies.end()) {
             throw std::runtime_error(std::format("invalid deps json file '{}': duplicate entry '{}' in '{}' array", deps_json_path.string(), builder_dep_str, builder_deps_key));
         }
 
-        cpp_module->builder_dependencies.push_back(it->second);
+        module->builder_dependencies.push_back(it->second);
 
         visiting_stack.push(builder_dep_str);
         discover_dependencies(root_dir, artifacts_dir, modules_dir, builder_dep_str, modules_repository, visiting_stack);
         visiting_stack.pop();
     }
 
-    cpp_module->state = module_t::module_state_t::VISITED;
+    module->state = module_t::module_state_t::DISCOVERED;
 
     for (const auto& runtime_dep : deps_json[module_deps_key]) {
         if (!runtime_dep.is_string()) {
@@ -390,7 +404,7 @@ void discover_dependencies(const std::filesystem::path& root_dir, const std::fil
             throw std::runtime_error(std::format("invalid deps json file '{}': '{}' array must not contain empty strings", deps_json_path.string(), module_deps_key));
         }
 
-        if (cpp_module->module_name == BUILDER && runtime_dep_str == BUILDER) {
+        if (module->module_name == BUILDER && runtime_dep_str == BUILDER) {
             continue ;
         }
 
@@ -404,16 +418,16 @@ void discover_dependencies(const std::filesystem::path& root_dir, const std::fil
                 .module_dir = modules_dir / runtime_dep_str,
                 .root_dir = root_dir,
                 .artifact_dir = artifact_dir,
-                .state = module_t::module_state_t::NOT_VISITED,
+                .state = module_t::module_state_t::NOT_DISCOVERED,
                 .version = module_version
             }).first;
         }
 
-        if (std::find(cpp_module->module_dependencies.begin(), cpp_module->module_dependencies.end(), it->second) != cpp_module->module_dependencies.end()) {
+        if (std::find(module->module_dependencies.begin(), module->module_dependencies.end(), it->second) != module->module_dependencies.end()) {
             throw std::runtime_error(std::format("invalid deps json file '{}': duplicate entry '{}' in '{}' array", deps_json_path.string(), runtime_dep_str, module_deps_key));
         }
 
-        cpp_module->module_dependencies.push_back(it->second);
+        module->module_dependencies.push_back(it->second);
 
         discover_dependencies(root_dir, artifacts_dir, modules_dir, runtime_dep_str, modules_repository, visiting_stack);
     }
@@ -433,128 +447,164 @@ void discover_dependencies(std::unordered_map<std::string, module_t*>& modules_r
     visiting_stack.pop();
 }
 
-void build_builder_artifacts(module_t& module, const std::filesystem::path& root_dir, const std::filesystem::path& artifacts_dir, module_t& target_module) {
-    if (module_t::module_state_t::BUILT <= module.state) {
-        return ;
-    }
-
-    for (size_t i = 0; i < module.builder_dependencies.size(); ++i) {
-        build_builder_artifacts(*module.builder_dependencies[i], root_dir, artifacts_dir, target_module);
-    }
-
-    if (!std::filesystem::exists(module.artifact_dir)) {
-        if (!std::filesystem::create_directories(module.artifact_dir)) {
-            throw std::runtime_error(std::format("failed to create artifact directory '{}'", module.artifact_dir.string()));
-        }
-    }
-
-    std::cout << std::format("Build builder artifacts for module '{}' version {}", module.module_name, module.version) << std::endl;
+void run_builder_build_self(module_t& module) {
+    log(std::format("run builder build self for module '{}', version {}", module.module_name, get_module_version(module.module_name, module.root_dir)));
 
     builder_ctx_t builder_ctx = {
         .module = module
     };
 
-    try {
-        if (module.module_name == BUILDER) {
-            builder__build_self(&builder_ctx, &builder_api);
-        } else {
-            const auto builder_cpp = module.module_dir / BUILDER_CPP;
-            if (!std::filesystem::exists(builder_cpp)) {
-                throw std::runtime_error(std::format("file does not exist '{}'", builder_cpp.string()));
-            }
-            const auto builder_d = module.artifact_dir / (BUILDER + std::string(".d"));
-            const auto builder_o = module.artifact_dir / (BUILDER + std::string(".o"));
-            const auto builder_so = module.artifact_dir / BUILDER_SO;
-
-            std::vector<std::filesystem::path> shared_library_deps;
-            for (const auto& dependency : module.builder_dependencies) {
-                const auto dependency_so = dependency->artifact_dir / API_SO_NAME;
-                if (!std::filesystem::exists(dependency_so)) {
-                    throw std::runtime_error(std::format("dependency so does not exist '{}'", dependency_so.string()));
-                }
-                shared_library_deps.push_back(dependency_so);
-            }
-            shared_library_deps.push_back(
-                compiler_t::update_object_file(
-                    builder_cpp,
-                    {},
-                    { root_dir },
-                    {},
-                    builder_o,
-                    true
-                )
-            );
-
-            compiler_t::update_shared_libary(shared_library_deps, builder_so);
-
-            if (!std::filesystem::exists(builder_so)) {
-                throw std::runtime_error(std::format("builder plugin '{}' was not created, something went wrong", builder_so.string()));
-            }
-
-            // TODO: move to platform layer
-            void* builder_handle = dlopen(builder_so.string().c_str(), RTLD_NOW | RTLD_LOCAL);
-            if (!builder_handle) {
-                const auto message = std::format("failed to load builder plugin '{}': {}", builder_so.string(), dlerror());
-                throw std::runtime_error(message);
-            }
-
-            builder__build_self_t builder__build_self = (builder__build_self_t)dlsym(builder_handle, BUILDER_BUILD_SELF);
-            if (!builder__build_self) {
-                const auto message = std::format("failed to load symbol '{}' from builder plugin '{}': {}", BUILDER_BUILD_SELF, builder_so.string(), dlerror());
-                dlclose(builder_handle);
-                throw std::runtime_error(message);
-            }
-
-            try {
-                builder__build_self(&builder_ctx, &builder_api);
-                dlclose(builder_handle);
-            } catch (...) {
-                dlclose(builder_handle);
-                throw ;
-            }
+    if (module.module_name == BUILDER) {
+        builder__build_self(&builder_ctx, &builder_api);
+    } else {
+        const auto builder_cpp = module.module_dir / BUILDER_CPP;
+        if (!std::filesystem::exists(builder_cpp)) {
+            throw std::runtime_error(std::format("file does not exist '{}'", builder_cpp.string()));
         }
-    } catch (...) {
-        std::filesystem::remove_all(module.artifact_dir);
-        throw ;
+        const auto builder_o = module.artifact_dir / (BUILDER + std::string(".o"));
+        const auto builder_so = module.artifact_dir / BUILDER_SO;
+
+        std::vector<std::filesystem::path> shared_library_deps;
+        for (const auto& dependency : module.builder_dependencies) {
+            const auto dependency_so = dependency->artifact_dir / API_SO_NAME;
+            if (!std::filesystem::exists(dependency_so)) {
+                throw std::runtime_error(std::format("dependency shared library does not exist '{}'", dependency_so.string()));
+            }
+            shared_library_deps.push_back(dependency_so);
+        }
+        shared_library_deps.push_back(
+            compiler_t::update_object_file(
+                builder_cpp,
+                {},
+                { module.root_dir },
+                {},
+                builder_o,
+                true
+            )
+        );
+
+        compiler_t::update_shared_libary(shared_library_deps, builder_so);
+
+        if (!std::filesystem::exists(builder_so)) {
+            throw std::runtime_error(std::format("builder plugin '{}' was not created, something went wrong", builder_so.string()));
+        }
+
+        // TODO: move to platform layer
+        void* builder_handle = dlopen(builder_so.string().c_str(), RTLD_NOW | RTLD_LOCAL);
+        if (!builder_handle) {
+            const auto message = std::format("failed to load builder plugin '{}': {}", builder_so.string(), dlerror());
+            throw std::runtime_error(message);
+        }
+
+        builder__build_self_t builder__build_self = (builder__build_self_t)dlsym(builder_handle, BUILDER_BUILD_SELF);
+        if (!builder__build_self) {
+            const auto message = std::format("failed to load symbol '{}' from builder plugin '{}': {}", BUILDER_BUILD_SELF, builder_so.string(), dlerror());
+            dlclose(builder_handle);
+            throw std::runtime_error(message);
+        }
+
+        try {
+            builder__build_self(&builder_ctx, &builder_api);
+            dlclose(builder_handle);
+        } catch (...) {
+            dlclose(builder_handle);
+            throw ;
+        }
     }
 
-    module.state = module_t::module_state_t::BUILT;
+    module.ran_builder_build_self = true;
+}
+
+void build_self_order(module_t& module, const std::function<bool(module_t&)>& f, std::unordered_set<module_t*>& visited) {
+    if (visited.insert(&module).second == false) {
+        return ;
+    }
+
+    for (size_t i = 0; i < module.builder_dependencies.size(); ++i) {
+        build_self_order(*module.builder_dependencies[i], f, visited);
+    }
+
+    if (!f(module)) {
+        return ;
+    }
 
     for (size_t i = 0; i < module.module_dependencies.size(); ++i) {
-        build_builder_artifacts(*module.module_dependencies[i], root_dir, artifacts_dir, target_module);
+        build_self_order(*module.module_dependencies[i], f, visited);
     }
 }
 
-void collect_bundles_in_linking_order(const module_t& cpp_module, const std::vector<scc_t>& sccs, size_t index, std::vector<bool>& visited, std::vector<std::filesystem::path>& bundles) {
+void build_self_order(module_t& module, const std::function<bool(module_t&)>& f) {
+    std::unordered_set<module_t*> visited;
+    build_self_order(module, f, visited);
+}
+
+void builder_build_self(module_t& module) {
+    build_self_order(module, [](module_t& module) {
+        if (module_t::module_state_t::BUILT_SELF <= module.state) {
+            return false;
+        }
+
+        if (!std::filesystem::exists(module.artifact_dir)) {
+            if (!std::filesystem::create_directories(module.artifact_dir)) {
+                throw std::runtime_error(std::format("failed to create artifact directory '{}'", module.artifact_dir.string()));
+            }
+
+            try {
+                run_builder_build_self(module);
+            } catch (...) {
+                std::filesystem::remove_all(module.artifact_dir);
+                throw ;
+            }
+        }
+
+        module.state = module_t::module_state_t::BUILT_SELF;
+
+        return true;
+    });
+}
+
+void collect_bundles_in_linking_order(const module_t& module, const std::vector<scc_t>& sccs, size_t index, std::vector<bool>& visited, std::vector<std::filesystem::path>& bundles) {
     if (visited[index]) {
         return ;
     }
     visited[index] = true;
 
     std::vector<std::filesystem::path> archives;
-    for (const auto& cpp_module : sccs[index].modules) {
-        archives.push_back(cpp_module->artifact_dir / API_LIB_NAME);
+    for (const auto& module : sccs[index].modules) {
+        archives.push_back(module->artifact_dir / API_LIB_NAME);
     }
-    bundles.push_back(compiler_t::bundle_static_libraries(archives, cpp_module.artifact_dir / (std::to_string(index) + BUNDLE_NAME)));
+    bundles.push_back(compiler_t::bundle_static_libraries(archives, module.artifact_dir / (std::to_string(index) + BUNDLE_NAME)));
 
     for (const auto& dep_scc : sccs[index].deps) {
-        collect_bundles_in_linking_order(cpp_module, sccs, dep_scc->id, visited, bundles);
+        collect_bundles_in_linking_order(module, sccs, dep_scc->id, visited, bundles);
     }
 }
 
-std::vector<std::filesystem::path> collect_bundles_in_linking_order(const module_t& cpp_module, const std::vector<scc_t>& sccs) {
+std::vector<std::filesystem::path> collect_bundles_in_linking_order(const module_t& module, const std::vector<scc_t>& sccs) {
     std::vector<std::filesystem::path> result;
 
     std::vector<bool> visited(sccs.size(), false);
-    collect_bundles_in_linking_order(cpp_module, sccs, cpp_module.scc_id, visited, result);
+    collect_bundles_in_linking_order(module, sccs, module.scc_id, visited, result);
     
     return result;
 }
 
-void build_module_artifacts(const module_t& cpp_module, const std::vector<scc_t>& sccs) {
-    std::cout << std::format("Build module artifacts for module '{}', version {}", cpp_module.module_name, get_module_version(cpp_module.module_name, cpp_module.root_dir)) << std::endl;
+void builder_build_module(module_t& module, const std::vector<scc_t>& sccs) {
+    if (
+        module_t::module_state_t::BUILT_MODULE <= module.state ||
+        !module.ran_builder_build_self
+    ) {
+        return ;
+    }
 
-    const auto bundles = collect_bundles_in_linking_order(cpp_module, sccs);
+
+    if (!std::filesystem::exists(module.artifact_dir)) {
+        throw std::runtime_error(std::format("artifact directory '{}' does not exist for module '{}'", module.artifact_dir.string(), module.module_name));
+    }
+
+    log(std::format("run builder build module for module '{}', version {}", module.module_name, get_module_version(module.module_name, module.root_dir)));
+
+    const auto bundles = collect_bundles_in_linking_order(module, sccs);
     std::string bundles_str;
     for (const auto& bundle : bundles) {
         if (!bundles_str.empty()) {
@@ -565,13 +615,13 @@ void build_module_artifacts(const module_t& cpp_module, const std::vector<scc_t>
 
 
     builder_ctx_t builder_ctx = {
-        .module = cpp_module
+        .module = module
     };
 
-    if (cpp_module.module_name == BUILDER) {
+    if (module.module_name == BUILDER) {
         builder__build_module(&builder_ctx, &builder_api, bundles_str.c_str());
     } else {
-        const auto builder_so = cpp_module.artifact_dir / BUILDER_SO;
+        const auto builder_so = module.artifact_dir / BUILDER_SO;
         if (!std::filesystem::exists(builder_so)) {
             throw std::runtime_error(std::format("builder plugin '{}' does not exist", builder_so.string()));
         }
@@ -597,35 +647,11 @@ void build_module_artifacts(const module_t& cpp_module, const std::vector<scc_t>
             throw ;
         }
     }
+
+    module.state = module_t::module_state_t::BUILT_MODULE;
 }
 
-void print_graph(const module_t& module, std::unordered_set<std::string>& visited) {
-    if (visited.insert(module.module_name).second == false) {
-        return ;
-    }
-
-    std::cout << std::format("Module '{}', version {}", module.module_name, module.version) << std::endl;
-    for (const auto& dep : module.builder_dependencies) {
-        std::cout << std::format("  - B({})", dep->module_name) << std::endl;
-    }
-    for (const auto& dep : module.module_dependencies) {
-        std::cout << std::format("  - R({})", dep->module_name) << std::endl;
-    }
-
-    for (const auto& dep : module.builder_dependencies) {
-        print_graph(*dep, visited);
-    }
-    for (const auto& dep : module.module_dependencies) {
-        print_graph(*dep, visited);
-    }
-}
-
-void print_graph(const module_t& module) {
-    std::unordered_set<std::string> visited;
-    print_graph(module, visited);
-}
-
-uint64_t version_modules(int index, const std::vector<scc_t>& sccs, std::unordered_map<int, uint64_t>& version_by_index) {
+uint64_t version_modules(int index, const std::vector<scc_t>& sccs, std::unordered_map<int, uint64_t>& version_by_index, const std::filesystem::path& artifacts_dir) {
     if (version_by_index.find(index) != version_by_index.end()) {
         return version_by_index[index];
     }
@@ -633,25 +659,25 @@ uint64_t version_modules(int index, const std::vector<scc_t>& sccs, std::unorder
     uint64_t max_dep_version = 0;
 
     for (const auto& dep : sccs[index].deps) {
-        max_dep_version = std::max(max_dep_version, version_modules(dep->id, sccs, version_by_index));
+        max_dep_version = std::max(max_dep_version, version_modules(dep->id, sccs, version_by_index, artifacts_dir));
     }
 
-    for (const auto& cpp_module : sccs[index].modules) {
-        max_dep_version = std::max(max_dep_version, cpp_module->version);
+    for (const auto& module : sccs[index].modules) {
+        max_dep_version = std::max(max_dep_version, module->version);
     }
 
-    std::cout << std::format("Current index: {}, max_dep_version: {}", index, max_dep_version) << std::endl;
-    for (auto& cpp_module : sccs[index].modules) {
-        cpp_module->version = max_dep_version;
+    for (auto& module : sccs[index].modules) {
+        module->version = max_dep_version;
+        module->artifact_dir = create_artifact_dir(module->module_name, artifacts_dir, module->version);
     }
 
     return version_by_index[index] = max_dep_version;
 }
 
-void version_modules(const std::vector<scc_t>& sccs) {
+void version_modules(const std::vector<scc_t>& sccs, const std::filesystem::path& artifacts_dir) {
     std::unordered_map<int, uint64_t> version_by_index;
     for (int i = 0; i < sccs.size(); ++i) {
-        version_modules(i, sccs, version_by_index);
+        version_modules(i, sccs, version_by_index, artifacts_dir);
     }
 }
 
@@ -677,20 +703,34 @@ int main(int argc, char **argv) {
         if (it == modules_repository.end()) {
             throw std::runtime_error(std::format("module '{}' not found in modules_repository after discovery", module_name));
         }
-        module_t* cpp_module = it->second;
-
-        std::cout << "Print graph before versioning:" << std::endl;
-        print_graph(*cpp_module);
+        module_t* module = it->second;
 
         const auto sccs = tarjan(modules_repository);
 
-        version_modules(sccs);
+        version_modules(sccs, artifacts_dir);
 
-        std::cout << "Print graph after versioning:" << std::endl;
-        print_graph(*cpp_module);
+        log(std::format("dependency graph:"));
+        build_self_order(*module, [](module_t& module) {
+            std::cout << std::format("  module '{}', version {}", module.module_name, module.version) << std::endl;
+            std::cout << std::format("    builder_deps:") << std::endl;
+            for (const auto& dep : module.builder_dependencies) {
+                std::cout << std::format("      {}", dep->module_name) << std::endl;
+            }
+            std::cout << std::format("    module_deps:") << std::endl;
+            for (const auto& dep : module.module_dependencies) {
+                std::cout << std::format("      {}", dep->module_name) << std::endl;
+            }
+            return true;
+        });
 
-        build_builder_artifacts(*cpp_module, root_dir, artifacts_dir, *cpp_module);
-        build_module_artifacts(*cpp_module, sccs);
+        log(std::format("planned build self order:"));
+        build_self_order(*module, [](module_t& module) {
+            std::cout << std::format("  module '{}', version {}", module.module_name, module.version) << std::endl;
+            return true;
+        });
+
+        builder_build_self(*module);
+        builder_build_module(*module, sccs);
     } catch (const std::exception& e) {
         std::cerr << std::format("{}: {}", argv[0], e.what()) << std::endl;
         return 1;

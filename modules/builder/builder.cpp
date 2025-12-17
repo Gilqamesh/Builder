@@ -1,9 +1,11 @@
 #include <modules/builder/builder.h>
 #include <modules/builder/compiler.h>
+#include <modules/builder/builder_internal.h>
 
 #include <string>
 #include <filesystem>
 #include <format>
+#include <chrono>
 
 BUILDER_EXTERN void builder__build_self(builder_ctx_t* ctx, const builder_api_t* api) {
     const auto root_dir = std::filesystem::path(api->root_dir(ctx));
@@ -39,7 +41,7 @@ BUILDER_EXTERN void builder__build_self(builder_ctx_t* ctx, const builder_api_t*
                     {},
                     { root_dir },
                     {},
-                    artifact_dir / (stem + "_static.o"),
+                    artifact_dir / (stem + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()) + ".o"),
                     false
                 )
             );

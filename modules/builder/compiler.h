@@ -50,9 +50,9 @@ public:
     >;
 
     // Links input object files into a binary if any of them are newer than the output binary.
-    // Returns true if the binary was updated, false otherwise.
+    // Returns the path to the output binary.
     // Throws std::runtime_error on failure.
-    static bool update_binary(
+    static std::filesystem::path update_binary(
         const std::vector<binary_input_t>& input_libraries,
         const std::filesystem::path& output_binary
     );
