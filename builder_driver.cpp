@@ -470,17 +470,12 @@ void run_builder_build_self(module_t& module, const std::vector<scc_t*>& sccs) {
             )
         );
 
-        // shared_library_deps.push_back(sccs[module.scc_id]->scc_static_pic_lib);
-        // for (const auto& dep : module.builder_dependencies) {
-        //     shared_library_deps.push_back(sccs[dep->scc_id]->scc_static_pic_lib);
-        // }
         scc_t* scc = sccs[module.scc_id];
         for (const auto& dep : scc->deps) {
             visit_sccs_rev_topo(dep, sccs, [&shared_library_deps](scc_t* scc) {
                 shared_library_deps.push_back(scc->scc_static_pic_lib);
             });
         }
-
 
         const auto builder_plugin_so = compiler_t::update_shared_libary(shared_library_deps, module.artifact_dir / BUILDER_PLUGIN_SO);
         if (!std::filesystem::exists(builder_plugin_so)) {
@@ -511,55 +506,6 @@ void run_builder_build_self(module_t& module, const std::vector<scc_t*>& sccs) {
     }
 }
 
-uint64_t fnv1a_64(std::string_view s) {
-    uint64_t hash = 14695981039346656037ull; // offset basis
-    for (unsigned char c : s) {
-        hash ^= c;
-        hash *= 1099511628211ull; // FNV prime
-    }
-    return hash;
-}
-
-void package_scc_libs(scc_t* scc, const std::filesystem::path& artifacts_dir, bool is_pic) {
-    if (
-        is_pic && !scc->scc_static_pic_lib.empty() || 
-        !is_pic && !scc->scc_static_lib.empty()
-    ) {
-        return ;
-    }
-    const auto package_suffix = is_pic ? API_STATIC_PIC_LIB_NAME : API_STATIC_LIB_NAME;
-
-    std::vector<std::filesystem::path> archives;
-    // NOTE: fnv1a
-    uint64_t hash = 14695981039346656037ull;
-    std::vector<std::string> ordered_names;
-    for (auto& module : scc->modules) {
-        const auto& archive = module->artifact_dir / package_suffix;
-        if (!std::filesystem::exists(archive)) {
-            throw std::runtime_error(std::format("expected archive '{}' to exist for module '{}'", archive.string(), module->name));
-        }
-        archives.push_back(module->artifact_dir / package_suffix);
-        for (unsigned char c : module->name) {
-            hash ^= c;
-            hash *= 1099511628211ull;
-        }
-    }
-    const auto scc_dir = artifacts_dir / SCC_DIR;
-    if (!std::filesystem::exists(scc_dir)) {
-        if (!std::filesystem::create_directories(scc_dir)) {
-            throw std::runtime_error(std::format("failed to create SCC artifact directory '{}'", scc->scc_static_pic_lib.string()));
-        }
-    }
-
-    const auto static_lib_path = scc_dir / (std::to_string(scc->version) + "@" + std::to_string(hash) + package_suffix);
-    if (is_pic) {
-        scc->scc_static_pic_lib = static_lib_path;
-    } else {
-        scc->scc_static_lib = static_lib_path;
-    }
-    compiler_t::bundle_static_libraries(archives, static_lib_path);
-}
-
 void builder_build_self(scc_t* scc, const std::vector<scc_t*>& sccs, const std::filesystem::path& artifacts_dir, std::vector<bool>& visited) {
     if (visited[scc->id]) {
         return ;
@@ -575,17 +521,99 @@ void builder_build_self(scc_t* scc, const std::vector<scc_t*>& sccs, const std::
             if (!std::filesystem::create_directories(module->artifact_dir)) {
                 throw std::runtime_error(std::format("failed to create artifact directory '{}'", module->artifact_dir.string()));
             }
+            
             try {
                 run_builder_build_self(*module, sccs);
             } catch (...) {
                 std::filesystem::remove_all(module->artifact_dir);
                 throw ;
             }
+
+            // TODO: refactor
+            for (const auto& entry : std::filesystem::directory_iterator(artifacts_dir / module->name)) {
+                if (!entry.is_directory()) {
+                    continue ;
+                }
+
+                const auto& path = entry.path();
+                const auto stem = path.stem().string();
+                const auto at_pos = stem.find('@');
+                if (at_pos == std::string::npos) {
+                    continue ;
+                }
+                const auto version_str = stem.substr(at_pos + 1);
+                const uint64_t version = std::stoull(version_str);
+                if (version < module->version) {
+                    std::filesystem::remove_all(path);
+                }
+            }
         }
     }
 
-    package_scc_libs(scc, artifacts_dir, false);
-    package_scc_libs(scc, artifacts_dir, true);
+    // NOTE: fnv1a
+    uint64_t hash = 14695981039346656037ull;
+    std::vector<std::string> ordered_names;
+    for (auto& module : scc->modules) {
+        for (unsigned char c : module->name) {
+            hash ^= c;
+            hash *= 1099511628211ull;
+        }
+    }
+
+    const auto scc_hash_dir = artifacts_dir / SCC_DIR / std::to_string(hash);
+    const auto scc_version_dir = scc_hash_dir / std::to_string(scc->version);
+    scc->scc_static_lib = scc_version_dir / API_STATIC_LIB_NAME;
+    scc->scc_static_pic_lib = scc_version_dir / API_STATIC_PIC_LIB_NAME;
+    if (!std::filesystem::exists(scc_version_dir)) {
+        if (!std::filesystem::create_directories(scc_version_dir)) {
+            throw std::runtime_error(std::format("failed to create SCC artifact directory '{}'", scc_version_dir.string()));
+        }
+
+        try {
+            {
+                std::vector<std::filesystem::path> archives;
+                for (auto& module : scc->modules) {
+                    const auto archive = module->artifact_dir / API_STATIC_LIB_NAME;
+                    if (!std::filesystem::exists(archive)) {
+                        throw std::runtime_error(std::format("expected archive '{}' to exist for module '{}'", archive.string(), module->name));
+                    }
+                    archives.push_back(archive);
+                }
+                compiler_t::bundle_static_libraries(archives, scc->scc_static_lib);
+            }
+
+
+            {
+                std::vector<std::filesystem::path> archives;
+                for (auto& module : scc->modules) {
+                    const auto archive = module->artifact_dir / API_STATIC_PIC_LIB_NAME;
+                    if (!std::filesystem::exists(archive)) {
+                        throw std::runtime_error(std::format("expected archive '{}' to exist for module '{}'", archive.string(), module->name));
+                    }
+                    archives.push_back(archive);
+                }
+                compiler_t::bundle_static_libraries(archives, scc->scc_static_pic_lib);
+            }
+        } catch (...) {
+            std::filesystem::remove_all(scc_version_dir);
+            throw ;
+        }
+
+        // remove all scc_static_pic_lib up to the latest version
+        for (const auto& entry : std::filesystem::directory_iterator(scc_hash_dir)) {
+            if (!entry.is_directory()) {
+                continue ;
+            }
+
+            const auto path = entry.path();
+            const auto stem = path.stem().string();
+            const auto version_str = stem;
+            const uint64_t version = std::stoull(version_str);
+            if (version < scc->version) {
+                std::filesystem::remove_all(path);
+            }
+        }
+    }
 }
 
 void builder_build_self(const std::vector<scc_t*>& sccs, const std::filesystem::path& artifacts_dir) {
@@ -649,12 +677,30 @@ void builder_build_module(module_t& module, const std::filesystem::path& artifac
                 throw ;
             }
         }
+        std::ofstream ofs(version_file);
     } catch (...) {
         std::filesystem::remove_all(module.artifact_dir);
         throw ;
     }
 
-    std::ofstream ofs(version_file);
+    // TODO: refactor
+    for (const auto& entry : std::filesystem::directory_iterator(artifacts_dir / module.name)) {
+        if (!entry.is_directory()) {
+            continue ;
+        }
+
+        const auto& path = entry.path();
+        const auto stem = path.stem().string();
+        const auto at_pos = stem.find('@');
+        if (at_pos == std::string::npos) {
+            continue ;
+        }
+        const auto version_str = stem.substr(at_pos + 1);
+        const uint64_t version = std::stoull(version_str);
+        if (version < module.version) {
+            std::filesystem::remove_all(path);
+        }
+    }
 }
 
 uint64_t version_modules(int index, const std::vector<scc_t*>& sccs, const std::filesystem::path& artifacts_dir) {
@@ -691,16 +737,18 @@ void version_modules(const std::vector<scc_t*>& sccs, const std::filesystem::pat
 void visit_modules_topo(module_t& module, const std::function<void(module_t&)>& f, std::unordered_set<module_t*>& visited) {
 }
 
-void print_planned_build_order(module_t* module, std::unordered_set<module_t*>& visited) {
+void print_planned_build_order(int& index, module_t* module, std::unordered_set<module_t*>& visited) {
     if (visited.insert(module).second == false) {
         return ;
     }
 
     for (size_t i = 0; i < module->builder_dependencies.size(); ++i) {
-        print_planned_build_order(module->builder_dependencies[i], visited);
+        print_planned_build_order(index, module->builder_dependencies[i], visited);
     }
 
-    std::cout << std::format("  module '{}', version {}", module->name, module->version) << std::endl;
+    ++index;
+
+    std::cout << std::format("  {}. module '{}', version {}", index, module->name, module->version) << std::endl;
     std::cout << std::format("    builder_deps:") << std::endl;
     for (const auto& dep : module->builder_dependencies) {
         std::cout << std::format("      {}", dep->name) << std::endl;
@@ -710,18 +758,17 @@ void print_planned_build_order(module_t* module, std::unordered_set<module_t*>& 
         std::cout << std::format("      {}", dep->name) << std::endl;
     }
 
-    std::cout << std::format("  module '{}', version {}", module->name, module->version) << std::endl;
-
     for (size_t i = 0; i < module->module_dependencies.size(); ++i) {
-        print_planned_build_order(module->module_dependencies[i], visited);
+        print_planned_build_order(index, module->module_dependencies[i], visited);
     }
 }
 
 void print_planned_build_order(module_t* module) {
     log(std::format("Planned build order:"));
 
+    int index = 0;
     std::unordered_set<module_t*> visited;
-    print_planned_build_order(module, visited);
+    print_planned_build_order(index, module, visited);
 }
 
 int main(int argc, char **argv) {
