@@ -18,7 +18,7 @@ typedef struct builder_api_t {
     uint64_t version;
     const char* (*root_dir)(builder_ctx_t* ctx);
     const char* (*artifact_dir)(builder_ctx_t* ctx);
-    const char* (*module_dir)(builder_ctx_t* ctx);
+    const char* (*src_dir)(builder_ctx_t* ctx);
 } builder_api_t;
 
 typedef void (*builder__build_self_t)(builder_ctx_t* ctx, const builder_api_t* api);

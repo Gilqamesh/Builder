@@ -16,5 +16,4 @@
 # define DEPS_JSON               "deps.json"
 # define BUNDLE_NAME             "scc.lib"
 
-
 #endif // MODULES_BUILDER_BUILDER_INTERNAL_H

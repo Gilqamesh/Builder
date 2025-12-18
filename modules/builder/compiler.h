@@ -44,6 +44,7 @@ public:
     );
 
     using binary_input_t = std::variant<
+        std::vector<std::filesystem::path>,
         std::filesystem::path,
         std::string,
         const char*

@@ -7,23 +7,12 @@
 
 struct module_t {
 public:
-    enum class module_state_t {
-        NOT_DISCOVERED,
-        DISCOVERING,
-        DISCOVERED,
-        BUILT_SELF,
-        BUILT_MODULE
-    };
-
-public:
-    std::string module_name;
-    std::filesystem::path module_dir;
+    std::string name;
+    std::filesystem::path src_dir;
     std::filesystem::path root_dir;
     std::filesystem::path artifact_dir;
     std::vector<module_t*> builder_dependencies;
     std::vector<module_t*> module_dependencies;
-    module_state_t state;
-    bool ran_builder_build_self;
     uint64_t version;
     size_t scc_id;
 };

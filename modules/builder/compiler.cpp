@@ -108,6 +108,7 @@ std::filesystem::path compiler_t::bundle_static_libraries(const std::vector<std:
         }
         latest_archive_time = std::max(latest_archive_time, std::filesystem::last_write_time(archive));
         const auto link = tmp_dir / ("lib" + std::to_string(i) + ".a");
+        std::cout << std::format("ln -s {} {}", archive.string(), link.string()) << std::endl;
         std::error_code ec;
         std::filesystem::create_symlink(std::filesystem::absolute(archive), link, ec);
         if (ec) {
@@ -137,8 +138,10 @@ std::filesystem::path compiler_t::bundle_static_libraries(const std::vector<std:
         throw std::runtime_error(std::format("failed to bundle static libraries into '{}'", output_static_library.string()));
     }
 
+    std::cout << std::format("cp {} {}", out_lib_path.string(), output_static_library.string()) << std::endl;
     std::filesystem::copy_file(out_lib_path, output_static_library, std::filesystem::copy_options::overwrite_existing);
 
+    std::cout << std::format("rm {}", out_lib_path.string()) << std::endl;
     std::filesystem::remove(out_lib_path);
 
     return output_static_library;
@@ -157,8 +160,6 @@ std::filesystem::path compiler_t::update_shared_libary(
         latest_input_file_time = std::max(latest_input_file_time, std::filesystem::last_write_time(input_file));
         link_command += " " + input_file.string();
     }
-
-
 
     if (std::filesystem::exists(output_shared_libary) && latest_input_file_time <= std::filesystem::last_write_time(output_shared_libary)) {
         return output_shared_libary;
@@ -194,7 +195,11 @@ std::filesystem::path compiler_t::update_binary(const std::vector<binary_input_t
                     }
                     return result;
                 };
-                if constexpr (std::is_same_v<T, std::string>) {
+                if constexpr (std::is_same_v<T, std::vector<std::filesystem::path>>) {
+                    for (const auto& path : v) {
+                        paths.push_back(path);
+                    }
+                } else if constexpr (std::is_same_v<T, std::string>) {
                     const auto subpaths = str_to_paths(v);
                     paths.insert(
                         paths.end(),
