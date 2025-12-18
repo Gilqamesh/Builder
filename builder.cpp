@@ -5,7 +5,8 @@ std::filesystem::path builder_t::lib(
     builder_ctx_t* ctx,
     const builder_api_t* api,
     const std::vector<std::string>& cpp_files,
-    const std::vector<std::pair<std::string, std::string>>& define_key_values
+    const std::vector<std::pair<std::string, std::string>>& define_key_values,
+    bool position_independent
 ) {
     const auto root_dir = std::filesystem::path(api->root_dir(ctx));
     const auto artifact_dir = std::filesystem::path(api->artifact_dir(ctx));
@@ -19,12 +20,12 @@ std::filesystem::path builder_t::lib(
             { root_dir },
             define_key_values,
             artifact_dir / (std::filesystem::path(cpp_file).stem().string() + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()) + ".o"),
-            false
+            position_independent
         );
         objects.push_back(obj);
     }
 
-    return compiler_t::update_static_library(objects, artifact_dir / API_LIB_NAME);
+    return compiler_t::update_static_library(objects, artifact_dir / (position_independent ? API_STATIC_PIC_LIB_NAME : API_STATIC_LIB_NAME));
 }
 
 std::filesystem::path builder_t::so(
@@ -50,7 +51,7 @@ std::filesystem::path builder_t::so(
         objects.push_back(obj);
     }
 
-    return compiler_t::update_shared_libary(objects, artifact_dir / API_SO_NAME);
+    return compiler_t::update_shared_libary(objects, artifact_dir / API_SHARED_LIB_NAME);
 }
 
 std::filesystem::path builder_t::binary(
@@ -73,7 +74,7 @@ std::filesystem::path builder_t::binary(
             { root_dir },
             define_key_values,
             artifact_dir / (std::filesystem::path(cpp_file).stem().string() + ".o"),
-            true
+            true // TODO: this should be false
         );
         objects.push_back(obj);
     }

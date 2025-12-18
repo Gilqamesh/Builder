@@ -18,7 +18,8 @@ BUILDER_EXTERN void builder__build_self(builder_ctx_t* ctx, const builder_api_t*
         }
         lib_cpp_files.push_back(filename);
     }
-    builder_t::lib(ctx, api, lib_cpp_files, {});
+    builder_t::lib(ctx, api, lib_cpp_files, {}, false);
+    builder_t::lib(ctx, api, lib_cpp_files, {}, true);
     builder_t::so(ctx, api, lib_cpp_files, {});
 
     std::vector<std::string> all_cpp_files;

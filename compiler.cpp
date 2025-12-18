@@ -5,6 +5,7 @@
 #include <ranges>
 #include <chrono>
 #include <sstream>
+#include <fstream>
 
 std::filesystem::path compiler_t::update_object_file(
     const std::filesystem::path& source_file,
@@ -96,7 +97,7 @@ std::filesystem::path compiler_t::bundle_static_libraries(const std::vector<std:
     } guard(tmp_dir);
 
     std::filesystem::file_time_type latest_archive_time = std::filesystem::file_time_type::min();
-    const auto out_lib_path = tmp_dir / "out.lib";
+    const auto tmp_lib = tmp_dir / "out.lib";
 
     std::vector<std::filesystem::path> links;
     links.reserve(archives.size());
@@ -125,7 +126,7 @@ std::filesystem::path compiler_t::bundle_static_libraries(const std::vector<std:
     }
     bundle_command << "SAVE\\nEND\\n\" ";
 
-    bundle_command << out_lib_path.string() << " ";
+    bundle_command << tmp_lib.string() << " ";
     for (const auto& link : links) {
         bundle_command << link.filename().string() << " ";
     }
@@ -135,14 +136,20 @@ std::filesystem::path compiler_t::bundle_static_libraries(const std::vector<std:
     std::cout << bundle_command.str() << std::endl;
     const int result = std::system(bundle_command.str().c_str());
     if (result != 0) {
-        throw std::runtime_error(std::format("failed to bundle static libraries into '{}'", output_static_library.string()));
+        throw std::runtime_error(std::format("failed to bundle static libraries into '{}'", tmp_dir.string()));
     }
 
-    std::cout << std::format("cp {} {}", out_lib_path.string(), output_static_library.string()) << std::endl;
-    std::filesystem::copy_file(out_lib_path, output_static_library, std::filesystem::copy_options::overwrite_existing);
+    std::ifstream ifs(tmp_lib);
+    if (!ifs) {
+        throw std::runtime_error(std::format("failed to open temporary lib '{}'", tmp_lib.string()));
+    }
+    std::ofstream ofs(output_static_library);
+    if (!ofs) {
+        throw std::runtime_error(std::format("failed to open output static library '{}'", output_static_library.string()));
+    }
 
-    std::cout << std::format("rm {}", out_lib_path.string()) << std::endl;
-    std::filesystem::remove(out_lib_path);
+    std::cout << std::format("cp {} {}", tmp_lib.string(), output_static_library.string()) << std::endl;
+    ofs << ifs.rdbuf();
 
     return output_static_library;
 }

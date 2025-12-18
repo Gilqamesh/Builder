@@ -57,20 +57,57 @@ struct scc_t {
     int id;
     std::vector<module_t*> modules;
     std::unordered_set<scc_t*> deps;
+    std::filesystem::path scc_static_lib;
+    std::filesystem::path scc_static_pic_lib;
+    uint64_t version;
 };
 
-void connect_components(std::vector<scc_t>& components) {
+void visit_sccs_topo(scc_t* scc, const std::vector<scc_t*>& sccs, const std::function<void(scc_t*)>& f, std::unordered_set<scc_t*>& visited) {
+    if (visited.insert(scc).second == false) {
+        return ;
+    }
+
+    for (const auto& dep : scc->deps) {
+        visit_sccs_topo(dep, sccs, f, visited);
+    }
+
+    f(scc);
+}
+
+void visit_sccs_topo(scc_t* scc, const std::vector<scc_t*>& sccs, const std::function<void(scc_t*)>& f) {
+    std::unordered_set<scc_t*> visited;
+    visit_sccs_topo(scc, sccs, f, visited);
+}
+
+void visit_sccs_rev_topo(scc_t* scc, const std::vector<scc_t*>& sccs, const std::function<void(scc_t*)>& f, std::unordered_set<scc_t*>& visited) {
+    if (visited.insert(scc).second == false) {
+        return ;
+    }
+
+    f(scc);
+
+    for (const auto& dep : scc->deps) {
+        visit_sccs_rev_topo(dep, sccs, f, visited);
+    }
+}
+
+void visit_sccs_rev_topo(scc_t* scc, const std::vector<scc_t*>& sccs, const std::function<void(scc_t*)>& f) {
+    std::unordered_set<scc_t*> visited;
+    visit_sccs_rev_topo(scc, sccs, f, visited);
+}
+
+void connect_components(std::vector<scc_t*>& components) {
     for (int id = 0; id < components.size(); ++id) {
         auto& scc = components[id];
-        for (const auto& module : scc.modules) {
+        for (const auto& module : scc->modules) {
             for (const auto& dep : module->builder_dependencies) {
                 if (dep->scc_id != id) {
-                    scc.deps.insert(&components[dep->scc_id]);
+                    scc->deps.insert(components[dep->scc_id]);
                 }
             }
             for (const auto& dep : module->module_dependencies) {
                 if (dep->scc_id != id) {
-                    scc.deps.insert(&components[dep->scc_id]);
+                    scc->deps.insert(components[dep->scc_id]);
                 }
             }
         }
@@ -91,8 +128,8 @@ void print_strongly_connected_components(const std::vector<scc_t>& sccs) {
     }
 }
 
-std::vector<scc_t> tarjan(const std::unordered_map<std::string, module_t*>& modules_repository) {
-    std::vector<scc_t> result;
+std::vector<scc_t*> tarjan(const std::unordered_map<std::string, module_t*>& modules_repository) {
+    std::vector<scc_t*> result;
 
     struct scc_metadata_t {
         int index;
@@ -142,14 +179,17 @@ std::vector<scc_t> tarjan(const std::unordered_map<std::string, module_t*>& modu
         }
 
         if (metadata.lowlink == metadata.index) {
-            scc_t scc;
-            scc.id = result.size();
+            scc_t* scc = new scc_t {
+                .id = -1,
+                .version = 0
+            };
+            scc->id = result.size();
             while (true) {
                 scc_metadata_t* dep = S.top();
                 S.pop();
                 dep->on_stack = false;
-                dep->module->scc_id = scc.id;
-                scc.modules.push_back(dep->module);
+                dep->module->scc_id = scc->id;
+                scc->modules.push_back(dep->module);
                 if (dep->module == metadata.module) {
                     break ;
                 }
@@ -408,7 +448,7 @@ void validate_builder_dependency_dag(module_t* module) {
     validate_builder_dependency_dag(module, visited, on_stack, stack);
 }
 
-void run_builder_build_self(module_t& module) {
+void run_builder_build_self(module_t& module, const std::vector<scc_t*>& sccs) {
     log(std::format("run builder build self for module '{}', version {}", module.name, module.version));
 
     builder_ctx_t builder_ctx = {
@@ -418,33 +458,31 @@ void run_builder_build_self(module_t& module) {
     if (module.name == BUILDER_MODULE_NAME) {
         builder__build_self(&builder_ctx, &builder_api);
     } else {
-        const auto builder_plugin_cpp = module.src_dir / BUILDER_PLUGIN_CPP;
-        if (!std::filesystem::exists(builder_plugin_cpp)) {
-            throw std::runtime_error(std::format("file does not exist '{}'", builder_plugin_cpp.string()));
-        }
-        const auto builder_o = module.artifact_dir / (BUILDER_MODULE_NAME + std::string(".o"));
-
         std::vector<std::filesystem::path> shared_library_deps;
-        for (const auto& dependency : module.builder_dependencies) {
-            const auto dependency_so = dependency->artifact_dir / API_SO_NAME;
-            if (!std::filesystem::exists(dependency_so)) {
-                throw std::runtime_error(std::format("dependency shared library does not exist '{}'", dependency_so.string()));
-            }
-            shared_library_deps.push_back(dependency_so);
-        }
         shared_library_deps.push_back(
             compiler_t::update_object_file(
-                builder_plugin_cpp,
+                module.src_dir / BUILDER_PLUGIN_CPP,
                 {},
                 { module.root_dir },
                 {},
-                builder_o,
+                module.artifact_dir / BUILDER_PLUGIN_O,
                 true
             )
         );
 
-        const auto builder_plugin_so = compiler_t::update_shared_libary(shared_library_deps, module.artifact_dir / BUILDER_PLUGIN_SO);
+        // shared_library_deps.push_back(sccs[module.scc_id]->scc_static_pic_lib);
+        // for (const auto& dep : module.builder_dependencies) {
+        //     shared_library_deps.push_back(sccs[dep->scc_id]->scc_static_pic_lib);
+        // }
+        scc_t* scc = sccs[module.scc_id];
+        for (const auto& dep : scc->deps) {
+            visit_sccs_rev_topo(dep, sccs, [&shared_library_deps](scc_t* scc) {
+                shared_library_deps.push_back(scc->scc_static_pic_lib);
+            });
+        }
 
+
+        const auto builder_plugin_so = compiler_t::update_shared_libary(shared_library_deps, module.artifact_dir / BUILDER_PLUGIN_SO);
         if (!std::filesystem::exists(builder_plugin_so)) {
             throw std::runtime_error(std::format("builder plugin '{}' was not created, something went wrong", builder_plugin_so.string()));
         }
@@ -473,71 +511,91 @@ void run_builder_build_self(module_t& module) {
     }
 }
 
-void build_self_order(module_t& module, const std::function<void(module_t&)>& f, std::unordered_set<module_t*>& visited) {
-    if (visited.insert(&module).second == false) {
+uint64_t fnv1a_64(std::string_view s) {
+    uint64_t hash = 14695981039346656037ull; // offset basis
+    for (unsigned char c : s) {
+        hash ^= c;
+        hash *= 1099511628211ull; // FNV prime
+    }
+    return hash;
+}
+
+void package_scc_libs(scc_t* scc, const std::filesystem::path& artifacts_dir, bool is_pic) {
+    if (
+        is_pic && !scc->scc_static_pic_lib.empty() || 
+        !is_pic && !scc->scc_static_lib.empty()
+    ) {
         return ;
     }
+    const auto package_suffix = is_pic ? API_STATIC_PIC_LIB_NAME : API_STATIC_LIB_NAME;
 
-    for (size_t i = 0; i < module.builder_dependencies.size(); ++i) {
-        build_self_order(*module.builder_dependencies[i], f, visited);
+    std::vector<std::filesystem::path> archives;
+    // NOTE: fnv1a
+    uint64_t hash = 14695981039346656037ull;
+    std::vector<std::string> ordered_names;
+    for (auto& module : scc->modules) {
+        const auto& archive = module->artifact_dir / package_suffix;
+        if (!std::filesystem::exists(archive)) {
+            throw std::runtime_error(std::format("expected archive '{}' to exist for module '{}'", archive.string(), module->name));
+        }
+        archives.push_back(module->artifact_dir / package_suffix);
+        for (unsigned char c : module->name) {
+            hash ^= c;
+            hash *= 1099511628211ull;
+        }
+    }
+    const auto scc_dir = artifacts_dir / SCC_DIR;
+    if (!std::filesystem::exists(scc_dir)) {
+        if (!std::filesystem::create_directories(scc_dir)) {
+            throw std::runtime_error(std::format("failed to create SCC artifact directory '{}'", scc->scc_static_pic_lib.string()));
+        }
     }
 
-    f(module);
-
-    for (size_t i = 0; i < module.module_dependencies.size(); ++i) {
-        build_self_order(*module.module_dependencies[i], f, visited);
+    const auto static_lib_path = scc_dir / (std::to_string(scc->version) + "@" + std::to_string(hash) + package_suffix);
+    if (is_pic) {
+        scc->scc_static_pic_lib = static_lib_path;
+    } else {
+        scc->scc_static_lib = static_lib_path;
     }
+    compiler_t::bundle_static_libraries(archives, static_lib_path);
 }
 
-void build_self_order(module_t& module, const std::function<void(module_t&)>& f) {
-    std::unordered_set<module_t*> visited;
-    build_self_order(module, f, visited);
-}
+void builder_build_self(scc_t* scc, const std::vector<scc_t*>& sccs, const std::filesystem::path& artifacts_dir, std::vector<bool>& visited) {
+    if (visited[scc->id]) {
+        return ;
+    }
+    visited[scc->id] = true;
 
-void builder_build_self(module_t& module) {
-    build_self_order(module, [](module_t& module) {
-        if (!std::filesystem::exists(module.artifact_dir)) {
-            if (!std::filesystem::create_directories(module.artifact_dir)) {
-                throw std::runtime_error(std::format("failed to create artifact directory '{}'", module.artifact_dir.string()));
+    for (const auto& dep : scc->deps) {
+        builder_build_self(dep, sccs, artifacts_dir, visited);
+    }
+
+    for (auto& module : scc->modules) {
+        if (!std::filesystem::exists(module->artifact_dir)) {
+            if (!std::filesystem::create_directories(module->artifact_dir)) {
+                throw std::runtime_error(std::format("failed to create artifact directory '{}'", module->artifact_dir.string()));
             }
-
             try {
-                run_builder_build_self(module);
+                run_builder_build_self(*module, sccs);
             } catch (...) {
-                std::filesystem::remove_all(module.artifact_dir);
+                std::filesystem::remove_all(module->artifact_dir);
                 throw ;
             }
         }
-    });
+    }
+
+    package_scc_libs(scc, artifacts_dir, false);
+    package_scc_libs(scc, artifacts_dir, true);
 }
 
-void collect_bundles_in_linking_order(const module_t& module, const std::vector<scc_t>& sccs, size_t index, std::vector<bool>& visited, std::vector<std::filesystem::path>& bundles) {
-    if (visited[index]) {
-        return ;
-    }
-    visited[index] = true;
-
-    std::vector<std::filesystem::path> archives;
-    for (const auto& module : sccs[index].modules) {
-        archives.push_back(module->artifact_dir / API_LIB_NAME);
-    }
-    bundles.push_back(compiler_t::bundle_static_libraries(archives, module.artifact_dir / (std::to_string(index) + BUNDLE_NAME)));
-
-    for (const auto& dep_scc : sccs[index].deps) {
-        collect_bundles_in_linking_order(module, sccs, dep_scc->id, visited, bundles);
-    }
-}
-
-std::vector<std::filesystem::path> collect_bundles_in_linking_order(const module_t& module, const std::vector<scc_t>& sccs) {
-    std::vector<std::filesystem::path> result;
-
+void builder_build_self(const std::vector<scc_t*>& sccs, const std::filesystem::path& artifacts_dir) {
     std::vector<bool> visited(sccs.size(), false);
-    collect_bundles_in_linking_order(module, sccs, module.scc_id, visited, result);
-    
-    return result;
+    for (auto& scc : sccs) {
+        builder_build_self(scc, sccs, artifacts_dir, visited);
+    }
 }
 
-void builder_build_module(module_t& module, const std::vector<scc_t>& sccs) {
+void builder_build_module(module_t& module, const std::filesystem::path& artifacts_dir, const std::vector<scc_t*>& sccs) {
     if (!std::filesystem::exists(module.artifact_dir)) {
         throw std::runtime_error(std::format("artifact directory '{}' does not exist for module '{}'", module.artifact_dir.string(), module.name));
     }
@@ -550,22 +608,20 @@ void builder_build_module(module_t& module, const std::vector<scc_t>& sccs) {
     try {
         log(std::format("run builder build module for module '{}', version {}", module.name, module.version));
 
-        const auto bundles = collect_bundles_in_linking_order(module, sccs);
-        std::string bundles_str;
-        for (const auto& bundle : bundles) {
-            if (!bundles_str.empty()) {
-                bundles_str += " ";
+        std::string static_libs;
+        visit_sccs_rev_topo(sccs[module.scc_id], sccs, [&static_libs](scc_t* scc) {
+            if (!static_libs.empty()) {
+                static_libs += " ";
             }
-            bundles_str += bundle.string();
-        }
-
+            static_libs += scc->scc_static_lib.string();
+        });
 
         builder_ctx_t builder_ctx = {
             .module = module
         };
 
         if (module.name == BUILDER_MODULE_NAME) {
-            builder__build_module(&builder_ctx, &builder_api, bundles_str.c_str());
+            builder__build_module(&builder_ctx, &builder_api, static_libs.c_str());
         } else {
             const auto builder_plugin_so = module.artifact_dir / BUILDER_PLUGIN_SO;
             if (!std::filesystem::exists(builder_plugin_so)) {
@@ -586,7 +642,7 @@ void builder_build_module(module_t& module, const std::vector<scc_t>& sccs) {
             }
 
             try {
-                builder__build_module(&builder_ctx, &builder_api, bundles_str.c_str());
+                builder__build_module(&builder_ctx, &builder_api, static_libs.c_str());
                 dlclose(builder_handle);
             } catch (...) {
                 dlclose(builder_handle);
@@ -601,34 +657,71 @@ void builder_build_module(module_t& module, const std::vector<scc_t>& sccs) {
     std::ofstream ofs(version_file);
 }
 
-uint64_t version_modules(int index, const std::vector<scc_t>& sccs, std::unordered_map<int, uint64_t>& version_by_index, const std::filesystem::path& artifacts_dir) {
-    if (version_by_index.find(index) != version_by_index.end()) {
-        return version_by_index[index];
+uint64_t version_modules(int index, const std::vector<scc_t*>& sccs, const std::filesystem::path& artifacts_dir) {
+    scc_t* scc = sccs[index];
+    if (scc->version != 0) {
+        return scc->version;
     }
 
     uint64_t max_dep_version = 0;
 
-    for (const auto& dep : sccs[index].deps) {
-        max_dep_version = std::max(max_dep_version, version_modules(dep->id, sccs, version_by_index, artifacts_dir));
+
+    for (const auto& dep : scc->deps) {
+        max_dep_version = std::max(max_dep_version, version_modules(dep->id, sccs, artifacts_dir));
     }
 
-    for (const auto& module : sccs[index].modules) {
+    for (const auto& module : scc->modules) {
         max_dep_version = std::max(max_dep_version, module->version);
     }
 
-    for (auto& module : sccs[index].modules) {
+    for (auto& module : scc->modules) {
         module->version = max_dep_version;
         module->artifact_dir = create_artifact_dir(module->name, artifacts_dir, module->version);
     }
 
-    return version_by_index[index] = max_dep_version;
+    return scc->version = max_dep_version;
 }
 
-void version_modules(const std::vector<scc_t>& sccs, const std::filesystem::path& artifacts_dir) {
-    std::unordered_map<int, uint64_t> version_by_index;
+void version_modules(const std::vector<scc_t*>& sccs, const std::filesystem::path& artifacts_dir) {
     for (int i = 0; i < sccs.size(); ++i) {
-        version_modules(i, sccs, version_by_index, artifacts_dir);
+        version_modules(i, sccs, artifacts_dir);
     }
+}
+
+void visit_modules_topo(module_t& module, const std::function<void(module_t&)>& f, std::unordered_set<module_t*>& visited) {
+}
+
+void print_planned_build_order(module_t* module, std::unordered_set<module_t*>& visited) {
+    if (visited.insert(module).second == false) {
+        return ;
+    }
+
+    for (size_t i = 0; i < module->builder_dependencies.size(); ++i) {
+        print_planned_build_order(module->builder_dependencies[i], visited);
+    }
+
+    std::cout << std::format("  module '{}', version {}", module->name, module->version) << std::endl;
+    std::cout << std::format("    builder_deps:") << std::endl;
+    for (const auto& dep : module->builder_dependencies) {
+        std::cout << std::format("      {}", dep->name) << std::endl;
+    }
+    std::cout << std::format("    module_deps:") << std::endl;
+    for (const auto& dep : module->module_dependencies) {
+        std::cout << std::format("      {}", dep->name) << std::endl;
+    }
+
+    std::cout << std::format("  module '{}', version {}", module->name, module->version) << std::endl;
+
+    for (size_t i = 0; i < module->module_dependencies.size(); ++i) {
+        print_planned_build_order(module->module_dependencies[i], visited);
+    }
+}
+
+void print_planned_build_order(module_t* module) {
+    log(std::format("Planned build order:"));
+
+    std::unordered_set<module_t*> visited;
+    print_planned_build_order(module, visited);
 }
 
 int main(int argc, char **argv) {
@@ -664,26 +757,10 @@ int main(int argc, char **argv) {
 
         version_modules(sccs, artifacts_dir);
 
-        log(std::format("dependency graph:"));
-        build_self_order(*module, [](module_t& module) {
-            std::cout << std::format("  module '{}', version {}", module.name, module.version) << std::endl;
-            std::cout << std::format("    builder_deps:") << std::endl;
-            for (const auto& dep : module.builder_dependencies) {
-                std::cout << std::format("      {}", dep->name) << std::endl;
-            }
-            std::cout << std::format("    module_deps:") << std::endl;
-            for (const auto& dep : module.module_dependencies) {
-                std::cout << std::format("      {}", dep->name) << std::endl;
-            }
-        });
+        print_planned_build_order(module);
 
-        log(std::format("planned build self order:"));
-        build_self_order(*module, [](module_t& module) {
-            std::cout << std::format("  module '{}', version {}", module.name, module.version) << std::endl;
-        });
-
-        builder_build_self(*module);
-        builder_build_module(*module, sccs);
+        builder_build_self(sccs, artifacts_dir);
+        builder_build_module(*module, artifacts_dir, sccs);
     } catch (const std::exception& e) {
         std::cerr << std::format("{}: {}", argv[0], e.what()) << std::endl;
         return 1;
