@@ -192,9 +192,9 @@ uint64_t get_module_version(const std::filesystem::path& root_dir, const std::fi
 
 void relaunch_newer_version(const std::filesystem::path& root_dir, const std::filesystem::path& modules_dir, const std::filesystem::path& artifacts_dir, const std::string& target_module, uint64_t new_version) {
     const auto module_dir = root_dir / modules_dir / BUILDER_MODULE_NAME;
-    const auto orchestrator_cpp = module_dir / BUILDER_DRIVER_CPP;
-    if (!std::filesystem::exists(orchestrator_cpp)) {
-        throw std::runtime_error(std::format("file does not exist '{}'", orchestrator_cpp.string()));
+    const auto builder_driver_cpp = module_dir / BUILDER_DRIVER_CPP;
+    if (!std::filesystem::exists(builder_driver_cpp)) {
+        throw std::runtime_error(std::format("file does not exist '{}'", builder_driver_cpp.string()));
     }
 
     const auto builder_plugin_cpp = module_dir / BUILDER_PLUGIN_CPP;
