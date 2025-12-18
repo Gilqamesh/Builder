@@ -1,5 +1,5 @@
-#ifndef MODULES_BUILDER_COMPILER_H
-# define MODULES_BUILDER_COMPILER_H
+#ifndef BUILDER_PROJECT_BUILDER_COMPILER_H
+# define BUILDER_PROJECT_BUILDER_COMPILER_H
 
 # include <filesystem>
 # include <vector>
@@ -59,4 +59,4 @@ public:
     );
 };
 
-#endif // MODULES_BUILDER_COMPILER_H
+#endif // BUILDER_PROJECT_BUILDER_COMPILER_H

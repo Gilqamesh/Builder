@@ -1,9 +1,9 @@
-#include <modules/builder/builder.h>
-#include <modules/builder/build.h>
-#include <modules/builder/builder_internal.h>
-#include <modules/builder/compiler.h>
-#include <modules/builder/module.h>
-#include <modules/builder/external/nlohmann/json.hpp>
+#include "builder.h"
+#include "builder_plugin.h"
+#include "builder_plugin_internal.h"
+#include "compiler.h"
+#include "module.h"
+#include "external/nlohmann/json.hpp"
 
 #include <vector>
 #include <regex>
@@ -50,7 +50,7 @@ static builder_api_t builder_api = {
 };
 
 void log(const std::string& msg) {
-    std::cout << std::format("[{}] {}", ORCHESTRATOR_BIN, msg) << std::endl;
+    std::cout << std::format("[{}] {}", BUILDER_DRIVER, msg) << std::endl;
 }
 
 struct scc_t {
@@ -191,13 +191,13 @@ uint64_t get_module_version(const std::filesystem::path& root_dir, const std::fi
 }
 
 void relaunch_newer_version(const std::filesystem::path& root_dir, const std::filesystem::path& modules_dir, const std::filesystem::path& artifacts_dir, const std::string& target_module, uint64_t new_version) {
-    const auto module_dir = root_dir / modules_dir / BUILDER;
-    const auto orchestrator_cpp = module_dir / ORCHESTRATOR_CPP;
+    const auto module_dir = root_dir / modules_dir / BUILDER_MODULE_NAME;
+    const auto orchestrator_cpp = module_dir / BUILDER_DRIVER_CPP;
     if (!std::filesystem::exists(orchestrator_cpp)) {
         throw std::runtime_error(std::format("file does not exist '{}'", orchestrator_cpp.string()));
     }
 
-    const auto builder_cpp = module_dir / BUILDER_CPP;
+    const auto builder_plugin_cpp = module_dir / BUILDER_PLUGIN_CPP;
 
     std::string lib_src;
     for (const auto& entry : std::filesystem::directory_iterator(module_dir)) {
@@ -214,7 +214,7 @@ void relaunch_newer_version(const std::filesystem::path& root_dir, const std::fi
         lib_src += path.string();
     }
 
-    const auto tmp_binary_path = std::filesystem::temp_directory_path() / std::format("{}@{}", ORCHESTRATOR_BIN, new_version);
+    const auto tmp_binary_path = std::filesystem::temp_directory_path() / std::format("{}@{}", BUILDER_DRIVER, new_version);
     const auto tmp_binary_path_str = tmp_binary_path.string();
 
     const auto compile_next_version_binary_command = std::format("clang++ -g -std=c++23 -I{} -o {} {} -DVERSION={}",
@@ -391,7 +391,7 @@ void validate_builder_dependency_dag(module_t* module, std::unordered_set<module
     on_stack.insert(module);
 
     for (const auto& builder_dependency : module->builder_dependencies) {
-        if (module->name == builder_dependency->name && module->name == BUILDER) {
+        if (module->name == builder_dependency->name && module->name == BUILDER_MODULE_NAME) {
             continue ;
         }
         validate_builder_dependency_dag(builder_dependency, visited, on_stack, stack);
@@ -415,14 +415,14 @@ void run_builder_build_self(module_t& module) {
         .module = module
     };
 
-    if (module.name == BUILDER) {
+    if (module.name == BUILDER_MODULE_NAME) {
         builder__build_self(&builder_ctx, &builder_api);
     } else {
-        const auto builder_cpp = module.src_dir / BUILDER_CPP;
-        if (!std::filesystem::exists(builder_cpp)) {
-            throw std::runtime_error(std::format("file does not exist '{}'", builder_cpp.string()));
+        const auto builder_plugin_cpp = module.src_dir / BUILDER_PLUGIN_CPP;
+        if (!std::filesystem::exists(builder_plugin_cpp)) {
+            throw std::runtime_error(std::format("file does not exist '{}'", builder_plugin_cpp.string()));
         }
-        const auto builder_o = module.artifact_dir / (BUILDER + std::string(".o"));
+        const auto builder_o = module.artifact_dir / (BUILDER_MODULE_NAME + std::string(".o"));
 
         std::vector<std::filesystem::path> shared_library_deps;
         for (const auto& dependency : module.builder_dependencies) {
@@ -434,7 +434,7 @@ void run_builder_build_self(module_t& module) {
         }
         shared_library_deps.push_back(
             compiler_t::update_object_file(
-                builder_cpp,
+                builder_plugin_cpp,
                 {},
                 { module.root_dir },
                 {},
@@ -443,22 +443,22 @@ void run_builder_build_self(module_t& module) {
             )
         );
 
-        const auto builder_so = compiler_t::update_shared_libary(shared_library_deps, module.artifact_dir / BUILDER_SO);
+        const auto builder_plugin_so = compiler_t::update_shared_libary(shared_library_deps, module.artifact_dir / BUILDER_PLUGIN_SO);
 
-        if (!std::filesystem::exists(builder_so)) {
-            throw std::runtime_error(std::format("builder plugin '{}' was not created, something went wrong", builder_so.string()));
+        if (!std::filesystem::exists(builder_plugin_so)) {
+            throw std::runtime_error(std::format("builder plugin '{}' was not created, something went wrong", builder_plugin_so.string()));
         }
 
         // TODO: move to platform layer
-        void* builder_handle = dlopen(builder_so.string().c_str(), RTLD_NOW | RTLD_LOCAL);
+        void* builder_handle = dlopen(builder_plugin_so.string().c_str(), RTLD_NOW | RTLD_LOCAL);
         if (!builder_handle) {
-            const auto message = std::format("failed to load builder plugin '{}': {}", builder_so.string(), dlerror());
+            const auto message = std::format("failed to load builder plugin '{}': {}", builder_plugin_so.string(), dlerror());
             throw std::runtime_error(message);
         }
 
         builder__build_self_t builder__build_self = (builder__build_self_t)dlsym(builder_handle, BUILDER_BUILD_SELF);
         if (!builder__build_self) {
-            const auto message = std::format("failed to load symbol '{}' from builder plugin '{}': {}", BUILDER_BUILD_SELF, builder_so.string(), dlerror());
+            const auto message = std::format("failed to load symbol '{}' from builder plugin '{}': {}", BUILDER_BUILD_SELF, builder_plugin_so.string(), dlerror());
             dlclose(builder_handle);
             throw std::runtime_error(message);
         }
@@ -564,23 +564,23 @@ void builder_build_module(module_t& module, const std::vector<scc_t>& sccs) {
             .module = module
         };
 
-        if (module.name == BUILDER) {
+        if (module.name == BUILDER_MODULE_NAME) {
             builder__build_module(&builder_ctx, &builder_api, bundles_str.c_str());
         } else {
-            const auto builder_so = module.artifact_dir / BUILDER_SO;
-            if (!std::filesystem::exists(builder_so)) {
-                throw std::runtime_error(std::format("builder plugin '{}' does not exist", builder_so.string()));
+            const auto builder_plugin_so = module.artifact_dir / BUILDER_PLUGIN_SO;
+            if (!std::filesystem::exists(builder_plugin_so)) {
+                throw std::runtime_error(std::format("builder plugin '{}' does not exist", builder_plugin_so.string()));
             }
 
-            void* builder_handle = dlopen(builder_so.string().c_str(), RTLD_NOW | RTLD_LOCAL);
+            void* builder_handle = dlopen(builder_plugin_so.string().c_str(), RTLD_NOW | RTLD_LOCAL);
             if (!builder_handle) {
-                const auto message = std::format("failed to load builder plugin '{}': {}", builder_so.string(), dlerror());
+                const auto message = std::format("failed to load builder plugin '{}': {}", builder_plugin_so.string(), dlerror());
                 throw std::runtime_error(message);
             }
 
             builder__build_module_t builder__build_module = (builder__build_module_t)dlsym(builder_handle, BUILDER_BUILD_MODULE);
             if (!builder__build_module) {
-                const auto message = std::format("failed to load symbol '{}' from builder plugin '{}': {}", BUILDER_BUILD_MODULE, builder_so.string(), dlerror());
+                const auto message = std::format("failed to load symbol '{}' from builder plugin '{}': {}", BUILDER_BUILD_MODULE, builder_plugin_so.string(), dlerror());
                 dlclose(builder_handle);
                 throw std::runtime_error(message);
             }
@@ -647,7 +647,7 @@ int main(int argc, char **argv) {
         }
 
         // TODO: running old binaries always upgrades to a newer version, so either fork from the binary version's source code (git integration) or run the latest versioned binary
-        const auto builder_module_version = get_module_version(root_dir, modules_dir, BUILDER);
+        const auto builder_module_version = get_module_version(root_dir, modules_dir, BUILDER_MODULE_NAME);
         if (VERSION < builder_module_version) {
             relaunch_newer_version(root_dir, modules_dir, artifacts_dir, module_name, builder_module_version);
         }

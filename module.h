@@ -1,5 +1,5 @@
-#ifndef MODULES_BUILDER_MODULE_H
-# define MODULES_BUILDER_MODULE_H
+#ifndef BUILDER_PROJECT_BUILDER_MODULE_H
+# define BUILDER_PROJECT_BUILDER_MODULE_H
 
 # include <filesystem>
 # include <string>
@@ -17,4 +17,4 @@ public:
     size_t scc_id;
 };
 
-#endif // MODULES_BUILDER_MODULE_H
+#endif // BUILDER_PROJECT_BUILDER_MODULE_H

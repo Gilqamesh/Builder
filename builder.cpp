@@ -1,37 +1,84 @@
-#include <modules/builder/builder.h>
-#include <modules/builder/build.h>
-#include <modules/builder/compiler.h>
-#include <modules/builder/builder_internal.h>
+#include "builder.h"
+#include "builder_plugin_internal.h"
 
-#include <string>
-#include <filesystem>
-#include <format>
-#include <chrono>
+std::filesystem::path builder_t::lib(
+    builder_ctx_t* ctx,
+    const builder_api_t* api,
+    const std::vector<std::string>& cpp_files,
+    const std::vector<std::pair<std::string, std::string>>& define_key_values
+) {
+    const auto root_dir = std::filesystem::path(api->root_dir(ctx));
+    const auto artifact_dir = std::filesystem::path(api->artifact_dir(ctx));
+    const auto src_dir = std::filesystem::path(api->src_dir(ctx));
 
-BUILDER_EXTERN void builder__build_self(builder_ctx_t* ctx, const builder_api_t* api) {
-    std::vector<std::string> lib_cpp_files;
-    for (const auto& entry : std::filesystem::directory_iterator(std::filesystem::path(api->src_dir(ctx)))) {
-        const auto& path = entry.path();
-        const auto filename = path.filename().string();
-        if (path.extension() != ".cpp" || filename == ORCHESTRATOR_CPP || filename == BUILDER_CPP) {
-            continue ;
-        }
-        lib_cpp_files.push_back(filename);
+    std::vector<std::filesystem::path> objects;
+    for (const auto& cpp_file : cpp_files) {
+        const auto obj = compiler_t::update_object_file(
+            src_dir / cpp_file,
+            {},
+            { root_dir },
+            define_key_values,
+            artifact_dir / (std::filesystem::path(cpp_file).stem().string() + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()) + ".o"),
+            false
+        );
+        objects.push_back(obj);
     }
-    build_t::lib(ctx, api, lib_cpp_files, {});
-    build_t::so(ctx, api, lib_cpp_files, {});
 
-    std::vector<std::string> all_cpp_files;
-    for (const auto& entry : std::filesystem::directory_iterator(std::filesystem::path(api->src_dir(ctx)))) {
-        const auto& path = entry.path();
-        const auto filename = path.filename().string();
-        if (path.extension() != ".cpp") {
-            continue ;
-        }
-        all_cpp_files.push_back(filename);
-    }
-    build_t::binary(ctx, api, all_cpp_files, { { "VERSION", std::to_string(VERSION) } }, ORCHESTRATOR_BIN, { });
+    return compiler_t::update_static_library(objects, artifact_dir / API_LIB_NAME);
 }
 
-BUILDER_EXTERN void builder__build_module(builder_ctx_t* ctx, const builder_api_t* api, const char* static_libs) {
+std::filesystem::path builder_t::so(
+    builder_ctx_t* ctx,
+    const builder_api_t* api,
+    const std::vector<std::string>& cpp_files,
+    const std::vector<std::pair<std::string, std::string>>& define_key_values
+) {
+    const auto root_dir = std::filesystem::path(api->root_dir(ctx));
+    const auto artifact_dir = std::filesystem::path(api->artifact_dir(ctx));
+    const auto src_dir = std::filesystem::path(api->src_dir(ctx));
+
+    std::vector<std::filesystem::path> objects;
+    for (const auto& cpp_file : cpp_files) {
+        const auto obj = compiler_t::update_object_file(
+            src_dir / cpp_file,
+            {},
+            { root_dir },
+            define_key_values,
+            artifact_dir / (std::filesystem::path(cpp_file).stem().string() + ".o"),
+            true
+        );
+        objects.push_back(obj);
+    }
+
+    return compiler_t::update_shared_libary(objects, artifact_dir / API_SO_NAME);
+}
+
+std::filesystem::path builder_t::binary(
+    builder_ctx_t* ctx,
+    const builder_api_t* api,
+    const std::vector<std::string>& cpp_files,
+    const std::vector<std::pair<std::string, std::string>>& define_key_values,
+    const std::string& bin_name,
+    std::vector<compiler_t::binary_input_t> binary_inputs
+) {
+    const auto root_dir = std::filesystem::path(api->root_dir(ctx));
+    const auto artifact_dir = std::filesystem::path(api->artifact_dir(ctx));
+    const auto src_dir = std::filesystem::path(api->src_dir(ctx));
+
+    std::vector<std::filesystem::path> objects;
+    for (const auto& cpp_file : cpp_files) {
+        const auto obj = compiler_t::update_object_file(
+            src_dir / cpp_file,
+            {},
+            { root_dir },
+            define_key_values,
+            artifact_dir / (std::filesystem::path(cpp_file).stem().string() + ".o"),
+            true
+        );
+        objects.push_back(obj);
+    }
+
+    binary_inputs.insert(binary_inputs.begin(), objects);
+
+    return compiler_t::update_binary(binary_inputs, artifact_dir / bin_name);
 }
