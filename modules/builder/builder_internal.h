@@ -5,7 +5,6 @@
 #  define VERSION 0
 # endif
 
-# define MODULES_DIR             "modules"
 # define BUILDER                 "builder"
 # define BUILDER_CPP             "builder.cpp"
 # define BUILDER_SO              "builder.so"

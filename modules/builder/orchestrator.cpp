@@ -177,10 +177,10 @@ std::vector<scc_t> tarjan(const std::unordered_map<std::string, module_t*>& modu
     return result;
 }
 
-uint64_t get_module_version(const std::string& module_name, const std::filesystem::path& root_dir) {
+uint64_t get_module_version(const std::filesystem::path& root_dir, const std::filesystem::path& modules_dir, const std::string& module_name) {
     // TODO: compare builder bin file hash instead of timestamp for more robust check
 
-    const auto module_dir = root_dir / MODULES_DIR / module_name;
+    const auto module_dir = root_dir / modules_dir / module_name;
     auto latest_module_file = std::filesystem::file_time_type::min();
     for (const auto& entry : std::filesystem::recursive_directory_iterator(module_dir)) {
         latest_module_file = std::max(latest_module_file, std::filesystem::last_write_time(entry.path()));
@@ -190,8 +190,8 @@ uint64_t get_module_version(const std::string& module_name, const std::filesyste
     return module_version;
 }
 
-void relaunch_newer_version(const std::filesystem::path& root_dir, const std::filesystem::path& artifacts_dir, const std::string& target_module, uint64_t new_version) {
-    const auto module_dir = root_dir / MODULES_DIR / BUILDER;
+void relaunch_newer_version(const std::filesystem::path& root_dir, const std::filesystem::path& modules_dir, const std::filesystem::path& artifacts_dir, const std::string& target_module, uint64_t new_version) {
+    const auto module_dir = root_dir / modules_dir / BUILDER;
     const auto orchestrator_cpp = module_dir / ORCHESTRATOR_CPP;
     if (!std::filesystem::exists(orchestrator_cpp)) {
         throw std::runtime_error(std::format("file does not exist '{}'", orchestrator_cpp.string()));
@@ -240,8 +240,9 @@ void relaunch_newer_version(const std::filesystem::path& root_dir, const std::fi
     std::vector<std::string> args = {
         tmp_binary_path_str,
         root_dir.string(),
-        artifacts_dir.string(),
-        target_module
+        modules_dir.string(),
+        target_module,
+        artifacts_dir.string()
     };
     std::vector<char*> argv;
     for (const auto& arg : args) {
@@ -275,7 +276,7 @@ std::filesystem::path create_artifact_dir(const std::string& module_name, const 
     return artifacts_dir / module_name / (module_name + "@" + std::to_string(version));
 }
 
-module_t* discover_dependencies(const std::string& module_name, const std::filesystem::path& root_dir, const std::filesystem::path& artifacts_dir, const std::filesystem::path& modules_dir, std::unordered_map<std::string, module_t*>& modules_repository) {
+module_t* discover_dependencies(const std::filesystem::path& root_dir, const std::filesystem::path& modules_dir, const std::string& module_name, const std::filesystem::path& artifacts_dir, std::unordered_map<std::string, module_t*>& modules_repository) {
     const auto module_dir = modules_dir / module_name;
     if (!std::filesystem::exists(module_dir)) {
         throw std::runtime_error(std::format("module directory does not exist '{}'", module_dir.string()));
@@ -288,7 +289,7 @@ module_t* discover_dependencies(const std::string& module_name, const std::files
             .src_dir = module_dir,
             .root_dir = root_dir,
             .artifact_dir = "",
-            .version = get_module_version(module_name, root_dir),
+            .version = get_module_version(root_dir, modules_dir, module_name),
             .scc_id = 0
         }).first;
         it->second->artifact_dir = create_artifact_dir(module_name, artifacts_dir, it->second->version);
@@ -337,7 +338,7 @@ module_t* discover_dependencies(const std::string& module_name, const std::files
             throw std::runtime_error(std::format("invalid deps json file '{}': '{}' array must not contain empty strings", deps_json_path.string(), builder_deps_key));
         }
 
-        module->builder_dependencies.push_back(discover_dependencies(builder_dep_str, root_dir, artifacts_dir, modules_dir, modules_repository));
+        module->builder_dependencies.push_back(discover_dependencies(root_dir, modules_dir, builder_dep_str, artifacts_dir, modules_repository));
     }
 
     constexpr std::string_view module_deps_key = "module_deps";
@@ -361,20 +362,10 @@ module_t* discover_dependencies(const std::string& module_name, const std::files
             throw std::runtime_error(std::format("invalid deps json file '{}': '{}' array must not contain empty strings", deps_json_path.string(), module_deps_key));
         }
 
-        module->module_dependencies.push_back(discover_dependencies(module_dep_str, root_dir, artifacts_dir, modules_dir, modules_repository));
+        module->module_dependencies.push_back(discover_dependencies(root_dir, modules_dir, module_dep_str, artifacts_dir, modules_repository));
     }
 
     return module;
-}
-
-module_t* discover_dependencies(const std::string& module_name, std::unordered_map<std::string, module_t*>& modules_repository, const std::filesystem::path& root_dir, const std::filesystem::path& artifacts_dir) {
-    const auto modules_dir = root_dir / MODULES_DIR;
-
-    if (!std::filesystem::exists(modules_dir)) {
-        throw std::runtime_error(std::format("modules directory does not exist '{}'", modules_dir.string()));
-    }
-
-    return discover_dependencies(module_name, root_dir, artifacts_dir, modules_dir, modules_repository);
 }
 
 void validate_builder_dependency_dag(module_t* module, std::unordered_set<module_t*>& visited, std::unordered_set<module_t*>& on_stack, std::stack<module_t*>& stack) {
@@ -418,7 +409,7 @@ void validate_builder_dependency_dag(module_t* module) {
 }
 
 void run_builder_build_self(module_t& module) {
-    log(std::format("run builder build self for module '{}', version {}", module.name, get_module_version(module.name, module.root_dir)));
+    log(std::format("run builder build self for module '{}', version {}", module.name, module.version));
 
     builder_ctx_t builder_ctx = {
         .module = module
@@ -557,7 +548,7 @@ void builder_build_module(module_t& module, const std::vector<scc_t>& sccs) {
     }
 
     try {
-        log(std::format("run builder build module for module '{}', version {}", module.name, get_module_version(module.name, module.root_dir)));
+        log(std::format("run builder build module for module '{}', version {}", module.name, module.version));
 
         const auto bundles = collect_bundles_in_linking_order(module, sccs);
         std::string bundles_str;
@@ -642,23 +633,27 @@ void version_modules(const std::vector<scc_t>& sccs, const std::filesystem::path
 
 int main(int argc, char **argv) {
     try {
-        if (argc < 4) {
-            throw std::runtime_error(std::format("usage: {} <root_dir> <artifacts_dir> <module_name>", argv[0]));
+        if (argc < 5) {
+            throw std::runtime_error(std::format("usage: {} <root_dir> <modules_dir> <module_name> <artifacts_dir>", argv[0]));
         }
 
         const auto root_dir = std::filesystem::path(argv[1]);
-        const auto artifacts_dir = std::filesystem::path(argv[2]);
+        const auto modules_dir = std::filesystem::path(argv[2]);
         const auto module_name = std::string(argv[3]);
+        const auto artifacts_dir = std::filesystem::path(argv[4]);
 
-        const auto builder_module_version = get_module_version(BUILDER, root_dir);
-        // TODO: running old binaries always upgrades to a newer version, so either fork from the binary version's source code (git integration) or run the latest versioned binary
-        if (VERSION < builder_module_version) {
-            relaunch_newer_version(root_dir, artifacts_dir, module_name, builder_module_version);
+        if (!std::filesystem::exists(modules_dir)) {
+            throw std::runtime_error(std::format("modules directory does not exist '{}'", modules_dir.string()));
         }
 
+        // TODO: running old binaries always upgrades to a newer version, so either fork from the binary version's source code (git integration) or run the latest versioned binary
+        const auto builder_module_version = get_module_version(root_dir, modules_dir, BUILDER);
+        if (VERSION < builder_module_version) {
+            relaunch_newer_version(root_dir, modules_dir, artifacts_dir, module_name, builder_module_version);
+        }
 
         std::unordered_map<std::string, module_t*> modules_repository;
-        module_t* module = discover_dependencies(module_name, modules_repository, root_dir, artifacts_dir);
+        module_t* module = discover_dependencies(root_dir, modules_dir, module_name, artifacts_dir, modules_repository);
         if (!module) {
             throw std::runtime_error(std::format("failed to discover dependencies for module '{}'", module_name));
         }
@@ -666,7 +661,6 @@ int main(int argc, char **argv) {
         validate_builder_dependency_dag(module);
 
         const auto sccs = tarjan(modules_repository);
-
 
         version_modules(sccs, artifacts_dir);
 

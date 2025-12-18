@@ -9,4 +9,3 @@ binary="$latest_target_module/$binary_name"
 
 echo ${binary}
 exec "$binary"
-
