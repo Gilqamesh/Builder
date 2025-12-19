@@ -1,6 +1,6 @@
 # Builder
 
-Builder is a **module-oriented build orchestrator** for workspaces composed of reusable modules. It optimizes for fast iteration: build quickly, validate what you learned, and discard experiments without overhead.
+Builder is a **module-oriented build orchestrator** for workspaces composed of reusable modules. It optimizes for fast iteration: build quickly, validate what you learned, and discard experiments without overhead. For a minimal workspace and usage patterns, see [Builder-Example](https://github.com/Gilqamesh/Builder-Example).
 
 A module is language-agnostic. The Builder-facing surface is:
 - `deps.json` — declares dependencies
@@ -60,6 +60,7 @@ clang++ -std=c++23 <modules_dir>/*.cpp -I$(dirname <modules_dir>) -o builder_dri
 ./builder_driver <modules_dir> <target_module> <artifacts_dir>
 ```
 Builder discovers modules under `<modules_dir>`, plans the build, and installs artifacts under `<artifacts_dir>`.
+For a concrete workspace and helper scripts, see [Builder-Example](https://github.com/Gilqamesh/Builder-Example).
 
 ---
 
@@ -118,8 +119,8 @@ This is transparent to module authors.
 ---
 
 ## Related repositories
-- **Builder-Example** — A small collection of example modules demonstrating how to use Builder.
-- **Builder-Application-1** — A long-lived repository of modules and applications developed using Builder.
+- **Builder-Example** — [example workspace and helper scripts](https://github.com/Gilqamesh/Builder-Example)
+- **Builder-Application-1** — [long-lived application workspace built on Builder](https://github.com/Gilqamesh/Builder-Application-1)
 
 ---
 
