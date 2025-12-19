@@ -167,7 +167,6 @@ Authored versioning (e.g. semantic versions) may be added later.
 - **Builder-Application-1**
   A long-lived repository of modules and applications developed using Builder.
 
-
 ---
 
 ## Requirements
@@ -175,7 +174,6 @@ Authored versioning (e.g. semantic versions) may be added later.
 - POSIX-like operating system
 - C++23-capable compiler
 - standard Unix toolchain
-
 
 ---
 
