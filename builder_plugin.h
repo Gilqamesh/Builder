@@ -13,7 +13,7 @@ typedef struct builder_ctx_t builder_ctx_t;
 
 typedef struct builder_api_t {
     uint64_t version;
-    const char* (*root_dir)(builder_ctx_t* ctx);
+    const char* (*modules_dir)(builder_ctx_t* ctx);
     const char* (*artifact_dir)(builder_ctx_t* ctx);
     const char* (*src_dir)(builder_ctx_t* ctx);
 } builder_api_t;

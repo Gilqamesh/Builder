@@ -1,6 +1,7 @@
 #include "builder.h"
 #include "builder_plugin_internal.h"
 
+#include <iostream>
 std::filesystem::path builder_t::lib(
     builder_ctx_t* ctx,
     const builder_api_t* api,
@@ -8,16 +9,17 @@ std::filesystem::path builder_t::lib(
     const std::vector<std::pair<std::string, std::string>>& define_key_values,
     bool position_independent
 ) {
-    const auto root_dir = std::filesystem::path(api->root_dir(ctx));
+    const auto modules_dir = std::filesystem::path(api->modules_dir(ctx));
     const auto artifact_dir = std::filesystem::path(api->artifact_dir(ctx));
     const auto src_dir = std::filesystem::path(api->src_dir(ctx));
 
+    std::cout << "!!! " << modules_dir.parent_path() << std::endl;
     std::vector<std::filesystem::path> objects;
     for (const auto& cpp_file : cpp_files) {
         const auto obj = compiler_t::update_object_file(
             src_dir / cpp_file,
             {},
-            { root_dir },
+            { modules_dir.parent_path() },
             define_key_values,
             artifact_dir / (std::filesystem::path(cpp_file).stem().string() + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()) + ".o"),
             position_independent
@@ -34,7 +36,7 @@ std::filesystem::path builder_t::so(
     const std::vector<std::string>& cpp_files,
     const std::vector<std::pair<std::string, std::string>>& define_key_values
 ) {
-    const auto root_dir = std::filesystem::path(api->root_dir(ctx));
+    const auto modules_dir = std::filesystem::path(api->modules_dir(ctx));
     const auto artifact_dir = std::filesystem::path(api->artifact_dir(ctx));
     const auto src_dir = std::filesystem::path(api->src_dir(ctx));
 
@@ -43,7 +45,7 @@ std::filesystem::path builder_t::so(
         const auto obj = compiler_t::update_object_file(
             src_dir / cpp_file,
             {},
-            { root_dir },
+            { modules_dir.parent_path() },
             define_key_values,
             artifact_dir / (std::filesystem::path(cpp_file).stem().string() + ".o"),
             true
@@ -62,7 +64,7 @@ std::filesystem::path builder_t::binary(
     const std::string& bin_name,
     std::vector<compiler_t::binary_input_t> binary_inputs
 ) {
-    const auto root_dir = std::filesystem::path(api->root_dir(ctx));
+    const auto modules_dir = std::filesystem::path(api->modules_dir(ctx));
     const auto artifact_dir = std::filesystem::path(api->artifact_dir(ctx));
     const auto src_dir = std::filesystem::path(api->src_dir(ctx));
 
@@ -71,7 +73,7 @@ std::filesystem::path builder_t::binary(
         const auto obj = compiler_t::update_object_file(
             src_dir / cpp_file,
             {},
-            { root_dir },
+            { modules_dir.parent_path() },
             define_key_values,
             artifact_dir / (std::filesystem::path(cpp_file).stem().string() + ".o"),
             true // TODO: this should be false

@@ -30,8 +30,8 @@ struct builder_ctx_t {
     const module_t& module;
 };
 
-static const char* root_dir_fn(builder_ctx_t* ctx) {
-    return ctx->module.root_dir.c_str();
+static const char* modules_dir_fn(builder_ctx_t* ctx) {
+    return ctx->module.modules_dir.c_str();
 }
 
 static const char* artifact_dir_fn(builder_ctx_t* ctx) {
@@ -44,7 +44,7 @@ static const char* src_dir_fn(builder_ctx_t* ctx) {
 
 static builder_api_t builder_api = {
     .version = VERSION,
-    .root_dir = &root_dir_fn,
+    .modules_dir = &modules_dir_fn,
     .artifact_dir = &artifact_dir_fn,
     .src_dir = &src_dir_fn
 };
@@ -217,10 +217,10 @@ std::vector<scc_t*> tarjan(const std::unordered_map<std::string, module_t*>& mod
     return result;
 }
 
-uint64_t get_module_version(const std::filesystem::path& root_dir, const std::filesystem::path& modules_dir, const std::string& module_name) {
+uint64_t get_module_version(const std::filesystem::path& modules_dir, const std::string& module_name) {
     // TODO: compare builder bin file hash instead of timestamp for more robust check
 
-    const auto module_dir = root_dir / modules_dir / module_name;
+    const auto module_dir = modules_dir / module_name;
     auto latest_module_file = std::filesystem::file_time_type::min();
     for (const auto& entry : std::filesystem::recursive_directory_iterator(module_dir)) {
         latest_module_file = std::max(latest_module_file, std::filesystem::last_write_time(entry.path()));
@@ -230,8 +230,8 @@ uint64_t get_module_version(const std::filesystem::path& root_dir, const std::fi
     return module_version;
 }
 
-void relaunch_newer_version(const std::filesystem::path& root_dir, const std::filesystem::path& modules_dir, const std::filesystem::path& artifacts_dir, const std::string& target_module, uint64_t new_version) {
-    const auto module_dir = root_dir / modules_dir / BUILDER_MODULE_NAME;
+void relaunch_newer_version(const std::filesystem::path& modules_dir, const std::filesystem::path& artifacts_dir, const std::string& target_module, uint64_t new_version) {
+    const auto module_dir = modules_dir / BUILDER_MODULE_NAME;
     const auto builder_driver_cpp = module_dir / BUILDER_DRIVER_CPP;
     if (!std::filesystem::exists(builder_driver_cpp)) {
         throw std::runtime_error(std::format("file does not exist '{}'", builder_driver_cpp.string()));
@@ -257,8 +257,8 @@ void relaunch_newer_version(const std::filesystem::path& root_dir, const std::fi
     const auto tmp_binary_path = std::filesystem::temp_directory_path() / std::format("{}@{}", BUILDER_DRIVER, new_version);
     const auto tmp_binary_path_str = tmp_binary_path.string();
 
-    const auto compile_next_version_binary_command = std::format("clang++ -g -std=c++23 -I{} -o {} {} -DVERSION={}",
-        root_dir.string(),
+    const auto compile_next_version_binary_command = std::format("clang++ -g -std=c++23 -I$(dirname {}) -o {} {} -DVERSION={}",
+        modules_dir.string(),
         tmp_binary_path_str,
         lib_src,
         new_version
@@ -279,7 +279,6 @@ void relaunch_newer_version(const std::filesystem::path& root_dir, const std::fi
 
     std::vector<std::string> args = {
         tmp_binary_path_str,
-        root_dir.string(),
         modules_dir.string(),
         target_module,
         artifacts_dir.string()
@@ -316,7 +315,7 @@ std::filesystem::path create_artifact_dir(const std::string& module_name, const 
     return artifacts_dir / module_name / (module_name + "@" + std::to_string(version));
 }
 
-module_t* discover_dependencies(const std::filesystem::path& root_dir, const std::filesystem::path& modules_dir, const std::string& module_name, const std::filesystem::path& artifacts_dir, std::unordered_map<std::string, module_t*>& modules_repository) {
+module_t* discover_dependencies(const std::filesystem::path& modules_dir, const std::string& module_name, const std::filesystem::path& artifacts_dir, std::unordered_map<std::string, module_t*>& modules_repository) {
     const auto module_dir = modules_dir / module_name;
     if (!std::filesystem::exists(module_dir)) {
         throw std::runtime_error(std::format("module directory does not exist '{}'", module_dir.string()));
@@ -327,9 +326,9 @@ module_t* discover_dependencies(const std::filesystem::path& root_dir, const std
         it = modules_repository.emplace(module_name, new module_t{
             .name = module_name,
             .src_dir = module_dir,
-            .root_dir = root_dir,
+            .modules_dir = modules_dir,
             .artifact_dir = "",
-            .version = get_module_version(root_dir, modules_dir, module_name),
+            .version = get_module_version(modules_dir, module_name),
             .scc_id = 0
         }).first;
         it->second->artifact_dir = create_artifact_dir(module_name, artifacts_dir, it->second->version);
@@ -378,7 +377,7 @@ module_t* discover_dependencies(const std::filesystem::path& root_dir, const std
             throw std::runtime_error(std::format("invalid deps json file '{}': '{}' array must not contain empty strings", deps_json_path.string(), builder_deps_key));
         }
 
-        module->builder_dependencies.push_back(discover_dependencies(root_dir, modules_dir, builder_dep_str, artifacts_dir, modules_repository));
+        module->builder_dependencies.push_back(discover_dependencies(modules_dir, builder_dep_str, artifacts_dir, modules_repository));
     }
 
     constexpr std::string_view module_deps_key = "module_deps";
@@ -402,7 +401,7 @@ module_t* discover_dependencies(const std::filesystem::path& root_dir, const std
             throw std::runtime_error(std::format("invalid deps json file '{}': '{}' array must not contain empty strings", deps_json_path.string(), module_deps_key));
         }
 
-        module->module_dependencies.push_back(discover_dependencies(root_dir, modules_dir, module_dep_str, artifacts_dir, modules_repository));
+        module->module_dependencies.push_back(discover_dependencies(modules_dir, module_dep_str, artifacts_dir, modules_repository));
     }
 
     return module;
@@ -463,7 +462,7 @@ void run_builder_build_self(module_t& module, const std::vector<scc_t*>& sccs) {
             compiler_t::update_object_file(
                 module.src_dir / BUILDER_PLUGIN_CPP,
                 {},
-                { module.root_dir },
+                { module.modules_dir.parent_path() },
                 {},
                 module.artifact_dir / BUILDER_PLUGIN_O,
                 true
@@ -773,27 +772,26 @@ void print_planned_build_order(module_t* module) {
 
 int main(int argc, char **argv) {
     try {
-        if (argc < 5) {
-            throw std::runtime_error(std::format("usage: {} <root_dir> <modules_dir> <module_name> <artifacts_dir>", argv[0]));
+        if (argc < 4) {
+            throw std::runtime_error(std::format("usage: {} <modules_dir> <module_name> <artifacts_dir>", argv[0]));
         }
 
-        const auto root_dir = std::filesystem::path(argv[1]);
-        const auto modules_dir = std::filesystem::path(argv[2]);
-        const auto module_name = std::string(argv[3]);
-        const auto artifacts_dir = std::filesystem::path(argv[4]);
+        const auto modules_dir = std::filesystem::absolute(std::filesystem::path(argv[1]));
+        const auto module_name = std::string(argv[2]);
+        const auto artifacts_dir = std::filesystem::absolute(std::filesystem::path(argv[3]));
 
         if (!std::filesystem::exists(modules_dir)) {
             throw std::runtime_error(std::format("modules directory does not exist '{}'", modules_dir.string()));
         }
 
         // TODO: running old binaries always upgrades to a newer version, so either fork from the binary version's source code (git integration) or run the latest versioned binary
-        const auto builder_module_version = get_module_version(root_dir, modules_dir, BUILDER_MODULE_NAME);
+        const auto builder_module_version = get_module_version(modules_dir, BUILDER_MODULE_NAME);
         if (VERSION < builder_module_version) {
-            relaunch_newer_version(root_dir, modules_dir, artifacts_dir, module_name, builder_module_version);
+            relaunch_newer_version(modules_dir, artifacts_dir, module_name, builder_module_version);
         }
 
         std::unordered_map<std::string, module_t*> modules_repository;
-        module_t* module = discover_dependencies(root_dir, modules_dir, module_name, artifacts_dir, modules_repository);
+        module_t* module = discover_dependencies(modules_dir, module_name, artifacts_dir, modules_repository);
         if (!module) {
             throw std::runtime_error(std::format("failed to discover dependencies for module '{}'", module_name));
         }
