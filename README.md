@@ -6,8 +6,6 @@ A module is language-agnostic. The Builder-facing surface is:
 - `deps.json` — declares dependencies
 - `builder_plugin.cpp` — implements the build protocol in C++
 
-Builder runs as a standalone executable. It does **not** impose fixed directory names or a fixed workspace layout.
-
 ---
 
 ## Contents
