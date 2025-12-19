@@ -1,7 +1,6 @@
 #include "builder.h"
 #include "builder_plugin_internal.h"
 
-#include <iostream>
 std::filesystem::path builder_t::lib(
     builder_ctx_t* ctx,
     const builder_api_t* api,
@@ -13,7 +12,6 @@ std::filesystem::path builder_t::lib(
     const auto artifact_dir = std::filesystem::path(api->artifact_dir(ctx));
     const auto src_dir = std::filesystem::path(api->src_dir(ctx));
 
-    std::cout << "!!! " << modules_dir.parent_path() << std::endl;
     std::vector<std::filesystem::path> objects;
     for (const auto& cpp_file : cpp_files) {
         const auto obj = compiler_t::update_object_file(

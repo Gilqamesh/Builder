@@ -49,7 +49,7 @@ static builder_api_t builder_api = {
     .src_dir = &src_dir_fn
 };
 
-void log(const std::string& msg) {
+static void log(const std::string& msg) {
     std::cout << std::format("[{}] {}", BUILDER_DRIVER, msg) << std::endl;
 }
 
@@ -62,7 +62,7 @@ struct scc_t {
     uint64_t version;
 };
 
-void visit_sccs_topo(scc_t* scc, const std::vector<scc_t*>& sccs, const std::function<void(scc_t*)>& f, std::unordered_set<scc_t*>& visited) {
+static void visit_sccs_topo(scc_t* scc, const std::vector<scc_t*>& sccs, const std::function<void(scc_t*)>& f, std::unordered_set<scc_t*>& visited) {
     if (visited.insert(scc).second == false) {
         return ;
     }
@@ -74,12 +74,12 @@ void visit_sccs_topo(scc_t* scc, const std::vector<scc_t*>& sccs, const std::fun
     f(scc);
 }
 
-void visit_sccs_topo(scc_t* scc, const std::vector<scc_t*>& sccs, const std::function<void(scc_t*)>& f) {
+static void visit_sccs_topo(scc_t* scc, const std::vector<scc_t*>& sccs, const std::function<void(scc_t*)>& f) {
     std::unordered_set<scc_t*> visited;
     visit_sccs_topo(scc, sccs, f, visited);
 }
 
-void visit_sccs_rev_topo(scc_t* scc, const std::vector<scc_t*>& sccs, const std::function<void(scc_t*)>& f, std::unordered_set<scc_t*>& visited) {
+static void visit_sccs_rev_topo(scc_t* scc, const std::vector<scc_t*>& sccs, const std::function<void(scc_t*)>& f, std::unordered_set<scc_t*>& visited) {
     if (visited.insert(scc).second == false) {
         return ;
     }
@@ -91,12 +91,12 @@ void visit_sccs_rev_topo(scc_t* scc, const std::vector<scc_t*>& sccs, const std:
     }
 }
 
-void visit_sccs_rev_topo(scc_t* scc, const std::vector<scc_t*>& sccs, const std::function<void(scc_t*)>& f) {
+static void visit_sccs_rev_topo(scc_t* scc, const std::vector<scc_t*>& sccs, const std::function<void(scc_t*)>& f) {
     std::unordered_set<scc_t*> visited;
     visit_sccs_rev_topo(scc, sccs, f, visited);
 }
 
-void connect_components(std::vector<scc_t*>& components) {
+static void connect_components(std::vector<scc_t*>& components) {
     for (int id = 0; id < components.size(); ++id) {
         auto& scc = components[id];
         for (const auto& module : scc->modules) {
@@ -114,7 +114,7 @@ void connect_components(std::vector<scc_t*>& components) {
     }
 }
 
-void print_strongly_connected_components(const std::vector<scc_t>& sccs) {
+static void print_strongly_connected_components(const std::vector<scc_t>& sccs) {
     std::cout << "Strongly connected components:" << std::endl;
     for (const auto& scc : sccs) {
         std::cout << std::format("Component {}:", scc.id) << std::endl;
@@ -128,7 +128,7 @@ void print_strongly_connected_components(const std::vector<scc_t>& sccs) {
     }
 }
 
-std::vector<scc_t*> tarjan(const std::unordered_map<std::string, module_t*>& modules_repository) {
+static std::vector<scc_t*> tarjan(const std::unordered_map<std::string, module_t*>& modules_repository) {
     std::vector<scc_t*> result;
 
     struct scc_metadata_t {
@@ -217,7 +217,7 @@ std::vector<scc_t*> tarjan(const std::unordered_map<std::string, module_t*>& mod
     return result;
 }
 
-uint64_t get_module_version(const std::filesystem::path& modules_dir, const std::string& module_name) {
+static uint64_t get_module_version(const std::filesystem::path& modules_dir, const std::string& module_name) {
     // TODO: compare builder bin file hash instead of timestamp for more robust check
 
     const auto module_dir = modules_dir / module_name;
@@ -230,7 +230,7 @@ uint64_t get_module_version(const std::filesystem::path& modules_dir, const std:
     return module_version;
 }
 
-void relaunch_newer_version(const std::filesystem::path& modules_dir, const std::filesystem::path& artifacts_dir, const std::string& target_module, uint64_t new_version) {
+static void relaunch_newer_version(const std::filesystem::path& modules_dir, const std::filesystem::path& artifacts_dir, const std::string& target_module, uint64_t new_version) {
     const auto module_dir = modules_dir / BUILDER_MODULE_NAME;
     const auto builder_driver_cpp = module_dir / BUILDER_DRIVER_CPP;
     if (!std::filesystem::exists(builder_driver_cpp)) {
@@ -311,11 +311,11 @@ void relaunch_newer_version(const std::filesystem::path& modules_dir, const std:
     throw std::runtime_error(std::format("fexecve failed to run temporary next version of builder binary '{}', errno: {}, errno_msg: {}", tmp_binary_path_str, errno, std::strerror(errno)));
 }
 
-std::filesystem::path create_artifact_dir(const std::string& module_name, const std::filesystem::path& artifacts_dir, uint64_t version) {
+static std::filesystem::path create_artifact_dir(const std::string& module_name, const std::filesystem::path& artifacts_dir, uint64_t version) {
     return artifacts_dir / module_name / (module_name + "@" + std::to_string(version));
 }
 
-module_t* discover_dependencies(const std::filesystem::path& modules_dir, const std::string& module_name, const std::filesystem::path& artifacts_dir, std::unordered_map<std::string, module_t*>& modules_repository) {
+static module_t* discover_dependencies(const std::filesystem::path& modules_dir, const std::string& module_name, const std::filesystem::path& artifacts_dir, std::unordered_map<std::string, module_t*>& modules_repository) {
     const auto module_dir = modules_dir / module_name;
     if (!std::filesystem::exists(module_dir)) {
         throw std::runtime_error(std::format("module directory does not exist '{}'", module_dir.string()));
@@ -407,7 +407,7 @@ module_t* discover_dependencies(const std::filesystem::path& modules_dir, const 
     return module;
 }
 
-void validate_builder_dependency_dag(module_t* module, std::unordered_set<module_t*>& visited, std::unordered_set<module_t*>& on_stack, std::stack<module_t*>& stack) {
+static void validate_builder_dependency_dag(module_t* module, std::unordered_set<module_t*>& visited, std::unordered_set<module_t*>& on_stack, std::stack<module_t*>& stack) {
     if (on_stack.contains(module)) {
         std::cerr << std::format("detected cycle in builder dependencies:") << std::endl;
         while (!stack.empty()) {
@@ -440,14 +440,14 @@ void validate_builder_dependency_dag(module_t* module, std::unordered_set<module
     on_stack.erase(module);
 }
 
-void validate_builder_dependency_dag(module_t* module) {
+static void validate_builder_dependency_dag(module_t* module) {
     std::unordered_set<module_t*> visited;
     std::unordered_set<module_t*> on_stack;
     std::stack<module_t*> stack;
     validate_builder_dependency_dag(module, visited, on_stack, stack);
 }
 
-void run_builder_build_self(module_t& module, const std::vector<scc_t*>& sccs) {
+static void run_builder_build_self(module_t& module, const std::vector<scc_t*>& sccs) {
     log(std::format("run builder build self for module '{}', version {}", module.name, module.version));
 
     builder_ctx_t builder_ctx = {
@@ -505,7 +505,7 @@ void run_builder_build_self(module_t& module, const std::vector<scc_t*>& sccs) {
     }
 }
 
-void builder_build_self(scc_t* scc, const std::vector<scc_t*>& sccs, const std::filesystem::path& artifacts_dir, std::vector<bool>& visited) {
+static void builder_build_self(scc_t* scc, const std::vector<scc_t*>& sccs, const std::filesystem::path& artifacts_dir, std::vector<bool>& visited) {
     if (visited[scc->id]) {
         return ;
     }
@@ -615,14 +615,14 @@ void builder_build_self(scc_t* scc, const std::vector<scc_t*>& sccs, const std::
     }
 }
 
-void builder_build_self(const std::vector<scc_t*>& sccs, const std::filesystem::path& artifacts_dir) {
+static void builder_build_self(const std::vector<scc_t*>& sccs, const std::filesystem::path& artifacts_dir) {
     std::vector<bool> visited(sccs.size(), false);
     for (auto& scc : sccs) {
         builder_build_self(scc, sccs, artifacts_dir, visited);
     }
 }
 
-void builder_build_module(module_t& module, const std::filesystem::path& artifacts_dir, const std::vector<scc_t*>& sccs) {
+static void builder_build_module(module_t& module, const std::filesystem::path& artifacts_dir, const std::vector<scc_t*>& sccs) {
     if (!std::filesystem::exists(module.artifact_dir)) {
         throw std::runtime_error(std::format("artifact directory '{}' does not exist for module '{}'", module.artifact_dir.string(), module.name));
     }
@@ -702,7 +702,7 @@ void builder_build_module(module_t& module, const std::filesystem::path& artifac
     }
 }
 
-uint64_t version_modules(int index, const std::vector<scc_t*>& sccs, const std::filesystem::path& artifacts_dir) {
+static uint64_t version_modules(int index, const std::vector<scc_t*>& sccs, const std::filesystem::path& artifacts_dir) {
     scc_t* scc = sccs[index];
     if (scc->version != 0) {
         return scc->version;
@@ -727,16 +727,13 @@ uint64_t version_modules(int index, const std::vector<scc_t*>& sccs, const std::
     return scc->version = max_dep_version;
 }
 
-void version_modules(const std::vector<scc_t*>& sccs, const std::filesystem::path& artifacts_dir) {
+static void version_modules(const std::vector<scc_t*>& sccs, const std::filesystem::path& artifacts_dir) {
     for (int i = 0; i < sccs.size(); ++i) {
         version_modules(i, sccs, artifacts_dir);
     }
 }
 
-void visit_modules_topo(module_t& module, const std::function<void(module_t&)>& f, std::unordered_set<module_t*>& visited) {
-}
-
-void print_planned_build_order(int& index, module_t* module, std::unordered_set<module_t*>& visited) {
+static void print_planned_build_order(int& index, module_t* module, std::unordered_set<module_t*>& visited) {
     if (visited.insert(module).second == false) {
         return ;
     }
@@ -762,7 +759,7 @@ void print_planned_build_order(int& index, module_t* module, std::unordered_set<
     }
 }
 
-void print_planned_build_order(module_t* module) {
+static void print_planned_build_order(module_t* module) {
     log(std::format("Planned build order:"));
 
     int index = 0;
@@ -776,9 +773,9 @@ int main(int argc, char **argv) {
             throw std::runtime_error(std::format("usage: {} <modules_dir> <module_name> <artifacts_dir>", argv[0]));
         }
 
-        const auto modules_dir = std::filesystem::absolute(std::filesystem::path(argv[1]));
+        const auto modules_dir = std::filesystem::relative(std::filesystem::path(argv[1]));
         const auto module_name = std::string(argv[2]);
-        const auto artifacts_dir = std::filesystem::absolute(std::filesystem::path(argv[3]));
+        const auto artifacts_dir = std::filesystem::relative(std::filesystem::path(argv[3]));
 
         if (!std::filesystem::exists(modules_dir)) {
             throw std::runtime_error(std::format("modules directory does not exist '{}'", modules_dir.string()));
