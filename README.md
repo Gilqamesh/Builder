@@ -1,6 +1,6 @@
 # Builder
 
-Builder is a **module-oriented build orchestrator** for workspaces composed of reusable modules. It optimizes for fast iteration: build quickly, validate what you learned, and discard experiments without overhead. For a minimal workspace and usage patterns, see [Builder-Example](https://github.com/Gilqamesh/Builder-Example).
+Builder is a **module-oriented build orchestrator** for workspaces composed of reusable modules. It optimizes for fast iteration: build quickly, validate what you learned, and discard experiments without overhead. For a minimal workspace and usage patterns, see [Builder-Example](https://github.com/Gilqamesh/Builder-Example). Contributions are welcome.
 
 A module is language-agnostic. The Builder-facing surface is:
 - `deps.json` — declares dependencies
@@ -13,6 +13,7 @@ A module is language-agnostic. The Builder-facing surface is:
 - [Module interface](#module-interface)
 - [Artifacts, cycles, and versioning](#artifacts-cycles-and-versioning)
 - [Related repositories](#related-repositories)
+- [Contributing](#contributing)
 - [Requirements](#requirements)
 - [License](#license)
 
@@ -59,8 +60,7 @@ clang++ -std=c++23 <modules_dir>/*.cpp -I$(dirname <modules_dir>) -o builder_dri
 ```bash
 ./builder_driver <modules_dir> <target_module> <artifacts_dir>
 ```
-Builder discovers modules under `<modules_dir>`, plans the build, and installs artifacts under `<artifacts_dir>`.
-For a concrete workspace and helper scripts, see [Builder-Example](https://github.com/Gilqamesh/Builder-Example).
+Builder discovers modules under `<modules_dir>`, plans the build, and installs artifacts under `<artifacts_dir>`. For a concrete workspace and helper scripts, see [Builder-Example](https://github.com/Gilqamesh/Builder-Example).
 
 ---
 
@@ -121,6 +121,15 @@ This is transparent to module authors.
 ## Related repositories
 - **Builder-Example** — [example workspace and helper scripts](https://github.com/Gilqamesh/Builder-Example)
 - **Builder-Application-1** — [long-lived application workspace built on Builder](https://github.com/Gilqamesh/Builder-Application-1)
+
+---
+
+## Contributing
+- Open issues for bugs, questions, and proposals.
+- Open PRs against the default branch unless an issue specifies otherwise; keep changes focused and describe expected vs. actual behavior.
+- Include a brief note on how you tested the change (commands, scripts, or reproducer steps).
+- Follow the existing code style (modern C++23) and keep new examples minimal and documented.
+- If you add or change user-facing behavior (flags, outputs, module hooks), update the README or relevant docs.
 
 ---
 
