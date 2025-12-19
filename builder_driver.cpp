@@ -773,9 +773,9 @@ int main(int argc, char **argv) {
             throw std::runtime_error(std::format("usage: {} <modules_dir> <module_name> <artifacts_dir>", argv[0]));
         }
 
-        const auto modules_dir = std::filesystem::relative(std::filesystem::path(argv[1]));
+        const auto modules_dir = std::filesystem::absolute(std::filesystem::path(argv[1]));
         const auto module_name = std::string(argv[2]);
-        const auto artifacts_dir = std::filesystem::relative(std::filesystem::path(argv[3]));
+        const auto artifacts_dir = std::filesystem::absolute(std::filesystem::path(argv[3]));
 
         if (!std::filesystem::exists(modules_dir)) {
             throw std::runtime_error(std::format("modules directory does not exist '{}'", modules_dir.string()));
