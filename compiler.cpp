@@ -41,6 +41,13 @@ std::filesystem::path compiler_t::update_object_file(
         compile_command += " -I" + include_dir.string();
     }
 
+    const auto output_dir = output_o_file.parent_path();
+    if (!std::filesystem::exists(output_dir)) {
+        if (!std::filesystem::create_directories(output_dir)) {
+            throw std::runtime_error(std::format("failed to create output directory '{}'", output_dir.string()));
+        }
+    }
+
     std::cout << compile_command << std::endl;
     const int result = std::system(compile_command.c_str());
     if (result != 0) {

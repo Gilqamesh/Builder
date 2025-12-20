@@ -57,7 +57,7 @@ std::filesystem::path builder_t::so(
 std::filesystem::path builder_t::binary(
     builder_ctx_t* ctx,
     const builder_api_t* api,
-    const std::vector<std::string>& cpp_files,
+    const std::vector<std::filesystem::path>& cpp_files,
     const std::vector<std::pair<std::string, std::string>>& define_key_values,
     const std::string& bin_name,
     std::vector<compiler_t::binary_input_t> binary_inputs
@@ -68,12 +68,14 @@ std::filesystem::path builder_t::binary(
 
     std::vector<std::filesystem::path> objects;
     for (const auto& cpp_file : cpp_files) {
+        auto obj_path = artifact_dir / std::filesystem::relative(cpp_file, src_dir);
+        obj_path.replace_extension(".o");
         const auto obj = compiler_t::update_object_file(
             src_dir / cpp_file,
             {},
             { modules_dir.parent_path() },
             define_key_values,
-            artifact_dir / (std::filesystem::path(cpp_file).stem().string() + ".o"),
+            obj_path,
             true // TODO: this should be false
         );
         objects.push_back(obj);

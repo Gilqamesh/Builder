@@ -21,7 +21,7 @@ public:
 
     static std::filesystem::path binary(
         builder_ctx_t* ctx, const builder_api_t* api,
-        const std::vector<std::string>& cpp_files,
+        const std::vector<std::filesystem::path>& cpp_files,
         const std::vector<std::pair<std::string, std::string>>& define_key_values,
         const std::string& bin_name,
         std::vector<compiler_t::binary_input_t> binary_inputs
