@@ -461,7 +461,6 @@ static void run_builder_build_self(module_t& module, const std::vector<scc_t*>& 
         shared_library_deps.push_back(
             compiler_t::update_object_file(
                 module.src_dir / BUILDER_PLUGIN_CPP,
-                {},
                 { module.modules_dir.parent_path() },
                 {},
                 module.artifact_dir / BUILDER_PLUGIN_O,

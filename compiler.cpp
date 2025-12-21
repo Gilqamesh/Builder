@@ -9,7 +9,6 @@
 
 std::filesystem::path compiler_t::update_object_file(
     const std::filesystem::path& source_file,
-    const std::vector<std::filesystem::path>& header_files,
     const std::vector<std::filesystem::path>& include_dirs,
     const std::vector<std::pair<std::string, std::string>>& define_key_values,
     const std::filesystem::path& output_o_file,
@@ -17,18 +16,6 @@ std::filesystem::path compiler_t::update_object_file(
 ) {
     if (!std::filesystem::exists(source_file)) {
         throw std::runtime_error(std::format("source file does not exist '{}'", source_file.string()));
-    }
-
-    std::filesystem::file_time_type latest_input_file_time = std::filesystem::last_write_time(source_file);
-    for (const auto& header_file : header_files) {
-        if (!std::filesystem::exists(header_file)) {
-            throw std::runtime_error(std::format("header file does not exist '{}'", header_file.string()));
-        }
-        latest_input_file_time = std::max(latest_input_file_time, std::filesystem::last_write_time(header_file));
-    }
-
-    if (std::filesystem::exists(output_o_file) && latest_input_file_time <= std::filesystem::last_write_time(output_o_file)) {
-        return output_o_file;
     }
 
     std::string define_flags;
@@ -61,18 +48,12 @@ std::filesystem::path compiler_t::update_static_library(
     const std::vector<std::filesystem::path>& objects,
     const std::filesystem::path& output_static_library
 ) {
-    std::filesystem::file_time_type latest_object_time = std::filesystem::file_time_type::min();
     std::string archive_command = "ar rcs " + output_static_library.string();
     for (const auto& object : objects) {
         if (!std::filesystem::exists(object)) {
             throw std::runtime_error(std::format("object does not exist '{}'", object.string()));
         }
-        latest_object_time = std::max(latest_object_time, std::filesystem::last_write_time(object));
         archive_command += " " + object.string();
-    }
-
-    if (std::filesystem::exists(output_static_library) && latest_object_time <= std::filesystem::last_write_time(output_static_library)) {
-        return output_static_library;
     }
 
     std::cout << archive_command << std::endl;
@@ -103,7 +84,6 @@ std::filesystem::path compiler_t::bundle_static_libraries(const std::vector<std:
         std::filesystem::path dir;
     } guard(tmp_dir);
 
-    std::filesystem::file_time_type latest_archive_time = std::filesystem::file_time_type::min();
     const auto tmp_lib = tmp_dir / "out.lib";
 
     std::vector<std::filesystem::path> links;
@@ -114,7 +94,6 @@ std::filesystem::path compiler_t::bundle_static_libraries(const std::vector<std:
         if (!std::filesystem::exists(archive)) {
             throw std::runtime_error(std::format("archive does not exist '{}'", archive.string()));
         }
-        latest_archive_time = std::max(latest_archive_time, std::filesystem::last_write_time(archive));
         const auto link = tmp_dir / ("lib" + std::to_string(i) + ".a");
         std::cout << std::format("ln -s {} {}", archive.string(), link.string()) << std::endl;
         std::error_code ec;
@@ -165,18 +144,12 @@ std::filesystem::path compiler_t::update_shared_libary(
     const std::vector<std::filesystem::path>& input_files,
     const std::filesystem::path& output_shared_libary
 ) {
-    std::filesystem::file_time_type latest_input_file_time = std::filesystem::file_time_type::min();
     std::string link_command = "clang++ -shared -o " + output_shared_libary.string();
     for (const auto& input_file : input_files) {
         if (!std::filesystem::exists(input_file)) {
             throw std::runtime_error(std::format("input file does not exist '{}'", input_file.string()));
         }
-        latest_input_file_time = std::max(latest_input_file_time, std::filesystem::last_write_time(input_file));
         link_command += " " + input_file.string();
-    }
-
-    if (std::filesystem::exists(output_shared_libary) && latest_input_file_time <= std::filesystem::last_write_time(output_shared_libary)) {
-        return output_shared_libary;
     }
 
     std::cout << link_command << std::endl;
@@ -188,9 +161,8 @@ std::filesystem::path compiler_t::update_shared_libary(
     return output_shared_libary;
 }
 
-std::filesystem::path compiler_t::update_binary(const std::vector<binary_input_t>& input_libraries, const std::filesystem::path& output_binary) {
-    std::filesystem::file_time_type latest_input_library_time = std::filesystem::file_time_type::min();
-    std::string link_command = "clang++ -o " + output_binary.string();
+std::filesystem::path compiler_t::update_binary(const std::vector<binary_file_input_t>& input_libraries, const std::vector<std::string>& additional_linker_flags, const std::filesystem::path& output_binary) {
+    std::string link_command = "clang++ -std=c++23 -o " + output_binary.string();
     const auto input_library_paths = [&]() {
         std::vector<std::filesystem::path> paths;
         for (const auto& input_library : input_libraries) {
@@ -241,12 +213,11 @@ std::filesystem::path compiler_t::update_binary(const std::vector<binary_input_t
         if (!std::filesystem::exists(input_library_path)) {
             throw std::runtime_error(std::format("input file does not exist '{}'", input_library_path.string()));
         }
-        latest_input_library_time = std::max(latest_input_library_time, std::filesystem::last_write_time(input_library_path));
         link_command += " " + input_library_path.string();
     }
 
-    if (std::filesystem::exists(output_binary) && latest_input_library_time <= std::filesystem::last_write_time(output_binary)) {
-        return output_binary;
+    for (const auto& additional_linker_flag : additional_linker_flags) {
+        link_command += " " + additional_linker_flag;
     }
 
     std::cout << link_command << std::endl;

@@ -12,7 +12,6 @@ public:
     // Throws std::runtime_error on failure.
     static std::filesystem::path update_object_file(
         const std::filesystem::path& source_file,
-        const std::vector<std::filesystem::path>& header_files,
         const std::vector<std::filesystem::path>& include_dirs,
         const std::vector<std::pair<std::string, std::string>>& define_key_values,
         const std::filesystem::path& output_object_file_file,
@@ -43,7 +42,7 @@ public:
         const std::filesystem::path& output_shared_libary
     );
 
-    using binary_input_t = std::variant<
+    using binary_file_input_t = std::variant<
         std::vector<std::filesystem::path>,
         std::filesystem::path,
         std::string,
@@ -54,7 +53,8 @@ public:
     // Returns the path to the output binary.
     // Throws std::runtime_error on failure.
     static std::filesystem::path update_binary(
-        const std::vector<binary_input_t>& input_libraries,
+        const std::vector<binary_file_input_t>& input_libraries,
+        const std::vector<std::string>& additional_linker_flags,
         const std::filesystem::path& output_binary
     );
 };
