@@ -205,28 +205,34 @@ static void relaunch_newer_version(const std::filesystem::path& modules_dir, con
     const auto builder_driver_cpp = source_dir / BUILDER_DRIVER_CPP;
     const auto builder_plugin_cpp = source_dir / BUILDER_PLUGIN_CPP;
     const auto artifact_dir = get_artifact_dir(module_name, artifacts_dir, new_version);
+    const auto builder_plugin_shared_library = artifact_dir / BUILDER_PLUGIN_SO;
+    const auto builder_driver_binary = artifact_dir / LINK_MODULE_DIR / BUILDER_DRIVER;
 
     module_t* module = new module_t(module_name, source_dir, modules_dir, artifact_dir, new_version);
     module->is_versioned = true;
 
-    std::vector<std::filesystem::path> lib_cpp_files;
-    for (const auto& entry : std::filesystem::directory_iterator(source_dir)) {
-        const auto& path = entry.path();
-        if (path.extension() != ".cpp" || path == builder_driver_cpp) {
-            continue ;
+    if (!std::filesystem::exists(artifact_dir)) {
+
+        std::vector<std::filesystem::path> lib_cpp_files;
+        for (const auto& entry : std::filesystem::directory_iterator(source_dir)) {
+            const auto& path = entry.path();
+            if (path.extension() != ".cpp" || path == builder_driver_cpp) {
+                continue ;
+            }
+            lib_cpp_files.push_back(path);
         }
-        lib_cpp_files.push_back(path);
+        compiler_t::update_binary(
+            {
+                builder_driver_cpp,
+                compiler_t::update_shared_libary(lib_cpp_files, builder_plugin_shared_library)
+            },
+            {
+                std::format("-DVERSION={}", new_version),
+                std::format("-I$(dirname {})", modules_dir.string())
+            },
+            builder_driver_binary
+        );
     }
-    const auto builder_plugin_shared_library = compiler_t::update_shared_libary(lib_cpp_files, artifact_dir / BUILDER_PLUGIN_SO);
-    const auto builder_driver_binary = compiler_t::update_binary(
-        { builder_driver_cpp },
-        {
-            std::format("-DVERSION={}", VERSION),
-            std::format("-I$(dirname {})", modules_dir.string()),
-            std::format("-std=c++23")
-        },
-        artifact_dir / LINK_MODULE_DIR / BUILDER_DRIVER
-    );
 
     std::vector<std::string> args = {
         builder_driver_binary.string(),
