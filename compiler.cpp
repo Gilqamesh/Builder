@@ -129,6 +129,13 @@ std::filesystem::path compiler_t::bundle_static_libraries(const std::vector<std:
     if (!ifs) {
         throw std::runtime_error(std::format("failed to open temporary lib '{}'", tmp_lib.string()));
     }
+
+    if (!std::filesystem::exists(output_static_library.parent_path())) {
+        if (!std::filesystem::create_directories(output_static_library.parent_path())) {
+            throw std::runtime_error(std::format("failed to create output directory '{}'", output_static_library.parent_path().string()));
+        }
+    }
+
     std::ofstream ofs(output_static_library);
     if (!ofs) {
         throw std::runtime_error(std::format("failed to open output static library '{}'", output_static_library.string()));
@@ -144,7 +151,11 @@ std::filesystem::path compiler_t::update_shared_libary(
     const std::vector<std::filesystem::path>& input_files,
     const std::filesystem::path& output_shared_libary
 ) {
-    std::string link_command = "clang++ -shared -o " + output_shared_libary.string();
+    if (input_files.empty()) {
+        throw std::runtime_error(std::format("empty input files list provided to create shared library '{}'", output_shared_libary.string()));
+    }
+
+    std::string link_command = "clang++ -fPIC -shared -o " + output_shared_libary.string();
     for (const auto& input_file : input_files) {
         if (!std::filesystem::exists(input_file)) {
             throw std::runtime_error(std::format("input file does not exist '{}'", input_file.string()));
@@ -161,11 +172,11 @@ std::filesystem::path compiler_t::update_shared_libary(
     return output_shared_libary;
 }
 
-std::filesystem::path compiler_t::update_binary(const std::vector<binary_file_input_t>& input_libraries, const std::vector<std::string>& additional_linker_flags, const std::filesystem::path& output_binary) {
+std::filesystem::path compiler_t::update_binary(const std::vector<binary_file_input_t>& input_files, const std::vector<std::string>& additional_linker_flags, const std::filesystem::path& output_binary) {
     std::string link_command = "clang++ -std=c++23 -o " + output_binary.string();
-    const auto input_library_paths = [&]() {
+    const auto input_file_paths = [&]() {
         std::vector<std::filesystem::path> paths;
-        for (const auto& input_library : input_libraries) {
+        for (const auto& input_library : input_files) {
             std::visit([&](const auto& v) {
                 using T = std::decay_t<decltype(v)>;
 
@@ -209,7 +220,11 @@ std::filesystem::path compiler_t::update_binary(const std::vector<binary_file_in
         return paths;
     }();
 
-    for (const auto& input_library_path : input_library_paths) {
+    if (input_file_paths.empty()) {
+        throw std::runtime_error(std::format("empty input file list provided to create binary '{}'", output_binary.string()));
+    }
+
+    for (const auto& input_library_path : input_file_paths) {
         if (!std::filesystem::exists(input_library_path)) {
             throw std::runtime_error(std::format("input file does not exist '{}'", input_library_path.string()));
         }

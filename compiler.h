@@ -53,7 +53,7 @@ public:
     // Returns the path to the output binary.
     // Throws std::runtime_error on failure.
     static std::filesystem::path update_binary(
-        const std::vector<binary_file_input_t>& input_libraries,
+        const std::vector<binary_file_input_t>& input_files,
         const std::vector<std::string>& additional_linker_flags,
         const std::filesystem::path& output_binary
     );

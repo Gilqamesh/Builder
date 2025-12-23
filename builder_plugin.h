@@ -8,20 +8,20 @@
 # endif
 
 # include <stdint.h>
+# include <stddef.h>
 
 typedef struct builder_ctx_t builder_ctx_t;
+typedef struct builder_api_t builder_api_t;
 
-typedef struct builder_api_t {
-    uint64_t version;
-    const char* (*modules_dir)(builder_ctx_t* ctx);
-    const char* (*artifact_dir)(builder_ctx_t* ctx);
-    const char* (*src_dir)(builder_ctx_t* ctx);
-} builder_api_t;
+// package in linking order a complete set of static (pic or non-pic) libraries that other modules can link against
+// throw from the implementation if the module doesn't ship as a set of static libraries
+BUILDER_EXTERN void builder__export_bundle_static(builder_ctx_t* ctx, const builder_api_t* api);
 
-typedef void (*builder__build_self_t)(builder_ctx_t* ctx, const builder_api_t* api);
-typedef void (*builder__build_module_t)(builder_ctx_t* ctx, const builder_api_t* api, const char* static_libs);
+// package a complete set of shared libraries that other modules can link against
+// throw from the implementation if the module doesn't ship as a set of shared libraries
+BUILDER_EXTERN void builder__export_bundle_shared(builder_ctx_t* ctx, const builder_api_t* api);
 
-BUILDER_EXTERN void builder__build_self(builder_ctx_t* ctx, const builder_api_t* api);
-BUILDER_EXTERN void builder__build_module(builder_ctx_t* ctx, const builder_api_t* api, const char* static_libs);
+// link any artifacts of the module having access to linking order of the dependencies of the module
+BUILDER_EXTERN void builder__link_module(builder_ctx_t* ctx, const builder_api_t* api);
 
 #endif // BUILDER_PROJECT_BUILDER_BUILDER_PLUGIN_H

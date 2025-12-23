@@ -15,8 +15,16 @@
 # define BUILDER_BUILD_MODULE    "builder__build_module"
 # define DEPS_JSON               "deps.json"
 # define SCC_DIR                 "scc"
-# define API_STATIC_LIB_NAME     "api.lib"
-# define API_STATIC_PIC_LIB_NAME "api_pic.lib"
-# define API_SHARED_LIB_NAME     "api.so"
+
+// TODO: rename to contain "symbol"
+# define BUILDER_EXPORT_BUNDLE_STATIC "builder__export_bundle_static"
+# define BUILDER_EXPORT_BUNDLE_SHARED "builder__export_bundle_shared"
+# define BUILDER_LINK_MODULE          "builder__link_module"
+
+# define SHARED_BUNDLE_DIR "shared_bundle"
+# define STATIC_BUNDLE_DIR "static_bundle"
+# define LINK_MODULE_DIR   "link_module"
+
+# define ARTIFACT_CACHE_DIR "cache"
 
 #endif // BUILDER_PROJECT_BUILDER_BUILDER_PLUGIN_INTERNAL_H

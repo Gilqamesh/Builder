@@ -1,37 +1,38 @@
 #include "builder.h"
 #include "builder_plugin.h"
 #include "builder_plugin_internal.h"
-#include "compiler.h"
+#include "builder_api.h"
 
-#include <string>
 #include <filesystem>
-#include <format>
-#include <chrono>
 
-BUILDER_EXTERN void builder__build_self(builder_ctx_t* ctx, const builder_api_t* api) {
-    std::vector<std::filesystem::path> lib_cpp_files;
-    for (const auto& entry : std::filesystem::directory_iterator(std::filesystem::path(api->src_dir(ctx)))) {
+static std::vector<std::filesystem::path> collect_library_cpp_files(builder_ctx_t* ctx, const builder_api_t* api) {
+    std::vector<std::filesystem::path> result;
+
+    for (const auto& entry : std::filesystem::directory_iterator(std::filesystem::path(api->source_dir(ctx)))) {
         const auto& path = entry.path();
         const auto& filename = path.filename().string();
         if (path.extension() != ".cpp" || filename == BUILDER_DRIVER_CPP || filename == BUILDER_PLUGIN_CPP) {
             continue ;
         }
-        lib_cpp_files.push_back(path);
+        result.push_back(path);
     }
-    builder_t::lib(ctx, api, lib_cpp_files, {}, false);
-    builder_t::lib(ctx, api, lib_cpp_files, {}, true);
-    builder_t::so(ctx, api, lib_cpp_files, {});
 
-    std::vector<std::filesystem::path> all_cpp_files;
-    for (const auto& entry : std::filesystem::directory_iterator(std::filesystem::path(api->src_dir(ctx)))) {
-        const auto& path = entry.path();
-        if (path.extension() != ".cpp") {
-            continue ;
-        }
-        all_cpp_files.push_back(path);
-    }
-    builder_t::binary(ctx, api, all_cpp_files, { { "VERSION", std::to_string(VERSION) } }, BUILDER_DRIVER, { }, {});
+    return result;
 }
 
-BUILDER_EXTERN void builder__build_module(builder_ctx_t* ctx, const builder_api_t* api, const char* static_libs) {
+BUILDER_EXTERN void builder__export_bundle_static(builder_ctx_t* ctx, const builder_api_t* api) {
+    builder_t::materialize_static_library(ctx, api, "1.lib", collect_library_cpp_files(ctx, api), {});
+}
+
+BUILDER_EXTERN void builder__export_bundle_shared(builder_ctx_t* ctx, const builder_api_t* api) {
+    builder_t::materialize_shared_library(ctx, api, "1.so", collect_library_cpp_files(ctx, api), {});
+}
+
+BUILDER_EXTERN void builder__link_module(builder_ctx_t* ctx, const builder_api_t* api) {
+    builder_t::materialize_binary(
+        ctx, api, BUILDER_DRIVER,
+        { BUILDER_DRIVER_CPP },
+        { { "VERSION", std::to_string(api->version) } },
+        { api->get_shared_link_command_line(ctx) }
+    );
 }
