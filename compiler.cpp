@@ -56,6 +56,13 @@ std::filesystem::path compiler_t::update_static_library(
         archive_command += " " + object.string();
     }
 
+    const auto output_static_library_dir = output_static_library.parent_path();
+    if (!std::filesystem::exists(output_static_library_dir)) {
+        if (!std::filesystem::create_directories(output_static_library_dir)) {
+            throw std::runtime_error(std::format("failed to create output static library directory '{}'", output_static_library_dir.string()));
+        }
+    }
+
     std::cout << archive_command << std::endl;
     const int result = std::system(archive_command.c_str());
     if (result != 0) {
@@ -130,9 +137,10 @@ std::filesystem::path compiler_t::bundle_static_libraries(const std::vector<std:
         throw std::runtime_error(std::format("failed to open temporary lib '{}'", tmp_lib.string()));
     }
 
-    if (!std::filesystem::exists(output_static_library.parent_path())) {
-        if (!std::filesystem::create_directories(output_static_library.parent_path())) {
-            throw std::runtime_error(std::format("failed to create output directory '{}'", output_static_library.parent_path().string()));
+    const auto output_static_library_dir = output_static_library.parent_path();
+    if (!std::filesystem::exists(output_static_library_dir)) {
+        if (!std::filesystem::create_directories(output_static_library_dir)) {
+            throw std::runtime_error(std::format("failed to create output static library directory '{}'", output_static_library_dir.string()));
         }
     }
 
@@ -161,6 +169,13 @@ std::filesystem::path compiler_t::update_shared_libary(
             throw std::runtime_error(std::format("input file does not exist '{}'", input_file.string()));
         }
         link_command += " " + input_file.string();
+    }
+
+    const auto output_shared_library_dir = output_shared_libary.parent_path();
+    if (!std::filesystem::exists(output_shared_library_dir)) {
+        if (!std::filesystem::create_directories(output_shared_library_dir)) {
+            throw std::runtime_error(std::format("failed to create output shared library directory '{}'", output_shared_library_dir.string()));
+        }
     }
 
     std::cout << link_command << std::endl;
@@ -233,6 +248,13 @@ std::filesystem::path compiler_t::update_binary(const std::vector<binary_file_in
 
     for (const auto& additional_linker_flag : additional_linker_flags) {
         link_command += " " + additional_linker_flag;
+    }
+
+    const auto output_binary_dir = output_binary.parent_path();
+    if (!std::filesystem::exists(output_binary_dir)) {
+        if (!std::filesystem::create_directories(output_binary_dir)) {
+            throw std::runtime_error(std::format("failed to create output binary directory '{}'", output_binary_dir.string()));
+        }
     }
 
     std::cout << link_command << std::endl;
