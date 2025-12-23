@@ -155,7 +155,7 @@ std::filesystem::path compiler_t::update_shared_libary(
         throw std::runtime_error(std::format("empty input files list provided to create shared library '{}'", output_shared_libary.string()));
     }
 
-    std::string link_command = "clang++ -fPIC -shared -o " + output_shared_libary.string();
+    std::string link_command = "clang++ -std=c++23 -fPIC -shared -o " + output_shared_libary.string();
     for (const auto& input_file : input_files) {
         if (!std::filesystem::exists(input_file)) {
             throw std::runtime_error(std::format("input file does not exist '{}'", input_file.string()));
