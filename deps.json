@@ -1,8 +1,5 @@
 {
-    "builder_deps": [
-        "builder"
-    ],
-    "module_deps": [
+    "deps": [
         "builder"
     ]
 }

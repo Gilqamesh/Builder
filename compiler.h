@@ -1,62 +1,113 @@
-#ifndef BUILDER_PROJECT_BUILDER_COMPILER_H
-# define BUILDER_PROJECT_BUILDER_COMPILER_H
+#ifndef COMPILER_H
+# define COMPILER_H
+
+# include "builder_ctx.h"
+# include "builder_api.h"
 
 # include <filesystem>
 # include <vector>
-# include <variant>
 
 class compiler_t {
 public:
-    // Compiles a source file into an object file if the source or any of the headers are newer than the output object file.
-    // Returns the path to the output object file.
-    // Throws std::runtime_error on failure.
-    static std::filesystem::path update_object_file(
-        const std::filesystem::path& source_file,
-        const std::vector<std::filesystem::path>& include_dirs,
+    static std::filesystem::path create_static_library(
+        builder_ctx_t* ctx, const builder_api_t* api,
+        const std::vector<std::string>& source_files,
         const std::vector<std::pair<std::string, std::string>>& define_key_values,
-        const std::filesystem::path& output_object_file_file,
+        const std::string& static_library_name
+    );
+
+    static std::filesystem::path create_shared_library(
+        builder_ctx_t* ctx, const builder_api_t* api,
+        const std::vector<std::string>& source_files,
+        const std::vector<std::pair<std::string, std::string>>& define_key_values,
+        const std::string& shared_library_name
+    );
+
+    static std::filesystem::path create_library(
+        builder_ctx_t* ctx, const builder_api_t* api,
+        const std::vector<std::string>& source_files,
+        const std::vector<std::pair<std::string, std::string>>& define_key_values,
+        const std::string& library_stem,
+        bundle_type_t bundle_type
+    );
+
+    static std::filesystem::path create_binary(
+        builder_ctx_t* ctx, const builder_api_t* api,
+        const std::vector<std::string>& source_files,
+        const std::vector<std::pair<std::string, std::string>>& define_key_values,
+        bundle_type_t bundle_type,
+        const std::string& binary_name
+    );
+
+    static std::filesystem::path create_binary(
+        builder_ctx_t* ctx, const builder_api_t* api,
+        const std::vector<std::string>& source_files,
+        const std::vector<std::pair<std::string, std::string>>& define_key_values,
+        const std::vector<std::vector<std::filesystem::path>>& library_groups,
+        const std::string& binary_name
+    );
+
+    static std::filesystem::path reference_static_library(
+        builder_ctx_t* ctx, const builder_api_t* api,
+        const std::filesystem::path& existing_static_library,
+        const std::string& static_library_name
+    );
+
+    static std::filesystem::path reference_shared_library(
+        builder_ctx_t* ctx, const builder_api_t* api,
+        const std::filesystem::path& existing_shared_library,
+        const std::string& shared_library_name
+    );
+
+    static std::filesystem::path reference_library(
+        builder_ctx_t* ctx, const builder_api_t* api,
+        const std::filesystem::path& existing_library,
+        const std::string& library_name,
+        bundle_type_t bundle_type
+    );
+
+    static std::filesystem::path reference_binary(
+        builder_ctx_t* ctx, const builder_api_t* api,
+        const std::filesystem::path& existing_binary,
+        const std::string& binary_name
+    );
+
+public:
+    static std::filesystem::path create_static_library(
+        const std::filesystem::path& cache_dir,
+        const std::filesystem::path& source_dir,
+        const std::vector<std::filesystem::path>& include_dirs,
+        const std::vector<std::string>& source_files,
+        const std::vector<std::pair<std::string, std::string>>& define_key_values,
+        const std::filesystem::path& static_library
+    );
+
+    static std::filesystem::path create_shared_library(
+        const std::filesystem::path& cache_dir,
+        const std::filesystem::path& source_dir,
+        const std::vector<std::filesystem::path>& include_dirs,
+        const std::vector<std::string>& source_files,
+        const std::vector<std::pair<std::string, std::string>>& define_key_values,
+        const std::vector<std::filesystem::path>& dso_files,
+        const std::filesystem::path& shared_library
+    );
+
+private:
+    static std::vector<std::filesystem::path> cache_object_files(
+        builder_ctx_t* ctx, const builder_api_t* api,
+        const std::vector<std::string>& source_files,
+        const std::vector<std::pair<std::string, std::string>>& define_key_values,
+        bundle_type_t bundle_type
+    );
+
+    static std::vector<std::filesystem::path> cache_object_files(
+        const std::filesystem::path& cache_dir,
+        const std::filesystem::path& source_dir,
+        const std::vector<std::filesystem::path>& include_dirs,
+        const std::vector<std::string>& source_files,
+        const std::vector<std::pair<std::string, std::string>>& define_key_values,
         bool position_independent
-    );
-
-    // Creates or updates an archive from the input object files if any of them are newer than the output archive.
-    // Returns the path to the output archive.
-    // Throws std::runtime_error on failure.
-    static std::filesystem::path update_static_library(
-        const std::vector<std::filesystem::path>& objects,
-        const std::filesystem::path& output_static_library
-    );
-
-    // Creates an archive from the input archives.
-    // Returns the path to the output archive.
-    // Throws std::runtime_error on failure.
-    static std::filesystem::path bundle_static_libraries(
-        const std::vector<std::filesystem::path>& archives,
-        const std::filesystem::path& output_static_library
-    );
-
-    // Links input object files into a shared library if any of them are newer than the output shared library.
-    // Returns the path to the output shared library.
-    // Throws std::runtime_error on failure.
-    static std::filesystem::path update_shared_libary(
-        const std::vector<std::filesystem::path>& input_files,
-        const std::filesystem::path& output_shared_libary
-    );
-
-    using binary_file_input_t = std::variant<
-        std::vector<std::filesystem::path>,
-        std::filesystem::path,
-        std::string,
-        const char*
-    >;
-
-    // Links input object files into a binary if any of them are newer than the output binary.
-    // Returns the path to the output binary.
-    // Throws std::runtime_error on failure.
-    static std::filesystem::path update_binary(
-        const std::vector<binary_file_input_t>& input_files,
-        const std::vector<std::string>& additional_linker_flags,
-        const std::filesystem::path& output_binary
     );
 };
 
-#endif // BUILDER_PROJECT_BUILDER_COMPILER_H
+#endif // COMPILER_H
