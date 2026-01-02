@@ -71,8 +71,11 @@ int main(int argc, char** argv) {
 
         uint32_t module_id = builder_ctx.discover();
 
-        const auto svg_dir = artifacts_dir / "sccs";
-        builder_ctx.svg(svg_dir, "0");
+        const bool is_svg_option_enabled = false;
+        if (is_svg_option_enabled) {
+            const auto svg_dir = artifacts_dir / "sccs";
+            builder_ctx.svg(svg_dir, "0");
+        }
 
         builder_ctx.build_module(module_id);
     } catch (const std::exception& e) {
