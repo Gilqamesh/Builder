@@ -478,7 +478,8 @@ void builder_ctx_t::export_libraries(uint32_t scc_id, bundle_type_t bundle_type,
                 dlclose(builder_plugin_handle);
 
                 const auto& module = m_modules[module_id];
-                for (const auto& entry : std::filesystem::directory_iterator(m_artifacts_dir / module.module_dir.stem())) {
+                std::error_code ec;
+                for (const auto& entry : std::filesystem::directory_iterator(m_artifacts_dir / module.module_dir.stem(), ec)) {
                     if (!entry.is_directory()) {
                         continue ;
                     }
@@ -488,6 +489,9 @@ void builder_ctx_t::export_libraries(uint32_t scc_id, bundle_type_t bundle_type,
                         std::filesystem::remove_all(path);
                     }
                 }
+                if (ec) {
+                    throw std::runtime_error(std::format("export_libraries: failed to iterate artifacts directory '{}': {}", (m_artifacts_dir / module.module_dir.stem()).string(), ec.message()));
+                }
             } catch (...) {
                 dlclose(builder_plugin_handle);
                 std::filesystem::remove(library_group_dir);
@@ -496,8 +500,12 @@ void builder_ctx_t::export_libraries(uint32_t scc_id, bundle_type_t bundle_type,
         }
 
         if (std::filesystem::exists(library_group_dir)) {
-            for (const auto& entry : std::filesystem::directory_iterator(library_group_dir)) {
+            std::error_code ec;
+            for (const auto& entry : std::filesystem::directory_iterator(library_group_dir, ec)) {
                 library_group.push_back(entry.path());
+            }
+            if (ec) {
+                throw std::runtime_error(std::format("export_libraries: failed to iterate library group directory '{}': {}", library_group_dir.string(), ec.message()));
             }
         }
     }

@@ -114,7 +114,7 @@ std::filesystem::path compiler_t::reference_static_library(
         throw std::runtime_error(std::format("reference_static_library: referenced static library '{}' does not exist", existing_static_library.string()));
     }
 
-    const auto static_library_dir = api->cache_dir(ctx, BUNDLE_TYPE_STATIC);
+    const auto static_library_dir = api->install_dir(ctx, BUNDLE_TYPE_STATIC);
     const auto static_library = static_library_dir / static_library_name;
 
     std::cout << std::format("ln -s {} {}", existing_static_library.string(), static_library.string()) << std::endl;
@@ -136,7 +136,7 @@ std::filesystem::path compiler_t::reference_shared_library(
         throw std::runtime_error(std::format("reference_shared_library: referenced shared library '{}' does not exist", existing_shared_library.string()));
     }
 
-    const auto shared_library_dir = api->cache_dir(ctx, BUNDLE_TYPE_SHARED);
+    const auto shared_library_dir = api->install_dir(ctx, BUNDLE_TYPE_SHARED);
     const auto shared_library = shared_library_dir / shared_library_name;
 
     std::cout << std::format("ln -s {} {}", existing_shared_library.string(), shared_library.string()) << std::endl;
