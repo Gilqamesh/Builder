@@ -78,7 +78,7 @@ std::filesystem::path compiler_t::create_binary(
 
     const auto& library_groups = api->export_libraries(ctx, bundle_type);
     for (auto library_group_it = library_groups.rbegin(); library_group_it != library_groups.rend(); ++library_group_it) {
-        if (bundle_type != BUNDLE_TYPE_SHARED) {
+        if (bundle_type != BUNDLE_TYPE_SHARED && 1 < library_group_it->size()) {
             command += " -Wl,--start-group";
         }
         for (const auto& library : *library_group_it) {
@@ -87,7 +87,7 @@ std::filesystem::path compiler_t::create_binary(
             }
             command += " " + library.string();
         }
-        if (bundle_type != BUNDLE_TYPE_SHARED) {
+        if (bundle_type != BUNDLE_TYPE_SHARED && 1 < library_group_it->size()) {
             command += " -Wl,--end-group";
         }
     }

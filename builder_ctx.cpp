@@ -564,7 +564,6 @@ void builder_ctx_t::svg_overview(const std::filesystem::path& dir, const std::st
 
         ofs << std::format(
             "    subgraph cluster_scc{} {{\n"
-            "        label=\"SCC {} ({} nodes)\";\n"
             "        style=rounded;\n"
             "        margin=10;\n",
             scc_id, scc_id, scc.module_ids.size()
@@ -587,11 +586,7 @@ void builder_ctx_t::svg_overview(const std::filesystem::path& dir, const std::st
             const auto from_dot = std::format("n{}", from);
             const auto to_dot   = std::format("n{}", to);
 
-            if (m_modules[from].scc_id != m_modules[to].scc_id) {
-                ofs << std::format("    {} -> {};\n", from_dot, to_dot);
-            } else {
-                ofs << std::format("    {} -> {};\n", from_dot, to_dot);
-            }
+            ofs << std::format("    {} -> {};\n", to_dot, from_dot);
         }
     }
 
@@ -607,7 +602,7 @@ void builder_ctx_t::svg_overview(const std::filesystem::path& dir, const std::st
     }
 
     std::filesystem::remove(dot_file);
-    std::filesystem::remove(svg_file);
+    // std::filesystem::remove(svg_file);
 }
 
 void builder_ctx_t::svg_sccs(const std::filesystem::path& dir, const std::string& file_name_stem) {
@@ -692,7 +687,7 @@ void builder_ctx_t::svg_sccs(const std::filesystem::path& dir, const std::string
     }
 
     for (auto [u, v] : reduced_edges) {
-        ofs << std::format("    scc{} -> scc{};\n", u, v);
+        ofs << std::format("    scc{} -> scc{};\n", v, u);
     }
 
     ofs << "}\n";
@@ -707,7 +702,7 @@ void builder_ctx_t::svg_sccs(const std::filesystem::path& dir, const std::string
     }
 
     std::filesystem::remove(dot_file);
-    std::filesystem::remove(svg_file);
+    // std::filesystem::remove(svg_file);
 }
 
 void builder_ctx_t::svg_scc(const std::filesystem::path& dir, uint32_t scc_id, const std::string& file_name_stem) {
@@ -754,7 +749,7 @@ void builder_ctx_t::svg_scc(const std::filesystem::path& dir, uint32_t scc_id, c
                 const auto& from_module = m_modules[from];
                 const auto from_name = from_module.module_dir.stem().string();
                 if (from_module.scc_id == scc_id) {
-                    ofs << std::format("    {} -> {};\n", from_name, to_name);
+                    ofs << std::format("    {} -> {};\n", to_name, from_name);
                 }
             }
         }
@@ -772,5 +767,5 @@ void builder_ctx_t::svg_scc(const std::filesystem::path& dir, uint32_t scc_id, c
     }
 
     std::filesystem::remove(dot_file);
-    std::filesystem::remove(svg_file);
+    // std::filesystem::remove(svg_file);
 }
