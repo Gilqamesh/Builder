@@ -59,11 +59,10 @@ For a concrete workspace, see [Builder‑Example](https://github.com/Gilqamesh/B
    ./cli <builder_dir> <modules_dir> <target_module> <artifacts_dir>
    ```
 
-## Artifacts, cycles and versioning
+## Artifacts and versioning
 
-- **Transactional artifacts** – builds are transactional: artifacts are installed only on success.  Partial outputs are discarded; failed builds never pollute the artifact store.
-- **Circular dependencies** – Builder supports circular dependencies.  Strongly connected components (SCCs) of the dependency graph are treated as single units.  The static libraries from all modules in an SCC are bundled together and stored under `scc/<hash>/<version>/`.  This bundling is transparent to module authors.
-- **Source‑based versioning** – the version of a module is determined by the latest modification timestamp of any file under the module.  A module is rebuilt when its timestamp increases.  Versioning propagates through dependencies to ensure a consistent view of the workspace.  Authored versioning (e.g., semantic versions) may be added in the future.
+- Incremental build is on the module level, either a build is successful, or not. In case it's successful, cli deletes old versions to save space.
+- Version of the module is determined by the latest modified timestamp of the module's source files recursively. The version will propagate to dependents, i.e., they will be rebuilt.
 
 ## Related repositories
 
