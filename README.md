@@ -1,6 +1,6 @@
 # Builder
 
-Builder is a module‑oriented dependency resolver for workspaces composed of reusable modules. It is designed for fast iteration: compile quickly, validate what you learned, then discard experiments without the overhead typical of monolithic build systems. Builder is designed to be **language‑agnostic**; the only required files for a module are a JSON file that declares dependencies and a C++ plugin that implements the module’s build API.
+Builder is a module‑oriented dependency resolver for workspaces composed of reusable modules. It is designed for fast iteration: compile quickly, validate what you learned, then combine with other modules. Builder is designed to be language‑agnostic; the only required files for a module are a JSON file that declares dependencies and a C++ plugin that implements the module’s build API.
 
 ## Contents
 
