@@ -1,6 +1,6 @@
 # Builder
 
-Builder is a **module‑oriented build orchestrator** for workspaces composed of reusable modules.  It is designed for fast iteration: compile quickly, validate what you learned, then discard experiments without the overhead typical of monolithic build systems.  Builder is **language‑agnostic**; the only required files for a module are a JSON file that declares dependencies and a C++ plugin that implements the module’s build API.
+Builder is a module‑oriented dependency resolver for workspaces composed of reusable modules. It is designed for fast iteration: compile quickly, validate what you learned, then discard experiments without the overhead typical of monolithic build systems. Builder is designed to be **language‑agnostic**; the only required files for a module are a JSON file that declares dependencies and a C++ plugin that implements the module’s build API.
 
 ## Contents
 
@@ -13,12 +13,13 @@ Builder is a **module‑oriented build orchestrator** for workspaces composed of
 - [License](#license)
 
 ## Quick start
+For a concrete workspace, see [Builder‑Example](https://github.com/Gilqamesh/Builder-Example).
 
 1. **Create a module**
 
-   A module lives under a directory in your `<modules>` root.  Each module needs two files:
+   A module lives under a directory in your `<modules>` root. Each module needs two files:
 
-   * `deps.json` – describes **builder dependencies** (modules required to build the plugin) and **module dependencies** (modules whose exported bundles are inputs to your link stage).
+   * `deps.json` – lists the module dependencies.
    * `builder_plugin.cpp` – implements the build protocol described below.
 
 2. **Write `deps.json`**
@@ -34,72 +35,29 @@ Builder is a **module‑oriented build orchestrator** for workspaces composed of
 
 3. **Implement `builder_plugin.cpp`**
 
-   Your plugin must define three C‑callable entry points:
+   Your plugin must define two C‑callable entry points:
 
    ```cpp
-   extern "C" void builder__export_bundle_static(builder_ctx_t*, const builder_api_t*);
-   extern "C" void builder__export_bundle_shared(builder_ctx_t*, const builder_api_t*);
-   extern "C" void builder__link_module(builder_ctx_t*, const builder_api_t*);
+   extern "C" void builder__export_libraries(builder_ctx_t* ctx, const builder_api_t* api, bundle_type_t bundle_type);
+   extern "C" void builder__build_module(builder_ctx_t* ctx, const builder_api_t* api);
    ```
 
-   - `builder__export_bundle_static` packages your module’s static libraries (PIC or non‑PIC) into a bundle that other modules can link against.
-   - `builder__export_bundle_shared` packages a set of shared libraries for linking by dependent modules.
-   - `builder__link_module` links your module’s final artifacts (executables, other file formats, etc.) with access to the ordered link command line for its dependencies.
+   - `builder__export_libraries` builds and installs the modules libraries (static/shared)
+   - `builder__build_module` links into final executables, at this staged all ordered libraries exists for the module to link against
 
-   The [`builder_api_t`] interface passed into these functions exposes helpers for locating directories and generating linker command lines:
+   A typical plugin collects its source files, calls into the builder helpers to build and install into the target directory.
 
-   - `modules_dir(ctx)` – root directory containing all modules.
-   - `source_dir(ctx)` – the module’s source directory.
-   - `static_bundle_dir(ctx)` – directory in the artifact store where your static bundle should be installed.
-   - `shared_bundle_dir(ctx)` – directory in the artifact store where your shared bundle should be installed.
-   - `linked_artifacts_dir(ctx)` – directory where your final linked artifacts should be installed.
-   - `get_static_link_command_line(ctx)`/`get_shared_link_command_line(ctx)` – return command‑line strings giving the ordered list of static/shared bundles for dependencies.
-
-   A typical plugin collects its source `.cpp` files, calls `builder_t::materialize_static_library` or `builder_t::materialize_shared_library` to produce bundles, then calls `builder_t::materialize_binary` to link the final binary using the command line provided by `builder_api_t`.
-
-4. **Compile the Builder driver**
-
-   Compile `builder_driver.cpp` along with your module implementations using a C++23 compiler.  The parent of `<modules>` must be on the include path so modules can include one another, e.g.:
+4. **Compile cli.cpp**
 
    ```bash
-   clang++ -std=c++23 <modules_dir>/builder/*.cpp -I$(dirname <modules_dir>) -o builder_driver
+   clang++ -std=c++23 *.cpp -o cli
    ```
 
-5. **Run the build**
-
-   Run the driver with the modules directory, target module and output artifacts directory:
+5. **Run cli to build the target module**
 
    ```bash
-   ./builder_driver <modules_dir> <target_module> <artifacts_dir>
+   ./cli <builder_dir> <modules_dir> <target_module> <artifacts_dir>
    ```
-
-   Builder discovers modules, computes a dependency graph, plans the build and installs bundles and final artifacts into `<artifacts_dir>`.
-
-For a concrete workspace and helper scripts see [Builder‑Example](https://github.com/Gilqamesh/Builder-Example).
-
-## Module interface
-
-### `deps.json`
-
-Each module declares two dependency sets:
-
-- **builder_deps** – modules required to compile and link the module’s *builder plugin*.
-- **module_deps** – modules whose exported bundles are inputs to this module’s link phase.
-
-### `builder_plugin.cpp`
-
-Each module must export three functions as shown above.  A well‑behaved plugin must obey the following contract:
-
-- **`builder__export_bundle_static`**  
-  Package all static libraries produced by your module (including PIC and non‑PIC variants) into a bundle so that dependent modules can link against them.  Throw an exception if your module does not produce static libraries.
-
-- **`builder__export_bundle_shared`**  
-  Package the complete set of shared libraries produced by your module.  Throw an exception if your module does not produce shared libraries.
-
-- **`builder__link_module`**  
-  Produce final artifacts (executables, shared objects, etc.) and install them under `linked_artifacts_dir(ctx)`.  Use the ordered static or shared link command lines returned by the API to link the correct dependencies.
-
-The `builder_api_t` class provides helper methods for common tasks and asserts that prerequisite bundles are available (via `assert_has_static_libraries`, `assert_has_shared_libraries` and `assert_has_linked_artifacts`).  Static helpers in `builder_t` simplify compiling source files, producing archives and linking executables.
 
 ## Artifacts, cycles and versioning
 
@@ -109,8 +67,8 @@ The `builder_api_t` class provides helper methods for common tasks and asserts t
 
 ## Related repositories
 
-- **Builder‑Example** – [example workspace and helper scripts](https://github.com/Gilqamesh/Builder-Example)
-- **Builder‑Application‑1** – [long‑lived application workspace built on Builder](https://github.com/Gilqamesh/Builder-Application-1)
+- **Builder‑Example** – [example workspace](https://github.com/Gilqamesh/Builder-Example)
+- **Builder‑Application‑1** – [long‑lived PoC workspace using Builder](https://github.com/Gilqamesh/Builder-Application-1)
 
 ## Contributing
 
@@ -120,9 +78,8 @@ The `builder_api_t` class provides helper methods for common tasks and asserts t
 
 ## Requirements
 
-- POSIX‑like operating system
-- C++23‑capable compiler
-- Standard Unix toolchain (e.g. `clang++`, `ar`, `ld`)
+- C++23 compiler
+- Unix environment
 
 ## License
 
