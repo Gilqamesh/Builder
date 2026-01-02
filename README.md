@@ -43,7 +43,7 @@ For a concrete workspace, see [Builder‑Example](https://github.com/Gilqamesh/B
    ```
 
    - `builder__export_libraries` builds and installs the modules libraries (static/shared)
-   - `builder__build_module` links into final executables, at this staged all ordered libraries exists for the module to link against
+   - `builder__build_module` links into final executables, at this stage all ordered libraries exists for the module to link against
 
    A typical plugin collects its source files, calls into the builder helpers to build and install into the target directory.
 
