@@ -38,15 +38,7 @@ public:
         bundle_type_t bundle_type,
         const std::string& binary_name
     );
-
-    static std::filesystem::path create_binary(
-        builder_ctx_t* ctx, const builder_api_t* api,
-        const std::vector<std::string>& source_files,
-        const std::vector<std::pair<std::string, std::string>>& define_key_values,
-        const std::vector<std::vector<std::filesystem::path>>& library_groups,
-        const std::string& binary_name
-    );
-
+    
     static std::filesystem::path reference_static_library(
         builder_ctx_t* ctx, const builder_api_t* api,
         const std::filesystem::path& existing_static_library,

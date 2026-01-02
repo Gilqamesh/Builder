@@ -328,6 +328,13 @@ std::vector<std::filesystem::path> compiler_t::cache_object_files(
         auto object_file = cache_dir / source_file;
         object_file.replace_extension(".o");
 
+        const auto object_file_dir = object_file.parent_path();
+        if (!std::filesystem::exists(object_file_dir)) {
+            if (!std::filesystem::create_directories(object_file_dir)) {
+                throw std::runtime_error(std::format("cache_object_files: failed to create output object file directory '{}'", object_file_dir.string()));
+            }
+        }
+
         std::string compile_command = std::format("clang++ {}{}-g {}-std=c++23 -c {} -o {}", include_dirs_str, define_flags_str, position_independent ? "-fPIC " : "", source_file_path.string(), object_file.string());
         std::cout << compile_command << std::endl;
         const int compile_command_result = std::system(compile_command.c_str());

@@ -455,6 +455,7 @@ void builder_ctx_t::export_libraries(uint32_t scc_id, bundle_type_t bundle_type,
     for (uint32_t module_id : scc.module_ids) {
         builder_api_t api(module_id);
         const auto library_group_dir = api.install_dir(this, bundle_type);
+        // TODO: some modules will not emit anything, need another way to cache 'builder__export_libraries' result
         if (!std::filesystem::exists(library_group_dir)) {
             const auto builder_plugin = build_builder_plugin(module_id);
             if (!std::filesystem::exists(builder_plugin)) {
@@ -474,9 +475,6 @@ void builder_ctx_t::export_libraries(uint32_t scc_id, bundle_type_t bundle_type,
                 }
 
                 builder__export_libraries(this, &api, bundle_type);
-                if (!std::filesystem::exists(library_group_dir)) {
-                    throw std::runtime_error(std::format("export_libraries: expected library group dir '{}' to exist after builder plugin export", library_group_dir.string()));
-                }
                 dlclose(builder_plugin_handle);
 
                 const auto& module = m_modules[module_id];
@@ -497,12 +495,16 @@ void builder_ctx_t::export_libraries(uint32_t scc_id, bundle_type_t bundle_type,
             }
         }
 
-        for (const auto& entry : std::filesystem::directory_iterator(library_group_dir)) {
-            library_group.push_back(entry.path());
+        if (std::filesystem::exists(library_group_dir)) {
+            for (const auto& entry : std::filesystem::directory_iterator(library_group_dir)) {
+                library_group.push_back(entry.path());
+            }
         }
     }
 
-    library_groups.emplace_back(std::move(library_group));
+    if (!library_group.empty()) {
+        library_groups.emplace_back(std::move(library_group));
+    }
 }
 
 void builder_ctx_t::version_sccs(uint32_t scc_id) {
