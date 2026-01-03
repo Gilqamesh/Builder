@@ -24,12 +24,11 @@ For a concrete workspace, see [Builder‑Example](https://github.com/Gilqamesh/B
 
 2. **Write `deps.json`**
 
-   The `builder_deps` array lists modules your plugin depends on, and `module_deps` lists modules whose static/shared bundles should be passed to your link phase:
+   The `deps` array lists modules your module depends on.
 
    ```json
    {
-     "builder_deps": ["builder"],
-     "module_deps": []
+     "deps": ["math", "physics", "visualizer", "engine", "core"]
    }
    ```
 
