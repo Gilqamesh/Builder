@@ -49,7 +49,7 @@ For a concrete workspace, see [Builder‑Example](https://github.com/Gilqamesh/B
 4. **Compile cli.cpp**
 
    ```bash
-   clang++ -std=c++23 *.cpp -o cli
+   make cli
    ```
 
 5. **Run cli to build the target module**
