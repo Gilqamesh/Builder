@@ -98,13 +98,6 @@ private:
 
     void export_libraries(uint32_t scc_id, bundle_type_t bundle_type, std::vector<bool>& visited, std::vector<std::vector<std::filesystem::path>>& library_groups);
 
-    void build_builder_core(bundle_type_t bundle_type);
-    void build_builder_compiler(bundle_type_t bundle_type);
-    void build_builder_curl(bundle_type_t bundle_type);
-    void build_builder_find(bundle_type_t bundle_type);
-    void build_builder_json(bundle_type_t bundle_type);
-    void build_builder_zip(bundle_type_t bundle_type);
-
 private: /* debug */
     void svg_overview(const std::filesystem::path& dir, const std::string& file_name_stem);
     void svg_sccs(const std::filesystem::path& dir, const std::string& file_name_stem);

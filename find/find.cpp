@@ -4,15 +4,71 @@
 
 #include <format>
 
-std::vector<std::filesystem::path> find_t::find(builder_ctx_t* ctx, const builder_api_t* api, const std::function<bool(const std::filesystem::directory_entry& entry)>& predicate, bool recursive) {
+bool find_predicate_t::operator()(const std::filesystem::directory_entry& e) const {
+    return predicate(e);
+}
+
+find_predicate_t operator&&(find_predicate_t a, find_predicate_t b) {
+    return find_predicate_t {
+        [=](const std::filesystem::directory_entry& e) {
+            return a(e) && b(e);
+        }
+    };
+}
+
+find_predicate_t operator||(find_predicate_t a, find_predicate_t b) {
+    return find_predicate_t {
+        [=](const std::filesystem::directory_entry& e) {
+            return a(e) || b(e);
+        }
+    };
+}
+
+find_predicate_t operator!(find_predicate_t p) {
+    return find_predicate_t {
+        [=](const std::filesystem::directory_entry& e) {
+            return !p(e);
+        }
+    };
+}
+
+find_predicate_t find_t::all = {
+    [](const std::filesystem::directory_entry& entry) {
+        return true;
+    }
+};
+
+find_predicate_t find_t::cpp_only = {
+    [](const std::filesystem::directory_entry& entry) {
+        return entry.is_regular_file() && entry.path().extension() == ".cpp";
+    }
+};
+
+find_predicate_t find_t::c_only = {
+    [](const std::filesystem::directory_entry& entry) {
+        return entry.is_regular_file() && entry.path().extension() == ".c";
+    }
+};
+
+find_predicate_t find_t::filename(const std::string& name) {
+    return {
+        [=](const std::filesystem::directory_entry& entry) {
+            return entry.is_regular_file() && entry.path().filename() == name;
+        }
+    };
+}
+
+std::vector<std::filesystem::path> find_t::find(builder_ctx_t* ctx, const builder_api_t* api, const find_predicate_t& find_predicate, bool recursive) {
     const auto builder_plugin_cpp = api->source_dir(ctx) / BUILDER_PLUGIN_CPP;
     return find(
         api->source_dir(ctx),
-        [&](const std::filesystem::directory_entry& entry) {
-            if (entry.path() == builder_plugin_cpp) {
-                return false;
-            } else {
-                return predicate(entry);
+        {
+            [&](const std::filesystem::directory_entry& entry) {
+                if (entry.path() == builder_plugin_cpp) {
+                    return false;
+                } else {
+                    return find_predicate(entry);
+                }
             }
         },
         recursive
@@ -20,7 +76,7 @@ std::vector<std::filesystem::path> find_t::find(builder_ctx_t* ctx, const builde
 }
 
 
-std::vector<std::filesystem::path> find_t::find(const std::filesystem::path& root, const std::function<bool(const std::filesystem::directory_entry& entry)>& predicate, bool recursive) {
+std::vector<std::filesystem::path> find_t::find(const std::filesystem::path& root, const find_predicate_t& find_predicate, bool recursive) {
     std::vector<std::filesystem::path> result;
 
     std::vector<std::filesystem::directory_entry> entries;
@@ -39,14 +95,14 @@ std::vector<std::filesystem::path> find_t::find(const std::filesystem::path& roo
     });
 
     for (const auto& entry : entries) {
-        if (!predicate(entry)) {
+        if (!find_predicate(entry)) {
             continue ;
         }
 
         if (entry.is_directory()) {
             // NOTE: could be pulled out from the for loop, but this is clearer
             if (recursive) {
-                auto subresult = find(entry.path(), predicate, recursive);
+                auto subresult = find(entry.path(), find_predicate, recursive);
                 result.insert(result.end(), std::make_move_iterator(subresult.begin()), std::make_move_iterator(subresult.end()));
             }
         } else {

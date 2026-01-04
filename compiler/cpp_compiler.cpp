@@ -35,6 +35,7 @@ std::filesystem::path cpp_compiler_t::create_shared_library(
         { api->include_dir(ctx) },
         source_files,
         define_key_values,
+        {},
         api->install_dir(ctx, BUNDLE_TYPE_SHARED) / shared_library_name
     );
 }
@@ -53,14 +54,14 @@ std::filesystem::path cpp_compiler_t::create_library(
     }
 }
 
-std::filesystem::path cpp_compiler_t::create_loadable(
+std::filesystem::path cpp_compiler_t::create_binary(
     builder_ctx_t* ctx, const builder_api_t* api,
     const std::vector<std::filesystem::path>& source_files,
     const std::vector<std::pair<std::string, std::string>>& define_key_values,
     bundle_type_t bundle_type,
-    const std::string& loadable_name
+    const std::string& binary_name
 ) {
-    return create_loadable(
+    return create_binary(
         api->cache_dir(ctx, bundle_type),
         api->source_dir(ctx),
         { api->include_dir(ctx) },
@@ -68,7 +69,7 @@ std::filesystem::path cpp_compiler_t::create_loadable(
         define_key_values,
         api->export_libraries(ctx, bundle_type),
         bundle_type,
-        api->build_module_dir(ctx) / loadable_name
+        api->build_module_dir(ctx) / binary_name
     );
 }
 
@@ -101,26 +102,26 @@ std::filesystem::path cpp_compiler_t::reference_library(
     }
 }
 
-std::filesystem::path cpp_compiler_t::reference_loadable(
+std::filesystem::path cpp_compiler_t::reference_binary(
     builder_ctx_t* ctx, const builder_api_t* api,
-    const std::filesystem::path& existing_loadable,
-    const std::string& loadable_name
+    const std::filesystem::path& existing_binary,
+    const std::string& binary_name
 ) {
-    if (!std::filesystem::exists(existing_loadable)) {
-        throw std::runtime_error(std::format("reference_loadable: referenced loadable '{}' does not exist", existing_loadable.string()));
+    if (!std::filesystem::exists(existing_binary)) {
+        throw std::runtime_error(std::format("reference_binary: referenced binary '{}' does not exist", existing_binary.string()));
     }
 
-    const auto loadable_dir = api->build_module_dir(ctx);
-    const auto loadable = loadable_dir / loadable_name;
+    const auto binary_dir = api->build_module_dir(ctx);
+    const auto binary = binary_dir / binary_name;
 
-    std::cout << std::format("ln -s {} {}", existing_loadable.string(), loadable.string()) << std::endl;
+    std::cout << std::format("ln -s {} {}", existing_binary.string(), binary.string()) << std::endl;
     std::error_code ec;
-    std::filesystem::create_symlink(existing_loadable, loadable, ec);
+    std::filesystem::create_symlink(existing_binary, binary, ec);
     if (ec) {
-        throw std::runtime_error(std::format("reference_loadable: failed to create symlink from '{}' to '{}': {}", existing_loadable.string(), loadable.string(), ec.message()));
+        throw std::runtime_error(std::format("reference_binary: failed to create symlink from '{}' to '{}': {}", existing_binary.string(), binary.string(), ec.message()));
     }
 
-    return loadable;
+    return binary;
 }
 
 std::filesystem::path cpp_compiler_t::create_static_library(
@@ -171,6 +172,7 @@ std::filesystem::path cpp_compiler_t::create_shared_library(
     const std::vector<std::filesystem::path>& include_dirs,
     const std::vector<std::filesystem::path>& source_files,
     const std::vector<std::pair<std::string, std::string>>& define_key_values,
+    const std::vector<std::filesystem::path>& dsos,
     const std::filesystem::path& shared_library
 ) {
     const auto object_files = cache_object_files(
@@ -194,6 +196,14 @@ std::filesystem::path cpp_compiler_t::create_shared_library(
         command += " " + object_file.string();
     }
 
+    for (const auto& dso : dsos) {
+        if (!std::filesystem::exists(dso)) {
+            throw std::runtime_error(std::format("create_shared_library: dso does not exist '{}'", dso.string()));
+        }
+
+        command += " " + dso.string();
+    }
+
     std::cout << command << std::endl;
     const int command_result = std::system(command.c_str());
     if (command_result != 0) {
@@ -207,23 +217,7 @@ std::filesystem::path cpp_compiler_t::create_shared_library(
     return shared_library;
 }
 
-std::filesystem::path cpp_compiler_t::create_library(
-    const std::filesystem::path& cache_dir,
-    const std::filesystem::path& source_dir,
-    const std::vector<std::filesystem::path>& include_dirs,
-    const std::vector<std::filesystem::path>& source_files,
-    const std::vector<std::pair<std::string, std::string>>& define_key_values,
-    const std::filesystem::path& library_stem,
-    bundle_type_t bundle_type
-) {
-    switch (bundle_type) {
-        case BUNDLE_TYPE_STATIC: return create_static_library(cache_dir, source_dir, include_dirs, source_files, define_key_values, library_stem.string() + ".lib");
-        case BUNDLE_TYPE_SHARED: return create_shared_library(cache_dir, source_dir, include_dirs, source_files, define_key_values, library_stem.string() + ".so");
-        default: throw std::runtime_error(std::format("create_library: unknown bundle_type {}", static_cast<int>(bundle_type)));
-    }
-}
-
-std::filesystem::path cpp_compiler_t::create_loadable(
+std::filesystem::path cpp_compiler_t::create_binary(
     const std::filesystem::path& cache_dir,
     const std::filesystem::path& source_dir,
     const std::vector<std::filesystem::path>& include_dirs,
@@ -231,18 +225,18 @@ std::filesystem::path cpp_compiler_t::create_loadable(
     const std::vector<std::pair<std::string, std::string>>& define_key_values,
     const std::vector<std::vector<std::filesystem::path>>& library_groups,
     bundle_type_t bundle_type,
-    const std::filesystem::path& loadable
+    const std::filesystem::path& binary
 ) {
     const auto object_files = cache_object_files(cache_dir, source_dir, include_dirs, source_files, define_key_values, bundle_type);
 
-    const auto loadable_dir = loadable.parent_path();
-    if (!std::filesystem::exists(loadable_dir)) {
-        if (!std::filesystem::create_directories(loadable_dir)) {
-            throw std::runtime_error(std::format("create_loadable: failed to create output loadable directory '{}'", loadable_dir.string()));
+    const auto binary_dir = binary.parent_path();
+    if (!std::filesystem::exists(binary_dir)) {
+        if (!std::filesystem::create_directories(binary_dir)) {
+            throw std::runtime_error(std::format("create_binary: failed to create output binary directory '{}'", binary_dir.string()));
         }
     }
 
-    std::string command = std::format("clang++ -std=c++23 {}-o {}", bundle_type == BUNDLE_TYPE_SHARED ? "-shared " : "", loadable.string());
+    std::string command = std::format("clang++ -g -std=c++23 -o {}", binary.string());
     for (const auto& object_file : object_files) {
         command += " " + object_file.string();
     }
@@ -254,7 +248,7 @@ std::filesystem::path cpp_compiler_t::create_loadable(
         }
         for (const auto& library : *library_group_it) {
             if (!std::filesystem::exists(library)) {
-                throw std::runtime_error(std::format("create_loadable: library does not exist '{}'", library.string()));
+                throw std::runtime_error(std::format("create_binary: library does not exist '{}'", library.string()));
             }
             command += " " + library.string();
         }
@@ -266,14 +260,14 @@ std::filesystem::path cpp_compiler_t::create_loadable(
     std::cout << command << std::endl;
     const int command_result = std::system(command.c_str());
     if (command_result != 0) {
-        throw std::runtime_error(std::format("create_loadable: failed to create loadable '{}', command exited with code {}", loadable.string(), command_result));
+        throw std::runtime_error(std::format("create_binary: failed to create binary '{}', command exited with code {}", binary.string(), command_result));
     }
 
-    if (!std::filesystem::exists(loadable)) {
-        throw std::runtime_error(std::format("create_loadable: expected output loadable '{}' to exist but it does not", loadable.string()));
+    if (!std::filesystem::exists(binary)) {
+        throw std::runtime_error(std::format("create_binary: expected output binary '{}' to exist but it does not", binary.string()));
     }
 
-    return loadable;
+    return binary;
 }
 
 std::filesystem::path cpp_compiler_t::reference_static_library(

@@ -60,14 +60,13 @@ const std::filesystem::path& builder_ctx_t::include_dir() const {
 std::filesystem::path builder_ctx_t::build_builder_plugin(uint32_t module_id) {
     const auto builder_plugin = builder_plugin_path(module_id);
     if (!std::filesystem::exists(builder_plugin)) {
-        cpp_compiler_t::create_loadable(
+        cpp_compiler_t::create_shared_library(
             builder_plugin_cache_dir(module_id),
             module_dir(module_id),
             { include_dir() },
             { module_dir(module_id) / BUILDER_PLUGIN_CPP },
             {},
-            { build_builder_libraries(BUNDLE_TYPE_SHARED) },
-            BUNDLE_TYPE_SHARED,
+            build_builder_libraries(BUNDLE_TYPE_SHARED),
             builder_plugin
         );
     }
@@ -165,162 +164,6 @@ uint32_t builder_ctx_t::discover() {
     return result;
 }
 
-void builder_ctx_t::build_builder_core(bundle_type_t bundle_type) {
-   cpp_compiler_t::create_library(
-        builder_cache_dir(bundle_type),
-        builder_src_dir(),
-        { builder_src_dir() },
-        find_t::find(
-            m_builder_dir,
-            [](const std::filesystem::directory_entry& entry) {
-                const auto& path = entry.path();
-                if (path.extension() != ".cpp") {
-                    return false;
-                }
-
-                const auto filename = path.filename();
-                return filename != "cli.cpp" && filename != "test.cpp";
-            },
-            false
-        ),
-        {},
-        builder_install_dir(bundle_type) / "core",
-        bundle_type
-    );
-}
-
-void builder_ctx_t::build_builder_compiler(bundle_type_t bundle_type) {
-    cpp_compiler_t::create_library(
-        builder_cache_dir(bundle_type),
-        builder_src_dir(),
-        { builder_src_dir() },
-        find_t::find(
-            m_builder_dir / "compiler",
-            [](const std::filesystem::directory_entry& entry) {
-                const auto& path = entry.path();
-                if (path.extension() != ".cpp") {
-                    return false;
-                }
-
-                const auto filename = path.filename();
-                return filename != "cli.cpp" && filename != "test.cpp";
-            },
-            false
-        ),
-        {},
-        builder_install_dir(bundle_type) / "zip",
-        bundle_type
-    );
-}
-
-void builder_ctx_t::build_builder_curl(bundle_type_t bundle_type) {
-    if (bundle_type != BUNDLE_TYPE_SHARED) {
-        throw std::runtime_error("build_builder_curl: only shared bundle type is supported");
-    }
-
-    const auto system_curl = std::filesystem::path("/usr/lib64/libcurl.so");
-    if (!std::filesystem::exists(system_curl)) {
-        throw std::runtime_error(std::format("system curl library '{}' does not exist, TODO: extend logic to install it", system_curl.string()));
-    }
-
-    const auto install_dir = builder_install_dir(bundle_type);
-
-    cpp_compiler_t::reference_shared_library(system_curl, install_dir / "curl-ref.so");
-
-    cpp_compiler_t::create_shared_library(
-        builder_cache_dir(bundle_type),
-        builder_src_dir(),
-        { builder_src_dir() },
-        find_t::find(
-            m_builder_dir / "curl",
-            [](const std::filesystem::directory_entry& entry) {
-                const auto& path = entry.path();
-                if (path.extension() != ".cpp") {
-                    return false;
-                }
-
-                const auto filename = path.filename();
-                return filename != "cli.cpp" && filename != "test.cpp";
-            },
-            false
-        ),
-        {},
-        install_dir / "curl.so"
-    );
-}
-
-void builder_ctx_t::build_builder_find(bundle_type_t bundle_type) {
-    cpp_compiler_t::create_library(
-        builder_cache_dir(bundle_type),
-        builder_src_dir(),
-        { builder_src_dir() },
-        find_t::find(
-            m_builder_dir / "find",
-            [](const std::filesystem::directory_entry& entry) {
-                const auto& path = entry.path();
-                if (path.extension() != ".cpp") {
-                    return false;
-                }
-
-                const auto filename = path.filename();
-                return filename != "cli.cpp" && filename != "test.cpp";
-            },
-            false
-        ),
-        {},
-        builder_install_dir(bundle_type) / "find",
-        bundle_type
-    );
-}
-
-void builder_ctx_t::build_builder_json(bundle_type_t bundle_type) {
-    cpp_compiler_t::create_library(
-        builder_cache_dir(bundle_type),
-        builder_src_dir(),
-        { builder_src_dir() },
-        find_t::find(
-            m_builder_dir / "json",
-            [](const std::filesystem::directory_entry& entry) {
-                const auto& path = entry.path();
-                if (path.extension() != ".cpp") {
-                    return false;
-                }
-
-                const auto filename = path.filename();
-                return filename != "cli.cpp";
-            },
-            false
-        ),
-        {},
-        builder_install_dir(bundle_type) / "json",
-        bundle_type
-    );
-}
-
-void builder_ctx_t::build_builder_zip(bundle_type_t bundle_type) {
-    cpp_compiler_t::create_library(
-        builder_cache_dir(bundle_type),
-        builder_src_dir(),
-        { builder_src_dir() },
-        find_t::find(
-            m_builder_dir / "zip",
-            [](const std::filesystem::directory_entry& entry) {
-                const auto& path = entry.path();
-                if (path.extension() != ".cpp") {
-                    return false;
-                }
-
-                const auto filename = path.filename();
-                return filename != "cli.cpp" && filename != "test.cpp";
-            },
-            true
-        ),
-        {},
-        builder_install_dir(bundle_type) / "zip",
-        bundle_type
-    );
-}
-
 const std::vector<std::filesystem::path>& builder_ctx_t::build_builder_libraries(bundle_type_t bundle_type) {
     if (m_builder_libraries_cached[bundle_type]) {
         return m_builder_libraries[bundle_type];
@@ -353,11 +196,7 @@ const std::vector<std::filesystem::path>& builder_ctx_t::build_builder_libraries
         }
     }
 
-    m_builder_libraries[bundle_type] = find_t::find(
-        builder_install_dir(bundle_type),
-        [](const std::filesystem::directory_entry& entry) { return true; },
-        true
-    );
+    m_builder_libraries[bundle_type] = find_t::find(builder_install_dir(bundle_type), find_t::all, true);
 
     m_builder_libraries_cached[bundle_type] = true;
 

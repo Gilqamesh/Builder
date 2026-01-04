@@ -31,12 +31,12 @@ public:
         bundle_type_t bundle_type
     );
 
-    static std::filesystem::path create_loadable(
+    static std::filesystem::path create_binary(
         builder_ctx_t* ctx, const builder_api_t* api,
         const std::vector<std::filesystem::path>& source_files,
         const std::vector<std::pair<std::string, std::string>>& define_key_values,
         bundle_type_t bundle_type,
-        const std::string& loadable_name
+        const std::string& binary_name
     );
     
     static std::filesystem::path reference_static_library(
@@ -58,10 +58,10 @@ public:
         bundle_type_t bundle_type
     );
 
-    static std::filesystem::path reference_loadable(
+    static std::filesystem::path reference_binary(
         builder_ctx_t* ctx, const builder_api_t* api,
-        const std::filesystem::path& existing_loadable,
-        const std::string& loadable_name
+        const std::filesystem::path& existing_binary,
+        const std::string& binary_name
     );
 
 public:
@@ -80,20 +80,11 @@ public:
         const std::vector<std::filesystem::path>& include_dirs,
         const std::vector<std::filesystem::path>& source_files,
         const std::vector<std::pair<std::string, std::string>>& define_key_values,
+        const std::vector<std::filesystem::path>& dsos,
         const std::filesystem::path& shared_library
     );
 
-    static std::filesystem::path create_library(
-        const std::filesystem::path& cache_dir,
-        const std::filesystem::path& source_dir,
-        const std::vector<std::filesystem::path>& include_dirs,
-        const std::vector<std::filesystem::path>& source_files,
-        const std::vector<std::pair<std::string, std::string>>& define_key_values,
-        const std::filesystem::path& library_stem,
-        bundle_type_t bundle_type
-    );
-
-    static std::filesystem::path create_loadable(
+    static std::filesystem::path create_binary(
         const std::filesystem::path& cache_dir,
         const std::filesystem::path& source_dir,
         const std::vector<std::filesystem::path>& include_dirs,
@@ -101,7 +92,7 @@ public:
         const std::vector<std::pair<std::string, std::string>>& define_key_values,
         const std::vector<std::vector<std::filesystem::path>>& library_groups,
         bundle_type_t bundle_type,
-        const std::filesystem::path& loadable
+        const std::filesystem::path& binary
     );
 
     static std::filesystem::path reference_static_library(
