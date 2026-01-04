@@ -10,7 +10,7 @@ public:
     std::filesystem::path source_dir(builder_ctx_t* ctx) const;
     std::filesystem::path include_dir(builder_ctx_t* ctx) const;
     std::filesystem::path install_dir(builder_ctx_t* ctx, bundle_type_t bundle_type) const;
-    std::filesystem::path cache_dir(builder_ctx_t* ctx, bundle_type_t bundle_type) const;
+    std::filesystem::path cache_dir(builder_ctx_t* ctx, bundle_type_t bundle_type) const; // TODO: this is tmp dir really, caching is unused
     std::filesystem::path build_module_dir(builder_ctx_t* ctx) const;
     std::filesystem::path builder_plugin_dir(builder_ctx_t* ctx) const;
     std::filesystem::path builder_plugin_cache_dir(builder_ctx_t* ctx) const;

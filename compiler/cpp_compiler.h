@@ -1,42 +1,42 @@
-#ifndef COMPILER_H
-# define COMPILER_H
+#ifndef BUILDER_PROJECT_COMPILER_CPP_COMPILER_H
+# define BUILDER_PROJECT_COMPILER_CPP_COMPILER_H
 
-# include "builder_ctx.h"
-# include "builder_api.h"
+# include <builder/builder_ctx.h>
+# include <builder/builder_api.h>
 
 # include <filesystem>
 # include <vector>
 
-class compiler_t {
+class cpp_compiler_t {
 public:
     static std::filesystem::path create_static_library(
         builder_ctx_t* ctx, const builder_api_t* api,
-        const std::vector<std::string>& source_files,
+        const std::vector<std::filesystem::path>& source_files,
         const std::vector<std::pair<std::string, std::string>>& define_key_values,
         const std::string& static_library_name
     );
 
     static std::filesystem::path create_shared_library(
         builder_ctx_t* ctx, const builder_api_t* api,
-        const std::vector<std::string>& source_files,
+        const std::vector<std::filesystem::path>& source_files,
         const std::vector<std::pair<std::string, std::string>>& define_key_values,
         const std::string& shared_library_name
     );
 
     static std::filesystem::path create_library(
         builder_ctx_t* ctx, const builder_api_t* api,
-        const std::vector<std::string>& source_files,
+        const std::vector<std::filesystem::path>& source_files,
         const std::vector<std::pair<std::string, std::string>>& define_key_values,
         const std::string& library_stem,
         bundle_type_t bundle_type
     );
 
-    static std::filesystem::path create_binary(
+    static std::filesystem::path create_loadable(
         builder_ctx_t* ctx, const builder_api_t* api,
-        const std::vector<std::string>& source_files,
+        const std::vector<std::filesystem::path>& source_files,
         const std::vector<std::pair<std::string, std::string>>& define_key_values,
         bundle_type_t bundle_type,
-        const std::string& binary_name
+        const std::string& loadable_name
     );
     
     static std::filesystem::path reference_static_library(
@@ -58,10 +58,10 @@ public:
         bundle_type_t bundle_type
     );
 
-    static std::filesystem::path reference_binary(
+    static std::filesystem::path reference_loadable(
         builder_ctx_t* ctx, const builder_api_t* api,
-        const std::filesystem::path& existing_binary,
-        const std::string& binary_name
+        const std::filesystem::path& existing_loadable,
+        const std::string& loadable_name
     );
 
 public:
@@ -69,7 +69,7 @@ public:
         const std::filesystem::path& cache_dir,
         const std::filesystem::path& source_dir,
         const std::vector<std::filesystem::path>& include_dirs,
-        const std::vector<std::string>& source_files,
+        const std::vector<std::filesystem::path>& source_files,
         const std::vector<std::pair<std::string, std::string>>& define_key_values,
         const std::filesystem::path& static_library
     );
@@ -78,16 +78,53 @@ public:
         const std::filesystem::path& cache_dir,
         const std::filesystem::path& source_dir,
         const std::vector<std::filesystem::path>& include_dirs,
-        const std::vector<std::string>& source_files,
+        const std::vector<std::filesystem::path>& source_files,
         const std::vector<std::pair<std::string, std::string>>& define_key_values,
-        const std::vector<std::filesystem::path>& dso_files,
         const std::filesystem::path& shared_library
     );
 
+    static std::filesystem::path create_library(
+        const std::filesystem::path& cache_dir,
+        const std::filesystem::path& source_dir,
+        const std::vector<std::filesystem::path>& include_dirs,
+        const std::vector<std::filesystem::path>& source_files,
+        const std::vector<std::pair<std::string, std::string>>& define_key_values,
+        const std::filesystem::path& library_stem,
+        bundle_type_t bundle_type
+    );
+
+    static std::filesystem::path create_loadable(
+        const std::filesystem::path& cache_dir,
+        const std::filesystem::path& source_dir,
+        const std::vector<std::filesystem::path>& include_dirs,
+        const std::vector<std::filesystem::path>& source_files,
+        const std::vector<std::pair<std::string, std::string>>& define_key_values,
+        const std::vector<std::vector<std::filesystem::path>>& library_groups,
+        bundle_type_t bundle_type,
+        const std::filesystem::path& loadable
+    );
+
+    static std::filesystem::path reference_static_library(
+        const std::filesystem::path& existing_static_library,
+        const std::filesystem::path& static_library
+    );
+
+    static std::filesystem::path reference_shared_library(
+        const std::filesystem::path& existing_shared_library,
+        const std::filesystem::path& shared_library
+    );
+
+    static std::filesystem::path reference_shared_library(
+        const std::filesystem::path& existing_library,
+        const std::filesystem::path& library_stem,
+        bundle_type_t bundle_type
+    );
+
 private:
+    // TODO: rename to tmp
     static std::vector<std::filesystem::path> cache_object_files(
         builder_ctx_t* ctx, const builder_api_t* api,
-        const std::vector<std::string>& source_files,
+        const std::vector<std::filesystem::path>& source_files,
         const std::vector<std::pair<std::string, std::string>>& define_key_values,
         bundle_type_t bundle_type
     );
@@ -96,10 +133,10 @@ private:
         const std::filesystem::path& cache_dir,
         const std::filesystem::path& source_dir,
         const std::vector<std::filesystem::path>& include_dirs,
-        const std::vector<std::string>& source_files,
+        const std::vector<std::filesystem::path>& source_files,
         const std::vector<std::pair<std::string, std::string>>& define_key_values,
         bool position_independent
     );
 };
 
-#endif // COMPILER_H
+#endif // BUILDER_PROJECT_COMPILER_CPP_COMPILER_H
