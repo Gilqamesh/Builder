@@ -46,19 +46,19 @@ public:
     const module_t& builder_module() const;
     const module_t& target_module() const;
 
-    const module_scc_t* target_scc() const;
-
     static uint64_t version(const std::filesystem::file_time_type& file_time_type);
     static uint64_t version(const std::filesystem::path& dir);
 
-    void visit_sccs_topo(const std::function<void(const module_scc_t*)>& f) const;
+    const module_scc_t* module_scc(const module_t& module) const;
+
+    void visit_sccs_topo(const module_scc_t* from, const std::function<void(const module_scc_t*)>& f) const;
 
 public: /* debug */
     void svg(const std::filesystem::path& dir, const std::string& file_name_stem);
 
 private:
     module_graph_t(
-        module_scc_t* target_scc,
+        std::unordered_map<const module_t*, const module_scc_t*> scc_by_module,
         module_t* builder_module,
         module_t* target_module,
         const std::filesystem::path& modules_dir
@@ -77,7 +77,7 @@ private:
     static void strong_connect(const std::string& module_name, uint32_t& index, std::unordered_map<std::string, module_info_t>& module_infos_by_module_name, std::stack<std::string>& S, std::unordered_map<std::string, module_scc_t*>& module_sccs, const std::unordered_map<std::string, discover_result_t>& discover_results);
     static uint64_t version_sccs(module_scc_t* scc, std::unordered_map<module_scc_t*, uint64_t>& visited, uint64_t minimum_version);
 
-    void visit_sccs_topo(const std::function<void(const module_scc_t*)>& f, const module_scc_t* scc, std::unordered_set<const module_scc_t*>& visited) const;
+    void visit_sccs_topo(const module_scc_t* scc, const std::function<void(const module_scc_t*)>& f, std::unordered_set<const module_scc_t*>& visited) const;
 
 private: /* debug */
     void svg_overview(const std::filesystem::path& dir, const std::string& file_name_stem);
@@ -85,7 +85,7 @@ private: /* debug */
     void svg_scc(const std::filesystem::path& dir, const module_scc_t* scc, const std::string& file_name_stem);
 
 private:
-    module_scc_t* m_target_scc;
+    std::unordered_map<const module_t*, const module_scc_t*> m_scc_by_module;
     module_t* m_builder_module;
     module_t* m_target_module;
     std::filesystem::path m_modules_dir;
@@ -94,10 +94,9 @@ private:
 
 class builder_t {
 public:
-    builder_t(const module_graph_t& module_graph, const std::filesystem::path& artifacts_dir);
+    builder_t(const module_graph_t& module_graph, const module_t& module, const std::filesystem::path& artifacts_dir);
 
     std::vector<std::vector<std::filesystem::path>> export_libraries(library_type_t library_type) const;
-    std::vector<std::filesystem::path> export_libraries(const module_t& module, library_type_t library_type) const;
     void import_libraries() const;
 
     std::filesystem::path modules_dir() const;
@@ -114,6 +113,7 @@ public:
     std::filesystem::path builder_install_path() const;
 
 private:
+    std::vector<std::filesystem::path> export_libraries(const module_t& module, library_type_t library_type) const;
     void import_libraries(const module_t& module) const;
 
     std::filesystem::path src_dir(const module_t& module) const;
@@ -134,6 +134,7 @@ private:
 
 private:
     const module_graph_t& m_module_graph;
+    const module_t& m_module;
     std::filesystem::path m_artifacts_dir;
 };
 

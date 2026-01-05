@@ -1,4 +1,4 @@
-#include <builder/compiler/cpp_compiler.h>
+#include <modules/builder/compiler/cpp_compiler.h>
 
 #include <format>
 #include <iostream>
@@ -48,7 +48,7 @@ std::filesystem::path cpp_compiler_t::create_library(
     library_type_t library_type
 ) {
     switch (library_type) {
-        case LIBRARY_TYPE_STATIC: return create_static_library(builder, source_files, define_key_values, library_stem + ".lib");
+        case LIBRARY_TYPE_STATIC: return create_static_library(builder, source_files, define_key_values, library_stem + ".a");
         case LIBRARY_TYPE_SHARED: return create_shared_library(builder, source_files, define_key_values, library_stem + ".so");
         default: throw std::runtime_error(std::format("create_library: unknown library_type {}", static_cast<int>(library_type)));
     }
@@ -326,7 +326,7 @@ std::filesystem::path cpp_compiler_t::reference_shared_library(
     library_type_t library_type
 ) {
     switch (library_type) {
-        case LIBRARY_TYPE_STATIC: return reference_static_library(existing_library, library_stem.string() + ".lib");
+        case LIBRARY_TYPE_STATIC: return reference_static_library(existing_library, library_stem.string() + ".a");
         case LIBRARY_TYPE_SHARED: return reference_shared_library(existing_library, library_stem.string() + ".so");
         default: throw std::runtime_error(std::format("reference_library: unknown library_type {}", static_cast<int>(library_type)));
     }

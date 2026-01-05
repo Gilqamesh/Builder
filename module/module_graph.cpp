@@ -1,8 +1,8 @@
-#include <builder/module/module_graph.h>
-#include <builder/compiler/cpp_compiler.h>
-#include <builder/find/find.h>
-#include <builder/internal.h>
-#include <builder/json/json.hpp>
+#include <modules/builder/module/module_graph.h>
+#include <modules/builder/compiler/cpp_compiler.h>
+#include <modules/builder/find/find.h>
+#include <modules/builder/internal.h>
+#include <modules/builder/json/json.hpp>
 
 #include <format>
 #include <fstream>
@@ -33,8 +33,9 @@ bool module_t::operator==(const module_t& other) const {
     return m_name == other.m_name && m_version == other.m_version;
 }
 
-builder_t::builder_t(const module_graph_t& module_graph, const std::filesystem::path& artifacts_dir):
+builder_t::builder_t(const module_graph_t& module_graph, const module_t& module, const std::filesystem::path& artifacts_dir):
     m_module_graph(module_graph),
+    m_module(module),
     m_artifacts_dir(artifacts_dir)
 {
 }
@@ -42,7 +43,7 @@ builder_t::builder_t(const module_graph_t& module_graph, const std::filesystem::
 std::vector<std::vector<std::filesystem::path>> builder_t::export_libraries(library_type_t library_type) const {
     std::vector<std::vector<std::filesystem::path>> library_groups;
 
-    m_module_graph.visit_sccs_topo([&](const module_scc_t* scc) {
+    m_module_graph.visit_sccs_topo(m_module_graph.module_scc(m_module), [&](const module_scc_t* scc) {
         std::vector<std::filesystem::path> library_group;
 
         for (const auto& module : scc->modules) {
@@ -63,7 +64,7 @@ std::filesystem::path builder_t::modules_dir() const {
 }
 
 std::filesystem::path builder_t::src_dir() const {
-    return src_dir(m_module_graph.target_module());
+    return src_dir(m_module);
 }
 
 std::filesystem::path builder_t::include_dir() const {
@@ -75,27 +76,27 @@ std::filesystem::path builder_t::artifacts_dir() const {
 }
 
 std::filesystem::path builder_t::build_dir(library_type_t library_type) const {
-    return build_dir(m_module_graph.target_module(), library_type);
+    return build_dir(m_module, library_type);
 }
 
 std::filesystem::path builder_t::export_dir(library_type_t library_type) const {
-    return export_dir(m_module_graph.target_module(), library_type);
+    return export_dir(m_module, library_type);
 }
 
 std::filesystem::path builder_t::import_dir() const {
-    return import_dir(m_module_graph.target_module());
+    return import_dir(m_module);
 }
 
 std::filesystem::path builder_t::builder_src_path() const {
-    return builder_src_path(m_module_graph.target_module());
+    return builder_src_path(m_module);
 }
 
 std::filesystem::path builder_t::builder_build_dir() const {
-    return builder_build_dir(m_module_graph.target_module());
+    return builder_build_dir(m_module);
 }
 
 std::filesystem::path builder_t::builder_install_path() const {
-    return builder_install_path(m_module_graph.target_module());
+    return builder_install_path(m_module);
 }
 
 std::filesystem::path builder_t::artifact_dir(const module_t& module) const {
@@ -147,17 +148,26 @@ std::filesystem::path builder_t::export_dir(const module_t& module) const {
 }
 
 module_graph_t::module_graph_t(
-    module_scc_t* target_scc,
+    std::unordered_map<const module_t*, const module_scc_t*> scc_by_module,
     module_t* builder_module,
     module_t* target_module,
     const std::filesystem::path& modules_dir
 ):
-    m_target_scc(target_scc),
+    m_scc_by_module(std::move(scc_by_module)),
     m_builder_module(builder_module),
     m_target_module(target_module),
     m_modules_dir(modules_dir),
     m_include_dir(modules_dir.parent_path().empty() ? "." : modules_dir.parent_path())
 {
+}
+
+const module_scc_t* module_graph_t::module_scc(const module_t& module) const {
+    auto it = m_scc_by_module.find(&module);
+    if (it == m_scc_by_module.end()) {
+        throw std::runtime_error(std::format("module_scc: module '{}' not found in module graph", module.name()));
+    }
+
+    return it->second;
 }
 
 module_graph_t module_graph_t::discover(const std::filesystem::path& modules_dir, const std::string& target_module_name) {
@@ -178,24 +188,38 @@ module_graph_t module_graph_t::discover(const std::filesystem::path& modules_dir
         }
     }
 
+    std::unordered_map<const module_t*, const module_scc_t*> scc_by_module;
     std::unordered_map<module_scc_t*, std::unordered_set<module_scc_t*>> scc_dependencies_by_scc;
     for (const auto& [module_name, discover_result] : discover_results) {
         auto& module_scc = module_sccs[module_name];
+
+        for (const auto& module : module_scc->modules) {
+            scc_by_module[module] = module_scc;
+        }
+
         for (const auto& dependency : discover_result.dependencies) {
             auto& dependency_scc = module_sccs[dependency->name()];
-            if (scc_dependencies_by_scc[module_scc].insert(dependency_scc).second) {
+            if (module_scc != dependency_scc && scc_dependencies_by_scc[module_scc].insert(dependency_scc).second) {
                 module_scc->dependencies.push_back(dependency_scc);
             }
         }
     }
 
-    module_t* builder_module = new module_t("builder", version(modules_dir / "builder"));
-    module_scc_t* target_scc = module_sccs.at(target_module_name);
+    auto builder_it = discover_results.find("builder");
+    module_t* builder_module = nullptr;
+    if (builder_it == discover_results.end()) {
+        builder_module = new module_t("builder", version(modules_dir / "builder"));
+        module_scc_t* builder_module_scc = new module_scc_t;
+        builder_module_scc->modules.push_back(builder_module);
+        scc_by_module[builder_module] = builder_module_scc;
+    } else {
+        builder_module = builder_it->second.module;
+    }
 
     std::unordered_map<module_scc_t*, uint64_t> visited;
-    version_sccs(target_scc, visited, builder_module->version());
+    version_sccs(module_sccs.at(target_module_name), visited, builder_module->version());
 
-    return module_graph_t(target_scc, builder_module, target_module, modules_dir);
+    return module_graph_t(std::move(scc_by_module), builder_module, target_module, modules_dir);
 }
 
 void module_graph_t::strong_connect(const std::string& module_name, uint32_t& index, std::unordered_map<std::string, module_info_t>& module_infos_by_module_name, std::stack<std::string>& S, std::unordered_map<std::string, module_scc_t*>& module_sccs, const std::unordered_map<std::string, discover_result_t>& discover_results) {
@@ -256,18 +280,18 @@ uint64_t module_graph_t::version_sccs(module_scc_t* scc, std::unordered_map<modu
     return result;
 }
 
-void module_graph_t::visit_sccs_topo(const std::function<void(const module_scc_t*)>& f) const {
+void module_graph_t::visit_sccs_topo(const module_scc_t* from, const std::function<void(const module_scc_t*)>& f) const {
     std::unordered_set<const module_scc_t*> visited;
-    visit_sccs_topo(f, m_target_scc, visited);
+    visit_sccs_topo(from, f, visited);
 }
 
-void module_graph_t::visit_sccs_topo(const std::function<void(const module_scc_t*)>& f, const module_scc_t* scc, std::unordered_set<const module_scc_t*>& visited) const {
+void module_graph_t::visit_sccs_topo(const module_scc_t* scc, const std::function<void(const module_scc_t*)>& f, std::unordered_set<const module_scc_t*>& visited) const {
     if (!visited.insert(scc).second) {
         return ;
     }
 
     for (const auto& dependency : scc->dependencies) {
-        visit_sccs_topo(f, dependency, visited);
+        visit_sccs_topo(dependency, f, visited);
     }
 
     f(scc);
@@ -339,7 +363,7 @@ std::vector<std::filesystem::path> builder_t::export_libraries(const module_t& m
             }
         } else {
             const auto& builder_plugin = build_builder(module);
-            void* builder_plugin_handle = dlopen(builder_plugin.c_str(), RTLD_NOW | RTLD_LOCAL);
+            void* builder_plugin_handle = dlopen(builder_plugin.c_str(), RTLD_NOW | RTLD_LOCAL | RTLD_NODELETE);
             if (!builder_plugin_handle) {
                 throw std::runtime_error(std::format("export_libraries: failed to load builder plugin '{}': {}", builder_plugin.string(), dlerror()));
             }
@@ -351,7 +375,8 @@ std::vector<std::filesystem::path> builder_t::export_libraries(const module_t& m
                     throw std::runtime_error(std::format("export_libraries: failed to load symbol 'builder__export_libraries' from builder plugin '{}': {}", builder_plugin.string(), dlerror()));
                 }
 
-                builder__export_libraries(this, library_type);
+                builder_t builder(m_module_graph, module, m_artifacts_dir);
+                builder__export_libraries(&builder, library_type);
                 dlclose(builder_plugin_handle);
 
                 const auto& module_artifacts_dir = m_artifacts_dir / module.name();
@@ -379,8 +404,8 @@ std::vector<std::filesystem::path> builder_t::export_libraries(const module_t& m
     }
 
     if (!std::filesystem::exists(module_export_dir)) {
-        if (std::filesystem::create_directories(module_export_dir)) {
-            throw std::runtime_error(std::format("export_libraries: expected export directory '{}' to exist after export, but it does not", module_export_dir.string()));
+        if (!std::filesystem::create_directories(module_export_dir)) {
+            throw std::runtime_error(std::format("export_libraries: failed to create export directory '{}'", module_export_dir.string()));
         }
     }
 
@@ -394,7 +419,7 @@ void builder_t::import_libraries(const module_t& module) const {
     }
 
     const auto& builder_plugin = build_builder(module);
-    void* builder_plugin_handle = dlopen(builder_plugin.c_str(), RTLD_NOW | RTLD_LOCAL);
+    void* builder_plugin_handle = dlopen(builder_plugin.c_str(), RTLD_NOW | RTLD_LOCAL | RTLD_NODELETE);
     if (!builder_plugin_handle) {
         throw std::runtime_error(std::format("import_libraries: failed to load builder plugin '{}': {}", builder_plugin.c_str(), dlerror()));
     }
@@ -403,10 +428,10 @@ void builder_t::import_libraries(const module_t& module) const {
         typedef void (*builder__import_libraries_t)(const builder_t* builder);
         builder__import_libraries_t builder__import_libraries = (builder__import_libraries_t)dlsym(builder_plugin_handle, "builder__import_libraries");
         if (!builder__import_libraries) {
-            dlclose(builder_plugin_handle);
-            throw std::runtime_error(std::format("import_libraries: failed to locate symbol 'builder__import_libraries' in builder plugin '{}': {}", builder_plugin.c_str(), dlerror()));
+            throw std::runtime_error(std::format("import_libraries: failed to locate symbol 'builder__import_libraries' in module '{}': {}", module.name(), dlerror()));
         }
 
+        builder_t builder(m_module_graph, module, m_artifacts_dir);
         builder__import_libraries(this);
         dlclose(builder_plugin_handle);
 
@@ -444,7 +469,7 @@ std::filesystem::path builder_t::build_builder(const module_t& module) const {
 }
 
 void builder_t::import_libraries() const {
-    import_libraries(m_module_graph.target_module());
+    import_libraries(m_module);
 }
 
 void module_graph_t::svg(const std::filesystem::path& dir, const std::string& file_name_stem) {
@@ -457,7 +482,7 @@ void module_graph_t::svg(const std::filesystem::path& dir, const std::string& fi
     svg_overview(dir, file_name_stem + "_overview");
     svg_sccs(dir, file_name_stem + "_sccs");
     int scc_id = 0;
-    visit_sccs_topo([&](const module_scc_t* scc) {
+    visit_sccs_topo(module_scc(target_module()), [&](const module_scc_t* scc) {
         svg_scc(dir, scc, file_name_stem + "_" + std::to_string(scc_id++));
     });
 }
@@ -529,10 +554,6 @@ module_t* module_graph_t::discover(const std::filesystem::path& modules_dir, con
     return module;
 }
 
-const module_scc_t* module_graph_t::target_scc() const {
-    return m_target_scc;
-}
-
 void module_graph_t::svg_overview(const std::filesystem::path& dir, const std::string& file_name_stem) {
     if (!std::filesystem::exists(dir)) {
         // TODO: cleanup after fail
@@ -567,7 +588,7 @@ void module_graph_t::svg_overview(const std::filesystem::path& dir, const std::s
     int scc_id = 0;
     std::unordered_map<const module_scc_t*, std::string> scc_cluster;
     std::unordered_map<const module_scc_t*, std::string> scc_anchor;
-    visit_sccs_topo([&](const module_scc_t* scc) {
+    visit_sccs_topo(module_scc(target_module()), [&](const module_scc_t* scc) {
         const std::string cluster = std::format("cluster_scc{}", scc_id);
         const std::string anchor  = std::format("scc{}_anchor", scc_id);
         scc_cluster[scc] = cluster;
@@ -591,7 +612,7 @@ void module_graph_t::svg_overview(const std::filesystem::path& dir, const std::s
         ++scc_id;
     });
 
-    visit_sccs_topo([&](const module_scc_t* scc) {
+    visit_sccs_topo(module_scc(target_module()), [&](const module_scc_t* scc) {
         for (auto* dependency : scc->dependencies) {
             ofs << std::format(
                 "    {} -> {} [ltail={}, lhead={}];\n",
@@ -647,11 +668,11 @@ void module_graph_t::svg_sccs(const std::filesystem::path& dir, const std::strin
     std::unordered_map<const module_scc_t*, uint32_t> scc_id;
     uint32_t next_id = 0;
 
-    visit_sccs_topo([&](const module_scc_t* scc) {
+    visit_sccs_topo(module_scc(target_module()), [&](const module_scc_t* scc) {
         scc_id[scc] = next_id++;
     });
 
-    visit_sccs_topo([&](const module_scc_t* scc) {
+    visit_sccs_topo(module_scc(target_module()), [&](const module_scc_t* scc) {
         const uint32_t id = scc_id[scc];
         const size_t sz = scc->modules.size();
 
@@ -664,7 +685,7 @@ void module_graph_t::svg_sccs(const std::filesystem::path& dir, const std::strin
         );
     });
 
-    visit_sccs_topo([&](const module_scc_t* scc) {
+    visit_sccs_topo(module_scc(target_module()), [&](const module_scc_t* scc) {
         const uint32_t from = scc_id[scc];
         for (module_scc_t* dependency : scc->dependencies) {
             const uint32_t to = scc_id[dependency];

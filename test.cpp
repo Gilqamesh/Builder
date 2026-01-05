@@ -1,7 +1,5 @@
-#include <builder/builder_api.h>
-#include <builder/builder_ctx.h>
-#include <builder/builder_plugin.h>
-#include <builder/internal.h>
+#include <modules/builder/builder.h>
+#include <modules/builder/internal.h>
 
 #include <iostream>
 #include <format>

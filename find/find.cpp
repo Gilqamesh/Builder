@@ -1,6 +1,4 @@
-#include <builder/find/find.h>
-
-#include <builder/internal.h>
+#include <modules/builder/find/find.h>
 
 #include <format>
 
@@ -67,10 +65,9 @@ find_predicate_t find_t::path(const std::filesystem::path& file_path) {
 }
 
 std::vector<std::filesystem::path> find_t::find(const builder_t* builder, const find_predicate_t& find_predicate, bool recursive) {
-    const auto builder_cpp = builder->src_dir() / module_t::BUILDER_CPP;
     return find(
         builder->src_dir(),
-        find_predicate && !path(builder->src_dir() / module_t::BUILDER_CPP) && !path(builder->src_dir() / module_t::DEPS_JSON),
+        find_predicate && !path(builder->builder_src_path()) && !path(builder->src_dir() / module_t::DEPS_JSON),
         recursive
     );
 }
