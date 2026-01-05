@@ -1,7 +1,6 @@
 #include <modules/builder/module/module_graph.h>
 #include <modules/builder/compiler/cpp_compiler.h>
 #include <modules/builder/find/find.h>
-#include <modules/builder/internal.h>
 #include <modules/builder/json/json.hpp>
 
 #include <format>
@@ -530,22 +529,22 @@ module_t* module_graph_t::discover(const std::filesystem::path& modules_dir, con
         }
     }
 
-    const auto deps_it = deps_json.find(DEPS_KEY);
+    const auto deps_it = deps_json.find(module_t::DEPS_KEY);
     if (deps_it == deps_json.end()) {
-        throw std::runtime_error(std::format("discover: invalid deps json file '{}': missing '{}' array", deps_json_path.string(), DEPS_KEY));
+        throw std::runtime_error(std::format("discover: invalid deps json file '{}': missing '{}' array", deps_json_path.string(), module_t::DEPS_KEY));
     }
     if (!deps_it->is_array()) {
-        throw std::runtime_error(std::format("discover: invalid deps json file '{}': '{}' is not an array", deps_json_path.string(), DEPS_KEY));
+        throw std::runtime_error(std::format("discover: invalid deps json file '{}': '{}' is not an array", deps_json_path.string(), module_t::DEPS_KEY));
     }
     const auto& module_deps_array = deps_it->get_ref<const nlohmann::json::array_t&>();
 
     for (const auto& module_deps : module_deps_array) {
         if (!module_deps.is_string()) {
-            throw std::runtime_error(std::format("discover: invalid deps json file '{}': '{}' array must contain only strings", deps_json_path.string(), DEPS_KEY));
+            throw std::runtime_error(std::format("discover: invalid deps json file '{}': '{}' array must contain only strings", deps_json_path.string(), module_t::DEPS_KEY));
         }
         const std::string module_deps_str = module_deps.get<std::string>();
         if (module_deps_str.empty()) {
-            throw std::runtime_error(std::format("discover: invalid deps json file '{}': '{}' array must not contain empty strings", deps_json_path.string(), DEPS_KEY));
+            throw std::runtime_error(std::format("discover: invalid deps json file '{}': '{}' array must not contain empty strings", deps_json_path.string(), module_t::DEPS_KEY));
         }
 
         it->second.dependencies.insert(discover(modules_dir, module_deps_str, discover_results));

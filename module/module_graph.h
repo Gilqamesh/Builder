@@ -17,6 +17,7 @@ class module_t {
 public:
     static const constexpr char* BUILDER_CPP = "builder.cpp";
     static const constexpr char* DEPS_JSON = "deps.json";
+    static const constexpr char* DEPS_KEY = "deps";
 
 public:
     module_t(const std::string& name, uint64_t version);
