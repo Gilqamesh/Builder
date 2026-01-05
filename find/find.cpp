@@ -58,23 +58,22 @@ find_predicate_t find_t::filename(const std::string& name) {
     };
 }
 
-std::vector<std::filesystem::path> find_t::find(builder_ctx_t* ctx, const builder_api_t* api, const find_predicate_t& find_predicate, bool recursive) {
-    const auto builder_plugin_cpp = api->source_dir(ctx) / BUILDER_PLUGIN_CPP;
+find_predicate_t find_t::path(const std::filesystem::path& file_path) {
+    return {
+        [=](const std::filesystem::directory_entry& entry) {
+            return entry.is_regular_file() && entry.path() == file_path;
+        }
+    };
+}
+
+std::vector<std::filesystem::path> find_t::find(const builder_t* builder, const find_predicate_t& find_predicate, bool recursive) {
+    const auto builder_cpp = builder->src_dir() / module_t::BUILDER_CPP;
     return find(
-        api->source_dir(ctx),
-        {
-            [&](const std::filesystem::directory_entry& entry) {
-                if (entry.path() == builder_plugin_cpp) {
-                    return false;
-                } else {
-                    return find_predicate(entry);
-                }
-            }
-        },
+        builder->src_dir(),
+        find_predicate && !path(builder->src_dir() / module_t::BUILDER_CPP) && !path(builder->src_dir() / module_t::DEPS_JSON),
         recursive
     );
 }
-
 
 std::vector<std::filesystem::path> find_t::find(const std::filesystem::path& root, const find_predicate_t& find_predicate, bool recursive) {
     std::vector<std::filesystem::path> result;

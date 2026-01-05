@@ -1,8 +1,7 @@
 #ifndef BUILDER_PROJECT_COMPILER_CPP_COMPILER_H
 # define BUILDER_PROJECT_COMPILER_CPP_COMPILER_H
 
-# include <builder/builder_ctx.h>
-# include <builder/builder_api.h>
+# include <builder/module/module_graph.h>
 
 # include <filesystem>
 # include <vector>
@@ -10,56 +9,56 @@
 class cpp_compiler_t {
 public:
     static std::filesystem::path create_static_library(
-        builder_ctx_t* ctx, const builder_api_t* api,
+        const builder_t* builder,
         const std::vector<std::filesystem::path>& source_files,
         const std::vector<std::pair<std::string, std::string>>& define_key_values,
         const std::string& static_library_name
     );
 
     static std::filesystem::path create_shared_library(
-        builder_ctx_t* ctx, const builder_api_t* api,
+        const builder_t* builder,
         const std::vector<std::filesystem::path>& source_files,
         const std::vector<std::pair<std::string, std::string>>& define_key_values,
         const std::string& shared_library_name
     );
 
     static std::filesystem::path create_library(
-        builder_ctx_t* ctx, const builder_api_t* api,
+        const builder_t* builder,
         const std::vector<std::filesystem::path>& source_files,
         const std::vector<std::pair<std::string, std::string>>& define_key_values,
         const std::string& library_stem,
-        bundle_type_t bundle_type
+        library_type_t library_type
     );
 
     static std::filesystem::path create_binary(
-        builder_ctx_t* ctx, const builder_api_t* api,
+        const builder_t* builder,
         const std::vector<std::filesystem::path>& source_files,
         const std::vector<std::pair<std::string, std::string>>& define_key_values,
-        bundle_type_t bundle_type,
+        library_type_t library_type,
         const std::string& binary_name
     );
     
     static std::filesystem::path reference_static_library(
-        builder_ctx_t* ctx, const builder_api_t* api,
+        const builder_t* builder,
         const std::filesystem::path& existing_static_library,
         const std::string& static_library_name
     );
 
     static std::filesystem::path reference_shared_library(
-        builder_ctx_t* ctx, const builder_api_t* api,
+        const builder_t* builder,
         const std::filesystem::path& existing_shared_library,
         const std::string& shared_library_name
     );
 
     static std::filesystem::path reference_library(
-        builder_ctx_t* ctx, const builder_api_t* api,
+        const builder_t* builder,
         const std::filesystem::path& existing_library,
         const std::string& library_name,
-        bundle_type_t bundle_type
+        library_type_t library_type
     );
 
     static std::filesystem::path reference_binary(
-        builder_ctx_t* ctx, const builder_api_t* api,
+        const builder_t* builder,
         const std::filesystem::path& existing_binary,
         const std::string& binary_name
     );
@@ -91,7 +90,7 @@ public:
         const std::vector<std::filesystem::path>& source_files,
         const std::vector<std::pair<std::string, std::string>>& define_key_values,
         const std::vector<std::vector<std::filesystem::path>>& library_groups,
-        bundle_type_t bundle_type,
+        library_type_t library_type,
         const std::filesystem::path& binary
     );
 
@@ -108,16 +107,16 @@ public:
     static std::filesystem::path reference_shared_library(
         const std::filesystem::path& existing_library,
         const std::filesystem::path& library_stem,
-        bundle_type_t bundle_type
+        library_type_t library_type
     );
 
 private:
     // TODO: rename to tmp
     static std::vector<std::filesystem::path> cache_object_files(
-        builder_ctx_t* ctx, const builder_api_t* api,
+        const builder_t* builder,
         const std::vector<std::filesystem::path>& source_files,
         const std::vector<std::pair<std::string, std::string>>& define_key_values,
-        bundle_type_t bundle_type
+        library_type_t library_type
     );
 
     static std::vector<std::filesystem::path> cache_object_files(

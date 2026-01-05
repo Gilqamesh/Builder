@@ -8,102 +8,102 @@
 #include <fstream>
 
 std::filesystem::path cpp_compiler_t::create_static_library(
-    builder_ctx_t* ctx, const builder_api_t* api,
+    const builder_t* builder,
     const std::vector<std::filesystem::path>& source_files,
     const std::vector<std::pair<std::string, std::string>>& define_key_values,
     const std::string& static_library_name
 ) {
     return create_static_library(
-        api->cache_dir(ctx, BUNDLE_TYPE_STATIC),
-        api->source_dir(ctx),
-        { api->include_dir(ctx) },
+        builder->build_dir(LIBRARY_TYPE_STATIC),
+        builder->src_dir(),
+        { builder->include_dir() },
         source_files,
         define_key_values,
-        api->install_dir(ctx, BUNDLE_TYPE_STATIC) / static_library_name
+        builder->export_dir(LIBRARY_TYPE_STATIC) / static_library_name
     );
 }
 
 std::filesystem::path cpp_compiler_t::create_shared_library(
-    builder_ctx_t* ctx, const builder_api_t* api,
+    const builder_t* builder,
     const std::vector<std::filesystem::path>& source_files,
     const std::vector<std::pair<std::string, std::string>>& define_key_values,
     const std::string& shared_library_name
 ) {
     return create_shared_library(
-        api->cache_dir(ctx, BUNDLE_TYPE_SHARED),
-        api->source_dir(ctx),
-        { api->include_dir(ctx) },
+        builder->build_dir(LIBRARY_TYPE_SHARED),
+        builder->src_dir(),
+        { builder->include_dir() },
         source_files,
         define_key_values,
         {},
-        api->install_dir(ctx, BUNDLE_TYPE_SHARED) / shared_library_name
+        builder->export_dir(LIBRARY_TYPE_SHARED) / shared_library_name
     );
 }
 
 std::filesystem::path cpp_compiler_t::create_library(
-    builder_ctx_t* ctx, const builder_api_t* api,
+    const builder_t* builder,
     const std::vector<std::filesystem::path>& source_files,
     const std::vector<std::pair<std::string, std::string>>& define_key_values,
     const std::string& library_stem,
-    bundle_type_t bundle_type
+    library_type_t library_type
 ) {
-    switch (bundle_type) {
-        case BUNDLE_TYPE_STATIC: return create_static_library(ctx, api, source_files, define_key_values, library_stem + ".lib");
-        case BUNDLE_TYPE_SHARED: return create_shared_library(ctx, api, source_files, define_key_values, library_stem + ".so");
-        default: throw std::runtime_error(std::format("create_library: unknown bundle_type {}", static_cast<int>(bundle_type)));
+    switch (library_type) {
+        case LIBRARY_TYPE_STATIC: return create_static_library(builder, source_files, define_key_values, library_stem + ".lib");
+        case LIBRARY_TYPE_SHARED: return create_shared_library(builder, source_files, define_key_values, library_stem + ".so");
+        default: throw std::runtime_error(std::format("create_library: unknown library_type {}", static_cast<int>(library_type)));
     }
 }
 
 std::filesystem::path cpp_compiler_t::create_binary(
-    builder_ctx_t* ctx, const builder_api_t* api,
+    const builder_t* builder,
     const std::vector<std::filesystem::path>& source_files,
     const std::vector<std::pair<std::string, std::string>>& define_key_values,
-    bundle_type_t bundle_type,
+    library_type_t library_type,
     const std::string& binary_name
 ) {
     return create_binary(
-        api->cache_dir(ctx, bundle_type),
-        api->source_dir(ctx),
-        { api->include_dir(ctx) },
+        builder->build_dir(library_type),
+        builder->src_dir(),
+        { builder->include_dir() },
         source_files,
         define_key_values,
-        api->export_libraries(ctx, bundle_type),
-        bundle_type,
-        api->build_module_dir(ctx) / binary_name
+        builder->export_libraries(library_type),
+        library_type,
+        builder->import_dir() / binary_name
     );
 }
 
 std::filesystem::path cpp_compiler_t::reference_static_library(
-    builder_ctx_t* ctx, const builder_api_t* api,
+    const builder_t* builder,
     const std::filesystem::path& existing_static_library,
     const std::string& static_library_name
 ) {
-    return reference_static_library(existing_static_library, api->install_dir(ctx, BUNDLE_TYPE_STATIC) / static_library_name);
+    return reference_static_library(existing_static_library, builder->export_dir(LIBRARY_TYPE_STATIC) / static_library_name);
 }
 
 std::filesystem::path cpp_compiler_t::reference_shared_library(
-    builder_ctx_t* ctx, const builder_api_t* api,
+    const builder_t* builder,
     const std::filesystem::path& existing_shared_library,
     const std::string& shared_library_name
 ) {
-    return reference_shared_library(existing_shared_library, api->install_dir(ctx, BUNDLE_TYPE_SHARED) / shared_library_name);
+    return reference_shared_library(existing_shared_library, builder->export_dir(LIBRARY_TYPE_SHARED) / shared_library_name);
 }
 
 std::filesystem::path cpp_compiler_t::reference_library(
-    builder_ctx_t* ctx, const builder_api_t* api,
+    const builder_t* builder,
     const std::filesystem::path& existing_library,
     const std::string& library_name,
-    bundle_type_t bundle_type
+    library_type_t library_type
 ) {
-    switch (bundle_type) {
-        case BUNDLE_TYPE_STATIC: return reference_static_library(ctx, api, existing_library, library_name);
-        case BUNDLE_TYPE_SHARED: return reference_shared_library(ctx, api, existing_library, library_name);
-        default: throw std::runtime_error(std::format("reference_library: unknown bundle_type {}", static_cast<int>(bundle_type)));
+    switch (library_type) {
+        case LIBRARY_TYPE_STATIC: return reference_static_library(builder, existing_library, library_name);
+        case LIBRARY_TYPE_SHARED: return reference_shared_library(builder, existing_library, library_name);
+        default: throw std::runtime_error(std::format("reference_library: unknown library_type {}", static_cast<int>(library_type)));
     }
 }
 
 std::filesystem::path cpp_compiler_t::reference_binary(
-    builder_ctx_t* ctx, const builder_api_t* api,
+    const builder_t* builder,
     const std::filesystem::path& existing_binary,
     const std::string& binary_name
 ) {
@@ -111,7 +111,7 @@ std::filesystem::path cpp_compiler_t::reference_binary(
         throw std::runtime_error(std::format("reference_binary: referenced binary '{}' does not exist", existing_binary.string()));
     }
 
-    const auto binary_dir = api->build_module_dir(ctx);
+    const auto binary_dir = builder->import_dir();
     const auto binary = binary_dir / binary_name;
 
     std::cout << std::format("ln -s {} {}", existing_binary.string(), binary.string()) << std::endl;
@@ -224,10 +224,10 @@ std::filesystem::path cpp_compiler_t::create_binary(
     const std::vector<std::filesystem::path>& source_files,
     const std::vector<std::pair<std::string, std::string>>& define_key_values,
     const std::vector<std::vector<std::filesystem::path>>& library_groups,
-    bundle_type_t bundle_type,
+    library_type_t library_type,
     const std::filesystem::path& binary
 ) {
-    const auto object_files = cache_object_files(cache_dir, source_dir, include_dirs, source_files, define_key_values, bundle_type);
+    const auto object_files = cache_object_files(cache_dir, source_dir, include_dirs, source_files, define_key_values, library_type);
 
     const auto binary_dir = binary.parent_path();
     if (!std::filesystem::exists(binary_dir)) {
@@ -243,7 +243,7 @@ std::filesystem::path cpp_compiler_t::create_binary(
 
     // TODO: mixed static/shared interleave of start/end group, typify 'library_groups'
     for (auto library_group_it = library_groups.rbegin(); library_group_it != library_groups.rend(); ++library_group_it) {
-        if (bundle_type != BUNDLE_TYPE_SHARED && 1 < library_group_it->size()) {
+        if (library_type != LIBRARY_TYPE_SHARED && 1 < library_group_it->size()) {
             command += " -Wl,--start-group";
         }
         for (const auto& library : *library_group_it) {
@@ -252,7 +252,7 @@ std::filesystem::path cpp_compiler_t::create_binary(
             }
             command += " " + library.string();
         }
-        if (bundle_type != BUNDLE_TYPE_SHARED && 1 < library_group_it->size()) {
+        if (library_type != LIBRARY_TYPE_SHARED && 1 < library_group_it->size()) {
             command += " -Wl,--end-group";
         }
     }
@@ -323,28 +323,28 @@ std::filesystem::path cpp_compiler_t::reference_shared_library(
 std::filesystem::path cpp_compiler_t::reference_shared_library(
     const std::filesystem::path& existing_library,
     const std::filesystem::path& library_stem,
-    bundle_type_t bundle_type
+    library_type_t library_type
 ) {
-    switch (bundle_type) {
-        case BUNDLE_TYPE_STATIC: return reference_static_library(existing_library, library_stem.string() + ".lib");
-        case BUNDLE_TYPE_SHARED: return reference_shared_library(existing_library, library_stem.string() + ".so");
-        default: throw std::runtime_error(std::format("reference_library: unknown bundle_type {}", static_cast<int>(bundle_type)));
+    switch (library_type) {
+        case LIBRARY_TYPE_STATIC: return reference_static_library(existing_library, library_stem.string() + ".lib");
+        case LIBRARY_TYPE_SHARED: return reference_shared_library(existing_library, library_stem.string() + ".so");
+        default: throw std::runtime_error(std::format("reference_library: unknown library_type {}", static_cast<int>(library_type)));
     }
 }
 
 std::vector<std::filesystem::path> cpp_compiler_t::cache_object_files(
-    builder_ctx_t* ctx, const builder_api_t* api,
+    const builder_t* builder,
     const std::vector<std::filesystem::path>& source_files,
     const std::vector<std::pair<std::string, std::string>>& define_key_values,
-    bundle_type_t bundle_type
+    library_type_t library_type
 ) {
     return cache_object_files(
-        api->cache_dir(ctx, bundle_type),
-        api->source_dir(ctx),
-        { api->include_dir(ctx) },
+        builder->build_dir(library_type),
+        builder->src_dir(),
+        { builder->include_dir() },
         source_files,
         define_key_values,
-        bundle_type == BUNDLE_TYPE_SHARED
+        library_type == LIBRARY_TYPE_SHARED
     );
 }
 

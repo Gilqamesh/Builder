@@ -1,8 +1,7 @@
 #ifndef BUILDER_PROJECT_FIND_FIND_H
 # define BUILDER_PROJECT_FIND_FIND_H
 
-# include <builder/builder_ctx.h>
-# include <builder/builder_api.h>
+# include <builder/module/module_graph.h>
 
 # include <filesystem>
 # include <functional>
@@ -30,21 +29,22 @@ public:
      * recursive traversal, all files with the given name are matched.
      */
     static find_predicate_t filename(const std::string& name);
+    static find_predicate_t path(const std::filesystem::path& file_path);
 
 public:
     /**
      * Traverses the module source directory.
      *
      * - Directory entries are visited in lexicographical order.
-     * - `builder_plugin.cpp` is always excluded.
+     * - `builder.cpp` and `deps.json` are always excluded.
      * - The predicate filters entries and may prune recursion.
      * - Only regular file paths are returned.
      */
-    static std::vector<std::filesystem::path> find(builder_ctx_t* ctx, const builder_api_t* api, const find_predicate_t& find_predicate, bool recursive);
+    static std::vector<std::filesystem::path> find(const builder_t* builder, const find_predicate_t& find_predicate, bool recursive);
 
 public:
     /**
-     * Traverses `root` with identical semantics to the framework version of `find`.
+     * Traverses `root` with identical semantics to the builder version of `find`.
      */
     static std::vector<std::filesystem::path> find(const std::filesystem::path& root, const find_predicate_t& find_predicate, bool recursive);
 };

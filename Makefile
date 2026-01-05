@@ -9,7 +9,8 @@ CXXFLAGS := -std=c++23 -g -I$(INCLUDE_DIR)
 CFLAGS   := -g -I$(INCLUDE_DIR)
 
 LIBRARY_TYPE ?= static
-INSTALL_ROOT ?= $(MAKEFILE_DIR)
+BUILD_DIR    ?= $(MAKEFILE_DIR)/build/$(LIBRARY_TYPE)
+EXPORT_DIR   ?= $(MAKEFILE_DIR)/export/$(LIBRARY_TYPE)
 
 ifeq ($(LIBRARY_TYPE),static)
 LIBRARY_NAME ?= libbuilder.a
@@ -17,20 +18,17 @@ else
 LIBRARY_NAME ?= libbuilder.so
 endif
 
-INSTALL_DIR := $(INSTALL_ROOT)/$(LIBRARY_TYPE)
-BUILDDIR := $(INSTALL_DIR)/cache
-LIB      := $(INSTALL_DIR)/install/$(LIBRARY_NAME)
+LIB := $(EXPORT_DIR)/$(LIBRARY_NAME)
 
 SRC := \
-	zip/external/miniz.c \
 	compiler/cpp_compiler.cpp \
 	curl/curl.cpp \
 	find/find.cpp \
-	zip/zip.cpp \
-	builder_api.cpp \
-	builder_ctx.cpp
+	module/module_graph.cpp \
+	zip/external/miniz.c \
+	zip/zip.cpp
 
-OBJ := $(addprefix $(BUILDDIR)/,$(SRC))
+OBJ := $(addprefix $(BUILD_DIR)/,$(SRC))
 OBJ := $(OBJ:.cpp=.o)
 OBJ := $(OBJ:.c=.o)
 
@@ -50,13 +48,13 @@ else
 	$(CXX) -shared -o $@ $(OBJ)
 endif
 
-$(BUILDDIR)/%.o: %.cpp
+$(BUILD_DIR)/%.o: %.cpp
 	mkdir -p $(dir $@)
 	$(CXX) $(CXXFLAGS) $(PIC) -c $< -o $@
 
-$(BUILDDIR)/%.o: %.c
+$(BUILD_DIR)/%.o: %.c
 	mkdir -p $(dir $@)
-	$(CC)  $(CFLAGS)   $(PIC) -c $< -o $@
+	$(CC)  $(CFLAGS) $(PIC) -c $< -o $@
 
 CLI := cli
 CLI_SRC := cli.cpp
@@ -67,4 +65,4 @@ cli: $(LIB)
 	$(CXX) $(CXXFLAGS) -o cli $(CLI_SRC) $(LIB) -lcurl
 
 clean:
-	rm -rf $(INSTALL_DIR) $(CLI)
+	rm -rf $(BUILD_DIR) $(EXPORT_DIR) $(CLI)

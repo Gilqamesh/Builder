@@ -1,4 +1,4 @@
-#include "builder_ctx.h"
+#include "module/module_graph.h"
 
 #include <iostream>
 #include <format>
@@ -9,23 +9,23 @@
 #include <cstring>
 
 int main(int argc, char** argv) {
-    if (argc != 5) {
-        std::cerr << std::format("usage: {} <builder_dir> <modules_dir> <module_name> <artifacts_dir>", argv[0]) << std::endl;
+    if (argc != 4) {
+        std::cerr << std::format("usage: {} <modules_dir> <module_name> <artifacts_dir>", argv[0]) << std::endl;
         return 1;
     }
 
     try {
-        const auto builder_dir = std::filesystem::path(argv[1]);
         const auto modules_dir = std::filesystem::path(argv[2]);
         const auto module_name = std::string(argv[3]);
         const auto artifacts_dir = std::filesystem::path(argv[4]);
 
-        const auto root_dir = builder_dir.parent_path().empty() ? "." : builder_dir.parent_path();
+        const auto include_dir = modules_dir.parent_path().empty() ? "." : modules_dir.parent_path();
 
-        builder_ctx_t builder_ctx(builder_dir, modules_dir, module_name, artifacts_dir);
+        module_graph_t module_graph = module_graph_t::discover(modules_dir, module_name);
+        builder_t builder(module_graph, artifacts_dir);
 
         const auto cli = std::filesystem::canonical("/proc/self/exe");
-        const auto cli_src = builder_dir / std::filesystem::path(std::source_location::current().file_name());
+        const auto cli_src = modules_dir / "builder" / std::filesystem::path(std::source_location::current().file_name());
 
         std::error_code ec;
         const auto cli_last_write_time = std::filesystem::last_write_time(cli, ec);
@@ -38,12 +38,12 @@ int main(int argc, char** argv) {
             throw std::runtime_error(std::format("failed to get last write time of cli source '{}': {}", cli_src.string(), ec.message()));
         }
 
-        const auto cli_version = builder_ctx.version(cli_last_write_time);
-        const auto cli_src_version = builder_ctx.version(cli_src_last_write_time);
-        const auto builder_version = builder_ctx.builder_version();
+        const auto cli_version = module_graph_t::version(cli_last_write_time);
+        const auto cli_src_version = module_graph_t::version(cli_src_last_write_time);
+        const auto builder_version = module_graph.builder_module().version();
 
         if (cli_version < std::min(cli_src_version, builder_version)) {
-            const auto builder_libraries = builder_ctx.build_builder_libraries(BUNDLE_TYPE_STATIC);
+            const auto builder_libraries = builder.export_libraries(module_graph.builder_module(), LIBRARY_TYPE_STATIC);
             std::string builder_libraries_str;
             for (const auto& builder_library : builder_libraries) {
                 if (builder_libraries_str.empty()) {
@@ -52,7 +52,7 @@ int main(int argc, char** argv) {
                 builder_libraries_str += builder_library.string();
             }
 
-            const auto command = std::format("clang++ -I{} -std=c++23 -o {} {} {} -g", root_dir.string(), cli.string(), cli_src.string(), builder_libraries_str);
+            const auto command = std::format("clang++ -I{} -std=c++23 -o {} {} {} -g", include_dir.string(), cli.string(), cli_src.string(), builder_libraries_str);
             std::cout << command << std::endl;
             const int command_result = std::system(command.c_str());
             if (command_result != 0) {
@@ -84,15 +84,13 @@ int main(int argc, char** argv) {
             throw std::runtime_error(std::format("modules directory does not exist '{}'", modules_dir.string()));
         }
 
-        uint32_t module_id = builder_ctx.discover();
-
         const bool is_svg_option_enabled = false;
         if (is_svg_option_enabled) {
             const auto svg_dir = artifacts_dir / "sccs";
-            builder_ctx.svg(svg_dir, "0");
+            module_graph.svg(svg_dir, "0");
         }
 
-        builder_ctx.build_module(module_id);
+        builder.import_libraries();
     } catch (const std::exception& e) {
         std::cout << std::format("{}: {}", argv[0], e.what()) << std::endl;
         return 1;
