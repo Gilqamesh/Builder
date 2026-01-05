@@ -20,7 +20,7 @@ For a concrete workspace, see [Builder‑Example](https://github.com/Gilqamesh/B
    A module lives under a directory in your `<modules>` root. Each module needs two files:
 
    * `deps.json` – lists the module dependencies.
-   * `builder_plugin.cpp` – implements the build protocol described below.
+   * `builder.cpp` – implements the build protocol described below.
 
 2. **Write `deps.json`**
 
@@ -32,17 +32,17 @@ For a concrete workspace, see [Builder‑Example](https://github.com/Gilqamesh/B
    }
    ```
 
-3. **Implement `builder_plugin.cpp`**
+3. **Implement `builder.cpp`**
 
    Your plugin must define two C‑callable entry points:
 
    ```cpp
-   extern "C" void builder__export_libraries(builder_ctx_t* ctx, const builder_api_t* api, bundle_type_t bundle_type);
-   extern "C" void builder__build_module(builder_ctx_t* ctx, const builder_api_t* api);
+   extern "C" void builder__export_libraries(const builder_t* builder, bundle_type_t bundle_type);
+   extern "C" void builder__import_libraries(const builder_t* builder);
    ```
 
    - `builder__export_libraries` builds and installs the modules libraries (static/shared)
-   - `builder__build_module` links into final executables, at this stage all ordered libraries exists for the module to link against
+   - `builder__import_libraries` links into final executables, at this stage all ordered libraries exists for the module to link against
 
    A typical plugin collects its source files, calls into the builder helpers to build and install into the target directory.
 
@@ -55,7 +55,7 @@ For a concrete workspace, see [Builder‑Example](https://github.com/Gilqamesh/B
 5. **Run cli to build the target module**
 
    ```bash
-   ./cli <builder_dir> <modules_dir> <target_module> <artifacts_dir>
+   ./cli <modules_dir> <target_module_name> <artifacts_dir>
    ```
 
 ## Artifacts and versioning
