@@ -254,7 +254,7 @@ std::filesystem::path cpp_compiler_t::create_binary(
             if (!std::filesystem::exists(library)) {
                 throw std::runtime_error(std::format("create_binary: library does not exist '{}'", library.string()));
             }
-            command += " " + library.string();
+            command += " " + std::filesystem::absolute(library).string();
         }
         if (library_type != LIBRARY_TYPE_SHARED && 1 < library_group_it->size()) {
             command += " -Wl,--end-group";
