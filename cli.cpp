@@ -48,7 +48,7 @@ int main(int argc, char** argv) {
             std::string builder_libraries_str;
             for (const auto& builder_library_group : builder_libraries) {
                 for (const auto& builder_library : builder_library_group) {
-                    if (builder_libraries_str.empty()) {
+                    if (!builder_libraries_str.empty()) {
                         builder_libraries_str += " ";
                     }
                     builder_libraries_str += builder_library.string();
