@@ -35,7 +35,7 @@ public:
         const std::vector<std::filesystem::path>& source_files,
         const std::vector<std::pair<std::string, std::string>>& define_key_values,
         library_type_t library_type,
-        const std::string& binary_name
+        const std::filesystem::path& binary_relative_path
     );
     
     static std::filesystem::path reference_static_library(

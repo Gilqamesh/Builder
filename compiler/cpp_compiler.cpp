@@ -59,8 +59,12 @@ std::filesystem::path cpp_compiler_t::create_binary(
     const std::vector<std::filesystem::path>& source_files,
     const std::vector<std::pair<std::string, std::string>>& define_key_values,
     library_type_t library_type,
-    const std::string& binary_name
+    const std::filesystem::path& binary_relative_path
 ) {
+    if (binary_relative_path.is_absolute() || binary_relative_path.lexically_normal().native().starts_with("..")) {
+        throw std::runtime_error(std::format("create_binary: binary path '{}' must not escape the import directory", binary_relative_path.string()));
+    }
+
     return create_binary(
         builder->build_dir(library_type),
         builder->src_dir(),
@@ -69,7 +73,7 @@ std::filesystem::path cpp_compiler_t::create_binary(
         define_key_values,
         builder->export_libraries(library_type),
         library_type,
-        builder->import_dir() / binary_name
+        builder->import_dir() / binary_relative_path
     );
 }
 

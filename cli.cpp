@@ -97,13 +97,19 @@ int main(int argc, char** argv) {
 
         if (4 < argc) {
             const auto binary = argv[4];
-            const auto binary_location = builder.import_dir() / binary;
+            const auto binary_dir = builder.import_dir();
+            const auto binary_location = binary_dir / binary;
             if (!std::filesystem::exists(binary_location)) {
                 throw std::runtime_error(std::format("binary '{}' at location '{}' does not exist", binary, binary_location.string()));
             }
 
+            std::cout << std::format("cd {}", binary_dir.string()) << std::endl;
+            if (chdir(binary_dir.c_str()) != 0) {
+                throw std::runtime_error(std::format("failed to change directory to '{}': {}", binary_dir.string(), strerror(errno)));
+            }
+
             std::vector<std::string> exec_string_args;
-            exec_string_args.push_back(binary_location.string());
+            exec_string_args.push_back(binary);
             for (int i = 5; i < argc; ++i) {
                 exec_string_args.push_back(argv[i]);
             }
@@ -119,8 +125,8 @@ int main(int argc, char** argv) {
             exec_args.push_back(nullptr);
 
             std::cout << exec_command << std::endl;
-            if (execv(binary_location.c_str(), exec_args.data()) == -1) {
-                throw std::runtime_error(std::format("failed to execute binary '{}': {}", binary_location.string(), strerror(errno)));
+            if (execv(binary, exec_args.data()) == -1) {
+                throw std::runtime_error(std::format("failed to execute binary '{}': {}", binary, strerror(errno)));
             }
         }
     } catch (const std::exception& e) {
