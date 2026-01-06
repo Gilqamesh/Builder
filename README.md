@@ -55,8 +55,19 @@ For a concrete workspace, see [Builder‑Example](https://github.com/Gilqamesh/B
 5. **Run cli to build the target module**
 
    ```bash
-   ./cli <modules_dir> <target_module_name> <artifacts_dir>
+   ./cli <modules_dir> <target_module> <artifacts_dir> [binary] [args...]
    ```
+
+   | Argument        | Description                                                    |
+   | --------------- | -------------------------------------------------------------- |
+   | `modules_dir`   | Root directory containing all modules                          |
+   | `target_module` | Name of the module to build                                    |
+   | `artifacts_dir` | Output directory for versioned build artifacts                 |
+   | `binary`        | *(Optional)* Path relative to the module’s `import/` directory |
+   | `args...`       | *(Optional)* Arguments passed to the executed binary           |
+
+
+   The CLI is self-hosting. If cli.cpp or the builder module changes, the CLI recompiles itself and re-execs automatically before continuing. This guarantees consistency between the CLI and the builder libraries.
 
 ## Artifacts and versioning
 
@@ -72,7 +83,7 @@ For a concrete workspace, see [Builder‑Example](https://github.com/Gilqamesh/B
 
 - Open issues for bugs, questions and proposals.
 - Open pull requests against the default branch with focused changes; describe expected vs actual behaviour and include how you tested the change.
-- If you change user‑facing behaviour (flags, outputs, plugin hooks), update the README or relevant documentation.
+- If you change user‑facing behaviour, update the README.
 
 ## Requirements
 

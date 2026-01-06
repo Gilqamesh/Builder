@@ -9,7 +9,7 @@
 #include <cstring>
 
 int main(int argc, char** argv) {
-    if (argc != 4) {
+    if (argc < 4) {
         std::cerr << std::format("usage: {} <modules_dir> <module_name> <artifacts_dir>", argv[0]) << std::endl;
         return 1;
     }
@@ -94,6 +94,35 @@ int main(int argc, char** argv) {
         }
 
         builder.import_libraries();
+
+        if (4 < argc) {
+            const auto binary = argv[4];
+            const auto binary_location = builder.import_dir() / binary;
+            if (!std::filesystem::exists(binary_location)) {
+                throw std::runtime_error(std::format("binary '{}' at location '{}' does not exist", binary, binary_location.string()));
+            }
+
+            std::vector<std::string> exec_string_args;
+            exec_string_args.push_back(binary_location.string());
+            for (int i = 5; i < argc; ++i) {
+                exec_string_args.push_back(argv[i]);
+            }
+            std::string exec_command;
+            std::vector<char*> exec_args;
+            for (const auto& arg : exec_string_args) {
+                exec_args.push_back(const_cast<char*>(arg.c_str()));
+                if (!exec_command.empty()) {
+                    exec_command += " ";
+                }
+                exec_command += arg;
+            }
+            exec_args.push_back(nullptr);
+
+            std::cout << exec_command << std::endl;
+            if (execv(binary_location.c_str(), exec_args.data()) == -1) {
+                throw std::runtime_error(std::format("failed to execute binary '{}': {}", binary_location.string(), strerror(errno)));
+            }
+        }
     } catch (const std::exception& e) {
         std::cout << std::format("{}: {}", argv[0], e.what()) << std::endl;
         return 1;
