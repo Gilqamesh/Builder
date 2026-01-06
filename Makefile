@@ -76,6 +76,7 @@ CLI_SRC := cli.cpp
 
 cli: $(BUILDER_LIB) $(CURL_LIB)
 	$(CXX) $(CXXFLAGS) -o cli $(CLI_SRC) $(BUILDER_LIB) $(CURL_LIB)
+	rm -rf $(BUILDER_LIB) $(CURL_LIB)
 
 clean:
 	rm -rf $(BUILD_DIR) $(EXPORT_DIR) $(CLI)

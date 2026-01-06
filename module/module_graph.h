@@ -1,7 +1,7 @@
 #ifndef BUILDER_PROJECT_BUILDER_MODULE_MODULE_GRAPH_H
 # define BUILDER_PROJECT_BUILDER_MODULE_MODULE_GRAPH_H
 
-# include "../builder.h"
+# include <modules/builder/builder.h>
 
 # include <string>
 # include <filesystem>
