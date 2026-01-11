@@ -1,6 +1,8 @@
 #ifndef BUILDER_PROJECT_CURL_CURL_H
 # define BUILDER_PROJECT_CURL_CURL_H
 
+# include <modules/builder/module/module_graph.h>
+
 # include <filesystem>
 # include <string>
 

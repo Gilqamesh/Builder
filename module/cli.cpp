@@ -1,4 +1,4 @@
-#include <modules/builder/json/json.hpp>
+#include <modules/builder/module/module_graph.h>
 
 #include <iostream>
 #include <format>

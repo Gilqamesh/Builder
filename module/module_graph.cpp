@@ -349,10 +349,11 @@ std::vector<std::filesystem::path> builder_t::export_libraries(const module_t& m
             }
 
             const auto export_command = std::format(
-                "make -C \"{}\" BUILD_DIR=\"{}\" EXPORT_DIR=\"{}\" LIBRARY_TYPE=\"{}\"",
+                "make -C \"{}\" BUILD_DIR=\"{}\" EXPORT_DIR=\"{}\" IMPORT_DIR=\"{}\" LIBRARY_TYPE=\"{}\"",
                 std::filesystem::absolute(src_dir(module)).string(),
                 std::filesystem::absolute(build_dir(module, library_type)).string(),
                 std::filesystem::absolute(export_dir(module, library_type)).string(),
+                std::filesystem::absolute(import_dir(module)).string(),
                 library_type_str
             );
             std::cout << export_command << std::endl;
@@ -388,6 +389,7 @@ std::vector<std::filesystem::path> builder_t::export_libraries(const module_t& m
 
                     const auto& path = entry.path();
                     if (path < module_artifact_dir) {
+                        std::cout << std::format("rm -rf '{}'", path.string()) << std::endl;
                         std::filesystem::remove_all(path);
                     }
                 }
@@ -396,6 +398,7 @@ std::vector<std::filesystem::path> builder_t::export_libraries(const module_t& m
                 }
             } catch (...) {
                 dlclose(builder_plugin_handle);
+                std::cout << std::format("rm -rf '{}'", module_export_dir.string()) << std::endl;
                 std::filesystem::remove(module_export_dir);
                 throw ;
             }
@@ -441,6 +444,7 @@ void builder_t::import_libraries(const module_t& module) const {
         }
     } catch (...) {
         dlclose(builder_plugin_handle);
+        std::cout << std::format("rm -rf '{}'", module_import_dir.string()) << std::endl;
         std::filesystem::remove_all(module_import_dir);
         throw ;
     }

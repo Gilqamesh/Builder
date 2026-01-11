@@ -11,6 +11,7 @@ CFLAGS   := -g -I$(INCLUDE_DIR)
 LIBRARY_TYPE ?= shared
 BUILD_DIR    ?= $(MAKEFILE_DIR)/build/$(LIBRARY_TYPE)
 EXPORT_DIR   ?= $(MAKEFILE_DIR)/export/$(LIBRARY_TYPE)
+IMPORT_DIR   ?= $(MAKEFILE_DIR)/import
 
 ifeq ($(LIBRARY_TYPE),static)
 $(error Builder does not support static build (curl has no static library))
@@ -29,8 +30,22 @@ SRC := \
 	curl/curl.cpp \
 	find/find.cpp \
 	module/module_graph.cpp \
+	tar/tar.cpp \
+	tar/external/microtar.c \
 	zip/external/miniz.c \
 	zip/zip.cpp
+
+CLI_SRCS := \
+	compiler/cli.cpp \
+	curl/cli.cpp \
+	find/cli.cpp \
+	json/cli.cpp \
+	module/cli.cpp \
+	tar/cli.cpp \
+	zip/cli.cpp \
+	cli.cpp
+
+CLI_BINS := $(patsubst %.cpp,$(IMPORT_DIR)/%,$(CLI_SRCS))
 
 OBJ := $(addprefix $(BUILD_DIR)/,$(SRC))
 OBJ := $(OBJ:.cpp=.o)
@@ -40,12 +55,16 @@ ifeq ($(LIBRARY_TYPE),shared)
 PIC := -fPIC
 endif
 
-.PHONY: all clean
+.PHONY: all
 
 all: $(BUILDER_LIB)
 all: $(CURL_LIB)
+all: $(CLI_BINS)
 
-$(BUILDER_LIB): $(OBJ)
+.PHONY: FORCE
+FORCE:
+
+$(BUILDER_LIB): $(OBJ) FORCE
 	mkdir -p $(dir $@)
 ifeq ($(LIBRARY_TYPE),static)
 	$(AR) rcs $@ $(OBJ)
@@ -53,29 +72,26 @@ else
 	$(CXX) -shared -o $@ $(OBJ)
 endif
 
-$(CURL_LIB):
+$(CURL_LIB): FORCE
 	mkdir -p $(dir $@)
 ifeq ($(LIBRARY_TYPE),static)
 	$(error Builder does not support static build (curl has no static library))
 else
-	ln -s /usr/lib64/libcurl.so $@
+	ln -fs /usr/lib64/libcurl.so $@
 endif
 
-$(BUILD_DIR)/%.o: %.cpp
+$(IMPORT_DIR)/%: %.cpp $(BUILDER_LIB) $(CURL_LIB) FORCE
+	mkdir -p $(dir $@)
+	$(CXX) $(CXXFLAGS) -o $@ $< $(BUILDER_LIB) $(CURL_LIB)
+
+$(BUILD_DIR)/%.o: %.cpp FORCE
 	mkdir -p $(dir $@)
 	$(CXX) $(CXXFLAGS) $(PIC) -c $< -o $@
 
-$(BUILD_DIR)/%.o: %.c
+$(BUILD_DIR)/%.o: %.c FORCE
 	mkdir -p $(dir $@)
 	$(CC)  $(CFLAGS) $(PIC) -c $< -o $@
 
-CLI := cli
-CLI_SRC := cli.cpp
-
-.PHONY: cli
-
-cli: $(BUILDER_LIB) $(CURL_LIB)
-	$(CXX) $(CXXFLAGS) -o cli $(CLI_SRC) $(BUILDER_LIB) $(CURL_LIB)
-
+.PHONY: clean
 clean:
-	rm -rf $(BUILD_DIR) $(EXPORT_DIR) $(CLI)
+	rm -rf $(BUILD_DIR) $(EXPORT_DIR) $(IMPORT_DIR)

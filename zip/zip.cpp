@@ -1,13 +1,16 @@
 #include <modules/builder/zip/zip.h>
 #include <modules/builder/zip/external/miniz.h>
+#include <modules/builder/find/find.h>
 
 #include <format>
 
 std::filesystem::path zip_t::zip(const std::filesystem::path& dir, const std::filesystem::path& install_zip_path) {
-    if (!std::filesystem::exists(dir) || !std::filesystem::is_directory(dir)) {
-        throw std::runtime_error(std::format("source dir '{}' does not exist or is not a directory", dir.string()));
-    }
+    std::vector<std::filesystem::path> regular_files = find_t::find(dir, find_t::all, true);
+    return zip(regular_files, install_zip_path);
+}
 
+
+std::filesystem::path zip_t::zip(const std::vector<std::filesystem::path>& regular_files, const std::filesystem::path& install_zip_path) {
     if (install_zip_path.extension() != ".zip") {
         throw std::runtime_error(std::format("install path '{}' must have .zip extension", install_zip_path.string()));
     }
@@ -23,17 +26,19 @@ std::filesystem::path zip_t::zip(const std::filesystem::path& dir, const std::fi
         throw std::runtime_error(std::format("failed to create zip file at '{}'", install_zip_path.string()));
     }
 
-    for (const auto& entry : std::filesystem::recursive_directory_iterator(dir)) {
-        if (!entry.is_regular_file()) {
-            continue ;
+    for (const auto& regular_file : regular_files) {
+        if (!std::filesystem::exists(regular_file)) {
+            mz_zip_writer_end(&zip);
+            throw std::runtime_error(std::format("file '{}' does not exist", regular_file.string()));
+        }
+        if (!std::filesystem::is_regular_file(regular_file)) {
+            mz_zip_writer_end(&zip);
+            throw std::runtime_error(std::format("file '{}' is not a regular regular_file", regular_file.string()));
         }
 
-        auto rel = std::filesystem::relative(entry.path(), dir);
-        auto archive_name = rel.generic_string();
-
-        if (!mz_zip_writer_add_file(&zip, archive_name.c_str(), entry.path().string().c_str(), nullptr, 0, MZ_DEFAULT_COMPRESSION)) {
+        if (!mz_zip_writer_add_file(&zip, regular_file.filename().c_str(), regular_file.c_str(), nullptr, 0, MZ_DEFAULT_COMPRESSION)) {
             mz_zip_writer_end(&zip);
-            throw std::runtime_error(std::format("failed to add file '{}' to zip archive", entry.path().string()));
+            throw std::runtime_error(std::format("failed to add file '{}' to zip archive", regular_file.string()));
         }
     }
 
@@ -76,11 +81,19 @@ std::filesystem::path zip_t::unzip(const std::filesystem::path& zip_path, const 
         std::filesystem::path out_path = install_dir / st.m_filename;
 
         if (st.m_is_directory) {
-            std::filesystem::create_directories(out_path);
+            std::error_code ec;
+            if (!std::filesystem::create_directories(out_path, ec)) {
+                mz_zip_reader_end(&zip);
+                throw std::runtime_error(std::format("failed to create directory '{}', error: {}", out_path.string(), ec.message()));
+            }
             continue ;
         }
 
-        std::filesystem::create_directories(out_path.parent_path());
+        std::error_code ec;
+        if (!std::filesystem::create_directories(out_path.parent_path(), ec)) {
+            mz_zip_reader_end(&zip);
+            throw std::runtime_error(std::format("failed to create directory '{}', error: {}", out_path.parent_path().string(), ec.message()));
+        }
 
         if (!mz_zip_reader_extract_to_file(&zip, i, out_path.string().c_str(), 0)) {
             mz_zip_reader_end(&zip);

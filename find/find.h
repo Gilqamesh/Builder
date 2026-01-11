@@ -7,9 +7,8 @@
 # include <functional>
 
 struct find_predicate_t {
-    std::function<bool(const std::filesystem::directory_entry& e)> predicate;
-
-    bool operator()(const std::filesystem::directory_entry& e) const;
+    std::function<bool(const std::filesystem::path& absolute_path, const std::filesystem::directory_entry& e)> predicate;
+    bool operator()(const std::filesystem::path& absolute_path, const std::filesystem::directory_entry& e) const;
 };
 
 find_predicate_t operator&&(find_predicate_t a, find_predicate_t b);
@@ -29,7 +28,11 @@ public:
      * recursive traversal, all files with the given name are matched.
      */
     static find_predicate_t filename(const std::string& name);
-    static find_predicate_t path(const std::filesystem::path& file_path);
+
+    /**
+     * Matches a single absolute file path.
+    */
+    static find_predicate_t abs(const std::filesystem::path& absolute_file_path);
 
 public:
     /**
@@ -47,6 +50,9 @@ public:
      * Traverses `root` with identical semantics to the builder version of `find`.
      */
     static std::vector<std::filesystem::path> find(const std::filesystem::path& root, const find_predicate_t& find_predicate, bool recursive);
+
+private:
+    static std::vector<std::filesystem::path> find_impl(const std::filesystem::path& absolute_dir, const find_predicate_t& find_predicate, bool recursive);
 };
 
 #endif // BUILDER_PROJECT_FIND_FIND_H
