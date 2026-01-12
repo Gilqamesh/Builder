@@ -19,7 +19,7 @@ relative_path_t::relative_path_t(const std::filesystem::path& relative_path):
     m_relative_path(relative_path)
 {
     if (m_relative_path.is_absolute()) {
-        throw std::runtime_error(std::format("relative_path_t: path '{}' is absolute", m_relative_path.string()));
+        throw std::runtime_error(std::format("relative_path_t::relative_path_t: path '{}' is absolute", m_relative_path.string()));
     }
 }
 
@@ -61,7 +61,7 @@ path_t::path_t(const std::filesystem::path& path):
 path_t path_t::parent() const {
     const auto parent_path = m_path.parent_path();
     if (parent_path.empty()) {
-        throw std::runtime_error(std::format("parent: path '{}' has no parent", m_path.string()));
+        throw std::runtime_error(std::format("path_t::parent: path '{}' has no parent", m_path.string()));
     }
 
     return path_t(parent_path);
@@ -74,7 +74,7 @@ bool path_t::is_child(const path_t& other) const {
 
 relative_path_t path_t::relative(const path_t& other) const {
     if (!is_child(other)) {
-        throw std::runtime_error(std::format("relative: path '{}' is not a child of base path '{}'", other.m_path.string(), m_path.string()));
+        throw std::runtime_error(std::format("path_t::relative: path '{}' is not a child of base path '{}'", other.m_path.string(), m_path.string()));
     }
 
     return relative_path_t(other.m_path.lexically_relative(m_path));
@@ -117,7 +117,7 @@ path_t path_t::operator/(const relative_path_t& relative_path) const {
 
     const auto rel = result.m_path.lexically_relative(m_path);
     if (rel.empty() || rel == "." || rel.native().starts_with("..")) {
-        throw std::runtime_error(std::format("operator/: path '{}' must not escape the base path '{}'", result.m_path.string(), m_path.string()));
+        throw std::runtime_error(std::format("path_t::operator/: path '{}' must not escape the base path '{}'", result.m_path.string(), m_path.string()));
     }
 
     return result;
@@ -127,7 +127,7 @@ path_t path_t::operator+(std::string_view postfix) const {
     path_t result(append_postfix(m_path, postfix));
 
     if (result.is_sibling(*this) || result == *this) {
-        throw std::runtime_error(std::format("operator+: path '{}' must be a strict sibling of base path '{}'", result.m_path.string(), m_path.string()));
+        throw std::runtime_error(std::format("path_t::operator+: path '{}' must be a strict sibling of base path '{}'", result.m_path.string(), m_path.string()));
     }
 
     return result;
@@ -279,7 +279,7 @@ void filesystem_t::copy(const path_t& src, const path_t& dst) {
     // std::cout << std::format("cp -r {} {}", src.to_native_path().string(), dst.to_native_path().string()) << std::endl;
     std::filesystem::copy(src.to_native_path(), dst.to_native_path(), std::filesystem::copy_options::recursive, ec);
     if (ec) {
-        throw std::runtime_error(std::format("copy: failed to copy from '{}' to '{}': {}", src.to_native_path().string(), dst.to_native_path().string(), ec.message()));
+        throw std::runtime_error(std::format("filesystem_t::copy: failed to copy from '{}' to '{}': {}", src.to_native_path().string(), dst.to_native_path().string(), ec.message()));
     }
 }
 
@@ -288,7 +288,7 @@ void filesystem_t::create_directories(const path_t& path) {
     // std::cout << std::format("mkdir -p {}", path.to_native_path().string()) << std::endl;
     std::filesystem::create_directories(path.to_native_path(), ec);
     if (ec) {
-        throw std::runtime_error(std::format("create_directories: failed to create directories for path '{}': {}", path.to_native_path().string(), ec.message()));
+        throw std::runtime_error(std::format("filesystem_t::create_directories: failed to create directories for path '{}': {}", path.to_native_path().string(), ec.message()));
     }
 }
 
@@ -297,7 +297,7 @@ void filesystem_t::create_symlink(const path_t& src, const path_t& dst) {
     // std::cout << std::format("ln -s {} {}", src.to_native_path().string(), dst.to_native_path().string()) << std::endl;
     std::filesystem::create_symlink(src.to_native_path(), dst.to_native_path(), ec);
     if (ec) {
-        throw std::runtime_error(std::format("create_symlink: failed to create symlink from '{}' to '{}': {}", dst.to_native_path().string(), src.to_native_path().string(), ec.message()));
+        throw std::runtime_error(std::format("filesystem_t::create_symlink: failed to create symlink from '{}' to '{}': {}", dst.to_native_path().string(), src.to_native_path().string(), ec.message()));
     }
 }
 
@@ -306,7 +306,7 @@ void filesystem_t::create_directory_symlink(const path_t& src, const path_t& dst
     // std::cout << std::format("ln -s {} {}", src.to_native_path().string(), dst.to_native_path().string()) << std::endl;
     std::filesystem::create_directory_symlink(src.to_native_path(), dst.to_native_path(), ec);
     if (ec) {
-        throw std::runtime_error(std::format("create_directory_symlink: failed to create directory symlink from '{}' to '{}': {}", dst.to_native_path().string(), src.to_native_path().string(), ec.message()));
+        throw std::runtime_error(std::format("filesystem_t::create_directory_symlink: failed to create directory symlink from '{}' to '{}': {}", dst.to_native_path().string(), src.to_native_path().string(), ec.message()));
     }
 }
 
@@ -315,7 +315,7 @@ bool filesystem_t::exists(const path_t& path) {
     // std::cout << std::format("test -e {}", path.to_native_path().string()) << std::endl;
     const bool result = std::filesystem::exists(path.to_native_path(), ec);
     if (ec) {
-        throw std::runtime_error(std::format("exists: failed to check existence of path '{}': {}", path.to_native_path().string(), ec.message()));
+        throw std::runtime_error(std::format("filesystem_t::exists: failed to check existence of path '{}': {}", path.to_native_path().string(), ec.message()));
     }
     return result;
 }
@@ -325,7 +325,7 @@ std::uintmax_t filesystem_t::file_size(const path_t& path) {
     // std::cout << std::format("stat -c%s {}", path.to_native_path().string()) << std::endl;
     const std::uintmax_t result = std::filesystem::file_size(path.to_native_path(), ec);
     if (ec) {
-        throw std::runtime_error(std::format("file_size: failed to get file size of path '{}': {}", path.to_native_path().string(), ec.message()));
+        throw std::runtime_error(std::format("filesystem_t::file_size: failed to get file size of path '{}': {}", path.to_native_path().string(), ec.message()));
     }
     return result;
 }
@@ -335,7 +335,7 @@ std::filesystem::file_time_type filesystem_t::last_write_time(const path_t& path
     // std::cout << std::format("stat -c%Y {}", path.to_native_path().string()) << std::endl;
     std::filesystem::file_time_type result = std::filesystem::last_write_time(path.to_native_path(), ec);
     if (ec) {
-        throw std::runtime_error(std::format("last_write_time: failed to get last write time of path '{}': {}", path.to_native_path().string(), ec.message()));
+        throw std::runtime_error(std::format("filesystem_t::last_write_time: failed to get last write time of path '{}': {}", path.to_native_path().string(), ec.message()));
     }
     return result;
 }
@@ -345,7 +345,7 @@ bool filesystem_t::remove(const path_t& path) {
     // std::cout << std::format("rm {}", path.to_native_path().string()) << std::endl;
     const bool result = std::filesystem::remove(path.to_native_path(), ec);
     if (ec) {
-        throw std::runtime_error(std::format("remove: failed to remove path '{}': {}", path.to_native_path().string(), ec.message()));
+        throw std::runtime_error(std::format("filesystem_t::remove: failed to remove path '{}': {}", path.to_native_path().string(), ec.message()));
     }
     return result;
 }
@@ -355,7 +355,7 @@ std::uintmax_t filesystem_t::remove_all(const path_t& path) {
     // std::cout << std::format("rm -rf {}", path.to_native_path().string()) << std::endl;
     const std::uintmax_t result = std::filesystem::remove_all(path.to_native_path(), ec);
     if (ec) {
-        throw std::runtime_error(std::format("remove_all: failed to remove all at path '{}': {}", path.to_native_path().string(), ec.message()));
+        throw std::runtime_error(std::format("filesystem_t::remove_all: failed to remove all at path '{}': {}", path.to_native_path().string(), ec.message()));
     }
     return result;
 }
@@ -365,7 +365,7 @@ bool filesystem_t::is_regular_file(const path_t& path) {
     // std::cout << std::format("test -f {}", path.to_native_path().string()) << std::endl;
     const bool result = std::filesystem::is_regular_file(path.to_native_path(), ec);
     if (ec) {
-        throw std::runtime_error(std::format("is_regular_file: failed to check if path '{}' is a regular file: {}", path.to_native_path().string(), ec.message()));
+        throw std::runtime_error(std::format("filesystem_t::is_regular_file: failed to check if path '{}' is a regular file: {}", path.to_native_path().string(), ec.message()));
     }
     return result;
 }
@@ -375,7 +375,7 @@ bool filesystem_t::is_directory(const path_t& path) {
     // std::cout << std::format("test -d {}", path.to_native_path().string()) << std::endl;
     const bool result = std::filesystem::is_directory(path.to_native_path(), ec);
     if (ec) {
-        throw std::runtime_error(std::format("is_directory: failed to check if path '{}' is a directory: {}", path.to_native_path().string(), ec.message()));
+        throw std::runtime_error(std::format("filesystem_t::is_directory: failed to check if path '{}' is a directory: {}", path.to_native_path().string(), ec.message()));
     }
     return result;
 }
@@ -403,7 +403,7 @@ std::vector<path_t> filesystem_t::find(const path_t& dir, const find_include_pre
         }
     }
     if (ec) {
-        throw std::runtime_error(std::format("find: failed to iterate directory '{}': {}", dir.to_native_path().string(), ec.message()));
+        throw std::runtime_error(std::format("filesystem_t::find: failed to iterate directory '{}': {}", dir.to_native_path().string(), ec.message()));
     }
 
     return result;

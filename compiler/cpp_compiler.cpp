@@ -50,7 +50,7 @@ path_t cpp_compiler_t::create_library(
     switch (library_type) {
         case LIBRARY_TYPE_STATIC: return create_static_library(builder, source_files, define_key_values, relative_libary_stem + ".a");
         case LIBRARY_TYPE_SHARED: return create_shared_library(builder, source_files, define_key_values, relative_libary_stem + ".so");
-        default: throw std::runtime_error(std::format("create_library: unknown library_type {}", static_cast<int>(library_type)));
+        default: throw std::runtime_error(std::format("cpp_compiler_t::create_library: unknown library_type {}", static_cast<int>(library_type)));
     }
 }
 
@@ -98,7 +98,7 @@ path_t cpp_compiler_t::reference_library(
     switch (library_type) {
         case LIBRARY_TYPE_STATIC: return reference_static_library(builder, existing_library, relative_library_path);
         case LIBRARY_TYPE_SHARED: return reference_shared_library(builder, existing_library, relative_library_path);
-        default: throw std::runtime_error(std::format("reference_library: unknown library_type {}", static_cast<int>(library_type)));
+        default: throw std::runtime_error(std::format("cpp_compiler_t::reference_library: unknown library_type {}", static_cast<int>(library_type)));
     }
 }
 
@@ -108,7 +108,7 @@ path_t cpp_compiler_t::reference_binary(
     const relative_path_t& relative_binary_path
 ) {
     if (!filesystem_t::exists(existing_binary)) {
-        throw std::runtime_error(std::format("reference_binary: referenced binary '{}' does not exist", existing_binary.string()));
+        throw std::runtime_error(std::format("cpp_compiler_t::reference_binary: referenced binary '{}' does not exist", existing_binary.string()));
     }
 
     const auto binary_dir = builder->import_dir();
@@ -149,11 +149,11 @@ path_t cpp_compiler_t::create_static_library(
     std::cout << command << std::endl;
     const int command_result = std::system(command.c_str());
     if (command_result != 0) {
-        throw std::runtime_error(std::format("create_static_library: failed to create static library '{}', command exited with code {}", static_library.string(), command_result));
+        throw std::runtime_error(std::format("cpp_compiler_t::create_static_library: failed to create static library '{}', command exited with code {}", static_library.string(), command_result));
     }
 
     if (!filesystem_t::exists(static_library)) {
-        throw std::runtime_error(std::format("create_static_library: expected output static library '{}' to exist but it does not", static_library.string()));
+        throw std::runtime_error(std::format("cpp_compiler_t::create_static_library: expected output static library '{}' to exist but it does not", static_library.string()));
     }
 
     return static_library;
@@ -189,7 +189,7 @@ path_t cpp_compiler_t::create_shared_library(
 
     for (const auto& dso : dsos) {
         if (!filesystem_t::exists(dso)) {
-            throw std::runtime_error(std::format("create_shared_library: dso does not exist '{}'", dso.string()));
+            throw std::runtime_error(std::format("cpp_compiler_t::create_shared_library: dso does not exist '{}'", dso.string()));
         }
 
         command += " " + dso.string();
@@ -198,11 +198,11 @@ path_t cpp_compiler_t::create_shared_library(
     std::cout << command << std::endl;
     const int command_result = std::system(command.c_str());
     if (command_result != 0) {
-        throw std::runtime_error(std::format("create_shared_library: failed to create shared library '{}', command exited with code {}", shared_library.string(), command_result));
+        throw std::runtime_error(std::format("cpp_compiler_t::create_shared_library: failed to create shared library '{}', command exited with code {}", shared_library.string(), command_result));
     }
 
     if (!filesystem_t::exists(shared_library)) {
-        throw std::runtime_error(std::format("create_shared_library: expected output shared library '{}' to exist but it does not", shared_library.string()));
+        throw std::runtime_error(std::format("cpp_compiler_t::create_shared_library: expected output shared library '{}' to exist but it does not", shared_library.string()));
     }
 
     return shared_library;
@@ -237,7 +237,7 @@ path_t cpp_compiler_t::create_binary(
         }
         for (const auto& library : *library_group_it) {
             if (!filesystem_t::exists(library)) {
-                throw std::runtime_error(std::format("create_binary: library does not exist '{}'", library.string()));
+                throw std::runtime_error(std::format("cpp_compiler_t::create_binary: library does not exist '{}'", library.string()));
             }
             command += " " + library.string();
         }
@@ -249,11 +249,11 @@ path_t cpp_compiler_t::create_binary(
     std::cout << command << std::endl;
     const int command_result = std::system(command.c_str());
     if (command_result != 0) {
-        throw std::runtime_error(std::format("create_binary: failed to create binary '{}', command exited with code {}", binary.string(), command_result));
+        throw std::runtime_error(std::format("cpp_compiler_t::create_binary: failed to create binary '{}', command exited with code {}", binary.string(), command_result));
     }
 
     if (!filesystem_t::exists(binary)) {
-        throw std::runtime_error(std::format("create_binary: expected output binary '{}' to exist but it does not", binary.string()));
+        throw std::runtime_error(std::format("cpp_compiler_t::create_binary: expected output binary '{}' to exist but it does not", binary.string()));
     }
 
     return binary;
@@ -264,7 +264,7 @@ path_t cpp_compiler_t::reference_static_library(
     const path_t& static_library
 ) {
     if (!filesystem_t::exists(existing_static_library)) {
-        throw std::runtime_error(std::format("reference_static_library: referenced static library '{}' does not exist", existing_static_library.string()));
+        throw std::runtime_error(std::format("cpp_compiler_t::reference_static_library: referenced static library '{}' does not exist", existing_static_library.string()));
     }
 
     const auto static_library_dir = static_library.parent();
@@ -282,7 +282,7 @@ path_t cpp_compiler_t::reference_shared_library(
     const path_t& shared_library
 ) {
     if (!filesystem_t::exists(existing_shared_library)) {
-        throw std::runtime_error(std::format("reference_shared_library: referenced shared library '{}' does not exist", existing_shared_library.string()));
+        throw std::runtime_error(std::format("cpp_compiler_t::reference_shared_library: referenced shared library '{}' does not exist", existing_shared_library.string()));
     }
 
     const auto shared_library_dir = shared_library.parent();
@@ -303,7 +303,7 @@ path_t cpp_compiler_t::reference_shared_library(
     switch (library_type) {
         case LIBRARY_TYPE_STATIC: return reference_static_library(existing_library, library_stem + ".a");
         case LIBRARY_TYPE_SHARED: return reference_shared_library(existing_library, library_stem + ".so");
-        default: throw std::runtime_error(std::format("reference_library: unknown library_type {}", static_cast<int>(library_type)));
+        default: throw std::runtime_error(std::format("cpp_compiler_t::reference_shared_library: unknown library_type {}", static_cast<int>(library_type)));
     }
 }
 
@@ -350,7 +350,7 @@ std::vector<path_t> cpp_compiler_t::cache_object_files(
 
     for (const auto& source_file : source_files) {
         if (!filesystem_t::exists(source_file)) {
-            throw std::runtime_error(std::format("cache_object_files: source file does not exist '{}'", source_file.string()));
+            throw std::runtime_error(std::format("cpp_compiler_t::cache_object_files: source file does not exist '{}'", source_file.string()));
         }
 
         const auto rel = source_dir.relative(source_file);
@@ -366,7 +366,7 @@ std::vector<path_t> cpp_compiler_t::cache_object_files(
         std::cout << compile_command << std::endl;
         const int compile_command_result = std::system(compile_command.c_str());
         if (compile_command_result != 0) {
-            throw std::runtime_error(std::format("cache_object_files: failed to compile '{}', compilation result: {}", source_file.string(), compile_command_result));
+            throw std::runtime_error(std::format("cpp_compiler_t::cache_object_files: failed to compile '{}', compilation result: {}", source_file.string(), compile_command_result));
         }
 
         result.push_back(object_file);

@@ -109,7 +109,7 @@ path_t builder_t::build_dir(const module_t& module, library_type_t library_type)
     switch (library_type) {
         case LIBRARY_TYPE_STATIC: return build_dir(module) / relative_path_t("static");
         case LIBRARY_TYPE_SHARED: return build_dir(module) / relative_path_t("shared");
-        default: throw std::runtime_error(std::format("build_dir: unknown library_type {}", (uint32_t)library_type));
+        default: throw std::runtime_error(std::format("builder_t::build_dir: unknown library_type {}", (uint32_t)library_type));
     }
 }
 
@@ -117,7 +117,7 @@ path_t builder_t::export_dir(const module_t& module, library_type_t library_type
     switch (library_type) {
         case LIBRARY_TYPE_STATIC: return export_dir(module) / relative_path_t("static");
         case LIBRARY_TYPE_SHARED: return export_dir(module) / relative_path_t("shared");
-        default: throw std::runtime_error(std::format("export_dir: unknown library_type {}", (uint32_t)library_type));
+        default: throw std::runtime_error(std::format("builder_t::export_dir: unknown library_type {}", (uint32_t)library_type));
     }
 }
 
@@ -162,7 +162,7 @@ module_graph_t::module_graph_t(
 const module_scc_t* module_graph_t::module_scc(const module_t& module) const {
     auto it = m_scc_by_module.find(&module);
     if (it == m_scc_by_module.end()) {
-        throw std::runtime_error(std::format("module_scc: module '{}' not found in module graph", module.name()));
+        throw std::runtime_error(std::format("module_graph_t::module_scc: module '{}' not found in module graph", module.name()));
     }
 
     return it->second;
@@ -339,7 +339,7 @@ std::vector<path_t> builder_t::export_libraries(const module_t& module, library_
                 case LIBRARY_TYPE_SHARED: {
                     library_type_str = "shared";
                 } break ;
-                default: throw std::runtime_error(std::format("export_libraries: unknown library_type {}", (uint32_t)library_type));
+                default: throw std::runtime_error(std::format("builder_t::export_libraries: unknown library_type {}", (uint32_t)library_type));
             }
 
             const auto export_command = std::format(
@@ -353,20 +353,20 @@ std::vector<path_t> builder_t::export_libraries(const module_t& module, library_
             std::cout << export_command << std::endl;
             const int export_command_result = std::system(export_command.c_str());
             if (export_command_result != 0) {
-                throw std::runtime_error(std::format("export_libraries: failed to export builder libraries, command exited with code {}", export_command_result));
+                throw std::runtime_error(std::format("builder_t::export_libraries: failed to export builder libraries, command exited with code {}", export_command_result));
             }
         } else {
             const auto& builder_plugin = build_builder(module);
             void* builder_plugin_handle = dlopen(builder_plugin.c_str(), RTLD_NOW | RTLD_LOCAL | RTLD_NODELETE);
             if (!builder_plugin_handle) {
-                throw std::runtime_error(std::format("export_libraries: failed to load builder plugin '{}': {}", builder_plugin.string(), dlerror()));
+                throw std::runtime_error(std::format("builder_t::export_libraries: failed to load builder plugin '{}': {}", builder_plugin.string(), dlerror()));
             }
 
             try {
                 typedef void (*builder__export_libraries_t)(const builder_t* builder, library_type_t library_type);
                 builder__export_libraries_t builder__export_libraries = (builder__export_libraries_t) dlsym(builder_plugin_handle, "builder__export_libraries");
                 if (!builder__export_libraries) {
-                    throw std::runtime_error(std::format("export_libraries: failed to load symbol 'builder__export_libraries' from builder plugin '{}': {}", builder_plugin.string(), dlerror()));
+                    throw std::runtime_error(std::format("builder_t::export_libraries: failed to load symbol 'builder__export_libraries' from builder plugin '{}': {}", builder_plugin.string(), dlerror()));
                 }
 
                 builder_t builder(m_module_graph, module, m_artifacts_dir);
@@ -408,14 +408,14 @@ void builder_t::import_libraries(const module_t& module) const {
     const auto& builder_plugin = build_builder(module);
     void* builder_plugin_handle = dlopen(builder_plugin.c_str(), RTLD_NOW | RTLD_LOCAL | RTLD_NODELETE);
     if (!builder_plugin_handle) {
-        throw std::runtime_error(std::format("import_libraries: failed to load builder plugin '{}': {}", builder_plugin.c_str(), dlerror()));
+        throw std::runtime_error(std::format("builder_t::import_libraries failed to load builder plugin '{}': {}", builder_plugin.c_str(), dlerror()));
     }
 
     try {
         typedef void (*builder__import_libraries_t)(const builder_t* builder);
         builder__import_libraries_t builder__import_libraries = (builder__import_libraries_t)dlsym(builder_plugin_handle, "builder__import_libraries");
         if (!builder__import_libraries) {
-            throw std::runtime_error(std::format("import_libraries: failed to locate symbol 'builder__import_libraries' in module '{}': {}", module.name(), dlerror()));
+            throw std::runtime_error(std::format("builder_t::import_libraries failed to locate symbol 'builder__import_libraries' in module '{}': {}", module.name(), dlerror()));
         }
 
         builder_t builder(m_module_graph, module, m_artifacts_dir);
@@ -447,7 +447,7 @@ path_t builder_t::build_builder(const module_t& module) const {
     }
 
     if (!filesystem_t::exists(builder)) {
-        throw std::runtime_error(std::format("build_builder: expected builder plugin '{}' to exist but it does not", builder.string()));
+        throw std::runtime_error(std::format("builder_t::build_builder: expected builder plugin '{}' to exist but it does not", builder.string()));
     }
 
     return builder;
@@ -497,7 +497,7 @@ module_t* module_graph_t::discover(const path_t& modules_dir, const std::string&
 
     const auto module_dir = modules_dir / relative_path_t(module_name);
     if (!filesystem_t::exists(module_dir)) {
-        throw std::runtime_error(std::format("discover: module directory does not exist '{}'", module_dir.string()));
+        throw std::runtime_error(std::format("module_graph_t::discover: module directory does not exist '{}'", module_dir.string()));
     }
 
     auto module = new module_t(module_name, derive_version(module_dir));
@@ -510,44 +510,44 @@ module_t* module_graph_t::discover(const path_t& modules_dir, const std::string&
 
     const auto builder_cpp = module_dir / relative_path_t(module_t::BUILDER_CPP);
     if (!filesystem_t::exists(builder_cpp)) {
-        throw std::runtime_error(std::format("discover: module '{}' is missing required file '{}'", module_name, builder_cpp.string()));
+        throw std::runtime_error(std::format("module_graph_t::discover: module '{}' is missing required file '{}'", module_name, builder_cpp.string()));
     }
 
     const auto deps_json_path = module_dir / relative_path_t(module_t::DEPS_JSON);
     if (!filesystem_t::exists(deps_json_path)) {
-        throw std::runtime_error(std::format("discover: module '{}' is missing required file '{}'", module_name, deps_json_path.string()));
+        throw std::runtime_error(std::format("module_graph_t::discover: module '{}' is missing required file '{}'", module_name, deps_json_path.string()));
     }
 
     nlohmann::json deps_json;
     {
         std::ifstream ifs(deps_json_path.string());
         if (!ifs) {
-            throw std::runtime_error(std::format("discover: failed to open file '{}'", deps_json_path.string()));
+            throw std::runtime_error(std::format("module_graph_t::discover: failed to open file '{}'", deps_json_path.string()));
         }
 
         try {
             deps_json = nlohmann::json::parse(ifs);
         } catch (const nlohmann::json::parse_error& e) {
-            throw std::runtime_error(std::format("discover: failed to parse json file '{}': {}", deps_json_path.string(), e.what()));
+            throw std::runtime_error(std::format("module_graph_t::discover: failed to parse json file '{}': {}", deps_json_path.string(), e.what()));
         }
     }
 
     const auto deps_it = deps_json.find(module_t::DEPS_KEY);
     if (deps_it == deps_json.end()) {
-        throw std::runtime_error(std::format("discover: invalid deps json file '{}': missing '{}' array", deps_json_path.string(), module_t::DEPS_KEY));
+        throw std::runtime_error(std::format("module_graph_t::discover: invalid deps json file '{}': missing '{}' array", deps_json_path.string(), module_t::DEPS_KEY));
     }
     if (!deps_it->is_array()) {
-        throw std::runtime_error(std::format("discover: invalid deps json file '{}': '{}' is not an array", deps_json_path.string(), module_t::DEPS_KEY));
+        throw std::runtime_error(std::format("module_graph_t::discover: invalid deps json file '{}': '{}' is not an array", deps_json_path.string(), module_t::DEPS_KEY));
     }
     const auto& module_deps_array = deps_it->get_ref<const nlohmann::json::array_t&>();
 
     for (const auto& module_deps : module_deps_array) {
         if (!module_deps.is_string()) {
-            throw std::runtime_error(std::format("discover: invalid deps json file '{}': '{}' array must contain only strings", deps_json_path.string(), module_t::DEPS_KEY));
+            throw std::runtime_error(std::format("module_graph_t::discover: invalid deps json file '{}': '{}' array must contain only strings", deps_json_path.string(), module_t::DEPS_KEY));
         }
         const std::string module_deps_str = module_deps.get<std::string>();
         if (module_deps_str.empty()) {
-            throw std::runtime_error(std::format("discover: invalid deps json file '{}': '{}' array must not contain empty strings", deps_json_path.string(), module_t::DEPS_KEY));
+            throw std::runtime_error(std::format("module_graph_t::discover: invalid deps json file '{}': '{}' array must not contain empty strings", deps_json_path.string(), module_t::DEPS_KEY));
         }
 
         it->second.dependencies.insert(discover(modules_dir, module_deps_str, discover_results));
@@ -568,7 +568,7 @@ void module_graph_t::svg_overview(const path_t& dir, const std::string& file_nam
 
     std::ofstream ofs(dot_file.string());
     if (!ofs) {
-        throw std::runtime_error("svg_overview: could not open dot file");
+        throw std::runtime_error("module_graph_t::svg_overview: could not open dot file");
     }
 
     ofs <<
@@ -628,11 +628,11 @@ void module_graph_t::svg_overview(const path_t& dir, const std::string& file_nam
     ofs.close();
 
     if (std::system(std::format("dot -Tsvg {} > {}", dot_file.string(), svg_file.string()).c_str()) != 0) {
-        throw std::runtime_error("svg_overview: graphviz render failed");
+        throw std::runtime_error("module_graph_t::svg_overview: graphviz render failed");
     }
 
     if (std::system(std::format("rsvg-convert {} -o {}", svg_file.string(), png_file.string()).c_str()) != 0) {
-        throw std::runtime_error("svg_overview: could not create svg");
+        throw std::runtime_error("module_graph_t::svg_overview: could not create svg");
     }
 
     filesystem_t::remove(dot_file);
@@ -651,7 +651,7 @@ void module_graph_t::svg_sccs(const path_t& dir, const std::string& file_name_st
 
     std::ofstream ofs(dot_file.string());
     if (!ofs) {
-        throw std::runtime_error("svg_sccs: could not open dot file");
+        throw std::runtime_error("module_graph_t::svg_sccs: could not open dot file");
     }
 
     ofs <<
@@ -693,11 +693,11 @@ void module_graph_t::svg_sccs(const path_t& dir, const std::string& file_name_st
     ofs.close();
 
     if (std::system(std::format("dot -Tsvg {} > {}", dot_file.string(), svg_file.string()).c_str()) != 0) {
-        throw std::runtime_error("svg_sccs: graphviz render failed");
+        throw std::runtime_error("module_graph_t::svg_sccs: graphviz render failed");
     }
 
     if (std::system(std::format("rsvg-convert {} -o {}", svg_file.string(), png_file.string()).c_str()) != 0) {
-        throw std::runtime_error("svg_sccs: could not create svg");
+        throw std::runtime_error("module_graph_t::svg_sccs: could not create svg");
     }
 
     filesystem_t::remove(dot_file);
@@ -716,7 +716,7 @@ void module_graph_t::svg_scc(const path_t& dir, const module_scc_t* scc, const s
 
     std::ofstream ofs(dot_file.string());
     if (!ofs)
-        throw std::runtime_error("svg_scc: could not open dot file");
+        throw std::runtime_error("module_graph_t::svg_scc: could not open dot file");
 
     ofs <<
     R"(digraph SCC_DETAIL {
@@ -737,11 +737,11 @@ void module_graph_t::svg_scc(const path_t& dir, const module_scc_t* scc, const s
     ofs.close();
 
     if (std::system(std::format("neato -Tsvg {} > {}", dot_file.string(), svg_file.string()).c_str()) != 0) {
-        throw std::runtime_error("svg_scc: graphviz render failed");
+        throw std::runtime_error("module_graph_t::svg_scc: graphviz render failed");
     }
 
     if (std::system(std::format("rsvg-convert {} -o {}", svg_file.string(), png_file.string()).c_str()) != 0) {
-        throw std::runtime_error("svg_scc: could not create svg");
+        throw std::runtime_error("module_graph_t::svg_scc: could not create svg");
     }
 
     filesystem_t::remove(dot_file);
