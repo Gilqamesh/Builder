@@ -29,6 +29,19 @@ SRC := \
 	compiler/cpp_compiler.cpp \
 	curl/curl.cpp \
 	filesystem/filesystem.cpp \
+	gzip/gzip.cpp \
+	gzip/external/adler32.c \
+	gzip/external/crc32.c \
+	gzip/external/deflate.c \
+	gzip/external/inflate.c \
+	gzip/external/inffast.c \
+	gzip/external/inftrees.c \
+	gzip/external/trees.c \
+	gzip/external/zutil.c \
+	gzip/external/gzlib.c \
+	gzip/external/gzread.c \
+	gzip/external/gzwrite.c \
+	gzip/external/gzclose.c \
 	module/module_graph.cpp \
 	tar/tar.cpp \
 	tar/external/microtar.c \
@@ -39,6 +52,7 @@ CLI_SRCS := \
 	compiler/cli.cpp \
 	curl/cli.cpp \
 	filesystem/cli.cpp \
+	gzip/cli.cpp \
 	json/cli.cpp \
 	module/cli.cpp \
 	tar/cli.cpp \
