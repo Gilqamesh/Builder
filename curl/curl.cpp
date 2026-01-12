@@ -2,6 +2,7 @@
 
 #include <curl/curl.h>
 
+#include <iostream>
 #include <format>
 #include <fstream>
 
@@ -16,6 +17,8 @@ std::filesystem::path curl_t::download(const std::string& url, const std::filesy
     if (!curl) {
         throw std::runtime_error("failed to initialize curl");
     }
+
+    std::cout << std::format("curl -L {} -o {}", url, install_path.string()) << std::endl;
 
     struct guard_t {
         guard_t(CURL* c) : curl(c) {}

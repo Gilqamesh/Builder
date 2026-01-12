@@ -1,18 +1,20 @@
 #include <modules/builder/tar/tar.h>
 #include <modules/builder/tar/external/microtar.h>
-#include <modules/builder/find/find.h>
 
+#include <iostream>
 #include <format>
 #include <fstream>
 
-std::filesystem::path tar_t::tar(const std::filesystem::path& dir, const std::filesystem::path& install_tar_path) {
+path_t tar_t::tar(const path_t& dir, const path_t& install_tar_path) {
     if (install_tar_path.extension() != ".tar") {
         throw std::runtime_error(std::format("install path '{}' must have .tar extension", install_tar_path.string()));
     }
 
-    if (std::filesystem::exists(install_tar_path)) {
+    if (filesystem_t::exists(install_tar_path)) {
         throw std::runtime_error(std::format("install path '{}' already exists", install_tar_path.string()));
     }
+
+    std::cout << std::format("tar -cf {} {}", install_tar_path.string(), dir.string()) << std::endl;
 
     mtar_t mtar;
     int r = mtar_open(&mtar, install_tar_path.string().c_str(), "w");
@@ -20,38 +22,28 @@ std::filesystem::path tar_t::tar(const std::filesystem::path& dir, const std::fi
         throw std::runtime_error(std::format("failed to open tar archive at '{}': {}", install_tar_path.string(), mtar_strerror(r)));
     }
 
-    const auto normalized_dir = std::filesystem::absolute(dir).lexically_normal();
-    const auto files_to_tar = find_t::find(normalized_dir, find_t::all, true);
-
-    const auto normalized_install_tar_path = std::filesystem::absolute(install_tar_path).lexically_normal();
-    for (const auto file_to_tar : files_to_tar) {
-        const auto normalized_file_to_tar = std::filesystem::absolute(file_to_tar).lexically_normal();
-        if (normalized_file_to_tar == normalized_install_tar_path) {
+    for (const auto file_to_tar : filesystem_t::find(dir, filesystem_t::include_all, filesystem_t::descend_all)) {
+        if (file_to_tar == install_tar_path) {
             continue ;
         }
 
-        const auto relative_path = file_to_tar.lexically_relative(normalized_dir);
-        if (relative_path.empty() || relative_path.native().starts_with("..")) {
-            r = mtar_close(&mtar);
-            throw std::runtime_error(std::format("invalid path '{}' for file to add to tar archive at '{}'", relative_path.string(), install_tar_path.string()));
-        }
-
-
-        std::ifstream ifs(file_to_tar);
+        std::ifstream ifs(file_to_tar.string());
         if (!ifs) {
             r = mtar_close(&mtar);
             throw std::runtime_error(std::format("failed to open file '{}' for reading to add to tar archive at '{}'", file_to_tar.string(), install_tar_path.string()));
         }
 
-        const auto file_size = std::filesystem::file_size(file_to_tar);
+        const auto file_size = filesystem_t::file_size(file_to_tar);
         if (std::numeric_limits<unsigned>::max() < file_size) {
             r = mtar_close(&mtar);
             throw std::runtime_error(std::format("file '{}' is too large to add to tar archive at '{}'", file_to_tar.string(), install_tar_path.string()));
         }
+
+        const auto relative_path = install_tar_path.relative(file_to_tar);
         r = mtar_write_file_header(&mtar, relative_path.c_str(), file_size);
         if (r != MTAR_ESUCCESS) {
             r = mtar_close(&mtar);
-            throw std::runtime_error(std::format("failed to write header for file '{}' to tar archive at '{}': {}", relative_path.string(), install_tar_path.string(), mtar_strerror(r)));
+            throw std::runtime_error(std::format("failed to write header for file '{}' to tar archive at '{}': {}", file_to_tar.string(), install_tar_path.string(), mtar_strerror(r)));
         }
 
         char buffer[4096];
@@ -65,7 +57,7 @@ std::filesystem::path tar_t::tar(const std::filesystem::path& dir, const std::fi
             r = mtar_write_data(&mtar, buffer, read_count);
             if (r != MTAR_ESUCCESS) {
                 r = mtar_close(&mtar);
-                throw std::runtime_error(std::format("failed to write data for file '{}' to tar archive at '{}': {}", relative_path.string(), install_tar_path.string(), mtar_strerror(r)));
+                throw std::runtime_error(std::format("failed to write data for file '{}' to tar archive at '{}': {}", file_to_tar.string(), install_tar_path.string(), mtar_strerror(r)));
             }
         }
     }
@@ -83,20 +75,20 @@ std::filesystem::path tar_t::tar(const std::filesystem::path& dir, const std::fi
     return install_tar_path;
 }
 
-std::filesystem::path tar_t::untar(const std::filesystem::path& tar_path, const std::filesystem::path& install_dir) {
+path_t tar_t::untar(const path_t& tar_path, const path_t& install_dir) {
     if (tar_path.extension() != ".tar") {
         throw std::runtime_error(std::format("tar path '{}' must have .tar extension", tar_path.string()));
     }
 
-    if (std::filesystem::exists(install_dir) && !std::filesystem::is_directory(install_dir)) {
+    if (filesystem_t::exists(install_dir) && !filesystem_t::is_directory(install_dir)) {
         throw std::runtime_error(std::format("install path '{}' exists and is not a directory", install_dir.string()));
     }
 
-    if (!std::filesystem::exists(tar_path)) {
+    if (!filesystem_t::exists(tar_path)) {
         throw std::runtime_error(std::format("tar path '{}' does not exist", tar_path.string()));
     }
 
-    const auto normalized_install_dir = std::filesystem::absolute(install_dir).lexically_normal();
+    std::cout << std::format("tar -xf {} -C {}", tar_path.string(), install_dir.string()) << std::endl;
 
     mtar_t mtar;
     int r = mtar_open(&mtar, tar_path.string().c_str(), "r");
@@ -116,22 +108,14 @@ std::filesystem::path tar_t::untar(const std::filesystem::path& tar_path, const 
             throw std::runtime_error(std::format("failed to read header from tar archive at '{}': {}", tar_path.string(), mtar_strerror(r)));
         }
 
-        const auto install_path = normalized_install_dir / mtar_header.name;
-        const auto rel = install_path.lexically_relative(normalized_install_dir);
-        if (rel.empty() || rel.native().starts_with("..")) {
-            r = mtar_close(&mtar);
-            throw std::runtime_error(std::format("invalid path '{}' in tar archive at '{}'", mtar_header.name, tar_path.string()));
+        const auto install_path = install_dir / relative_path_t(mtar_header.name);
+
+        const auto parent_dir = install_path.parent();
+        if (!filesystem_t::exists(parent_dir)) {
+            filesystem_t::create_directories(parent_dir);
         }
 
-        const auto parent_dir = install_path.parent_path();
-        if (!std::filesystem::exists(parent_dir)) {
-            if (!std::filesystem::create_directories(parent_dir)) {
-                r = mtar_close(&mtar);
-                throw std::runtime_error(std::format("failed to create parent directory '{}' for file '{}' from tar archive at '{}'", parent_dir.string(), install_path.string(), tar_path.string()));
-            }
-        }
-
-        std::ofstream ofs(install_path);
+        std::ofstream ofs(install_path.string());
         if (!ofs) {
             r = mtar_close(&mtar);
             throw std::runtime_error(std::format("failed to open file '{}' for writing from tar archive at '{}'", install_path.string(), tar_path.string()));
@@ -164,5 +148,5 @@ std::filesystem::path tar_t::untar(const std::filesystem::path& tar_path, const 
         throw std::runtime_error(std::format("failed to close tar archive at '{}': {}", tar_path.string(), mtar_strerror(r)));
     }
 
-    return normalized_install_dir;
+    return install_dir;
 }

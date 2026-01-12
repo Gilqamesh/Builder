@@ -1,23 +1,34 @@
 #include <modules/builder/zip/zip.h>
 #include <modules/builder/zip/external/miniz.h>
-#include <modules/builder/find/find.h>
 
 #include <format>
+#include <iostream>
 
-std::filesystem::path zip_t::zip(const std::filesystem::path& dir, const std::filesystem::path& install_zip_path) {
-    std::vector<std::filesystem::path> regular_files = find_t::find(dir, find_t::all, true);
+path_t zip_t::zip(const path_t& dir, const path_t& install_zip_path) {
+
+    const auto regular_files = filesystem_t::find(dir, filesystem_t::is_regular, filesystem_t::descend_all);
     return zip(regular_files, install_zip_path);
 }
 
-
-std::filesystem::path zip_t::zip(const std::vector<std::filesystem::path>& regular_files, const std::filesystem::path& install_zip_path) {
+path_t zip_t::zip(const std::vector<path_t>& regular_files, const path_t& install_zip_path) {
     if (install_zip_path.extension() != ".zip") {
         throw std::runtime_error(std::format("install path '{}' must have .zip extension", install_zip_path.string()));
     }
 
-    if (std::filesystem::exists(install_zip_path)) {
+    if (filesystem_t::exists(install_zip_path)) {
         throw std::runtime_error(std::format("install path '{}' already exists", install_zip_path.string()));
     }
+
+    std::cout << std::format("zip -c {} {}", install_zip_path.string(), [&regular_files]() {
+        std::string files_str;
+        for (const auto& regular_file : regular_files) {
+            if (!files_str.empty()) {
+                files_str += " ";
+            }
+            files_str += regular_file.string();
+        }
+        return files_str;
+    }()) << std::endl;
 
     mz_zip_archive zip;
     mz_zip_zero_struct(&zip);
@@ -27,11 +38,11 @@ std::filesystem::path zip_t::zip(const std::vector<std::filesystem::path>& regul
     }
 
     for (const auto& regular_file : regular_files) {
-        if (!std::filesystem::exists(regular_file)) {
+        if (!filesystem_t::exists(regular_file)) {
             mz_zip_writer_end(&zip);
             throw std::runtime_error(std::format("file '{}' does not exist", regular_file.string()));
         }
-        if (!std::filesystem::is_regular_file(regular_file)) {
+        if (!filesystem_t::is_regular_file(regular_file)) {
             mz_zip_writer_end(&zip);
             throw std::runtime_error(std::format("file '{}' is not a regular regular_file", regular_file.string()));
         }
@@ -52,18 +63,20 @@ std::filesystem::path zip_t::zip(const std::vector<std::filesystem::path>& regul
     return install_zip_path;
 }
 
-std::filesystem::path zip_t::unzip(const std::filesystem::path& zip_path, const std::filesystem::path& install_dir) {
+path_t zip_t::unzip(const path_t& zip_path, const path_t& install_dir) {
     if (zip_path.extension() != ".zip") {
         throw std::runtime_error(std::format("zip file '{}' must have .zip extension", zip_path.string()));
     }
 
-    if (std::filesystem::exists(install_dir) && !std::filesystem::is_directory(install_dir)) {
+    if (filesystem_t::exists(install_dir) && !filesystem_t::is_directory(install_dir)) {
         throw std::runtime_error(std::format("install path '{}' exists and is not a directory", install_dir.string()));
     }
 
-    if (!std::filesystem::exists(zip_path) || !std::filesystem::is_regular_file(zip_path)) {
+    if (!filesystem_t::exists(zip_path) || !filesystem_t::is_regular_file(zip_path)) {
         throw std::runtime_error(std::format("zip file '{}' does not exist or is not a regular file", zip_path.string()));
     }
+
+    std::cout << std::format("unzip -d {} {}", install_dir.string(), zip_path.string()) << std::endl;
 
     mz_zip_archive zip;
     mz_zip_zero_struct(&zip);
@@ -78,21 +91,16 @@ std::filesystem::path zip_t::unzip(const std::filesystem::path& zip_path, const 
         mz_zip_archive_file_stat st;
         mz_zip_reader_file_stat(&zip, i, &st);
 
-        std::filesystem::path out_path = install_dir / st.m_filename;
+        path_t out_path = install_dir / relative_path_t(st.m_filename);
 
         if (st.m_is_directory) {
-            std::error_code ec;
-            if (!std::filesystem::create_directories(out_path, ec)) {
-                mz_zip_reader_end(&zip);
-                throw std::runtime_error(std::format("failed to create directory '{}', error: {}", out_path.string(), ec.message()));
-            }
+            filesystem_t::create_directories(out_path);
             continue ;
         }
 
-        std::error_code ec;
-        if (!std::filesystem::create_directories(out_path.parent_path(), ec)) {
-            mz_zip_reader_end(&zip);
-            throw std::runtime_error(std::format("failed to create directory '{}', error: {}", out_path.parent_path().string(), ec.message()));
+        const auto parent = out_path.parent();
+        if (!filesystem_t::exists(parent)) {
+            filesystem_t::create_directories(out_path.parent());
         }
 
         if (!mz_zip_reader_extract_to_file(&zip, i, out_path.string().c_str(), 0)) {

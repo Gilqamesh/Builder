@@ -7,11 +7,11 @@
 #include <sstream>
 #include <fstream>
 
-std::filesystem::path cpp_compiler_t::create_static_library(
+path_t cpp_compiler_t::create_static_library(
     const builder_t* builder,
-    const std::vector<std::filesystem::path>& source_files,
+    const std::vector<path_t>& source_files,
     const std::vector<std::pair<std::string, std::string>>& define_key_values,
-    const std::string& static_library_name
+    const relative_path_t& relative_static_library_path
 ) {
     return create_static_library(
         builder->build_dir(LIBRARY_TYPE_STATIC),
@@ -19,15 +19,15 @@ std::filesystem::path cpp_compiler_t::create_static_library(
         { builder->include_dir() },
         source_files,
         define_key_values,
-        builder->export_dir(LIBRARY_TYPE_STATIC) / static_library_name
+        builder->export_dir(LIBRARY_TYPE_STATIC) / relative_static_library_path
     );
 }
 
-std::filesystem::path cpp_compiler_t::create_shared_library(
+path_t cpp_compiler_t::create_shared_library(
     const builder_t* builder,
-    const std::vector<std::filesystem::path>& source_files,
+    const std::vector<path_t>& source_files,
     const std::vector<std::pair<std::string, std::string>>& define_key_values,
-    const std::string& shared_library_name
+    const relative_path_t& relative_shared_library_path
 ) {
     return create_shared_library(
         builder->build_dir(LIBRARY_TYPE_SHARED),
@@ -36,35 +36,31 @@ std::filesystem::path cpp_compiler_t::create_shared_library(
         source_files,
         define_key_values,
         {},
-        builder->export_dir(LIBRARY_TYPE_SHARED) / shared_library_name
+        builder->export_dir(LIBRARY_TYPE_SHARED) / relative_shared_library_path
     );
 }
 
-std::filesystem::path cpp_compiler_t::create_library(
+path_t cpp_compiler_t::create_library(
     const builder_t* builder,
-    const std::vector<std::filesystem::path>& source_files,
+    const std::vector<path_t>& source_files,
     const std::vector<std::pair<std::string, std::string>>& define_key_values,
-    const std::string& library_stem,
+    const relative_path_t& relative_libary_stem,
     library_type_t library_type
 ) {
     switch (library_type) {
-        case LIBRARY_TYPE_STATIC: return create_static_library(builder, source_files, define_key_values, library_stem + ".a");
-        case LIBRARY_TYPE_SHARED: return create_shared_library(builder, source_files, define_key_values, library_stem + ".so");
+        case LIBRARY_TYPE_STATIC: return create_static_library(builder, source_files, define_key_values, relative_libary_stem + ".a");
+        case LIBRARY_TYPE_SHARED: return create_shared_library(builder, source_files, define_key_values, relative_libary_stem + ".so");
         default: throw std::runtime_error(std::format("create_library: unknown library_type {}", static_cast<int>(library_type)));
     }
 }
 
-std::filesystem::path cpp_compiler_t::create_binary(
+path_t cpp_compiler_t::create_binary(
     const builder_t* builder,
-    const std::vector<std::filesystem::path>& source_files,
+    const std::vector<path_t>& source_files,
     const std::vector<std::pair<std::string, std::string>>& define_key_values,
     library_type_t library_type,
-    const std::filesystem::path& binary_relative_path
+    const relative_path_t& relative_binary_path
 ) {
-    if (binary_relative_path.is_absolute() || binary_relative_path.lexically_normal().native().starts_with("..")) {
-        throw std::runtime_error(std::format("create_binary: binary path '{}' must not escape the import directory", binary_relative_path.string()));
-    }
-
     return create_binary(
         builder->build_dir(library_type),
         builder->src_dir(),
@@ -73,68 +69,63 @@ std::filesystem::path cpp_compiler_t::create_binary(
         define_key_values,
         builder->export_libraries(library_type),
         library_type,
-        builder->import_dir() / binary_relative_path
+        builder->import_dir() / relative_binary_path
     );
 }
 
-std::filesystem::path cpp_compiler_t::reference_static_library(
+path_t cpp_compiler_t::reference_static_library(
     const builder_t* builder,
-    const std::filesystem::path& existing_static_library,
-    const std::string& static_library_name
+    const path_t& existing_static_library,
+    const relative_path_t& relative_static_library_path
 ) {
-    return reference_static_library(existing_static_library, builder->export_dir(LIBRARY_TYPE_STATIC) / static_library_name);
+    return reference_static_library(existing_static_library, builder->export_dir(LIBRARY_TYPE_STATIC) / relative_static_library_path);
 }
 
-std::filesystem::path cpp_compiler_t::reference_shared_library(
+path_t cpp_compiler_t::reference_shared_library(
     const builder_t* builder,
-    const std::filesystem::path& existing_shared_library,
-    const std::string& shared_library_name
+    const path_t& existing_shared_library,
+    const relative_path_t& relative_shared_library_path
 ) {
-    return reference_shared_library(existing_shared_library, builder->export_dir(LIBRARY_TYPE_SHARED) / shared_library_name);
+    return reference_shared_library(existing_shared_library, builder->export_dir(LIBRARY_TYPE_SHARED) / relative_shared_library_path);
 }
 
-std::filesystem::path cpp_compiler_t::reference_library(
+path_t cpp_compiler_t::reference_library(
     const builder_t* builder,
-    const std::filesystem::path& existing_library,
-    const std::string& library_name,
+    const path_t& existing_library,
+    const relative_path_t& relative_library_path,
     library_type_t library_type
 ) {
     switch (library_type) {
-        case LIBRARY_TYPE_STATIC: return reference_static_library(builder, existing_library, library_name);
-        case LIBRARY_TYPE_SHARED: return reference_shared_library(builder, existing_library, library_name);
+        case LIBRARY_TYPE_STATIC: return reference_static_library(builder, existing_library, relative_library_path);
+        case LIBRARY_TYPE_SHARED: return reference_shared_library(builder, existing_library, relative_library_path);
         default: throw std::runtime_error(std::format("reference_library: unknown library_type {}", static_cast<int>(library_type)));
     }
 }
 
-std::filesystem::path cpp_compiler_t::reference_binary(
+path_t cpp_compiler_t::reference_binary(
     const builder_t* builder,
-    const std::filesystem::path& existing_binary,
-    const std::string& binary_name
+    const path_t& existing_binary,
+    const relative_path_t& relative_binary_path
 ) {
-    if (!std::filesystem::exists(existing_binary)) {
+    if (!filesystem_t::exists(existing_binary)) {
         throw std::runtime_error(std::format("reference_binary: referenced binary '{}' does not exist", existing_binary.string()));
     }
 
     const auto binary_dir = builder->import_dir();
-    const auto binary = binary_dir / binary_name;
+    const auto binary = binary_dir / relative_binary_path;
 
-    std::cout << std::format("ln -s {} {}", existing_binary.string(), binary.string()) << std::endl;
-    std::error_code ec;
-    std::filesystem::create_symlink(existing_binary, binary, ec);
-    if (ec) {
-        throw std::runtime_error(std::format("reference_binary: failed to create symlink from '{}' to '{}': {}", existing_binary.string(), binary.string(), ec.message()));
-    }
+    filesystem_t::create_symlink(existing_binary, binary);
 
     return binary;
 }
 
-std::filesystem::path cpp_compiler_t::create_static_library(
-    const std::filesystem::path& cache_dir,
-    const std::filesystem::path& source_dir,
-    const std::vector<std::filesystem::path>& include_dirs,
-    const std::vector<std::filesystem::path>& source_files,
+path_t cpp_compiler_t::create_static_library(
+    const path_t& cache_dir,
+    const path_t& source_dir,
+    const std::vector<path_t>& include_dirs,
+    const std::vector<path_t>& source_files,
     const std::vector<std::pair<std::string, std::string>>& define_key_values,
-    const std::filesystem::path& static_library
+    const path_t& static_library
 ) {
     const auto object_files = cache_object_files(
         cache_dir,
@@ -145,11 +136,9 @@ std::filesystem::path cpp_compiler_t::create_static_library(
         false
     );
 
-    const auto static_library_dir = static_library.parent_path();
-    if (!std::filesystem::exists(static_library_dir)) {
-        if (!std::filesystem::create_directories(static_library_dir)) {
-            throw std::runtime_error(std::format("create_static_library: failed to create output shared library directory '{}'", static_library_dir.string()));
-        }
+    const auto static_library_dir = static_library.parent();
+    if (!filesystem_t::exists(static_library_dir)) {
+        filesystem_t::create_directories(static_library_dir);
     }
 
     std::string command = "ar rcs " + static_library.string();
@@ -163,21 +152,21 @@ std::filesystem::path cpp_compiler_t::create_static_library(
         throw std::runtime_error(std::format("create_static_library: failed to create static library '{}', command exited with code {}", static_library.string(), command_result));
     }
 
-    if (!std::filesystem::exists(static_library)) {
+    if (!filesystem_t::exists(static_library)) {
         throw std::runtime_error(std::format("create_static_library: expected output static library '{}' to exist but it does not", static_library.string()));
     }
 
     return static_library;
 }
 
-std::filesystem::path cpp_compiler_t::create_shared_library(
-    const std::filesystem::path& cache_dir,
-    const std::filesystem::path& source_dir,
-    const std::vector<std::filesystem::path>& include_dirs,
-    const std::vector<std::filesystem::path>& source_files,
+path_t cpp_compiler_t::create_shared_library(
+    const path_t& cache_dir,
+    const path_t& source_dir,
+    const std::vector<path_t>& include_dirs,
+    const std::vector<path_t>& source_files,
     const std::vector<std::pair<std::string, std::string>>& define_key_values,
-    const std::vector<std::filesystem::path>& dsos,
-    const std::filesystem::path& shared_library
+    const std::vector<path_t>& dsos,
+    const path_t& shared_library
 ) {
     const auto object_files = cache_object_files(
         cache_dir,
@@ -188,11 +177,9 @@ std::filesystem::path cpp_compiler_t::create_shared_library(
         true
     );
 
-    const auto shared_library_dir = shared_library.parent_path();
-    if (!std::filesystem::exists(shared_library_dir)) {
-        if (!std::filesystem::create_directories(shared_library_dir)) {
-            throw std::runtime_error(std::format("create_shared_library: failed to create output shared library directory '{}'", shared_library_dir.string()));
-        }
+    const auto shared_library_dir = shared_library.parent();
+    if (!filesystem_t::exists(shared_library_dir)) {
+        filesystem_t::create_directories(shared_library_dir);
     }
 
     std::string command = "clang++ -shared -o " + shared_library.string();
@@ -201,7 +188,7 @@ std::filesystem::path cpp_compiler_t::create_shared_library(
     }
 
     for (const auto& dso : dsos) {
-        if (!std::filesystem::exists(dso)) {
+        if (!filesystem_t::exists(dso)) {
             throw std::runtime_error(std::format("create_shared_library: dso does not exist '{}'", dso.string()));
         }
 
@@ -214,30 +201,28 @@ std::filesystem::path cpp_compiler_t::create_shared_library(
         throw std::runtime_error(std::format("create_shared_library: failed to create shared library '{}', command exited with code {}", shared_library.string(), command_result));
     }
 
-    if (!std::filesystem::exists(shared_library)) {
+    if (!filesystem_t::exists(shared_library)) {
         throw std::runtime_error(std::format("create_shared_library: expected output shared library '{}' to exist but it does not", shared_library.string()));
     }
 
     return shared_library;
 }
 
-std::filesystem::path cpp_compiler_t::create_binary(
-    const std::filesystem::path& cache_dir,
-    const std::filesystem::path& source_dir,
-    const std::vector<std::filesystem::path>& include_dirs,
-    const std::vector<std::filesystem::path>& source_files,
+path_t cpp_compiler_t::create_binary(
+    const path_t& cache_dir,
+    const path_t& source_dir,
+    const std::vector<path_t>& include_dirs,
+    const std::vector<path_t>& source_files,
     const std::vector<std::pair<std::string, std::string>>& define_key_values,
-    const std::vector<std::vector<std::filesystem::path>>& library_groups,
+    const std::vector<std::vector<path_t>>& library_groups,
     library_type_t library_type,
-    const std::filesystem::path& binary
+    const path_t& binary
 ) {
     const auto object_files = cache_object_files(cache_dir, source_dir, include_dirs, source_files, define_key_values, library_type);
 
-    const auto binary_dir = binary.parent_path();
-    if (!std::filesystem::exists(binary_dir)) {
-        if (!std::filesystem::create_directories(binary_dir)) {
-            throw std::runtime_error(std::format("create_binary: failed to create output binary directory '{}'", binary_dir.string()));
-        }
+    const auto binary_dir = binary.parent();
+    if (!filesystem_t::exists(binary_dir)) {
+        filesystem_t::create_directories(binary_dir);
     }
 
     std::string command = std::format("clang++ -g -std=c++23 -o {}", binary.string());
@@ -251,10 +236,10 @@ std::filesystem::path cpp_compiler_t::create_binary(
             command += " -Wl,--start-group";
         }
         for (const auto& library : *library_group_it) {
-            if (!std::filesystem::exists(library)) {
+            if (!filesystem_t::exists(library)) {
                 throw std::runtime_error(std::format("create_binary: library does not exist '{}'", library.string()));
             }
-            command += " " + std::filesystem::absolute(library).string();
+            command += " " + library.string();
         }
         if (library_type != LIBRARY_TYPE_SHARED && 1 < library_group_it->size()) {
             command += " -Wl,--end-group";
@@ -267,78 +252,64 @@ std::filesystem::path cpp_compiler_t::create_binary(
         throw std::runtime_error(std::format("create_binary: failed to create binary '{}', command exited with code {}", binary.string(), command_result));
     }
 
-    if (!std::filesystem::exists(binary)) {
+    if (!filesystem_t::exists(binary)) {
         throw std::runtime_error(std::format("create_binary: expected output binary '{}' to exist but it does not", binary.string()));
     }
 
     return binary;
 }
 
-std::filesystem::path cpp_compiler_t::reference_static_library(
-    const std::filesystem::path& existing_static_library,
-    const std::filesystem::path& static_library
+path_t cpp_compiler_t::reference_static_library(
+    const path_t& existing_static_library,
+    const path_t& static_library
 ) {
-    if (!std::filesystem::exists(existing_static_library)) {
+    if (!filesystem_t::exists(existing_static_library)) {
         throw std::runtime_error(std::format("reference_static_library: referenced static library '{}' does not exist", existing_static_library.string()));
     }
 
-    const auto static_library_dir = static_library.parent_path();
-    if (!std::filesystem::exists(static_library_dir)) {
-        if (!std::filesystem::create_directories(static_library_dir)) {
-            throw std::runtime_error(std::format("reference_static_library: failed to create output static library directory '{}'", static_library_dir.string()));
-        }
+    const auto static_library_dir = static_library.parent();
+    if (!filesystem_t::exists(static_library_dir)) {
+        filesystem_t::create_directories(static_library_dir);
     }
 
-    std::cout << std::format("ln -s {} {}", existing_static_library.string(), static_library.string()) << std::endl;
-    std::error_code ec;
-    std::filesystem::create_symlink(existing_static_library, static_library, ec);
-    if (ec) {
-        throw std::runtime_error(std::format("reference_static_library: failed to create symlink from '{}' to '{}': {}", existing_static_library.string(), static_library.string(), ec.message()));
-    }
+    filesystem_t::create_symlink(existing_static_library, static_library);
 
     return static_library;
 }
 
-std::filesystem::path cpp_compiler_t::reference_shared_library(
-    const std::filesystem::path& existing_shared_library,
-    const std::filesystem::path& shared_library
+path_t cpp_compiler_t::reference_shared_library(
+    const path_t& existing_shared_library,
+    const path_t& shared_library
 ) {
-    if (!std::filesystem::exists(existing_shared_library)) {
+    if (!filesystem_t::exists(existing_shared_library)) {
         throw std::runtime_error(std::format("reference_shared_library: referenced shared library '{}' does not exist", existing_shared_library.string()));
     }
 
-    const auto shared_library_dir = shared_library.parent_path();
-    if (!std::filesystem::exists(shared_library_dir)) {
-        if (!std::filesystem::create_directories(shared_library_dir)) {
-            throw std::runtime_error(std::format("reference_shared_library: failed to create output shared library directory '{}'", shared_library_dir.string()));
-        }
+    const auto shared_library_dir = shared_library.parent();
+    if (!filesystem_t::exists(shared_library_dir)) {
+        filesystem_t::create_directories(shared_library_dir);
     }
 
-    std::cout << std::format("ln -s {} {}", existing_shared_library.string(), shared_library.string()) << std::endl;
-    std::error_code ec;
-    std::filesystem::create_symlink(existing_shared_library, shared_library, ec);
-    if (ec) {
-        throw std::runtime_error(std::format("reference_shared_library: failed to create symlink from '{}' to '{}': {}", existing_shared_library.string(), shared_library.string(), ec.message()));
-    }
+    filesystem_t::create_symlink(existing_shared_library, shared_library);
 
     return shared_library;
 }
 
-std::filesystem::path cpp_compiler_t::reference_shared_library(
-    const std::filesystem::path& existing_library,
-    const std::filesystem::path& library_stem,
+path_t cpp_compiler_t::reference_shared_library(
+    const path_t& existing_library,
+    const path_t& library_stem,
     library_type_t library_type
 ) {
     switch (library_type) {
-        case LIBRARY_TYPE_STATIC: return reference_static_library(existing_library, library_stem.string() + ".a");
-        case LIBRARY_TYPE_SHARED: return reference_shared_library(existing_library, library_stem.string() + ".so");
+        case LIBRARY_TYPE_STATIC: return reference_static_library(existing_library, library_stem + ".a");
+        case LIBRARY_TYPE_SHARED: return reference_shared_library(existing_library, library_stem + ".so");
         default: throw std::runtime_error(std::format("reference_library: unknown library_type {}", static_cast<int>(library_type)));
     }
 }
 
-std::vector<std::filesystem::path> cpp_compiler_t::cache_object_files(
+std::vector<path_t> cpp_compiler_t::cache_object_files(
     const builder_t* builder,
-    const std::vector<std::filesystem::path>& source_files,
+    const std::vector<path_t>& source_files,
     const std::vector<std::pair<std::string, std::string>>& define_key_values,
     library_type_t library_type
 ) {
@@ -352,21 +323,19 @@ std::vector<std::filesystem::path> cpp_compiler_t::cache_object_files(
     );
 }
 
-std::vector<std::filesystem::path> cpp_compiler_t::cache_object_files(
-    const std::filesystem::path& cache_dir,
-    const std::filesystem::path& source_dir,
-    const std::vector<std::filesystem::path>& include_dirs,
-    const std::vector<std::filesystem::path>& source_files,
+std::vector<path_t> cpp_compiler_t::cache_object_files(
+    const path_t& cache_dir,
+    const path_t& source_dir,
+    const std::vector<path_t>& include_dirs,
+    const std::vector<path_t>& source_files,
     const std::vector<std::pair<std::string, std::string>>& define_key_values,
     bool position_independent
 ) {
-    std::vector<std::filesystem::path> result;
+    std::vector<path_t> result;
     result.reserve(source_files.size());
 
-    if (!std::filesystem::exists(cache_dir)) {
-        if (!std::filesystem::create_directories(cache_dir)) {
-            throw std::runtime_error(std::format("cache_object_files: failed to create output directory '{}'", cache_dir.string()));
-        }
+    if (!filesystem_t::exists(cache_dir)) {
+        filesystem_t::create_directories(cache_dir);
     }
 
     std::string define_flags_str;
@@ -380,23 +349,17 @@ std::vector<std::filesystem::path> cpp_compiler_t::cache_object_files(
     }
 
     for (const auto& source_file : source_files) {
-        if (!std::filesystem::exists(source_file)) {
+        if (!filesystem_t::exists(source_file)) {
             throw std::runtime_error(std::format("cache_object_files: source file does not exist '{}'", source_file.string()));
         }
 
-        const auto rel = source_file.lexically_relative(source_dir);
-        if (rel.empty() || rel.native().starts_with("..")) {
-            throw std::runtime_error(std::format("cache_object_files: source file '{}' is not relative to source dir '{}'", source_file.string(), source_dir.string()));
-        }
-
+        const auto rel = source_dir.relative(source_file);
         auto object_file = cache_dir / rel;
-        object_file.replace_extension(".o");
+        object_file.extension(".o");
 
-        const auto object_file_dir = object_file.parent_path();
-        if (!std::filesystem::exists(object_file_dir)) {
-            if (!std::filesystem::create_directories(object_file_dir)) {
-                throw std::runtime_error(std::format("cache_object_files: failed to create output object file directory '{}'", object_file_dir.string()));
-            }
+        const auto object_file_dir = object_file.parent();
+        if (!filesystem_t::exists(object_file_dir)) {
+            filesystem_t::create_directories(object_file_dir);
         }
 
         std::string compile_command = std::format("clang++ {}{}-g {}-std=c++23 -c {} -o {}", include_dirs_str, define_flags_str, position_independent ? "-fPIC " : "", source_file.string(), object_file.string());

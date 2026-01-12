@@ -28,7 +28,7 @@ CURL_LIB := $(EXPORT_DIR)/$(CURL_LIB_NAME)
 SRC := \
 	compiler/cpp_compiler.cpp \
 	curl/curl.cpp \
-	find/find.cpp \
+	filesystem/filesystem.cpp \
 	module/module_graph.cpp \
 	tar/tar.cpp \
 	tar/external/microtar.c \
@@ -38,7 +38,7 @@ SRC := \
 CLI_SRCS := \
 	compiler/cli.cpp \
 	curl/cli.cpp \
-	find/cli.cpp \
+	filesystem/cli.cpp \
 	json/cli.cpp \
 	module/cli.cpp \
 	tar/cli.cpp \

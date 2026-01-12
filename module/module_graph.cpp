@@ -1,6 +1,5 @@
 #include <modules/builder/module/module_graph.h>
 #include <modules/builder/compiler/cpp_compiler.h>
-#include <modules/builder/find/find.h>
 #include <modules/builder/json/json.hpp>
 
 #include <format>
@@ -32,18 +31,18 @@ bool module_t::operator==(const module_t& other) const {
     return m_name == other.m_name && m_version == other.m_version;
 }
 
-builder_t::builder_t(const module_graph_t& module_graph, const module_t& module, const std::filesystem::path& artifacts_dir):
+builder_t::builder_t(const module_graph_t& module_graph, const module_t& module, const path_t& artifacts_dir):
     m_module_graph(module_graph),
     m_module(module),
     m_artifacts_dir(artifacts_dir)
 {
 }
 
-std::vector<std::vector<std::filesystem::path>> builder_t::export_libraries(library_type_t library_type) const {
-    std::vector<std::vector<std::filesystem::path>> library_groups;
+std::vector<std::vector<path_t>> builder_t::export_libraries(library_type_t library_type) const {
+    std::vector<std::vector<path_t>> library_groups;
 
     m_module_graph.visit_sccs_topo(m_module_graph.module_scc(m_module), [&](const module_scc_t* scc) {
-        std::vector<std::filesystem::path> library_group;
+        std::vector<path_t> library_group;
 
         for (const auto& module : scc->modules) {
             auto libraries = export_libraries(*module, library_type);
@@ -58,105 +57,105 @@ std::vector<std::vector<std::filesystem::path>> builder_t::export_libraries(libr
     return library_groups;
 }
 
-std::filesystem::path builder_t::modules_dir() const {
+path_t builder_t::modules_dir() const {
     return m_module_graph.modules_dir();
 }
 
-std::filesystem::path builder_t::src_dir() const {
+path_t builder_t::src_dir() const {
     return src_dir(m_module);
 }
 
-std::filesystem::path builder_t::include_dir() const {
+path_t builder_t::include_dir() const {
     return m_module_graph.include_dir();
 }
 
-std::filesystem::path builder_t::artifacts_dir() const {
+path_t builder_t::artifacts_dir() const {
     return m_artifacts_dir;
 }
 
-std::filesystem::path builder_t::build_dir(library_type_t library_type) const {
+path_t builder_t::build_dir(library_type_t library_type) const {
     return build_dir(m_module, library_type);
 }
 
-std::filesystem::path builder_t::export_dir(library_type_t library_type) const {
+path_t builder_t::export_dir(library_type_t library_type) const {
     return export_dir(m_module, library_type);
 }
 
-std::filesystem::path builder_t::import_dir() const {
+path_t builder_t::import_dir() const {
     return import_dir(m_module);
 }
 
-std::filesystem::path builder_t::builder_src_path() const {
+path_t builder_t::builder_src_path() const {
     return builder_src_path(m_module);
 }
 
-std::filesystem::path builder_t::builder_build_dir() const {
+path_t builder_t::builder_build_dir() const {
     return builder_build_dir(m_module);
 }
 
-std::filesystem::path builder_t::builder_install_path() const {
+path_t builder_t::builder_install_path() const {
     return builder_install_path(m_module);
 }
 
-std::filesystem::path builder_t::artifact_dir(const module_t& module) const {
-    return artifacts_dir() / module.name() / (module.name() + "@" + std::to_string(module.version()));
+path_t builder_t::artifact_dir(const module_t& module) const {
+    return versioned_path_t::make(artifacts_dir(), module.name(), module.version());
 }
 
-std::filesystem::path builder_t::src_dir(const module_t& module) const {
-    return modules_dir() / module.name();
+path_t builder_t::src_dir(const module_t& module) const {
+    return modules_dir() / relative_path_t(module.name());
 }
 
-std::filesystem::path builder_t::build_dir(const module_t& module, library_type_t library_type) const {
+path_t builder_t::build_dir(const module_t& module, library_type_t library_type) const {
     switch (library_type) {
-        case LIBRARY_TYPE_STATIC: return build_dir(module) / "static";
-        case LIBRARY_TYPE_SHARED: return build_dir(module) / "shared";
+        case LIBRARY_TYPE_STATIC: return build_dir(module) / relative_path_t("static");
+        case LIBRARY_TYPE_SHARED: return build_dir(module) / relative_path_t("shared");
         default: throw std::runtime_error(std::format("build_dir: unknown library_type {}", (uint32_t)library_type));
     }
 }
 
-std::filesystem::path builder_t::export_dir(const module_t& module, library_type_t library_type) const {
+path_t builder_t::export_dir(const module_t& module, library_type_t library_type) const {
     switch (library_type) {
-        case LIBRARY_TYPE_STATIC: return export_dir(module) / "static";
-        case LIBRARY_TYPE_SHARED: return export_dir(module) / "shared";
+        case LIBRARY_TYPE_STATIC: return export_dir(module) / relative_path_t("static");
+        case LIBRARY_TYPE_SHARED: return export_dir(module) / relative_path_t("shared");
         default: throw std::runtime_error(std::format("export_dir: unknown library_type {}", (uint32_t)library_type));
     }
 }
 
-std::filesystem::path builder_t::import_dir(const module_t& module) const {
-    return artifact_dir(module) / "import";
+path_t builder_t::import_dir(const module_t& module) const {
+    return artifact_dir(module) / relative_path_t("import");
 }
 
-std::filesystem::path builder_t::builder_src_path(const module_t& module) const {
-    return src_dir(module) / module_t::BUILDER_CPP;
+path_t builder_t::builder_src_path(const module_t& module) const {
+    return src_dir(module) / relative_path_t(module_t::BUILDER_CPP);
 }
 
-std::filesystem::path builder_t::builder_build_dir(const module_t& module) const {
-    return build_dir(module) / "builder";
+path_t builder_t::builder_build_dir(const module_t& module) const {
+    return build_dir(module) / relative_path_t("builder");
 }
 
-std::filesystem::path builder_t::builder_install_path(const module_t& module) const {
-    return builder_build_dir(module) / "builder.so";
+path_t builder_t::builder_install_path(const module_t& module) const {
+    return builder_build_dir(module) / relative_path_t("builder.so");
 }
 
-std::filesystem::path builder_t::build_dir(const module_t& module) const {
-    return artifact_dir(module) / "build";
+path_t builder_t::build_dir(const module_t& module) const {
+    return artifact_dir(module) / relative_path_t("build");
 }
 
-std::filesystem::path builder_t::export_dir(const module_t& module) const {
-    return artifact_dir(module) / "export";
+path_t builder_t::export_dir(const module_t& module) const {
+    return artifact_dir(module) / relative_path_t("export");
 }
 
 module_graph_t::module_graph_t(
     std::unordered_map<const module_t*, const module_scc_t*> scc_by_module,
     module_t* builder_module,
     module_t* target_module,
-    const std::filesystem::path& modules_dir
+    const path_t& modules_dir
 ):
     m_scc_by_module(std::move(scc_by_module)),
     m_builder_module(builder_module),
     m_target_module(target_module),
     m_modules_dir(modules_dir),
-    m_include_dir(modules_dir.parent_path().empty() ? "." : modules_dir.parent_path())
+    m_include_dir(modules_dir.parent())
 {
 }
 
@@ -169,7 +168,7 @@ const module_scc_t* module_graph_t::module_scc(const module_t& module) const {
     return it->second;
 }
 
-module_graph_t module_graph_t::discover(const std::filesystem::path& modules_dir, const std::string& target_module_name) {
+module_graph_t module_graph_t::discover(const path_t& modules_dir, const std::string& target_module_name) {
     std::unordered_map<std::string, discover_result_t> discover_results;
     module_t* target_module = discover(modules_dir, target_module_name, discover_results);
 
@@ -207,7 +206,7 @@ module_graph_t module_graph_t::discover(const std::filesystem::path& modules_dir
     auto builder_it = discover_results.find("builder");
     module_t* builder_module = nullptr;
     if (builder_it == discover_results.end()) {
-        builder_module = new module_t("builder", version(modules_dir / "builder"));
+        builder_module = new module_t("builder", derive_version(modules_dir / relative_path_t("builder")));
         module_scc_t* builder_module_scc = new module_scc_t;
         builder_module_scc->modules.push_back(builder_module);
         scc_by_module[builder_module] = builder_module_scc;
@@ -296,11 +295,11 @@ void module_graph_t::visit_sccs_topo(const module_scc_t* scc, const std::functio
     f(scc);
 }
 
-const std::filesystem::path& module_graph_t::modules_dir() const {
+const path_t& module_graph_t::modules_dir() const {
     return m_modules_dir;
 }
 
-const std::filesystem::path& module_graph_t::include_dir() const {
+const path_t& module_graph_t::include_dir() const {
     return m_include_dir;
 }
 
@@ -312,30 +311,25 @@ const module_t& module_graph_t::target_module() const {
     return *m_target_module;
 }
 
-uint64_t module_graph_t::version(const std::filesystem::file_time_type& file_time_type) {
+uint64_t module_graph_t::derive_version(const std::filesystem::file_time_type& file_time_type) {
     return static_cast<uint64_t>(file_time_type.time_since_epoch().count() - std::numeric_limits<std::filesystem::file_time_type::duration::rep>::min());
 }
 
-uint64_t module_graph_t::version(const std::filesystem::path& dir) {
+uint64_t module_graph_t::derive_version(const path_t& dir) {
     // TODO: compare builder bin file hash instead of timestamp for more robust check
 
     auto latest_module_file = std::filesystem::file_time_type::min();
 
-    std::error_code ec;
-    for (const auto& entry : std::filesystem::recursive_directory_iterator(dir, ec)) {
-        latest_module_file = std::max(latest_module_file, std::filesystem::last_write_time(entry.path()));
+    for (const auto& path : filesystem_t::find(dir, filesystem_t::include_all, filesystem_t::descend_all)) {
+        latest_module_file = std::max(latest_module_file, filesystem_t::last_write_time(path));
     }
 
-    if (ec) {
-        throw std::runtime_error(std::format("version: failed to recursively iterate module directory '{}': {}", dir.string(), ec.message()));
-    }
-
-    return version(latest_module_file);
+    return derive_version(latest_module_file);
 }
 
-std::vector<std::filesystem::path> builder_t::export_libraries(const module_t& module, library_type_t library_type) const {
+std::vector<path_t> builder_t::export_libraries(const module_t& module, library_type_t library_type) const {
     const auto& module_export_dir = export_dir(module, library_type);
-    if (!std::filesystem::exists(module_export_dir)) {
+    if (!filesystem_t::exists(module_export_dir)) {
         if (module == m_module_graph.builder_module()) {
             std::string library_type_str;
             switch (library_type) {
@@ -350,10 +344,10 @@ std::vector<std::filesystem::path> builder_t::export_libraries(const module_t& m
 
             const auto export_command = std::format(
                 "make -C \"{}\" BUILD_DIR=\"{}\" EXPORT_DIR=\"{}\" IMPORT_DIR=\"{}\" LIBRARY_TYPE=\"{}\"",
-                std::filesystem::absolute(src_dir(module)).string(),
-                std::filesystem::absolute(build_dir(module, library_type)).string(),
-                std::filesystem::absolute(export_dir(module, library_type)).string(),
-                std::filesystem::absolute(import_dir(module)).string(),
+                src_dir(module).string(),
+                build_dir(module, library_type).string(),
+                export_dir(module, library_type).string(),
+                import_dir(module).string(),
                 library_type_str
             );
             std::cout << export_command << std::endl;
@@ -379,44 +373,35 @@ std::vector<std::filesystem::path> builder_t::export_libraries(const module_t& m
                 builder__export_libraries(&builder, library_type);
                 dlclose(builder_plugin_handle);
 
-                const auto& module_artifacts_dir = m_artifacts_dir / module.name();
-                const auto& module_artifact_dir = artifact_dir(module);
-                std::error_code ec;
-                for (const auto& entry : std::filesystem::directory_iterator(module_artifacts_dir, ec)) {
-                    if (!entry.is_directory()) {
-                        continue ;
-                    }
+                const auto versioned_modules = filesystem_t::find(
+                    m_artifacts_dir / relative_path_t(module.name()),
+                    filesystem_t::is_dir,
+                    filesystem_t::descend_none
+                );
 
-                    const auto& path = entry.path();
-                    if (path < module_artifact_dir) {
-                        std::cout << std::format("rm -rf '{}'", path.string()) << std::endl;
-                        std::filesystem::remove_all(path);
+                for (const auto& versioned_module : versioned_modules) {
+                    if (versioned_path_t::parse(versioned_module) < module.version()) {
+                        filesystem_t::remove_all(versioned_module);
                     }
-                }
-                if (ec) {
-                    throw std::runtime_error(std::format("export_libraries: failed to iterate artifacts directory '{}': {}", module_artifacts_dir.string(), ec.message()));
                 }
             } catch (...) {
                 dlclose(builder_plugin_handle);
-                std::cout << std::format("rm -rf '{}'", module_export_dir.string()) << std::endl;
-                std::filesystem::remove(module_export_dir);
+                filesystem_t::remove_all(module_export_dir);
                 throw ;
             }
         }
     }
 
-    if (!std::filesystem::exists(module_export_dir)) {
-        if (!std::filesystem::create_directories(module_export_dir)) {
-            throw std::runtime_error(std::format("export_libraries: failed to create export directory '{}'", module_export_dir.string()));
-        }
+    if (!filesystem_t::exists(module_export_dir)) {
+        filesystem_t::create_directories(module_export_dir);
     }
 
-    return find_t::find(module_export_dir, find_t::all, true);
+    return filesystem_t::find(module_export_dir, !filesystem_t::is_dir, filesystem_t::descend_all);
 }
 
 void builder_t::import_libraries(const module_t& module) const {
     const auto& module_import_dir = import_dir(module);
-    if (std::filesystem::exists(module_import_dir) || module == m_module_graph.builder_module()) {
+    if (filesystem_t::exists(module_import_dir) || module == m_module_graph.builder_module()) {
         return ;
     }
 
@@ -437,22 +422,19 @@ void builder_t::import_libraries(const module_t& module) const {
         builder__import_libraries(this);
         dlclose(builder_plugin_handle);
 
-        if (!std::filesystem::exists(module_import_dir)) {
-            if (!std::filesystem::create_directories(module_import_dir)) {
-                throw std::runtime_error(std::format("import_libraries: failed to create import directory '{}'", module_import_dir.string()));
-            }
+        if (!filesystem_t::exists(module_import_dir)) {
+            filesystem_t::create_directories(module_import_dir);
         }
     } catch (...) {
         dlclose(builder_plugin_handle);
-        std::cout << std::format("rm -rf '{}'", module_import_dir.string()) << std::endl;
-        std::filesystem::remove_all(module_import_dir);
+        filesystem_t::remove_all(module_import_dir);
         throw ;
     }
 }
 
-std::filesystem::path builder_t::build_builder(const module_t& module) const {
+path_t builder_t::build_builder(const module_t& module) const {
     const auto builder = builder_install_path(module);
-    if (!std::filesystem::exists(builder)) {
+    if (!filesystem_t::exists(builder)) {
         cpp_compiler_t::create_shared_library(
             builder_build_dir(module),
             src_dir(module),
@@ -464,7 +446,7 @@ std::filesystem::path builder_t::build_builder(const module_t& module) const {
         );
     }
 
-    if (!std::filesystem::exists(builder)) {
+    if (!filesystem_t::exists(builder)) {
         throw std::runtime_error(std::format("build_builder: expected builder plugin '{}' to exist but it does not", builder.string()));
     }
 
@@ -475,11 +457,9 @@ void builder_t::import_libraries() const {
     import_libraries(m_module);
 }
 
-void module_graph_t::svg(const std::filesystem::path& dir, const std::string& file_name_stem) {
-    if (!std::filesystem::exists(dir)) {
-        if (!std::filesystem::create_directories(dir)) {
-            throw std::runtime_error(std::format("svg: failed to create directory '{}'", dir.string()));
-        }
+void module_graph_t::svg(const path_t& dir, const std::string& file_name_stem) {
+    if (!filesystem_t::exists(dir)) {
+        filesystem_t::create_directories(dir);
     }
 
     svg_overview(dir, file_name_stem + "_overview");
@@ -490,18 +470,37 @@ void module_graph_t::svg(const std::filesystem::path& dir, const std::string& fi
     });
 }
 
-module_t* module_graph_t::discover(const std::filesystem::path& modules_dir, const std::string& module_name, std::unordered_map<std::string, discover_result_t>& discover_results) {
+path_t versioned_path_t::make(const path_t& base, std::string_view string_view, uint64_t version) {
+    return base / relative_path_t(string_view) / relative_path_t((std::string(string_view) + "@" + std::to_string(version)));
+}
+
+uint64_t versioned_path_t::parse(const path_t& path) {
+    const auto filename = path.filename();
+    const auto at_pos = filename.find_last_of('@');
+    if (at_pos == std::string::npos) {
+        throw std::runtime_error(std::format("versioned_path_t::parse: path '{}' does not contain version separator '@'", filename));
+    }
+
+    const auto version_str = filename.substr(at_pos + 1);
+    try {
+        return std::stoull(version_str);
+    } catch (const std::exception& e) {
+        throw std::runtime_error(std::format("versioned_path_t::parse: failed to parse version from path '{}': {}", path.string(), e.what()));
+    }
+}
+
+module_t* module_graph_t::discover(const path_t& modules_dir, const std::string& module_name, std::unordered_map<std::string, discover_result_t>& discover_results) {
     auto it = discover_results.find(module_name);
     if (it != discover_results.end()) {
         return it->second.module;
     }
 
-    const auto module_dir = modules_dir / module_name;
-    if (!std::filesystem::exists(module_dir)) {
+    const auto module_dir = modules_dir / relative_path_t(module_name);
+    if (!filesystem_t::exists(module_dir)) {
         throw std::runtime_error(std::format("discover: module directory does not exist '{}'", module_dir.string()));
     }
 
-    auto module = new module_t(module_name, version(module_dir));
+    auto module = new module_t(module_name, derive_version(module_dir));
     const auto r = discover_results.emplace(module_name, discover_result_t { .module = module, .dependencies = {} });
     it = r.first;
 
@@ -509,19 +508,19 @@ module_t* module_graph_t::discover(const std::filesystem::path& modules_dir, con
         return module;
     }
 
-    const auto builder_cpp = module_dir / module_t::BUILDER_CPP;
-    if (!std::filesystem::exists(builder_cpp)) {
+    const auto builder_cpp = module_dir / relative_path_t(module_t::BUILDER_CPP);
+    if (!filesystem_t::exists(builder_cpp)) {
         throw std::runtime_error(std::format("discover: module '{}' is missing required file '{}'", module_name, builder_cpp.string()));
     }
 
-    const auto deps_json_path = module_dir / module_t::DEPS_JSON;
-    if (!std::filesystem::exists(deps_json_path)) {
+    const auto deps_json_path = module_dir / relative_path_t(module_t::DEPS_JSON);
+    if (!filesystem_t::exists(deps_json_path)) {
         throw std::runtime_error(std::format("discover: module '{}' is missing required file '{}'", module_name, deps_json_path.string()));
     }
 
     nlohmann::json deps_json;
     {
-        std::ifstream ifs(deps_json_path);
+        std::ifstream ifs(deps_json_path.string());
         if (!ifs) {
             throw std::runtime_error(std::format("discover: failed to open file '{}'", deps_json_path.string()));
         }
@@ -557,19 +556,17 @@ module_t* module_graph_t::discover(const std::filesystem::path& modules_dir, con
     return module;
 }
 
-void module_graph_t::svg_overview(const std::filesystem::path& dir, const std::string& file_name_stem) {
-    if (!std::filesystem::exists(dir)) {
+void module_graph_t::svg_overview(const path_t& dir, const std::string& file_name_stem) {
+    if (!filesystem_t::exists(dir)) {
         // TODO: cleanup after fail
-        if (!std::filesystem::create_directories(dir)) {
-            throw std::runtime_error(std::format("svg_overview: failed to create directory '{}'", dir.string()));
-        }
+        filesystem_t::create_directories(dir);
     }
 
-    const std::string dot_file = dir / (file_name_stem + ".dot");
-    const std::string svg_file = dir / (file_name_stem + ".svg");
-    const std::string png_file = dir / (file_name_stem + ".png");
+    const auto dot_file = dir / relative_path_t(file_name_stem + ".dot");
+    const auto svg_file = dir / relative_path_t(file_name_stem + ".svg");
+    const auto png_file = dir / relative_path_t(file_name_stem + ".png");
 
-    std::ofstream ofs(dot_file);
+    std::ofstream ofs(dot_file.string());
     if (!ofs) {
         throw std::runtime_error("svg_overview: could not open dot file");
     }
@@ -630,33 +627,29 @@ void module_graph_t::svg_overview(const std::filesystem::path& dir, const std::s
     ofs << "}\n";
     ofs.close();
 
-    if (std::system(std::format("dot -Tsvg {} > {}", dot_file, svg_file).c_str()) != 0) {
+    if (std::system(std::format("dot -Tsvg {} > {}", dot_file.string(), svg_file.string()).c_str()) != 0) {
         throw std::runtime_error("svg_overview: graphviz render failed");
     }
 
-    if (std::system(std::format("rsvg-convert {} -o {}", svg_file, png_file).c_str()) != 0) {
+    if (std::system(std::format("rsvg-convert {} -o {}", svg_file.string(), png_file.string()).c_str()) != 0) {
         throw std::runtime_error("svg_overview: could not create svg");
     }
 
-    std::filesystem::remove(dot_file);
+    filesystem_t::remove(dot_file);
     // std::filesystem::remove(svg_file);
 }
 
-void module_graph_t::svg_sccs(const std::filesystem::path& dir, const std::string& file_name_stem) {
-    if (!std::filesystem::exists(dir)) {
+void module_graph_t::svg_sccs(const path_t& dir, const std::string& file_name_stem) {
+    if (!filesystem_t::exists(dir)) {
         // TODO: cleanup after fail
-        if (!std::filesystem::create_directories(dir)) {
-            throw std::runtime_error(
-                std::format("svg_sccs: failed to create directory '{}'", dir.string())
-            );
-        }
+        filesystem_t::create_directories(dir);
     }
 
-    const std::filesystem::path dot_file = dir / (file_name_stem + ".dot");
-    const std::filesystem::path svg_file = dir / (file_name_stem + ".svg");
-    const std::filesystem::path png_file = dir / (file_name_stem + ".png");
+    const auto dot_file = dir / relative_path_t(file_name_stem + ".dot");
+    const auto svg_file = dir / relative_path_t(file_name_stem + ".svg");
+    const auto png_file = dir / relative_path_t(file_name_stem + ".png");
 
-    std::ofstream ofs(dot_file);
+    std::ofstream ofs(dot_file.string());
     if (!ofs) {
         throw std::runtime_error("svg_sccs: could not open dot file");
     }
@@ -707,23 +700,21 @@ void module_graph_t::svg_sccs(const std::filesystem::path& dir, const std::strin
         throw std::runtime_error("svg_sccs: could not create svg");
     }
 
-    std::filesystem::remove(dot_file);
+    filesystem_t::remove(dot_file);
     // std::filesystem::remove(svg_file);
 }
 
-void module_graph_t::svg_scc(const std::filesystem::path& dir, const module_scc_t* scc, const std::string& file_name_stem) {
-    if (!std::filesystem::exists(dir)) {
+void module_graph_t::svg_scc(const path_t& dir, const module_scc_t* scc, const std::string& file_name_stem) {
+    if (!filesystem_t::exists(dir)) {
         // TODO: cleanup after fail
-        if (!std::filesystem::create_directories(dir)) {
-            throw std::runtime_error(std::format("svg_scc: failed to create directory '{}'", dir.string()));
-        }
+        filesystem_t::create_directories(dir);
     }
 
-    const std::string dot_file = dir / (file_name_stem + ".dot");
-    const std::string svg_file = dir / (file_name_stem + ".svg");
-    const std::string png_file = dir / (file_name_stem + ".png");
+    const auto dot_file = dir / relative_path_t(file_name_stem + ".dot");
+    const auto svg_file = dir / relative_path_t(file_name_stem + ".svg");
+    const auto png_file = dir / relative_path_t(file_name_stem + ".png");
 
-    std::ofstream ofs(dot_file);
+    std::ofstream ofs(dot_file.string());
     if (!ofs)
         throw std::runtime_error("svg_scc: could not open dot file");
 
@@ -745,14 +736,14 @@ void module_graph_t::svg_scc(const std::filesystem::path& dir, const module_scc_
     ofs << "}\n";
     ofs.close();
 
-    if (std::system(std::format("neato -Tsvg {} > {}", dot_file, svg_file).c_str()) != 0) {
+    if (std::system(std::format("neato -Tsvg {} > {}", dot_file.string(), svg_file.string()).c_str()) != 0) {
         throw std::runtime_error("svg_scc: graphviz render failed");
     }
 
-    if (std::system(std::format("rsvg-convert {} -o {}", svg_file, png_file).c_str()) != 0) {
+    if (std::system(std::format("rsvg-convert {} -o {}", svg_file.string(), png_file.string()).c_str()) != 0) {
         throw std::runtime_error("svg_scc: could not create svg");
     }
 
-    std::filesystem::remove(dot_file);
+    filesystem_t::remove(dot_file);
     // std::filesystem::remove(svg_file);
 }

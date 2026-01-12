@@ -26,7 +26,7 @@ int main(int argc, char** argv) {
         builder_t builder(module_graph, module_graph.target_module(), artifacts_dir);
 
         const auto cli = std::filesystem::canonical("/proc/self/exe");
-        const auto cli_src = builder_builder.src_dir() / std::filesystem::path(std::source_location::current().file_name()).filename();
+        const auto cli_src = builder_builder.src_dir() / relative_path_t(std::filesystem::path(std::source_location::current().file_name()).filename());
 
         std::error_code ec;
         const auto cli_last_write_time = std::filesystem::last_write_time(cli, ec);
@@ -34,16 +34,13 @@ int main(int argc, char** argv) {
             throw std::runtime_error(std::format("failed to get last write time of cli '{}': {}", cli.string(), ec.message()));
         }
 
-        const auto cli_src_last_write_time = std::filesystem::last_write_time(cli_src, ec);
-        if (ec) {
-            throw std::runtime_error(std::format("failed to get last write time of cli source '{}': {}", cli_src.string(), ec.message()));
-        }
+        const auto cli_src_last_write_time = filesystem_t::last_write_time(cli_src);
 
-        const auto cli_version = module_graph_t::version(cli_last_write_time);
-        const auto cli_src_version = module_graph_t::version(cli_src_last_write_time);
+        const auto cli_version = module_graph_t::derive_version(cli_last_write_time);
+        const auto cli_src_version = module_graph_t::derive_version(cli_src_last_write_time);
         const auto builder_version = module_graph.builder_module().version();
 
-        if (cli_version < std::max(cli_src_version, builder_version)) {
+        if (!filesystem_t::exists(builder_builder.export_dir(LIBRARY_TYPE_SHARED)) || cli_version < std::max(cli_src_version, builder_version)) {
             const auto builder_libraries = builder_builder.export_libraries(LIBRARY_TYPE_SHARED);
             std::string builder_libraries_str;
             for (const auto& builder_library_group : builder_libraries) {
@@ -98,8 +95,8 @@ int main(int argc, char** argv) {
         if (4 < argc) {
             const auto binary = argv[4];
             const auto binary_dir = builder.import_dir();
-            const auto binary_location = binary_dir / binary;
-            if (!std::filesystem::exists(binary_location)) {
+            const auto binary_location = binary_dir / relative_path_t(binary);
+            if (!filesystem_t::exists(binary_location)) {
                 throw std::runtime_error(std::format("binary '{}' at location '{}' does not exist", binary, binary_location.string()));
             }
 

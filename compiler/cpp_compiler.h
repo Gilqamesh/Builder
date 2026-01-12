@@ -2,128 +2,128 @@
 # define BUILDER_PROJECT_COMPILER_CPP_COMPILER_H
 
 # include <modules/builder/module/module_graph.h>
+# include <modules/builder/filesystem/filesystem.h>
 
-# include <filesystem>
 # include <vector>
 
 class cpp_compiler_t {
 public:
-    static std::filesystem::path create_static_library(
+    static path_t create_static_library(
         const builder_t* builder,
-        const std::vector<std::filesystem::path>& source_files,
+        const std::vector<path_t>& source_files,
         const std::vector<std::pair<std::string, std::string>>& define_key_values,
-        const std::string& static_library_name
+        const relative_path_t& relative_static_library_path
     );
 
-    static std::filesystem::path create_shared_library(
+    static path_t create_shared_library(
         const builder_t* builder,
-        const std::vector<std::filesystem::path>& source_files,
+        const std::vector<path_t>& source_files,
         const std::vector<std::pair<std::string, std::string>>& define_key_values,
-        const std::string& shared_library_name
+        const relative_path_t& relative_shared_library_path
     );
 
-    static std::filesystem::path create_library(
+    static path_t create_library(
         const builder_t* builder,
-        const std::vector<std::filesystem::path>& source_files,
+        const std::vector<path_t>& source_files,
         const std::vector<std::pair<std::string, std::string>>& define_key_values,
-        const std::string& library_stem,
+        const relative_path_t& relative_libary_stem,
         library_type_t library_type
     );
 
-    static std::filesystem::path create_binary(
+    static path_t create_binary(
         const builder_t* builder,
-        const std::vector<std::filesystem::path>& source_files,
+        const std::vector<path_t>& source_files,
         const std::vector<std::pair<std::string, std::string>>& define_key_values,
         library_type_t library_type,
-        const std::filesystem::path& binary_relative_path
+        const relative_path_t& relative_binary_path
     );
     
-    static std::filesystem::path reference_static_library(
+    static path_t reference_static_library(
         const builder_t* builder,
-        const std::filesystem::path& existing_static_library,
-        const std::string& static_library_name
+        const path_t& existing_static_library,
+        const relative_path_t& relative_static_library_path
     );
 
-    static std::filesystem::path reference_shared_library(
+    static path_t reference_shared_library(
         const builder_t* builder,
-        const std::filesystem::path& existing_shared_library,
-        const std::string& shared_library_name
+        const path_t& existing_shared_library,
+        const relative_path_t& relative_shared_library_path
     );
 
-    static std::filesystem::path reference_library(
+    static path_t reference_library(
         const builder_t* builder,
-        const std::filesystem::path& existing_library,
-        const std::string& library_name,
+        const path_t& existing_library,
+        const relative_path_t& relative_library_path,
         library_type_t library_type
     );
 
-    static std::filesystem::path reference_binary(
+    static path_t reference_binary(
         const builder_t* builder,
-        const std::filesystem::path& existing_binary,
-        const std::string& binary_name
+        const path_t& existing_binary,
+        const relative_path_t& relative_binary_path
     );
 
 public:
-    static std::filesystem::path create_static_library(
-        const std::filesystem::path& cache_dir,
-        const std::filesystem::path& source_dir,
-        const std::vector<std::filesystem::path>& include_dirs,
-        const std::vector<std::filesystem::path>& source_files,
+    static path_t create_static_library(
+        const path_t& cache_dir,
+        const path_t& source_dir,
+        const std::vector<path_t>& include_dirs,
+        const std::vector<path_t>& source_files,
         const std::vector<std::pair<std::string, std::string>>& define_key_values,
-        const std::filesystem::path& static_library
+        const path_t& static_library
     );
 
-    static std::filesystem::path create_shared_library(
-        const std::filesystem::path& cache_dir,
-        const std::filesystem::path& source_dir,
-        const std::vector<std::filesystem::path>& include_dirs,
-        const std::vector<std::filesystem::path>& source_files,
+    static path_t create_shared_library(
+        const path_t& cache_dir,
+        const path_t& source_dir,
+        const std::vector<path_t>& include_dirs,
+        const std::vector<path_t>& source_files,
         const std::vector<std::pair<std::string, std::string>>& define_key_values,
-        const std::vector<std::filesystem::path>& dsos,
-        const std::filesystem::path& shared_library
+        const std::vector<path_t>& dsos,
+        const path_t& shared_library
     );
 
-    static std::filesystem::path create_binary(
-        const std::filesystem::path& cache_dir,
-        const std::filesystem::path& source_dir,
-        const std::vector<std::filesystem::path>& include_dirs,
-        const std::vector<std::filesystem::path>& source_files,
+    static path_t create_binary(
+        const path_t& cache_dir,
+        const path_t& source_dir,
+        const std::vector<path_t>& include_dirs,
+        const std::vector<path_t>& source_files,
         const std::vector<std::pair<std::string, std::string>>& define_key_values,
-        const std::vector<std::vector<std::filesystem::path>>& library_groups,
+        const std::vector<std::vector<path_t>>& library_groups,
         library_type_t library_type,
-        const std::filesystem::path& binary
+        const path_t& binary
     );
 
-    static std::filesystem::path reference_static_library(
-        const std::filesystem::path& existing_static_library,
-        const std::filesystem::path& static_library
+    static path_t reference_static_library(
+        const path_t& existing_static_library,
+        const path_t& static_library
     );
 
-    static std::filesystem::path reference_shared_library(
-        const std::filesystem::path& existing_shared_library,
-        const std::filesystem::path& shared_library
+    static path_t reference_shared_library(
+        const path_t& existing_shared_library,
+        const path_t& shared_library
     );
 
-    static std::filesystem::path reference_shared_library(
-        const std::filesystem::path& existing_library,
-        const std::filesystem::path& library_stem,
+    static path_t reference_shared_library(
+        const path_t& existing_library,
+        const path_t& library_stem,
         library_type_t library_type
     );
 
 private:
     // TODO: rename to tmp
-    static std::vector<std::filesystem::path> cache_object_files(
+    static std::vector<path_t> cache_object_files(
         const builder_t* builder,
-        const std::vector<std::filesystem::path>& source_files,
+        const std::vector<path_t>& source_files,
         const std::vector<std::pair<std::string, std::string>>& define_key_values,
         library_type_t library_type
     );
 
-    static std::vector<std::filesystem::path> cache_object_files(
-        const std::filesystem::path& cache_dir,
-        const std::filesystem::path& source_dir,
-        const std::vector<std::filesystem::path>& include_dirs,
-        const std::vector<std::filesystem::path>& source_files,
+    static std::vector<path_t> cache_object_files(
+        const path_t& cache_dir,
+        const path_t& source_dir,
+        const std::vector<path_t>& include_dirs,
+        const std::vector<path_t>& source_files,
         const std::vector<std::pair<std::string, std::string>>& define_key_values,
         bool position_independent
     );
