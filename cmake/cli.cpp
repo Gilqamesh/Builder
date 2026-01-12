@@ -1,9 +1,9 @@
-#include <modules/builder/compiler/cpp_compiler.h>
+#include <modules/builder/cmake/cmake.h>
 
 #include <iostream>
 #include <format>
 
-int main() {
+int main(int argc, char** argv) {
     throw std::runtime_error(std::format("not implemented"));
 
     return 0;

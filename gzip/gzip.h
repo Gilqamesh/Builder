@@ -1,5 +1,5 @@
-#ifndef BUILDER_PROJECT_GZIP_GZIP_H
-# define BUILDER_PROJECT_GZIP_GZIP_H
+#ifndef BUILDER_PROJECT_BUILDER_GZIP_GZIP_H
+# define BUILDER_PROJECT_BUILDER_GZIP_GZIP_H
 
 # include <modules/builder/filesystem/filesystem.h>
 
@@ -24,4 +24,4 @@ public:
     static path_t ungzip(const path_t& gzip_path, const path_t& install_file);
 };
 
-#endif // BUILDER_PROJECT_GZIP_GZIP_H
+#endif // BUILDER_PROJECT_BUILDER_GZIP_GZIP_H

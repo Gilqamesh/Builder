@@ -419,7 +419,7 @@ void builder_t::import_libraries(const module_t& module) const {
         }
 
         builder_t builder(m_module_graph, module, m_artifacts_dir);
-        builder__import_libraries(this);
+        builder__import_libraries(&builder);
         dlclose(builder_plugin_handle);
 
         if (!filesystem_t::exists(module_import_dir)) {

@@ -1,5 +1,5 @@
-#ifndef BUILDER_PROJECT_TAR_TAR_H
-# define BUILDER_PROJECT_TAR_TAR_H
+#ifndef BUILDER_PROJECT_BUILDER_TAR_TAR_H
+# define BUILDER_PROJECT_BUILDER_TAR_TAR_H
 
 # include <modules/builder/filesystem/filesystem.h>
 
@@ -28,4 +28,4 @@ public:
     static path_t untar(const path_t& tar_path, const path_t& install_dir);
 };
 
-#endif // BUILDER_PROJECT_TAR_TAR_H
+#endif // BUILDER_PROJECT_BUILDER_TAR_TAR_H

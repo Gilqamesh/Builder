@@ -1,5 +1,5 @@
-#ifndef BUILDER_PROJECT_COMPILER_CPP_COMPILER_H
-# define BUILDER_PROJECT_COMPILER_CPP_COMPILER_H
+#ifndef BUILDER_PROJECT_BUILDER_COMPILER_CPP_COMPILER_H
+# define BUILDER_PROJECT_BUILDER_COMPILER_CPP_COMPILER_H
 
 # include <modules/builder/module/module_graph.h>
 # include <modules/builder/filesystem/filesystem.h>
@@ -129,4 +129,4 @@ private:
     );
 };
 
-#endif // BUILDER_PROJECT_COMPILER_CPP_COMPILER_H
+#endif // BUILDER_PROJECT_BUILDER_COMPILER_CPP_COMPILER_H

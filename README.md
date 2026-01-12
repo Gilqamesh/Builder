@@ -87,8 +87,9 @@ For a concrete workspace, see [Builder‑Example](https://github.com/Gilqamesh/B
 
 ## Requirements
 
-- C++23 compiler
-- Unix environment
+- CMake
+- Clang C++ compiler with C++23 support
+- Unix-like operating system
 
 ## License
 

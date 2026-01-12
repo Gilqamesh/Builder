@@ -5,12 +5,6 @@
 #include <iostream>
 
 path_t zip_t::zip(const path_t& dir, const path_t& install_zip_path) {
-
-    const auto regular_files = filesystem_t::find(dir, filesystem_t::is_regular, filesystem_t::descend_all);
-    return zip(regular_files, install_zip_path);
-}
-
-path_t zip_t::zip(const std::vector<path_t>& regular_files, const path_t& install_zip_path) {
     if (install_zip_path.extension() != ".zip") {
         throw std::runtime_error(std::format("zip_t::zip: install path '{}' must have .zip extension", install_zip_path.string()));
     }
@@ -18,6 +12,8 @@ path_t zip_t::zip(const std::vector<path_t>& regular_files, const path_t& instal
     if (filesystem_t::exists(install_zip_path)) {
         throw std::runtime_error(std::format("zip_t::zip: install path '{}' already exists", install_zip_path.string()));
     }
+
+    const auto regular_files = filesystem_t::find(dir, filesystem_t::is_regular, filesystem_t::descend_all);
 
     std::cout << std::format("zip -c {} {}", install_zip_path.string(), [&regular_files]() {
         std::string files_str;
@@ -47,7 +43,8 @@ path_t zip_t::zip(const std::vector<path_t>& regular_files, const path_t& instal
             throw std::runtime_error(std::format("zip_t::zip: file '{}' is not a regular regular_file", regular_file.string()));
         }
 
-        if (!mz_zip_writer_add_file(&zip, regular_file.filename().c_str(), regular_file.c_str(), nullptr, 0, MZ_DEFAULT_COMPRESSION)) {
+        const auto rel = dir.relative(regular_file);
+        if (!mz_zip_writer_add_file(&zip, rel.c_str(), regular_file.c_str(), nullptr, 0, MZ_DEFAULT_COMPRESSION)) {
             mz_zip_writer_end(&zip);
             throw std::runtime_error(std::format("zip_t::zip: failed to add file '{}' to zip archive", regular_file.string()));
         }

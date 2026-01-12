@@ -1,5 +1,5 @@
-#ifndef BUILDER_PROJECT_FILESYSTEM_FILESYSTEM_H
-# define BUILDER_PROJECT_FILESYSTEM_FILESYSTEM_H
+#ifndef BUILDER_PROJECT_BUILDER_FILESYSTEM_FILESYSTEM_H
+# define BUILDER_PROJECT_BUILDER_FILESYSTEM_FILESYSTEM_H
 
 # include <filesystem>
 # include <functional>
@@ -287,4 +287,4 @@ private:
     static std::vector<path_t> find(const path_t& dir, const find_include_predicate_t& include_predicate, const find_descend_predicate_t& descend_predicate, size_t depth);
 };
 
-#endif // BUILDER_PROJECT_FILESYSTEM_FILESYSTEM_H
+#endif // BUILDER_PROJECT_BUILDER_FILESYSTEM_FILESYSTEM_H

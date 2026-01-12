@@ -26,6 +26,7 @@ BUILDER_LIB := $(EXPORT_DIR)/$(BUILDER_LIB_NAME)
 CURL_LIB := $(EXPORT_DIR)/$(CURL_LIB_NAME)
 
 SRC := \
+	cmake/cmake.cpp \
 	compiler/cpp_compiler.cpp \
 	curl/curl.cpp \
 	filesystem/filesystem.cpp \
@@ -49,6 +50,7 @@ SRC := \
 	zip/zip.cpp
 
 CLI_SRCS := \
+	cmake/cli.cpp \
 	compiler/cli.cpp \
 	curl/cli.cpp \
 	filesystem/cli.cpp \
