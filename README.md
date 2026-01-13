@@ -122,7 +122,7 @@ For an example workspace using Builder, see [Builder-Example](https://github.com
    - `/usr/bin/clang`
    - `/usr/bin/ar`
 
-- The following libraries:
+- Libraries:
    - `/usr/lib64/libcurl.so`
 
 ## License
