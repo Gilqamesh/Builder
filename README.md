@@ -1,11 +1,12 @@
 # Builder
 
-Builder is a C++ build tool for workspaces composed of reusable modules. Dependencies are declared explicitly, while build behavior is implemented directly in C++ and executed by the build tool.
+Builder is a C++ build tool for workspaces composed of reusable modules. Module dependencies are declared explicitly, while build behavior is implemented directly in C++.
 
 ## Contents
 
 - [Problem statement](#problem-statement)
 - [Design](#design)
+- [Workspace layout](#workspace-layout)
 - [Quick start](#quick-start)
 - [Related repositories](#related-repositories)
 - [Contributing](#contributing)
@@ -14,7 +15,7 @@ Builder is a C++ build tool for workspaces composed of reusable modules. Depende
 
 ## Problem statement
 
-Most existing C++ build systems (for example, CMake) use a dedicated DSL to describe build logic. In practice, this means that build behavior is usually not expressed directly in C++, but in external build languages and configuration formats.
+Most existing C++ build systems describe build behavior using a dedicated build language or configuration format, rather than C++ itself.
 
 Builder aims to provide a build system that can:
 - Express build logic entirely in C++
@@ -26,12 +27,21 @@ Builder aims to provide a build system that can:
 Builder separates structural dependency information from build behavior.
 
 - Module dependencies are declared declaratively in `deps.json`
-- Build behavior is implemented directly in C++ (`builder.cpp`)
-- The build tool controls build order by invoking a predefined set of build entry points (interface export, library export, import/link) for each module
-- The CLI is self-hosting and recompiles/re-execs itself when the builder changes to maintain consistency
+- Build behavior is implemented in C++ via a fixed set of build entry points (`builder.cpp`) that the build tool invokes in a well-defined order
+- The CLI is self-hosting: if the builder module changes, the CLI rebuilds and re-execs itself to ensure it always matches the current builder version
 - Dependency cycles are handled by building strongly connected components as a unit
 - Incremental rebuilds operate at module granularity; module versions are derived from source timestamps and propagate transitively
 - Obsolete artifact versions are removed after successful builds
+- For each module, the build tool maintains an `alias` directory that points to the latest successfully built artifact version
+
+## Workspace layout
+
+Builder operates on a workspace defined by two directories:
+
+- A modules directory, containing all modules in the workspace
+- An artifacts directory, where build outputs are written
+
+The Builder repository itself is expected to be present as a module inside the modules directory. After an initial bootstrap step, it is built and versioned like any other module.
 
 ## Quick start
 For an example workspace using Builder, see [Builder-Example].
@@ -69,16 +79,16 @@ For an example workspace using Builder, see [Builder-Example].
 
    A typical plugin collects its source files, calls into the builder helpers to build and install into the target directory.
 
-4. **Compile cli.cpp**
+4. **Bootstrap the builder module**
 
    ```bash
-   make cli
+      make -C <modules_dir>/builder -f bootstrap.mk bootstrap MODULES_DIR=<modules_dir> ARTIFACTS_DIR=<artifacts_dir>
    ```
 
-5. **Run cli to build the target module**
+5. **Run the cli to build the target module**
 
    ```bash
-   ./cli <modules_dir> <target_module> <artifacts_dir> [binary] [args...]
+   <artifacts_dir>/builder/alias/import/install/cli <modules_dir> <target_module> <artifacts_dir> [binary] [args...]
    ```
 
    | Argument        | Description                                                    |

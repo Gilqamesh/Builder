@@ -39,6 +39,7 @@ public:
 
     path_t source_dir() const;
     path_t artifact_dir() const;
+    path_t artifact_alias_dir() const;
 
     path_t builder_source_path() const;
     path_t builder_dir() const;
@@ -65,6 +66,7 @@ private:
 
     path_t source_dir(const module_t& module) const;
     path_t artifact_dir(const module_t& module) const;
+    path_t artifact_alias_dir(const module_t& module) const;
 
     path_t builder_source_path(const module_t& module) const;
     path_t builder_dir(const module_t& module) const;

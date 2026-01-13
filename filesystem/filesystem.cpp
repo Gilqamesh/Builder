@@ -127,7 +127,7 @@ path_t path_t::operator/(const relative_path_t& relative_path) const {
 path_t path_t::operator+(std::string_view postfix) const {
     path_t result(append_postfix(m_path, postfix));
 
-    if (result.is_sibling(*this) || result == *this) {
+    if (!result.is_sibling(*this) || result == *this) {
         throw std::runtime_error(std::format("path_t::operator+: path '{}' must be a strict sibling of base path '{}'", result.m_path.string(), m_path.string()));
     }
 
@@ -356,6 +356,10 @@ void filesystem_t::create_symlink(const path_t& src, const path_t& dst) {
 void filesystem_t::create_directory_symlink(const path_t& src, const path_t& dst) {
     // std::cout << std::format("ln -s {} {}", pretty_path_t(src), pretty_path_t(dst)) << std::endl;
 
+    if (filesystem_t::exists(dst)) {
+        throw std::runtime_error(std::format("filesystem_t::create_directory_symlink: destination path '{}' already exists", dst));
+    }
+
     std::error_code ec;
     std::filesystem::create_directory_symlink(src.to_native_path(), dst.to_native_path(), ec);
     if (ec) {
@@ -438,6 +442,30 @@ std::uintmax_t filesystem_t::remove_all(const path_t& path) {
         throw std::runtime_error(std::format("filesystem_t::remove_all: failed to remove all at path '{}': {}", path, ec.message()));
     }
     return result;
+}
+
+void filesystem_t::rename_strict(const path_t& from, const path_t& to) {
+    // std::cout << std::format("mv {} {}", pretty_path_t(from), pretty_path_t(to)) << std::endl;
+
+    if (filesystem_t::exists(to)) {
+        throw std::runtime_error(std::format("filesystem_t::rename_strict: destination path '{}' already exists", to));
+    }
+
+    std::error_code ec;
+    std::filesystem::rename(from.to_native_path(), to.to_native_path(), ec);
+    if (ec) {
+        throw std::runtime_error(std::format("filesystem_t::rename_strict: failed to rename path '{}' to '{}': {}", from, to, ec.message()));
+    }
+}
+
+void filesystem_t::rename_replace(const path_t& from, const path_t& to) {
+    // std::cout << std::format("mv -f {} {}", pretty_path_t(from), pretty_path_t(to)) << std::endl;
+
+    std::error_code ec;
+    std::filesystem::rename(from.to_native_path(), to.to_native_path(), ec);
+    if (ec) {
+        throw std::runtime_error(std::format("filesystem_t::rename_replace: failed to rename path '{}' to '{}': {}", from, to, ec.message()));
+    }
 }
 
 bool filesystem_t::is_regular_file(const path_t& path) {

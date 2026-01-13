@@ -39,6 +39,7 @@ struct module_scc_t {
 
 struct versioned_path_t {
     static path_t make(const path_t& base, std::string_view string_view, uint64_t version);
+    static bool is_versioned(const path_t& path);
     static uint64_t parse(const path_t& path);
 };
 

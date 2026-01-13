@@ -224,6 +224,11 @@ path_t versioned_path_t::make(const path_t& base, std::string_view string_view, 
     return base / relative_path_t(string_view) / relative_path_t((std::string(string_view) + "@" + std::to_string(version)));
 }
 
+bool versioned_path_t::is_versioned(const path_t& path) {
+    const auto filename = path.filename();
+    return filename.find_last_of('@') != std::string::npos;
+}
+
 uint64_t versioned_path_t::parse(const path_t& path) {
     const auto filename = path.filename();
     const auto at_pos = filename.find_last_of('@');

@@ -42,7 +42,9 @@ void builder_t::compile_builder_module_phase(build_phase_t build_phase) const {
         " LIBRARIES_BUILD_DIR=\"{}\""
         " LIBRARIES_INSTALL_DIR=\"{}\""
         " IMPORT_BUILD_DIR=\"{}\""
-        " IMPORT_INSTALL_DIR=\"{}\"",
+        " IMPORT_INSTALL_DIR=\"{}\""
+        " ARTIFACT_DIR=\"{}\""
+        " ARTIFACT_ALIAS_DIR=\"{}\"",
         source_dir(builder_module).string(), make_target,
         source_dir(builder_module).string(),
         library_type_relative_dir(library_type).string(),
@@ -51,7 +53,9 @@ void builder_t::compile_builder_module_phase(build_phase_t build_phase) const {
         libraries_build_dir(builder_module, library_type).string(),
         libraries_install_dir(builder_module, library_type).string(),
         import_build_dir(builder_module).string(),
-        import_install_dir(builder_module).string()
+        import_install_dir(builder_module).string(),
+        artifact_dir(builder_module).string(),
+        artifact_alias_dir(builder_module).string()
     );
     std::cout << export_command << std::endl;
     const int export_command_result = std::system(export_command.c_str());
@@ -142,6 +146,10 @@ path_t builder_t::artifact_dir() const {
     return artifact_dir(m_module);
 }
 
+path_t builder_t::artifact_alias_dir() const {
+    return artifact_alias_dir(m_module);
+}
+
 path_t builder_t::builder_source_path() const {
     return builder_source_path(m_module);
 }
@@ -204,6 +212,10 @@ path_t builder_t::source_dir(const module_t& module) const {
 
 path_t builder_t::artifact_dir(const module_t& module) const {
     return versioned_path_t::make(artifacts_dir(), module.name(), module.version());
+}
+
+path_t builder_t::artifact_alias_dir(const module_t& module) const {
+    return artifacts_dir() / relative_path_t(module.name()) / relative_path_t("alias");
 }
 
 path_t builder_t::builder_source_path(const module_t& module) const {
@@ -357,8 +369,17 @@ std::vector<path_t> builder_t::export_libraries(const module_t& module, library_
                     builder__export_libraries(&builder, library_type);
                     dlclose(builder_plugin_handle);
 
+                    const auto module_artifact_alias_dir = artifact_alias_dir(module);
+                    const auto module_artifact_alias_dir_tmp = module_artifact_alias_dir + "_tmp";
+                    if (filesystem_t::exists(module_artifact_alias_dir_tmp)) {
+                        filesystem_t::remove_all(module_artifact_alias_dir_tmp);
+                    }
+
+                    filesystem_t::create_directory_symlink(artifact_dir(module), module_artifact_alias_dir_tmp);
+                    filesystem_t::rename_replace(module_artifact_alias_dir_tmp, module_artifact_alias_dir);
+
                     for (const auto& versioned_module : filesystem_t::find(m_artifacts_dir / relative_path_t(module.name()), filesystem_t::is_dir, filesystem_t::descend_none)) {
-                        if (versioned_path_t::parse(versioned_module) < module.version()) {
+                        if (versioned_path_t::is_versioned(versioned_module) && versioned_path_t::parse(versioned_module) < module.version()) {
                             filesystem_t::remove_all(versioned_module);
                         }
                     }

@@ -321,6 +321,19 @@ public:
     static std::uintmax_t remove_all(const path_t& path);
 
     /**
+     * Renames a file or directory.
+     * Throws if `from` does not exist or `to` already exists.
+     * Does not overwrite.
+     */
+    static void rename_strict(const path_t& from, const path_t& to);
+
+    /**
+     * Atomically renames `from` to `to`, replacing `to` if it exists.
+     * Throws if `from` does not exist.
+     */
+    static void rename_replace(const path_t& from, const path_t& to);
+
+    /**
      * Checks whether the path refers to a regular file.
      */
     static bool is_regular_file(const path_t& path);

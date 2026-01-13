@@ -21,7 +21,9 @@ REQUIRED_PARAMS := \
 	LIBRARIES_BUILD_DIR \
 	LIBRARIES_INSTALL_DIR \
 	IMPORT_BUILD_DIR \
-	IMPORT_INSTALL_DIR
+	IMPORT_INSTALL_DIR \
+	ARTIFACT_DIR \
+	ARTIFACT_ALIAS_DIR
 
 $(foreach required_param,$(REQUIRED_PARAMS),\
 	$(if $(strip $($(required_param))),,\
@@ -145,7 +147,11 @@ CLI_BINS := $(patsubst %.cpp,$(IMPORT_INSTALL_DIR)/%,$(CLI_SOURCES))
 
 import_libraries: export_libraries
 import_libraries: $(CLI_BINS)
+import_libraries: $(ARTIFACT_ALIAS_DIR)
 
 $(IMPORT_INSTALL_DIR)/%: $(SOURCE_DIR)/%.cpp FORCE
 	@mkdir -p $(dir $@)
 	$(CXX) $(CXXFLAGS) -o $@ $< $(shell find $(LIBRARIES_INSTALL_DIR) ! -type d)
+
+$(ARTIFACT_ALIAS_DIR): FORCE
+	ln -fsn $(ARTIFACT_DIR) $(ARTIFACT_ALIAS_DIR)
