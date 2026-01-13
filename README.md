@@ -34,13 +34,15 @@ For a concrete workspace, see [Builder‑Example](https://github.com/Gilqamesh/B
 
 3. **Implement `builder.cpp`**
 
-   Your plugin must define two C‑callable entry points:
+   Your plugin must define three C‑callable entry points:
 
    ```cpp
+   extern "C" void builder__export_interface(const builder_t* builder, library_type_t library_type);
    extern "C" void builder__export_libraries(const builder_t* builder, bundle_type_t bundle_type);
    extern "C" void builder__import_libraries(const builder_t* builder);
    ```
 
+   - `builder__export_interface` installs the module interfaces (i.e., headers)
    - `builder__export_libraries` builds and installs the modules libraries (static/shared)
    - `builder__import_libraries` links into final executables, at this stage all ordered libraries exists for the module to link against
 
@@ -66,7 +68,6 @@ For a concrete workspace, see [Builder‑Example](https://github.com/Gilqamesh/B
    | `binary`        | *(Optional)* Path relative to the module’s `import/` directory |
    | `args...`       | *(Optional)* Arguments passed to the executed binary           |
 
-
    The CLI is self-hosting. If cli.cpp or the builder module changes, the CLI recompiles itself and re-execs automatically before continuing. This guarantees consistency between the CLI and the builder libraries.
 
 ## Artifacts and versioning
@@ -87,9 +88,15 @@ For a concrete workspace, see [Builder‑Example](https://github.com/Gilqamesh/B
 
 ## Requirements
 
-- CMake
-- Clang C++ compiler with C++23 support
 - Unix-like operating system
+- The following binaries:
+   - `/usr/bin/cmake`
+   - `/usr/bin/clang++` (with `-std=c++23` support)
+   - `/usr/bin/clang`
+   - `/usr/bin/ar`
+
+- The following libraries:
+   - `/usr/lib64/libcurl.so`
 
 ## License
 

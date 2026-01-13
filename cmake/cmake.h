@@ -8,6 +8,9 @@
 
 class cmake_t {
 public:
+    static const constexpr char* CMAKE_PATH = "/usr/bin/cmake";
+    
+public:
     static void configure(const path_t& source_dir, const path_t& build_dir, const std::vector<std::pair<std::string, std::string>>& define_key_values);
 
     static void build(const path_t& build_dir, std::optional<size_t> n_jobs);

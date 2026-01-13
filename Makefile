@@ -1,3 +1,18 @@
+CMAKE := /usr/bin/cmake
+CXX   := /usr/bin/clang++
+CC    := /usr/bin/clang
+AR    := /usr/bin/ar
+
+REQUIRED_TOOLS := \
+	CMAKE \
+	CXX \
+	CC \
+	AR
+
+$(foreach required_tool,$(REQUIRED_TOOLS),\
+	$(if $(shell [ -x $($(required_tool)) ] && echo yes),,\
+		$(error required tool $($(required_tool)) is missing or not executable)))
+
 REQUIRED_PARAMS := \
 	SOURCE_DIR \
 	LIBRARY_TYPE \
@@ -33,10 +48,6 @@ $(INTERFACE_INSTALL_DIR)/$(MODULE_NAME)/%: $(SOURCE_DIR)/% FORCE
 ################################################## export_libraries ##################################################
 
 .PHONY: export_libraries
-
-CXX := clang++
-CC  := clang
-AR  := ar
 
 CXXFLAGS := -std=c++23 -g -I$(INTERFACE_INSTALL_DIR)
 CFLAGS   := -g -I$(INTERFACE_INSTALL_DIR)
