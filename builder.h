@@ -30,9 +30,9 @@ public:
     std::vector<std::vector<path_t>> export_libraries(library_type_t library_type) const;
     void import_libraries() const;
 
-    void install_interface(const path_t& interface, library_type_t library_type) const;
-    void install_library(const path_t& library, library_type_t library_type) const;
-    void install_import(const path_t& artifact) const;
+    void install_interface(const path_t& interface, const relative_path_t& relative_install_path, library_type_t library_type) const;
+    void install_library(const path_t& library, const relative_path_t& relative_install_path, library_type_t library_type) const;
+    void install_import(const path_t& artifact, const relative_path_t& relative_install_path) const;
 
     path_t modules_dir() const;
     path_t artifacts_dir() const;

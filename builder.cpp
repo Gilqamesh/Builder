@@ -96,31 +96,34 @@ void builder_t::import_libraries() const {
     import_libraries(m_module);
 }
 
-void builder_t::install_interface(const path_t& interface, library_type_t library_type) const {
-    const auto target_dir = interface_install_dir(library_type) / relative_path_t(m_module.name());
-    if (!filesystem_t::exists(target_dir)) {
-        filesystem_t::create_directories(target_dir);
+void builder_t::install_interface(const path_t& interface, const relative_path_t& relative_install_path, library_type_t library_type) const {
+    const auto target_path = interface_install_dir(library_type) / relative_path_t(m_module.name()) / relative_install_path;
+    const auto target_path_parent = target_path.parent();
+    if (!filesystem_t::exists(target_path_parent)) {
+        filesystem_t::create_directories(target_path_parent);
     }
 
-    filesystem_t::copy(interface, target_dir / relative_path_t(interface.filename()));
+    filesystem_t::copy(interface, target_path);
 }
 
-void builder_t::install_library(const path_t& library, library_type_t library_type) const {
-    const auto target_dir = libraries_install_dir(library_type);
-    if (!filesystem_t::exists(target_dir)) {
-        filesystem_t::create_directories(target_dir);
+void builder_t::install_library(const path_t& library, const relative_path_t& relative_install_path, library_type_t library_type) const {
+    const auto target_path = libraries_install_dir(library_type) / relative_install_path;
+    const auto target_path_parent = target_path.parent();
+    if (!filesystem_t::exists(target_path_parent)) {
+        filesystem_t::create_directories(target_path_parent);
     }
 
-    filesystem_t::copy(library, target_dir / relative_path_t(library.filename()));
+    filesystem_t::copy(library, target_path);
 }
 
-void builder_t::install_import(const path_t& artifact) const {
-    const auto target_dir = import_install_dir();
-    if (!filesystem_t::exists(target_dir)) {
-        filesystem_t::create_directories(target_dir);
+void builder_t::install_import(const path_t& artifact, const relative_path_t& relative_install_path) const {
+    const auto target_path = import_install_dir() / relative_install_path;
+    const auto target_path_parent = target_path.parent();
+    if (!filesystem_t::exists(target_path_parent)) {
+        filesystem_t::create_directories(target_path_parent);
     }
 
-    filesystem_t::copy(artifact, target_dir / relative_path_t(artifact.filename()));
+    filesystem_t::copy(artifact, target_path);
 }
 
 path_t builder_t::modules_dir() const {
