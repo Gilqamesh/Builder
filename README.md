@@ -14,9 +14,7 @@ Builder is a C++ build tool for workspaces composed of reusable modules. Depende
 
 ## Problem statement
 
-Most existing build systems introduce a dedicated DSL to describe build logic. While convenient for common cases, these DSLs become restrictive once build behavior depends on non-trivial control flow, dynamic decisions, or reuse of existing code.
-
-At the same time, C++ projects rarely describe build behavior in C++ itself, instead relying on external build languages and configuration formats.
+Most existing C++ build systems (for example, CMake) use a dedicated DSL to describe build logic, separating build configuration from implementation. As a result, C++ projects typically do not describe build behavior in C++ itself, instead relying on external build languages and configuration formats.
 
 Builder aims to provide a build system that can:
 - Express build logic entirely in C++
