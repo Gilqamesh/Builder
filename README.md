@@ -1,19 +1,42 @@
 # Builder
 
-Builder is a module‑oriented dependency resolver for workspaces composed of reusable modules. It is designed for fast iteration: compile quickly, validate what you learned, then combine with other modules. Builder is designed to be language‑agnostic; the only required files for a module are a JSON file that declares dependencies and a C++ plugin that implements the module’s build API.
+Builder is a C++ build tool for workspaces composed of reusable modules. Dependencies are declared explicitly, while build behavior is implemented directly in C++ and executed by the build tool.
 
 ## Contents
 
+- [Problem statement](#problem-statement)
+- [Design](#design)
 - [Quick start](#quick-start)
-- [Module interface](#module-interface)
-- [Artifacts, cycles and versioning](#artifacts-cycles-and-versioning)
 - [Related repositories](#related-repositories)
 - [Contributing](#contributing)
 - [Requirements](#requirements)
 - [License](#license)
 
+## Problem statement
+
+Most existing build systems introduce a dedicated DSL to describe build logic. While convenient for common cases, these DSLs become restrictive once build behavior depends on non-trivial control flow, dynamic decisions, or reuse of existing code.
+
+At the same time, C++ projects rarely describe build behavior in C++ itself, instead relying on external build languages and configuration formats.
+
+Builder aims to provide a build system that can:
+- Express build logic entirely in C++
+- Avoid a separate build DSL
+- Still provide deterministic dependency resolution, ordering, and incremental rebuilds
+
+## Design
+
+Builder separates structural dependency information from build behavior.
+
+- Module dependencies are declared declaratively in `deps.json`
+- Build behavior is implemented directly in C++ (`builder.cpp`)
+- The build tool controls build order by invoking a predefined set of build entry points (interface export, library export, import/link) for each module
+- The CLI is self-hosting and recompiles/re-execs itself when the builder changes to maintain consistency
+- Dependency cycles are handled by building strongly connected components as a unit
+- Incremental rebuilds operate at module granularity; module versions are derived from source timestamps and propagate transitively
+- Obsolete artifact versions are removed after successful builds
+
 ## Quick start
-For a concrete workspace, see [Builder‑Example](https://github.com/Gilqamesh/Builder-Example).
+For an example workspace using Builder, see [Builder-Example].
 
 1. **Create a module**
 
@@ -43,8 +66,8 @@ For a concrete workspace, see [Builder‑Example](https://github.com/Gilqamesh/B
    ```
 
    - `builder__export_interface` installs the module interfaces (i.e., headers)
-   - `builder__export_libraries` builds and installs the modules libraries (static/shared)
-   - `builder__import_libraries` links into final executables, at this stage all ordered libraries exists for the module to link against
+   - `builder__export_libraries` builds and installs the module libraries (static/shared)
+   - `builder__import_libraries` links into final executables, at this stage all ordered libraries exist for the module to link against
 
    A typical plugin collects its source files, calls into the builder helpers to build and install into the target directory.
 
@@ -68,13 +91,6 @@ For a concrete workspace, see [Builder‑Example](https://github.com/Gilqamesh/B
    | `binary`        | *(Optional)* Path relative to the module’s `import/` directory |
    | `args...`       | *(Optional)* Arguments passed to the executed binary           |
 
-   The CLI is self-hosting. If cli.cpp or the builder module changes, the CLI recompiles itself and re-execs automatically before continuing. This guarantees consistency between the CLI and the builder libraries.
-
-## Artifacts and versioning
-
-- Incremental build is on the module level, either a build is successful, or not. In case it's successful, cli deletes old versions to save space.
-- Version of the module is determined by the latest modified timestamp of the module's source files recursively. The version will propagate to dependents, i.e., they will be rebuilt.
-
 ## Related repositories
 
 - **Builder‑Example** – [example workspace](https://github.com/Gilqamesh/Builder-Example)
@@ -82,14 +98,14 @@ For a concrete workspace, see [Builder‑Example](https://github.com/Gilqamesh/B
 
 ## Contributing
 
-- Open issues for bugs, questions and proposals.
-- Open pull requests against the default branch with focused changes; describe expected vs actual behaviour and include how you tested the change.
-- If you change user‑facing behaviour, update the README.
+- Open issues for bugs, questions and proposals
+- Open pull requests against the default branch with focused changes; describe expected vs actual behaviour and include how you tested the change
+- If you change user‑facing behaviour, update the README
 
 ## Requirements
 
 - Unix-like operating system
-- The following binaries:
+- Binaries:
    - `/usr/bin/cmake`
    - `/usr/bin/clang++` (with `-std=c++23` support)
    - `/usr/bin/clang`
@@ -100,4 +116,4 @@ For a concrete workspace, see [Builder‑Example](https://github.com/Gilqamesh/B
 
 ## License
 
-MIT. See `LICENSE`.
+See [LICENSE](LICENSE).
