@@ -43,7 +43,7 @@ Builder operates on a workspace defined by two directories:
 The Builder repository itself is expected to be present as a module inside the modules directory. After an initial bootstrap step, it is built and versioned like any other module.
 
 ## Quick start
-For an example workspace using Builder, see [Builder-Example].
+For an example workspace using Builder, see [Builder-Example](https://github.com/Gilqamesh/Builder-Example).
 
 1. **Create a module**
 
