@@ -49,8 +49,8 @@ For an example workspace using Builder, see [Builder-Example](https://github.com
 
    Create a subdirectory under your <modules_dir> for the new module. A module requires two files:
    
-   * `deps.json` – lists the module dependencies.
-   * `builder.cpp` – implements the build protocol described below.
+   * `deps.json` – lists the module dependencies
+   * `builder.cpp` – defines the module’s build entry points
 
 2. **Write `deps.json`**
 
