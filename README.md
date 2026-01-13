@@ -85,7 +85,7 @@ For an example workspace using Builder, see [Builder-Example].
    The Builder module must be bootstrapped once before it can build other modules.
 
    ```bash
-   make -C <modules_dir>/builder -f bootstrap.mk bootstrap MODULES_DIR=<modules_dir> ARTIFACTS_DIR=<artifacts_dir>
+   make -f <modules_dir>/builder/bootstrap.mk bootstrap MODULES_DIR=<modules_dir> ARTIFACTS_DIR=<artifacts_dir>
    ```
 
 5. **Run the CLI to build a module**
