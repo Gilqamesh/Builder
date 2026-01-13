@@ -1,6 +1,6 @@
 # Builder
 
-Builder is a C++ build tool for workspaces composed of reusable modules. Module dependencies are declared explicitly, while build behavior is implemented directly in C++.
+Builder is a C++ build system designed for workspaces composed of reusable modules. Module dependencies are declared explicitly, and build behaviour is expressed directly in C++.
 
 ## Contents
 
@@ -15,24 +15,23 @@ Builder is a C++ build tool for workspaces composed of reusable modules. Module 
 
 ## Problem statement
 
-Most existing C++ build systems describe build behavior using a dedicated build language or configuration format, rather than C++ itself.
+Most existing C++ build systems describe build behaviour using a dedicated build language or configuration format, rather than C++ itself.
 
-Builder aims to provide a build system that can:
+Builder aims to:
 - Express build logic entirely in C++
 - Avoid a separate build DSL
-- Still provide deterministic dependency resolution, ordering, and incremental rebuilds
+- Provide deterministic dependency resolution and incremental rebuilds
 
 ## Design
 
-Builder separates structural dependency information from build behavior.
+Builder separates structural dependency information from build behaviour.
 
-- Module dependencies are declared declaratively in `deps.json`
-- Build behavior is implemented in C++ via a fixed set of build entry points (`builder.cpp`) that the build tool invokes in a well-defined order
-- The CLI is self-hosting: if the builder module changes, the CLI rebuilds and re-execs itself to ensure it always matches the current builder version
+- Dependencies are declared in `deps.json`, while build behaviour is implemented in C++ via a fixed set of well-defined entry points in `builder.cpp`
+- The CLI is self-hosting: if the builder module changes, the CLI rebuilds and re-executes itself to ensure it matches the current builder version
 - Dependency cycles are handled by building strongly connected components as a unit
-- Incremental rebuilds operate at module granularity; module versions are derived from source timestamps and propagate transitively
+- Incremental builds operate at module granularity; module versions are derived from source timestamps and propagate transitively
 - Obsolete artifact versions are removed after successful builds
-- For each module, the build tool maintains an `alias` directory that points to the latest successfully built artifact version
+- Each module maintains an `alias` directory pointing to its latest successfully built artifact
 
 ## Workspace layout
 
@@ -48,14 +47,14 @@ For an example workspace using Builder, see [Builder-Example].
 
 1. **Create a module**
 
-   A module lives under a directory in your `<modules>` root. Each module needs two files:
-
+   Create a subdirectory under your <modules_dir> for the new module. A module requires two files:
+   
    * `deps.json` – lists the module dependencies.
    * `builder.cpp` – implements the build protocol described below.
 
 2. **Write `deps.json`**
 
-   The `deps` array lists modules your module depends on.
+   The `deps` array lists the modules this module depends on.
 
    ```json
    {
@@ -65,7 +64,7 @@ For an example workspace using Builder, see [Builder-Example].
 
 3. **Implement `builder.cpp`**
 
-   Your plugin must define three C‑callable entry points:
+   Each module provides a `builder.cpp` that must define three C-callable entry points:
 
    ```cpp
    extern "C" void builder__export_interface(const builder_t* builder, library_type_t library_type);
@@ -73,19 +72,23 @@ For an example workspace using Builder, see [Builder-Example].
    extern "C" void builder__import_libraries(const builder_t* builder);
    ```
 
+   These entry points are invoked by the Builder CLI in a fixed order.
+
    - `builder__export_interface` installs the module interfaces (i.e., headers)
    - `builder__export_libraries` builds and installs the module libraries (static/shared)
-   - `builder__import_libraries` links into final executables, at this stage all ordered libraries exist for the module to link against
+   - `builder__import_libraries` links the module into final executables; at this stage all ordered libraries exist for the module to link against
 
-   A typical plugin collects its source files, calls into the builder helpers to build and install into the target directory.
+   A typical `builder.cpp` collects the module’s source files and calls builder helpers to build and install into the target directory.
 
 4. **Bootstrap the builder module**
 
+   The Builder module must be bootstrapped once before it can build other modules.
+
    ```bash
-      make -C <modules_dir>/builder -f bootstrap.mk bootstrap MODULES_DIR=<modules_dir> ARTIFACTS_DIR=<artifacts_dir>
+   make -C <modules_dir>/builder -f bootstrap.mk bootstrap MODULES_DIR=<modules_dir> ARTIFACTS_DIR=<artifacts_dir>
    ```
 
-5. **Run the cli to build the target module**
+5. **Run the CLI to build a module**
 
    ```bash
    <artifacts_dir>/builder/alias/import/install/cli <modules_dir> <target_module> <artifacts_dir> [binary] [args...]
@@ -107,7 +110,7 @@ For an example workspace using Builder, see [Builder-Example].
 ## Contributing
 
 - Open issues for bugs, questions and proposals
-- Open pull requests against the default branch with focused changes; describe expected vs actual behaviour and include how you tested the change
+- Open pull requests against the default branch with focused changes; describe expected versus actual behaviour and include how you tested the change
 - If you change user‑facing behaviour, update the README
 
 ## Requirements
