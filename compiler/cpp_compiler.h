@@ -1,12 +1,17 @@
 #ifndef BUILDER_PROJECT_BUILDER_COMPILER_CPP_COMPILER_H
 # define BUILDER_PROJECT_BUILDER_COMPILER_CPP_COMPILER_H
 
-# include <modules/builder/module/module_graph.h>
-# include <modules/builder/filesystem/filesystem.h>
+# include <builder/builder.h>
+# include <builder/filesystem/filesystem.h>
 
 # include <vector>
 
 class cpp_compiler_t {
+public:
+    static const constexpr char* CPP_COMPILER_PATH = "/usr/bin/clang++";
+    static const constexpr char* C_COMPILER_PATH = "/usr/bin/clang";
+    static const constexpr char* AR_PATH = "/usr/bin/ar";
+
 public:
     static path_t create_static_library(
         const builder_t* builder,

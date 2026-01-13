@@ -1,11 +1,10 @@
-#include <modules/builder/module/module_graph.h>
-#include <modules/builder/compiler/cpp_compiler.h>
-#include <modules/builder/json/json.hpp>
+#include <builder/module_graph.h>
+#include <builder/compiler/cpp_compiler.h>
+#include <builder/json/json.hpp>
 
 #include <format>
 #include <fstream>
 #include <set>
-#include <iostream>
 
 #include <dlfcn.h>
 
@@ -31,120 +30,6 @@ bool module_t::operator==(const module_t& other) const {
     return m_name == other.m_name && m_version == other.m_version;
 }
 
-builder_t::builder_t(const module_graph_t& module_graph, const module_t& module, const path_t& artifacts_dir):
-    m_module_graph(module_graph),
-    m_module(module),
-    m_artifacts_dir(artifacts_dir)
-{
-}
-
-std::vector<std::vector<path_t>> builder_t::export_libraries(library_type_t library_type) const {
-    std::vector<std::vector<path_t>> library_groups;
-
-    m_module_graph.visit_sccs_topo(m_module_graph.module_scc(m_module), [&](const module_scc_t* scc) {
-        std::vector<path_t> library_group;
-
-        for (const auto& module : scc->modules) {
-            auto libraries = export_libraries(*module, library_type);
-            library_group.insert(library_group.end(), std::make_move_iterator(libraries.begin()), std::make_move_iterator(libraries.end()));
-        }
-
-        if (!library_group.empty()) {
-            library_groups.emplace_back(std::move(library_group));
-        }
-    });
-
-    return library_groups;
-}
-
-path_t builder_t::modules_dir() const {
-    return m_module_graph.modules_dir();
-}
-
-path_t builder_t::src_dir() const {
-    return src_dir(m_module);
-}
-
-path_t builder_t::include_dir() const {
-    return m_module_graph.include_dir();
-}
-
-path_t builder_t::artifacts_dir() const {
-    return m_artifacts_dir;
-}
-
-path_t builder_t::build_dir(library_type_t library_type) const {
-    return build_dir(m_module, library_type);
-}
-
-path_t builder_t::export_dir(library_type_t library_type) const {
-    return export_dir(m_module, library_type);
-}
-
-path_t builder_t::import_dir() const {
-    return import_dir(m_module);
-}
-
-path_t builder_t::builder_src_path() const {
-    return builder_src_path(m_module);
-}
-
-path_t builder_t::builder_build_dir() const {
-    return builder_build_dir(m_module);
-}
-
-path_t builder_t::builder_install_path() const {
-    return builder_install_path(m_module);
-}
-
-path_t builder_t::artifact_dir(const module_t& module) const {
-    return versioned_path_t::make(artifacts_dir(), module.name(), module.version());
-}
-
-path_t builder_t::src_dir(const module_t& module) const {
-    return modules_dir() / relative_path_t(module.name());
-}
-
-path_t builder_t::build_dir(const module_t& module, library_type_t library_type) const {
-    switch (library_type) {
-        case LIBRARY_TYPE_STATIC: return build_dir(module) / relative_path_t("static");
-        case LIBRARY_TYPE_SHARED: return build_dir(module) / relative_path_t("shared");
-        default: throw std::runtime_error(std::format("builder_t::build_dir: unknown library_type {}", (uint32_t)library_type));
-    }
-}
-
-path_t builder_t::export_dir(const module_t& module, library_type_t library_type) const {
-    switch (library_type) {
-        case LIBRARY_TYPE_STATIC: return export_dir(module) / relative_path_t("static");
-        case LIBRARY_TYPE_SHARED: return export_dir(module) / relative_path_t("shared");
-        default: throw std::runtime_error(std::format("builder_t::export_dir: unknown library_type {}", (uint32_t)library_type));
-    }
-}
-
-path_t builder_t::import_dir(const module_t& module) const {
-    return artifact_dir(module) / relative_path_t("import");
-}
-
-path_t builder_t::builder_src_path(const module_t& module) const {
-    return src_dir(module) / relative_path_t(module_t::BUILDER_CPP);
-}
-
-path_t builder_t::builder_build_dir(const module_t& module) const {
-    return build_dir(module) / relative_path_t("builder");
-}
-
-path_t builder_t::builder_install_path(const module_t& module) const {
-    return builder_build_dir(module) / relative_path_t("builder.so");
-}
-
-path_t builder_t::build_dir(const module_t& module) const {
-    return artifact_dir(module) / relative_path_t("build");
-}
-
-path_t builder_t::export_dir(const module_t& module) const {
-    return artifact_dir(module) / relative_path_t("export");
-}
-
 module_graph_t::module_graph_t(
     std::unordered_map<const module_t*, const module_scc_t*> scc_by_module,
     module_t* builder_module,
@@ -154,8 +39,7 @@ module_graph_t::module_graph_t(
     m_scc_by_module(std::move(scc_by_module)),
     m_builder_module(builder_module),
     m_target_module(target_module),
-    m_modules_dir(modules_dir),
-    m_include_dir(modules_dir.parent())
+    m_modules_dir(modules_dir)
 {
 }
 
@@ -299,10 +183,6 @@ const path_t& module_graph_t::modules_dir() const {
     return m_modules_dir;
 }
 
-const path_t& module_graph_t::include_dir() const {
-    return m_include_dir;
-}
-
 const module_t& module_graph_t::builder_module() const {
     return *m_builder_module;
 }
@@ -325,136 +205,6 @@ uint64_t module_graph_t::derive_version(const path_t& dir) {
     }
 
     return derive_version(latest_module_file);
-}
-
-std::vector<path_t> builder_t::export_libraries(const module_t& module, library_type_t library_type) const {
-    const auto& module_export_dir = export_dir(module, library_type);
-    if (!filesystem_t::exists(module_export_dir)) {
-        if (module == m_module_graph.builder_module()) {
-            std::string library_type_str;
-            switch (library_type) {
-                case LIBRARY_TYPE_STATIC: {
-                    library_type_str = "static";
-                } break ;
-                case LIBRARY_TYPE_SHARED: {
-                    library_type_str = "shared";
-                } break ;
-                default: throw std::runtime_error(std::format("builder_t::export_libraries: unknown library_type {}", (uint32_t)library_type));
-            }
-
-            const auto export_command = std::format(
-                "make -C \"{}\" BUILD_DIR=\"{}\" EXPORT_DIR=\"{}\" IMPORT_DIR=\"{}\" LIBRARY_TYPE=\"{}\"",
-                src_dir(module).string(),
-                build_dir(module, library_type).string(),
-                export_dir(module, library_type).string(),
-                import_dir(module).string(),
-                library_type_str
-            );
-            std::cout << export_command << std::endl;
-            const int export_command_result = std::system(export_command.c_str());
-            if (export_command_result != 0) {
-                throw std::runtime_error(std::format("builder_t::export_libraries: failed to export builder libraries, command exited with code {}", export_command_result));
-            }
-        } else {
-            const auto& builder_plugin = build_builder(module);
-            void* builder_plugin_handle = dlopen(builder_plugin.c_str(), RTLD_NOW | RTLD_LOCAL | RTLD_NODELETE);
-            if (!builder_plugin_handle) {
-                throw std::runtime_error(std::format("builder_t::export_libraries: failed to load builder plugin '{}': {}", builder_plugin.string(), dlerror()));
-            }
-
-            try {
-                typedef void (*builder__export_libraries_t)(const builder_t* builder, library_type_t library_type);
-                builder__export_libraries_t builder__export_libraries = (builder__export_libraries_t) dlsym(builder_plugin_handle, "builder__export_libraries");
-                if (!builder__export_libraries) {
-                    throw std::runtime_error(std::format("builder_t::export_libraries: failed to load symbol 'builder__export_libraries' from builder plugin '{}': {}", builder_plugin.string(), dlerror()));
-                }
-
-                builder_t builder(m_module_graph, module, m_artifacts_dir);
-                builder__export_libraries(&builder, library_type);
-                dlclose(builder_plugin_handle);
-
-                const auto versioned_modules = filesystem_t::find(
-                    m_artifacts_dir / relative_path_t(module.name()),
-                    filesystem_t::is_dir,
-                    filesystem_t::descend_none
-                );
-
-                for (const auto& versioned_module : versioned_modules) {
-                    if (versioned_path_t::parse(versioned_module) < module.version()) {
-                        filesystem_t::remove_all(versioned_module);
-                    }
-                }
-            } catch (...) {
-                dlclose(builder_plugin_handle);
-                filesystem_t::remove_all(module_export_dir);
-                throw ;
-            }
-        }
-    }
-
-    if (!filesystem_t::exists(module_export_dir)) {
-        filesystem_t::create_directories(module_export_dir);
-    }
-
-    return filesystem_t::find(module_export_dir, !filesystem_t::is_dir, filesystem_t::descend_all);
-}
-
-void builder_t::import_libraries(const module_t& module) const {
-    const auto& module_import_dir = import_dir(module);
-    if (filesystem_t::exists(module_import_dir) || module == m_module_graph.builder_module()) {
-        return ;
-    }
-
-    const auto& builder_plugin = build_builder(module);
-    void* builder_plugin_handle = dlopen(builder_plugin.c_str(), RTLD_NOW | RTLD_LOCAL | RTLD_NODELETE);
-    if (!builder_plugin_handle) {
-        throw std::runtime_error(std::format("builder_t::import_libraries failed to load builder plugin '{}': {}", builder_plugin.c_str(), dlerror()));
-    }
-
-    try {
-        typedef void (*builder__import_libraries_t)(const builder_t* builder);
-        builder__import_libraries_t builder__import_libraries = (builder__import_libraries_t)dlsym(builder_plugin_handle, "builder__import_libraries");
-        if (!builder__import_libraries) {
-            throw std::runtime_error(std::format("builder_t::import_libraries failed to locate symbol 'builder__import_libraries' in module '{}': {}", module.name(), dlerror()));
-        }
-
-        builder_t builder(m_module_graph, module, m_artifacts_dir);
-        builder__import_libraries(&builder);
-        dlclose(builder_plugin_handle);
-
-        if (!filesystem_t::exists(module_import_dir)) {
-            filesystem_t::create_directories(module_import_dir);
-        }
-    } catch (...) {
-        dlclose(builder_plugin_handle);
-        filesystem_t::remove_all(module_import_dir);
-        throw ;
-    }
-}
-
-path_t builder_t::build_builder(const module_t& module) const {
-    const auto builder = builder_install_path(module);
-    if (!filesystem_t::exists(builder)) {
-        cpp_compiler_t::create_shared_library(
-            builder_build_dir(module),
-            src_dir(module),
-            { include_dir() },
-            { builder_src_path(module) },
-            {},
-            export_libraries(m_module_graph.builder_module(), LIBRARY_TYPE_SHARED),
-            builder
-        );
-    }
-
-    if (!filesystem_t::exists(builder)) {
-        throw std::runtime_error(std::format("builder_t::build_builder: expected builder plugin '{}' to exist but it does not", builder.string()));
-    }
-
-    return builder;
-}
-
-void builder_t::import_libraries() const {
-    import_libraries(m_module);
 }
 
 void module_graph_t::svg(const path_t& dir, const std::string& file_name_stem) {

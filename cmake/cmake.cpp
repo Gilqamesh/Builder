@@ -1,9 +1,9 @@
-#include <modules/builder/cmake/cmake.h>
+#include <builder/cmake/cmake.h>
 
 #include <iostream>
 #include <format>
 
-void cmake_t::configure(const path_t& source_dir, const path_t& build_dir, std::vector<std::pair<std::string, std::string>>& define_key_values) {
+void cmake_t::configure(const path_t& source_dir, const path_t& build_dir, const std::vector<std::pair<std::string, std::string>>& define_key_values) {
     if (!filesystem_t::exists(source_dir)) {
         throw std::runtime_error(std::format("cmake_t::configure: source_dir '{}' does not exist", source_dir.string()));
     }
@@ -32,6 +32,8 @@ void cmake_t::build(const path_t& build_dir, std::optional<size_t> n_jobs) {
     std::string build_command = std::format("cmake --build \"{}\"", build_dir.string());
     if (n_jobs.has_value()) {
         build_command += std::format(" -j{}", n_jobs.value());
+    } else {
+        build_command += " -j";
     }
 
     std::cout << build_command << std::endl;

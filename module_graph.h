@@ -1,8 +1,7 @@
 #ifndef BUILDER_PROJECT_BUILDER_MODULE_MODULE_GRAPH_H
 # define BUILDER_PROJECT_BUILDER_MODULE_MODULE_GRAPH_H
 
-# include <modules/builder/builder.h>
-# include <modules/builder/filesystem/filesystem.h>
+# include <builder/filesystem/filesystem.h>
 
 # include <string>
 # include <unordered_map>
@@ -48,7 +47,6 @@ public:
     static module_graph_t discover(const path_t& modules_dir, const std::string& target_module_name);
 
     const path_t& modules_dir() const;
-    const path_t& include_dir() const;
     const module_t& builder_module() const;
     const module_t& target_module() const;
 
@@ -95,53 +93,6 @@ private:
     module_t* m_builder_module;
     module_t* m_target_module;
     path_t m_modules_dir;
-    path_t m_include_dir;
-};
-
-class builder_t {
-public:
-    builder_t(const module_graph_t& module_graph, const module_t& module, const path_t& artifacts_dir);
-
-    std::vector<std::vector<path_t>> export_libraries(library_type_t library_type) const;
-    void import_libraries() const;
-
-    path_t modules_dir() const;
-    path_t src_dir() const;
-    path_t include_dir() const;
-    path_t artifacts_dir() const;
-
-    path_t build_dir(library_type_t library_type) const;
-    path_t export_dir(library_type_t library_type) const;
-    path_t import_dir() const;
-
-    path_t builder_src_path() const;
-    path_t builder_build_dir() const;
-    path_t builder_install_path() const;
-
-private:
-    std::vector<path_t> export_libraries(const module_t& module, library_type_t library_type) const;
-    void import_libraries(const module_t& module) const;
-
-    path_t src_dir(const module_t& module) const;
-    path_t build_dir(const module_t& module, library_type_t library_type) const;
-    path_t export_dir(const module_t& module, library_type_t library_type) const;
-    path_t import_dir(const module_t& module) const;
-
-    path_t builder_src_path(const module_t& module) const;
-    path_t builder_build_dir(const module_t& module) const;
-    path_t builder_install_path(const module_t& module) const;
-
-    path_t artifact_dir(const module_t& module) const;
-    path_t build_dir(const module_t& module) const;
-    path_t export_dir(const module_t& module) const;
-
-private:
-    path_t build_builder(const module_t& module) const;
-
-private:
-    const module_graph_t& m_module_graph;
-    const module_t& m_module;
-    path_t m_artifacts_dir;
 };
 
 #endif // BUILDER_PROJECT_BUILDER_MODULE_MODULE_GRAPH_H

@@ -1,4 +1,4 @@
-#include <modules/builder/cmake/cmake.h>
+#include <builder/cmake/cmake.h>
 
 #include <iostream>
 #include <format>

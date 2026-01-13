@@ -1,5 +1,5 @@
-#include <modules/builder/zip/zip.h>
-#include <modules/builder/zip/external/miniz.h>
+#include <builder/zip/zip.h>
+#include <builder/zip/external/miniz.h>
 
 #include <format>
 #include <iostream>
