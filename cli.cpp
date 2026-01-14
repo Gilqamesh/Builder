@@ -24,16 +24,11 @@ int main(int argc, char** argv) {
         builder_t builder(module_graph, module_graph.target_module(), artifacts_dir);
 
         const auto cli = filesystem_t::canonical(path_t("/proc/self/exe"));
-        const auto cli_src = builder_builder.source_dir() / relative_path_t("cli.cpp");
-
         const auto cli_last_write_time = filesystem_t::last_write_time(cli);
-        const auto cli_src_last_write_time = filesystem_t::last_write_time(cli_src);
-
         const auto cli_version = module_graph_t::derive_version(cli_last_write_time);
-        const auto cli_src_version = module_graph_t::derive_version(cli_src_last_write_time);
         const auto builder_version = module_graph.builder_module().version();
 
-        if (!filesystem_t::exists(builder_builder.libraries_install_dir(library_type_t::SHARED)) || cli_version < std::max(cli_src_version, builder_version)) {
+        if (!filesystem_t::exists(builder_builder.libraries_install_dir(library_type_t::SHARED)) || cli_version < builder_version) {
             builder_builder.compile_builder_module_phase(build_phase_t::IMPORT_LIBRARIES);
 
             const auto new_cli = builder_builder.import_install_dir() / relative_path_t("cli");

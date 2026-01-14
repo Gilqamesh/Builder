@@ -125,7 +125,7 @@ $(LIBRARIES_BUILD_DIR)/%.o: $(SOURCE_DIR)/%.cpp FORCE
 
 $(LIBRARIES_BUILD_DIR)/%.o: $(SOURCE_DIR)/%.c FORCE
 	@mkdir -p $(dir $@)
-	$(CC)  $(CFLAGS) $(PIC) -c $< -o $@
+	$(CC) $(CFLAGS) $(PIC) -c $< -o $@
 
 ################################################## import_libraries ##################################################
 

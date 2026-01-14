@@ -29,7 +29,7 @@ Builder separates structural dependency information from build behaviour.
 - Dependencies are declared in `deps.json`, while build behaviour is implemented in C++ via a fixed set of well-defined entry points in `builder.cpp`
 - The CLI is self-hosting: if the builder module changes, the CLI rebuilds and re-executes itself to ensure it matches the current builder version
 - Dependency cycles are handled by building strongly connected components as a unit
-- Incremental builds operate at module granularity; module versions are derived from source timestamps and propagate transitively
+- Incremental builds operate at module granularity; module versions are derived from the current source state and propagate transitively
 - Obsolete artifact versions are removed after successful builds
 - Each module maintains an `alias` directory pointing to its latest successfully built artifact
 
