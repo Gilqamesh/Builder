@@ -54,13 +54,6 @@ $(INTERFACE_INSTALL_DIR)/$(MODULE_NAME)/%: $(SOURCE_DIR)/% FORCE
 CXXFLAGS := -std=c++23 -g
 CFLAGS   := -g
 
-BUILDER_MODULES := cmake compiler curl filesystem gzip process shared_library tar zip
-
-BUILDER_INCLUDE := -I$(INTERFACE_INSTALL_DIR)/$(MODULE_NAME)
-
-$(LIBRARIES_BUILD_DIR)/%.o: MODULE_INCLUDE := $(BUILDER_INCLUDE)
-$(foreach module,$(BUILDER_MODULES),$(eval $(LIBRARIES_BUILD_DIR)/$(module)/%.o: MODULE_INCLUDE := $(BUILDER_INCLUDE)/$(module)))
-
 SOURCES := \
 	cmake/cmake.cpp \
 	compiler/cpp_compiler.cpp \
@@ -87,6 +80,8 @@ SOURCES := \
 	tar/external/microtar.c \
 	zip/external/miniz.c \
 	zip/zip.cpp
+
+BUILDER_MODULES := cmake compiler curl filesystem gzip process shared_library tar zip
 
 BUILDER_LIBRARY_OBJECTS := $(addprefix $(LIBRARIES_BUILD_DIR)/,$(SOURCES))
 BUILDER_LIBRARY_OBJECTS := $(BUILDER_LIBRARY_OBJECTS:.cpp=.o)
@@ -129,11 +124,11 @@ endif
 
 $(LIBRARIES_BUILD_DIR)/%.o: $(SOURCE_DIR)/%.cpp FORCE
 	@mkdir -p $(dir $@)
-	$(CXX) $(CXXFLAGS) $(MODULE_INCLUDE) $(PIC) -c $< -o $@
+	$(CXX) $(CXXFLAGS) $(PIC) -c $< -o $@
 
 $(LIBRARIES_BUILD_DIR)/%.o: $(SOURCE_DIR)/%.c FORCE
 	@mkdir -p $(dir $@)
-	$(CC) $(CFLAGS) $(MODULE_INCLUDE) $(PIC) -c $< -o $@
+	$(CC) $(CFLAGS) $(PIC) -c $< -o $@
 
 ################################################## import_libraries ##################################################
 

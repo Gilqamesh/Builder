@@ -8,6 +8,7 @@ Builder is a C++ build system designed for workspaces composed of reusable modul
 - [Design](#design)
 - [Workspace layout](#workspace-layout)
 - [Quick start](#quick-start)
+- [Header and include conventions](#header-and-include-conventions)
 - [Related repositories](#related-repositories)
 - [Contributing](#contributing)
 - [Requirements](#requirements)
@@ -101,6 +102,24 @@ For an example workspace using Builder, see [Builder-Example](https://github.com
    | `artifacts_dir` | Output directory for versioned build artifacts                 |
    | `binary`        | *(Optional)* Path relative to the module’s `import/` directory |
    | `args...`       | *(Optional)* Arguments passed to the executed binary           |
+
+## Header and include conventions
+
+Headers within the same module must use relative paths.
+
+```cpp
+// file: compiler/cpp_compiler.cpp
+#include "cpp_compiler.h"
+#include "../process/process.h"
+```
+
+Headers from other modules must use a module name prefix.
+
+```cpp
+// file: example/src/foo.cpp
+#include <math/vector.h>
+#include <graphics/renderer.h>
+```
 
 ## Related repositories
 

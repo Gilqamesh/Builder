@@ -98,7 +98,7 @@ void builder_t::import_libraries() const {
 }
 
 void builder_t::install_interface(const path_t& interface, const relative_path_t& relative_install_path, library_type_t library_type) const {
-    const auto target_path = interface_install_dir(library_type) / relative_path_t(m_module.name()) / relative_install_path;
+    const auto target_path = interface_install_dir(library_type) / relative_install_path;
     const auto target_path_parent = target_path.parent();
     if (!filesystem_t::exists(target_path_parent)) {
         filesystem_t::create_directories(target_path_parent);
@@ -244,7 +244,7 @@ path_t builder_t::interface_build_dir(const module_t& module, library_type_t lib
 }
 
 path_t builder_t::interface_install_dir(const module_t& module, library_type_t library_type) const {
-    return interface_dir(module) / library_type_relative_dir(library_type) / install_relative_dir();
+    return interface_dir(module) / library_type_relative_dir(library_type) / install_relative_dir() / relative_path_t(module.name());
 }
 
 path_t builder_t::libraries_dir(const module_t& module) const {
