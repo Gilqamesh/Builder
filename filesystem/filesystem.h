@@ -355,6 +355,13 @@ struct std::formatter<path_t> : std::formatter<std::string> {
 };
 
 template <>
+struct std::formatter<relative_path_t> : std::formatter<std::string> {
+    auto format(const relative_path_t& relative_path, auto& ctx) const {
+        return std::formatter<std::string>::format(relative_path.string(), ctx);
+    }
+};
+
+template <>
 struct std::formatter<pretty_path_t> : std::formatter<std::string> {
     auto format(const pretty_path_t& pretty_path, auto& ctx) const {
         return std::formatter<std::string>::format(pretty_path.string(), ctx);

@@ -1,6 +1,7 @@
 #include <builder/module_graph.h>
 #include <builder/compiler/cpp_compiler.h>
 #include <builder/json/json.hpp>
+#include <builder/process/process.h>
 
 #include <format>
 #include <fstream>
@@ -382,16 +383,33 @@ void module_graph_t::svg_overview(const path_t& dir, const std::string& file_nam
     ofs << "}\n";
     ofs.close();
 
-    if (std::system(std::format("dot -Tsvg {} > {}", dot_file.string(), svg_file.string()).c_str()) != 0) {
-        throw std::runtime_error("module_graph_t::svg_overview: graphviz render failed");
+    const int dot_command_result = process_t::create_and_wait({
+        DOT_PATH,
+        "-Tsvg",
+        dot_file,
+        "-o",
+        svg_file
+    });
+    if (0 < dot_command_result) {
+        throw std::runtime_error(std::format("module_graph_t::svg_overview: graphviz render failed, command exited with code {}", dot_command_result));
+    } else if (dot_command_result < 0) {
+        throw std::runtime_error(std::format("module_graph_t::svg_overview: graphviz render failed, command terminated by signal {}", -dot_command_result));
     }
 
-    if (std::system(std::format("rsvg-convert {} -o {}", svg_file.string(), png_file.string()).c_str()) != 0) {
-        throw std::runtime_error("module_graph_t::svg_overview: could not create svg");
+    const int rsvg_convert_result = process_t::create_and_wait({
+        RSVG_CONVERT_PATH,
+        svg_file,
+        "-o",
+        png_file
+    });
+    if (0 < rsvg_convert_result) {
+        throw std::runtime_error(std::format("module_graph_t::svg_overview: could not create svg, command exited with code {}", rsvg_convert_result));
+    } else if (rsvg_convert_result < 0) {
+        throw std::runtime_error(std::format("module_graph_t::svg_overview: could not create svg, command terminated by signal {}", -rsvg_convert_result));
     }
 
     filesystem_t::remove(dot_file);
-    // std::filesystem::remove(svg_file);
+    filesystem_t::remove(svg_file);
 }
 
 void module_graph_t::svg_sccs(const path_t& dir, const std::string& file_name_stem) {
@@ -447,16 +465,33 @@ void module_graph_t::svg_sccs(const path_t& dir, const std::string& file_name_st
     ofs << "}\n";
     ofs.close();
 
-    if (std::system(std::format("dot -Tsvg {} > {}", dot_file.string(), svg_file.string()).c_str()) != 0) {
-        throw std::runtime_error("module_graph_t::svg_sccs: graphviz render failed");
+    const int dot_command_result = process_t::create_and_wait({
+        DOT_PATH,
+        "-Tsvg",
+        dot_file,
+        "-o",
+        svg_file
+    });
+    if (0 < dot_command_result) {
+        throw std::runtime_error(std::format("module_graph_t::svg_sccs: graphviz render failed, command exited with code {}", dot_command_result));
+    } else if (dot_command_result < 0) {
+        throw std::runtime_error(std::format("module_graph_t::svg_sccs: graphviz render failed, command terminated by signal {}", -dot_command_result));
     }
 
-    if (std::system(std::format("rsvg-convert {} -o {}", svg_file.string(), png_file.string()).c_str()) != 0) {
-        throw std::runtime_error("module_graph_t::svg_sccs: could not create svg");
+    const int rsvg_convert_result = process_t::create_and_wait({
+        RSVG_CONVERT_PATH,
+        svg_file,
+        "-o",
+        png_file
+    });
+    if (0 < rsvg_convert_result) {
+        throw std::runtime_error(std::format("module_graph_t::svg_sccs: could not create svg, command exited with code {}", rsvg_convert_result));
+    } else if (rsvg_convert_result < 0) {
+        throw std::runtime_error(std::format("module_graph_t::svg_sccs: could not create svg, command terminated by signal {}", -rsvg_convert_result));
     }
 
     filesystem_t::remove(dot_file);
-    // std::filesystem::remove(svg_file);
+    filesystem_t::remove(svg_file);
 }
 
 void module_graph_t::svg_scc(const path_t& dir, const module_scc_t* scc, const std::string& file_name_stem) {
@@ -491,14 +526,31 @@ void module_graph_t::svg_scc(const path_t& dir, const module_scc_t* scc, const s
     ofs << "}\n";
     ofs.close();
 
-    if (std::system(std::format("neato -Tsvg {} > {}", dot_file.string(), svg_file.string()).c_str()) != 0) {
-        throw std::runtime_error("module_graph_t::svg_scc: graphviz render failed");
+    const int neato_command_result = process_t::create_and_wait({
+        NEATO_PATH,
+        "-Tsvg",
+        dot_file,
+        "-o",
+        svg_file
+    });
+    if (0 < neato_command_result) {
+        throw std::runtime_error(std::format("module_graph_t::svg_scc: graphviz render failed, command exited with code {}", neato_command_result));
+    } else if (neato_command_result < 0) {
+        throw std::runtime_error(std::format("module_graph_t::svg_scc: graphviz render failed, command terminated by signal {}", -neato_command_result));
     }
 
-    if (std::system(std::format("rsvg-convert {} -o {}", svg_file.string(), png_file.string()).c_str()) != 0) {
-        throw std::runtime_error("module_graph_t::svg_scc: could not create svg");
+    const int rsvg_convert_result = process_t::create_and_wait({
+        RSVG_CONVERT_PATH,
+        svg_file,
+        "-o",
+        png_file
+    });
+    if (0 < rsvg_convert_result) {
+        throw std::runtime_error(std::format("module_graph_t::svg_scc: could not create svg, command exited with code {}", rsvg_convert_result));
+    } else if (rsvg_convert_result < 0) {
+        throw std::runtime_error(std::format("module_graph_t::svg_scc: could not create svg, command terminated by signal {}", -rsvg_convert_result));
     }
 
     filesystem_t::remove(dot_file);
-    // std::filesystem::remove(svg_file);
+    filesystem_t::remove(svg_file);
 }

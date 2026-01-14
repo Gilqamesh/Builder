@@ -1,5 +1,6 @@
 #include <builder/builder.h>
 #include <builder/compiler/cpp_compiler.h>
+#include <builder/process/process.h>
 
 #include <format>
 #include <fstream>
@@ -33,34 +34,27 @@ void builder_t::compile_builder_module_phase(build_phase_t build_phase) const {
 
     const auto library_type = library_type_t::SHARED;
 
-    const auto export_command = std::format(
-        "make -C \"{}\" {} "
-        " SOURCE_DIR=\"{}\""
-        " LIBRARY_TYPE=\"{}\""
-        " INTERFACE_BUILD_DIR=\"{}\""
-        " INTERFACE_INSTALL_DIR=\"{}\""
-        " LIBRARIES_BUILD_DIR=\"{}\""
-        " LIBRARIES_INSTALL_DIR=\"{}\""
-        " IMPORT_BUILD_DIR=\"{}\""
-        " IMPORT_INSTALL_DIR=\"{}\""
-        " ARTIFACT_DIR=\"{}\""
-        " ARTIFACT_ALIAS_DIR=\"{}\"",
-        source_dir(builder_module).string(), make_target,
-        source_dir(builder_module).string(),
-        library_type_relative_dir(library_type).string(),
-        interface_build_dir(builder_module, library_type).string(),
-        interface_install_dir(builder_module, library_type).string(),
-        libraries_build_dir(builder_module, library_type).string(),
-        libraries_install_dir(builder_module, library_type).string(),
-        import_build_dir(builder_module).string(),
-        import_install_dir(builder_module).string(),
-        artifact_dir(builder_module).string(),
-        artifact_alias_dir(builder_module).string()
-    );
-    std::cout << export_command << std::endl;
-    const int export_command_result = std::system(export_command.c_str());
-    if (export_command_result != 0) {
-        throw std::runtime_error(std::format("builder_t::export_libraries: failed to export builder libraries, command exited with code {}", export_command_result));
+    std::vector<process_arg_t> export_command_args;
+    export_command_args.push_back(MAKE_PATH);
+    export_command_args.push_back("-C");
+    export_command_args.push_back(source_dir(builder_module));
+    export_command_args.push_back(make_target);
+    export_command_args.push_back(std::format("SOURCE_DIR={}", source_dir(builder_module)));
+    export_command_args.push_back(std::format("LIBRARY_TYPE={}", library_type_relative_dir(library_type)));
+    export_command_args.push_back(std::format("INTERFACE_BUILD_DIR={}", interface_build_dir(builder_module, library_type)));
+    export_command_args.push_back(std::format("INTERFACE_INSTALL_DIR={}", interface_install_dir(builder_module, library_type)));
+    export_command_args.push_back(std::format("LIBRARIES_BUILD_DIR={}", libraries_build_dir(builder_module, library_type)));
+    export_command_args.push_back(std::format("LIBRARIES_INSTALL_DIR={}", libraries_install_dir(builder_module, library_type)));
+    export_command_args.push_back(std::format("IMPORT_BUILD_DIR={}", import_build_dir(builder_module)));
+    export_command_args.push_back(std::format("IMPORT_INSTALL_DIR={}", import_install_dir(builder_module)));
+    export_command_args.push_back(std::format("ARTIFACT_DIR={}", artifact_dir(builder_module)));
+    export_command_args.push_back(std::format("ARTIFACT_ALIAS_DIR={}", artifact_alias_dir(builder_module)));
+
+    const int export_command_result = process_t::create_and_wait(export_command_args);
+    if (0 < export_command_result) {
+        throw std::runtime_error(std::format("builder_t::compile_builder_module_phase: failed to compile builder module phase {}, command exited with code {}", static_cast<std::underlying_type_t<build_phase_t>>(build_phase), export_command_result));
+    } else if (export_command_result < 0) {
+        throw std::runtime_error(std::format("builder_t::compile_builder_module_phase: failed to compile builder module phase {}, command terminated by signal {}", static_cast<std::underlying_type_t<build_phase_t>>(build_phase), -export_command_result));
     }
 }
 

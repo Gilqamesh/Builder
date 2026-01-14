@@ -22,6 +22,9 @@ enum class build_phase_t : uint8_t {
 
 class builder_t {
 public:
+    static const constexpr char* MAKE_PATH = "/usr/bin/make";
+
+public:
     builder_t(const module_graph_t& module_graph, const module_t& module, const path_t& artifacts_dir);
 
     void compile_builder_module_phase(build_phase_t build_phase) const;

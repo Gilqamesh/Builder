@@ -121,6 +121,7 @@ For an example workspace using Builder, see [Builder-Example](https://github.com
    - `/usr/bin/clang++` (with `-std=c++23` support)
    - `/usr/bin/clang`
    - `/usr/bin/ar`
+   - `/usr/bin/make`
 
 - Libraries:
    - `/usr/lib64/libcurl.so`

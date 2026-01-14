@@ -17,7 +17,6 @@ public:
     static const constexpr char* BUILDER_CPP = "builder.cpp";
     static const constexpr char* DEPS_JSON = "deps.json";
     static const constexpr char* DEPS_KEY = "deps";
-
 public:
     module_t(const std::string& name, uint64_t version);
 
@@ -44,6 +43,11 @@ struct versioned_path_t {
 };
 
 class module_graph_t {
+public:
+    static const constexpr char* DOT_PATH = "/usr/bin/dot";
+    static const constexpr char* RSVG_CONVERT_PATH = "/usr/bin/rsvg-convert";
+    static const constexpr char* NEATO_PATH = "/usr/bin/neato";
+
 public:
     static module_graph_t discover(const path_t& modules_dir, const std::string& target_module_name);
 
