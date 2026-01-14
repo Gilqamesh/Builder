@@ -75,6 +75,7 @@ SOURCES := \
 	builder.cpp \
 	module_graph.cpp \
 	process/process.cpp \
+	shared_library/shared_library.cpp \
 	tar/tar.cpp \
 	tar/external/microtar.c \
 	zip/external/miniz.c \
@@ -139,6 +140,7 @@ CLI_SOURCES := \
 	gzip/cli.cpp \
 	json/cli.cpp \
 	process/cli.cpp \
+	shared_library/cli.cpp \
 	tar/cli.cpp \
 	zip/cli.cpp \
 	cli.cpp

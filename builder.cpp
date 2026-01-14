@@ -1,12 +1,11 @@
 #include <builder/builder.h>
 #include <builder/compiler/cpp_compiler.h>
 #include <builder/process/process.h>
+#include <builder/shared_library/shared_library.h>
 
 #include <format>
 #include <fstream>
 #include <iostream>
-
-#include <dlfcn.h>
 
 builder_t::builder_t(const module_graph_t& module_graph, const module_t& module, const path_t& artifacts_dir):
     m_module_graph(module_graph),
@@ -291,25 +290,12 @@ path_t builder_t::export_interface(const module_t& module, library_type_t librar
                 compile_builder_module_phase(build_phase_t::EXPORT_INTERFACE);
             } else {
                 const auto& builder_plugin = build_builder(module);
-                void* builder_plugin_handle = dlopen(builder_plugin.c_str(), RTLD_NOW | RTLD_LOCAL | RTLD_NODELETE);
-                if (!builder_plugin_handle) {
-                    throw std::runtime_error(std::format("builder_t::export_interface: failed to load builder plugin '{}': {}", builder_plugin, dlerror()));
-                }
 
-                try {
-                    typedef void (*builder__export_interface_t)(const builder_t* builder, library_type_t library_type);
-                    builder__export_interface_t builder__export_interface = (builder__export_interface_t) dlsym(builder_plugin_handle, "builder__export_interface");
-                    if (!builder__export_interface) {
-                        throw std::runtime_error(std::format("builder_t::export_interface: failed to load symbol 'builder__export_interface' from builder plugin '{}': {}", builder_plugin, dlerror()));
-                    }
-
-                    builder_t builder(m_module_graph, module, m_artifacts_dir);
-                    builder__export_interface(&builder, library_type);
-                    dlclose(builder_plugin_handle);
-                } catch (...) {
-                    dlclose(builder_plugin_handle);
-                    throw ;
-                }
+                shared_library_t builder_shared_library(builder_plugin, shared_library_lifetime_t::PROCESS, symbol_resolution_t::LAZY, symbol_visibility_t::LOCAL);
+                typedef void (*builder__export_interface_t)(const builder_t* builder, library_type_t library_type);
+                builder__export_interface_t builder__export_interface = builder_shared_library.resolve("builder__export_interface");
+                builder_t builder(m_module_graph, module, m_artifacts_dir);
+                builder__export_interface(&builder, library_type);
             }
 
             // NOTE: could remove `module_interface_build_dir` instead at this point as `module_interface_install_dir` marks completion
@@ -347,39 +333,26 @@ std::vector<path_t> builder_t::export_libraries(const module_t& module, library_
                 compile_builder_module_phase(build_phase_t::EXPORT_LIBRARIES);
             } else {
                 const auto& builder_plugin = build_builder(module);
-                void* builder_plugin_handle = dlopen(builder_plugin.c_str(), RTLD_NOW | RTLD_LOCAL | RTLD_NODELETE);
-                if (!builder_plugin_handle) {
-                    throw std::runtime_error(std::format("builder_t::export_libraries: failed to load builder plugin '{}': {}", builder_plugin, dlerror()));
+
+                shared_library_t builder_shared_library(builder_plugin, shared_library_lifetime_t::PROCESS, symbol_resolution_t::LAZY, symbol_visibility_t::LOCAL);
+                typedef void (*builder__export_libraries_t)(const builder_t* builder, library_type_t library_type);
+                builder__export_libraries_t builder__export_libraries = builder_shared_library.resolve("builder__export_libraries");
+                builder_t builder(m_module_graph, module, m_artifacts_dir);
+                builder__export_libraries(&builder, library_type);
+
+                const auto module_artifact_alias_dir = artifact_alias_dir(module);
+                const auto module_artifact_alias_dir_tmp = module_artifact_alias_dir + "_tmp";
+                if (filesystem_t::exists(module_artifact_alias_dir_tmp)) {
+                    filesystem_t::remove_all(module_artifact_alias_dir_tmp);
                 }
 
-                try {
-                    typedef void (*builder__export_libraries_t)(const builder_t* builder, library_type_t library_type);
-                    builder__export_libraries_t builder__export_libraries = (builder__export_libraries_t) dlsym(builder_plugin_handle, "builder__export_libraries");
-                    if (!builder__export_libraries) {
-                        throw std::runtime_error(std::format("builder_t::export_libraries: failed to load symbol 'builder__export_libraries' from builder plugin '{}': {}", builder_plugin, dlerror()));
+                filesystem_t::create_directory_symlink(artifact_dir(module), module_artifact_alias_dir_tmp);
+                filesystem_t::rename_replace(module_artifact_alias_dir_tmp, module_artifact_alias_dir);
+
+                for (const auto& versioned_module : filesystem_t::find(m_artifacts_dir / relative_path_t(module.name()), filesystem_t::is_dir, filesystem_t::descend_none)) {
+                    if (versioned_path_t::is_versioned(versioned_module) && versioned_path_t::parse(versioned_module) < module.version()) {
+                        filesystem_t::remove_all(versioned_module);
                     }
-
-                    builder_t builder(m_module_graph, module, m_artifacts_dir);
-                    builder__export_libraries(&builder, library_type);
-                    dlclose(builder_plugin_handle);
-
-                    const auto module_artifact_alias_dir = artifact_alias_dir(module);
-                    const auto module_artifact_alias_dir_tmp = module_artifact_alias_dir + "_tmp";
-                    if (filesystem_t::exists(module_artifact_alias_dir_tmp)) {
-                        filesystem_t::remove_all(module_artifact_alias_dir_tmp);
-                    }
-
-                    filesystem_t::create_directory_symlink(artifact_dir(module), module_artifact_alias_dir_tmp);
-                    filesystem_t::rename_replace(module_artifact_alias_dir_tmp, module_artifact_alias_dir);
-
-                    for (const auto& versioned_module : filesystem_t::find(m_artifacts_dir / relative_path_t(module.name()), filesystem_t::is_dir, filesystem_t::descend_none)) {
-                        if (versioned_path_t::is_versioned(versioned_module) && versioned_path_t::parse(versioned_module) < module.version()) {
-                            filesystem_t::remove_all(versioned_module);
-                        }
-                    }
-                } catch (...) {
-                    dlclose(builder_plugin_handle);
-                    throw ;
                 }
             }
 
@@ -418,25 +391,12 @@ void builder_t::import_libraries(const module_t& module) const {
                 compile_builder_module_phase(build_phase_t::IMPORT_LIBRARIES);
             } else {
                 const auto& builder_plugin = build_builder(module);
-                void* builder_plugin_handle = dlopen(builder_plugin.c_str(), RTLD_NOW | RTLD_LOCAL | RTLD_NODELETE);
-                if (!builder_plugin_handle) {
-                    throw std::runtime_error(std::format("builder_t::import_libraries failed to load builder plugin '{}': {}", builder_plugin.c_str(), dlerror()));
-                }
 
-                try {
-                    typedef void (*builder__import_libraries_t)(const builder_t* builder);
-                    builder__import_libraries_t builder__import_libraries = (builder__import_libraries_t)dlsym(builder_plugin_handle, "builder__import_libraries");
-                    if (!builder__import_libraries) {
-                        throw std::runtime_error(std::format("builder_t::import_libraries failed to locate symbol 'builder__import_libraries' in module '{}': {}", module.name(), dlerror()));
-                    }
-
-                    builder_t builder(m_module_graph, module, m_artifacts_dir);
-                    builder__import_libraries(&builder);
-                    dlclose(builder_plugin_handle);
-                } catch (...) {
-                    dlclose(builder_plugin_handle);
-                    throw ;
-                }
+                shared_library_t builder_shared_library(builder_plugin, shared_library_lifetime_t::PROCESS, symbol_resolution_t::LAZY, symbol_visibility_t::LOCAL);
+                typedef void (*builder__import_libraries_t)(const builder_t* builder);
+                builder__import_libraries_t builder__import_libraries = builder_shared_library.resolve("builder__import_libraries");
+                builder_t builder(m_module_graph, module, m_artifacts_dir);
+                builder__import_libraries(&builder);
             }
 
             // NOTE: could remove `module_import_build_dir` instead at this point as `module_import_install_dir` marks completion

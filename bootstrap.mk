@@ -7,6 +7,7 @@ SRC_REL := \
 	compiler/cpp_compiler.cpp \
 	filesystem/filesystem.cpp \
 	process/process.cpp \
+	shared_library/shared_library.cpp \
 	builder.cpp \
 	cli.cpp \
 	module_graph.cpp
