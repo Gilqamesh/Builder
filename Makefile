@@ -51,8 +51,15 @@ $(INTERFACE_INSTALL_DIR)/$(MODULE_NAME)/%: $(SOURCE_DIR)/% FORCE
 
 .PHONY: export_libraries
 
-CXXFLAGS := -std=c++23 -g -I$(INTERFACE_INSTALL_DIR)
-CFLAGS   := -g -I$(INTERFACE_INSTALL_DIR)
+CXXFLAGS := -std=c++23 -g
+CFLAGS   := -g
+
+BUILDER_MODULES := cmake compiler curl filesystem gzip process shared_library tar zip
+
+BUILDER_INCLUDE := -I$(INTERFACE_INSTALL_DIR)/$(MODULE_NAME)
+
+$(LIBRARIES_BUILD_DIR)/%.o: MODULE_INCLUDE := $(BUILDER_INCLUDE)
+$(foreach module,$(BUILDER_MODULES),$(eval $(LIBRARIES_BUILD_DIR)/$(module)/%.o: MODULE_INCLUDE := $(BUILDER_INCLUDE)/$(module)))
 
 SOURCES := \
 	cmake/cmake.cpp \
@@ -122,11 +129,11 @@ endif
 
 $(LIBRARIES_BUILD_DIR)/%.o: $(SOURCE_DIR)/%.cpp FORCE
 	@mkdir -p $(dir $@)
-	$(CXX) $(CXXFLAGS) $(PIC) -c $< -o $@
+	$(CXX) $(CXXFLAGS) $(MODULE_INCLUDE) $(PIC) -c $< -o $@
 
 $(LIBRARIES_BUILD_DIR)/%.o: $(SOURCE_DIR)/%.c FORCE
 	@mkdir -p $(dir $@)
-	$(CC) $(CFLAGS) $(PIC) -c $< -o $@
+	$(CC) $(CFLAGS) $(MODULE_INCLUDE) $(PIC) -c $< -o $@
 
 ################################################## import_libraries ##################################################
 

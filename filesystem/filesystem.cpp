@@ -1,5 +1,5 @@
-#include <builder/filesystem/filesystem.h>
-#include <builder/builder.h>
+#include "filesystem.h"
+#include "../builder.h"
 
 #include <format>
 #include <algorithm>
@@ -244,6 +244,18 @@ find_include_predicate_t filesystem_t::cpp_file = {
 find_include_predicate_t filesystem_t::c_file = {
     [](const path_t& path) {
         return filesystem_t::is_regular_file(path) && path.extension() == ".c";
+    }
+};
+
+find_include_predicate_t filesystem_t::hpp_file = {
+    [](const path_t& path) {
+        return filesystem_t::is_regular_file(path) && path.extension() == ".hpp";
+    }
+};
+
+find_include_predicate_t filesystem_t::h_file = {
+    [](const path_t& path) {
+        return filesystem_t::is_regular_file(path) && path.extension() == ".h";
     }
 };
 

@@ -1,7 +1,7 @@
-#include <builder/builder.h>
-#include <builder/compiler/cpp_compiler.h>
-#include <builder/process/process.h>
-#include <builder/shared_library/shared_library.h>
+#include "builder.h"
+#include "compiler/cpp_compiler.h"
+#include "process/process.h"
+#include "shared_library/shared_library.h"
 
 #include <format>
 #include <fstream>
@@ -33,23 +33,22 @@ void builder_t::compile_builder_module_phase(build_phase_t build_phase) const {
 
     const auto library_type = library_type_t::SHARED;
 
-    std::vector<process_arg_t> export_command_args;
-    export_command_args.push_back(MAKE_PATH);
-    export_command_args.push_back("-C");
-    export_command_args.push_back(source_dir(builder_module));
-    export_command_args.push_back(make_target);
-    export_command_args.push_back(std::format("SOURCE_DIR={}", source_dir(builder_module)));
-    export_command_args.push_back(std::format("LIBRARY_TYPE={}", library_type_relative_dir(library_type)));
-    export_command_args.push_back(std::format("INTERFACE_BUILD_DIR={}", interface_build_dir(builder_module, library_type)));
-    export_command_args.push_back(std::format("INTERFACE_INSTALL_DIR={}", interface_install_dir(builder_module, library_type)));
-    export_command_args.push_back(std::format("LIBRARIES_BUILD_DIR={}", libraries_build_dir(builder_module, library_type)));
-    export_command_args.push_back(std::format("LIBRARIES_INSTALL_DIR={}", libraries_install_dir(builder_module, library_type)));
-    export_command_args.push_back(std::format("IMPORT_BUILD_DIR={}", import_build_dir(builder_module)));
-    export_command_args.push_back(std::format("IMPORT_INSTALL_DIR={}", import_install_dir(builder_module)));
-    export_command_args.push_back(std::format("ARTIFACT_DIR={}", artifact_dir(builder_module)));
-    export_command_args.push_back(std::format("ARTIFACT_ALIAS_DIR={}", artifact_alias_dir(builder_module)));
-
-    const int export_command_result = process_t::create_and_wait(export_command_args);
+    const int export_command_result = process_t::create_and_wait({
+        MAKE_PATH,
+        "-C",
+        source_dir(builder_module),
+        make_target,
+        std::format("SOURCE_DIR={}", source_dir(builder_module)),
+        std::format("LIBRARY_TYPE={}", library_type_relative_dir(library_type)),
+        std::format("INTERFACE_BUILD_DIR={}", interface_build_dir(builder_module, library_type)),
+        std::format("INTERFACE_INSTALL_DIR={}", interface_install_dir(builder_module, library_type)),
+        std::format("LIBRARIES_BUILD_DIR={}", libraries_build_dir(builder_module, library_type)),
+        std::format("LIBRARIES_INSTALL_DIR={}", libraries_install_dir(builder_module, library_type)),
+        std::format("IMPORT_BUILD_DIR={}", import_build_dir(builder_module)),
+        std::format("IMPORT_INSTALL_DIR={}", import_install_dir(builder_module)),
+        std::format("ARTIFACT_DIR={}", artifact_dir(builder_module)),
+        std::format("ARTIFACT_ALIAS_DIR={}", artifact_alias_dir(builder_module))
+    });
     if (0 < export_command_result) {
         throw std::runtime_error(std::format("builder_t::compile_builder_module_phase: failed to compile builder module phase {}, command exited with code {}", static_cast<std::underlying_type_t<build_phase_t>>(build_phase), export_command_result));
     } else if (export_command_result < 0) {
@@ -62,8 +61,12 @@ std::vector<path_t> builder_t::export_interfaces(library_type_t library_type) co
 
     m_module_graph.visit_sccs_topo(m_module_graph.module_scc(m_module), [&](const module_scc_t* scc) {
         for (const auto& module : scc->modules) {
-            auto exported_interface = export_interface(*module, library_type);
-            exported_interfaces.emplace_back(std::move(exported_interface));
+            run_export_interface(*module, library_type);
+            if (*module == m_module) {
+                exported_interfaces.push_back(interface_install_dir(*module, library_type) / relative_path_t(module->name()));
+            } else {
+                exported_interfaces.push_back(interface_install_dir(*module, library_type));
+            }
         }
     });
 
@@ -77,7 +80,8 @@ std::vector<std::vector<path_t>> builder_t::export_libraries(library_type_t libr
         std::vector<path_t> library_group;
 
         for (const auto& module : scc->modules) {
-            auto libraries = export_libraries(*module, library_type);
+            run_export_libraries(*module, library_type);
+            auto libraries = filesystem_t::find(libraries_install_dir(*module, library_type), !filesystem_t::is_dir, filesystem_t::descend_all);
             library_group.insert(library_group.end(), std::make_move_iterator(libraries.begin()), std::make_move_iterator(libraries.end()));
         }
 
@@ -90,7 +94,7 @@ std::vector<std::vector<path_t>> builder_t::export_libraries(library_type_t libr
 }
 
 void builder_t::import_libraries() const {
-    import_libraries(m_module);
+    run_import_libraries(m_module);
 }
 
 void builder_t::install_interface(const path_t& interface, const relative_path_t& relative_install_path, library_type_t library_type) const {
@@ -267,7 +271,7 @@ path_t builder_t::import_install_dir(const module_t& module) const {
     return import_dir(module) / install_relative_dir();
 }
 
-path_t builder_t::export_interface(const module_t& module, library_type_t library_type) const {
+void builder_t::run_export_interface(const module_t& module, library_type_t library_type) const {
     const auto module_interface_dir = interface_dir(module);
     const auto module_interface_build_dir = interface_build_dir(module, library_type);
     const auto module_interface_install_dir = interface_install_dir(module, library_type);
@@ -306,11 +310,9 @@ path_t builder_t::export_interface(const module_t& module, library_type_t librar
             throw ;
         }
     }
-
-    return module_interface_install_dir;
 }
 
-std::vector<path_t> builder_t::export_libraries(const module_t& module, library_type_t library_type) const {
+void builder_t::run_export_libraries(const module_t& module, library_type_t library_type) const {
     const auto module_libraries_dir = libraries_dir(module);
     const auto module_libraries_build_dir = libraries_build_dir(module, library_type);
     const auto module_libraries_install_dir = libraries_install_dir(module, library_type);
@@ -364,11 +366,9 @@ std::vector<path_t> builder_t::export_libraries(const module_t& module, library_
             throw ;
         }
     }
-
-    return filesystem_t::find(module_libraries_install_dir, !filesystem_t::is_dir, filesystem_t::descend_all);
 }
 
-void builder_t::import_libraries(const module_t& module) const {
+void builder_t::run_import_libraries(const module_t& module) const {
     const auto module_import_dir = import_dir(module);
     const auto module_import_build_dir = import_build_dir(module);
     const auto module_import_install_dir = import_install_dir(module);
@@ -414,8 +414,10 @@ path_t builder_t::build_builder(const module_t& module) const {
     if (!filesystem_t::exists(builder)) {
         const auto& builder_module = m_module_graph.builder_module();
         const auto builder_module_library_type = library_type_t::SHARED;
-        const auto builder_interface = export_interface(builder_module, builder_module_library_type);
-        const auto builder_libraries = export_libraries(builder_module, builder_module_library_type);
+        run_export_interface(builder_module, builder_module_library_type);
+        const auto builder_interface = interface_install_dir(builder_module, builder_module_library_type);
+        run_export_libraries(builder_module, builder_module_library_type);
+        const auto builder_libraries = filesystem_t::find(libraries_install_dir(builder_module, builder_module_library_type), !filesystem_t::is_dir, filesystem_t::descend_all);
         cpp_compiler_t::create_shared_library(
             builder_build_dir(module),
             source_dir(module),

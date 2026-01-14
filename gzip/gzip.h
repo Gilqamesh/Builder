@@ -1,7 +1,7 @@
 #ifndef BUILDER_PROJECT_BUILDER_GZIP_GZIP_H
 # define BUILDER_PROJECT_BUILDER_GZIP_GZIP_H
 
-# include <builder/filesystem/filesystem.h>
+# include "../filesystem/filesystem.h"
 
 class gzip_t {
 public:

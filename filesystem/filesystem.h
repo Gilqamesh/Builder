@@ -224,6 +224,8 @@ public:
     static find_include_predicate_t is_regular;
     static find_include_predicate_t cpp_file;
     static find_include_predicate_t c_file;
+    static find_include_predicate_t hpp_file;
+    static find_include_predicate_t h_file;
 
     static find_descend_predicate_t descend_all;
     static find_descend_predicate_t descend_none;

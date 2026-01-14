@@ -1,5 +1,5 @@
-#include <builder/compiler/cpp_compiler.h>
-#include <builder/process/process.h>
+#include "cpp_compiler.h"
+#include "../process/process.h"
 
 #include <format>
 #include <ranges>

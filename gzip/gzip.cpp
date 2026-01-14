@@ -1,7 +1,7 @@
-#include <builder/gzip/gzip.h>
+#include "gzip.h"
 
 #define HAVE_UNISTD_H 1
-#include <builder/gzip/external/zlib.h>
+#include "external/zlib.h"
 
 #include <iostream>
 #include <format>

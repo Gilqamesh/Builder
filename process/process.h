@@ -1,7 +1,7 @@
 #ifndef BUILDER_PROJECT_BUILDER_PROCESS_PROCESS_H
 # define BUILDER_PROJECT_BUILDER_PROCESS_PROCESS_H
 
-# include <builder/filesystem/filesystem.h>
+# include "../filesystem/filesystem.h"
 
 # include <variant>
 # include <vector>

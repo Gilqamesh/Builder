@@ -1,12 +1,9 @@
-#include <builder/builder.h>
-#include <builder/process/process.h>
+#include "builder.h"
+#include "process/process.h"
 
 #include <iostream>
 #include <format>
 #include <vector>
-
-#include <unistd.h>
-#include <cstring>
 
 int main(int argc, char** argv) {
     if (argc < 4) {

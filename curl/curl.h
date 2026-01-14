@@ -1,8 +1,7 @@
 #ifndef BUILDER_PROJECT_BUILDER_CURL_CURL_H
 # define BUILDER_PROJECT_BUILDER_CURL_CURL_H
 
-# include <builder/builder.h>
-# include <builder/filesystem/filesystem.h>
+# include "../filesystem/filesystem.h"
 
 # include <string>
 

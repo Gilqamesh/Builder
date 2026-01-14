@@ -1,7 +1,7 @@
 #ifndef BUILDER_PROJECT_BUILDER_BUILDER_H
 # define BUILDER_PROJECT_BUILDER_BUILDER_H
 
-# include <builder/module_graph.h>
+# include "module_graph.h"
 
 # ifdef __cplusplus
 #  define BUILDER_EXTERN extern "C"
@@ -63,9 +63,9 @@ public:
     path_t import_install_dir() const;
 
 private:
-    path_t export_interface(const module_t& module, library_type_t library_type) const;
-    std::vector<path_t> export_libraries(const module_t& module, library_type_t library_type) const;
-    void import_libraries(const module_t& module) const;
+    void run_export_interface(const module_t& module, library_type_t library_type) const;
+    void run_export_libraries(const module_t& module, library_type_t library_type) const;
+    void run_import_libraries(const module_t& module) const;
 
     path_t source_dir(const module_t& module) const;
     path_t artifact_dir(const module_t& module) const;

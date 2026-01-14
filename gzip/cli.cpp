@@ -1,4 +1,4 @@
-#include <builder/gzip/gzip.h>
+#include "gzip.h"
 
 #include <iostream>
 #include <format>

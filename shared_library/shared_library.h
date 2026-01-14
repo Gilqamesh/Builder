@@ -1,7 +1,7 @@
 #ifndef BUILDER_PROJECT_BUILDER_SHARED_LIBRARY_SHARED_LIBRARY_H
 # define BUILDER_PROJECT_BUILDER_SHARED_LIBRARY_SHARED_LIBRARY_H
 
-# include <builder/filesystem/filesystem.h>
+# include "../filesystem/filesystem.h"
 
 enum class shared_library_lifetime_t {
     PROCESS, // Library is intended to live for the entire process lifetime
@@ -21,7 +21,7 @@ enum class symbol_visibility_t {
 /**
  * symbol_t
  * - Non-owning, type-erased symbol address returned by shared_library_t::resolve()
- * - Convertible to a function pointer type (unchecked; caller must provide correct signature)
+ * - Convertible to a function pointer type
  *
  * Invariants:
  * - m_symbol != nullptr
@@ -32,7 +32,7 @@ enum class symbol_visibility_t {
  */
 class symbol_t {
 public:
-    symbol_t(void* symbol);
+    explicit symbol_t(void* symbol);
 
     template <typename F>
     operator F() const;
@@ -93,6 +93,8 @@ private:
 
 template <typename F>
 symbol_t::operator F() const {
+    static_assert(std::is_pointer_v<F>);
+    static_assert(std::is_function_v<std::remove_pointer_t<F>>);
     return reinterpret_cast<F>(m_symbol);
 }
 

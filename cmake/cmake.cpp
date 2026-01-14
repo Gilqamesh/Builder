@@ -1,5 +1,5 @@
-#include <builder/cmake/cmake.h>
-#include <builder/process/process.h>
+#include "cmake.h"
+#include "../process/process.h"
 
 #include <iostream>
 #include <format>
@@ -61,12 +61,11 @@ void cmake_t::install(const path_t& build_dir) {
         throw std::runtime_error(std::format("cmake_t::install: build_dir '{}' does not exist", build_dir));
     }
 
-    std::vector<process_arg_t> install_process_args;
-    install_process_args.push_back(CMAKE_PATH);
-    install_process_args.push_back("--install");
-    install_process_args.push_back(build_dir);
-
-    const int install_process_result = process_t::create_and_wait(install_process_args);
+    const int install_process_result = process_t::create_and_wait({
+        CMAKE_PATH,
+        "--install",
+        build_dir
+    });
     if (0 < install_process_result) {
         throw std::runtime_error(std::format("cmake_t::install: cmake install command failed with exit code {}", install_process_result));
     } else if (install_process_result < 0) {
