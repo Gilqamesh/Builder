@@ -241,7 +241,7 @@ uint64_t versioned_path_t::parse(const path_t& path) {
     try {
         return std::stoull(version_str);
     } catch (const std::exception& e) {
-        throw std::runtime_error(std::format("versioned_path_t::parse: failed to parse version from path '{}': {}", path.string(), e.what()));
+        throw std::runtime_error(std::format("versioned_path_t::parse: failed to parse version from path '{}': {}", path, e.what()));
     }
 }
 
@@ -253,7 +253,7 @@ module_t* module_graph_t::discover(const path_t& modules_dir, const std::string&
 
     const auto module_dir = modules_dir / relative_path_t(module_name);
     if (!filesystem_t::exists(module_dir)) {
-        throw std::runtime_error(std::format("module_graph_t::discover: module directory does not exist '{}'", module_dir.string()));
+        throw std::runtime_error(std::format("module_graph_t::discover: module directory does not exist '{}'", module_dir));
     }
 
     auto module = new module_t(module_name, derive_version(module_dir));
@@ -266,44 +266,44 @@ module_t* module_graph_t::discover(const path_t& modules_dir, const std::string&
 
     const auto builder_cpp = module_dir / relative_path_t(module_t::BUILDER_CPP);
     if (!filesystem_t::exists(builder_cpp)) {
-        throw std::runtime_error(std::format("module_graph_t::discover: module '{}' is missing required file '{}'", module_name, builder_cpp.string()));
+        throw std::runtime_error(std::format("module_graph_t::discover: module '{}' is missing required file '{}'", module_name, builder_cpp));
     }
 
     const auto deps_json_path = module_dir / relative_path_t(module_t::DEPS_JSON);
     if (!filesystem_t::exists(deps_json_path)) {
-        throw std::runtime_error(std::format("module_graph_t::discover: module '{}' is missing required file '{}'", module_name, deps_json_path.string()));
+        throw std::runtime_error(std::format("module_graph_t::discover: module '{}' is missing required file '{}'", module_name, deps_json_path));
     }
 
     nlohmann::json deps_json;
     {
         std::ifstream ifs(deps_json_path.string());
         if (!ifs) {
-            throw std::runtime_error(std::format("module_graph_t::discover: failed to open file '{}'", deps_json_path.string()));
+            throw std::runtime_error(std::format("module_graph_t::discover: failed to open file '{}'", deps_json_path));
         }
 
         try {
             deps_json = nlohmann::json::parse(ifs);
         } catch (const nlohmann::json::parse_error& e) {
-            throw std::runtime_error(std::format("module_graph_t::discover: failed to parse json file '{}': {}", deps_json_path.string(), e.what()));
+            throw std::runtime_error(std::format("module_graph_t::discover: failed to parse json file '{}': {}", deps_json_path, e.what()));
         }
     }
 
     const auto deps_it = deps_json.find(module_t::DEPS_KEY);
     if (deps_it == deps_json.end()) {
-        throw std::runtime_error(std::format("module_graph_t::discover: invalid deps json file '{}': missing '{}' array", deps_json_path.string(), module_t::DEPS_KEY));
+        throw std::runtime_error(std::format("module_graph_t::discover: invalid deps json file '{}': missing '{}' array", deps_json_path, module_t::DEPS_KEY));
     }
     if (!deps_it->is_array()) {
-        throw std::runtime_error(std::format("module_graph_t::discover: invalid deps json file '{}': '{}' is not an array", deps_json_path.string(), module_t::DEPS_KEY));
+        throw std::runtime_error(std::format("module_graph_t::discover: invalid deps json file '{}': '{}' is not an array", deps_json_path, module_t::DEPS_KEY));
     }
     const auto& module_deps_array = deps_it->get_ref<const nlohmann::json::array_t&>();
 
     for (const auto& module_deps : module_deps_array) {
         if (!module_deps.is_string()) {
-            throw std::runtime_error(std::format("module_graph_t::discover: invalid deps json file '{}': '{}' array must contain only strings", deps_json_path.string(), module_t::DEPS_KEY));
+            throw std::runtime_error(std::format("module_graph_t::discover: invalid deps json file '{}': '{}' array must contain only strings", deps_json_path, module_t::DEPS_KEY));
         }
         const std::string module_deps_str = module_deps.get<std::string>();
         if (module_deps_str.empty()) {
-            throw std::runtime_error(std::format("module_graph_t::discover: invalid deps json file '{}': '{}' array must not contain empty strings", deps_json_path.string(), module_t::DEPS_KEY));
+            throw std::runtime_error(std::format("module_graph_t::discover: invalid deps json file '{}': '{}' array must not contain empty strings", deps_json_path, module_t::DEPS_KEY));
         }
 
         it->second.dependencies.insert(discover(modules_dir, module_deps_str, discover_results));

@@ -293,14 +293,14 @@ path_t builder_t::export_interface(const module_t& module, library_type_t librar
                 const auto& builder_plugin = build_builder(module);
                 void* builder_plugin_handle = dlopen(builder_plugin.c_str(), RTLD_NOW | RTLD_LOCAL | RTLD_NODELETE);
                 if (!builder_plugin_handle) {
-                    throw std::runtime_error(std::format("builder_t::export_interface: failed to load builder plugin '{}': {}", builder_plugin.string(), dlerror()));
+                    throw std::runtime_error(std::format("builder_t::export_interface: failed to load builder plugin '{}': {}", builder_plugin, dlerror()));
                 }
 
                 try {
                     typedef void (*builder__export_interface_t)(const builder_t* builder, library_type_t library_type);
                     builder__export_interface_t builder__export_interface = (builder__export_interface_t) dlsym(builder_plugin_handle, "builder__export_interface");
                     if (!builder__export_interface) {
-                        throw std::runtime_error(std::format("builder_t::export_interface: failed to load symbol 'builder__export_interface' from builder plugin '{}': {}", builder_plugin.string(), dlerror()));
+                        throw std::runtime_error(std::format("builder_t::export_interface: failed to load symbol 'builder__export_interface' from builder plugin '{}': {}", builder_plugin, dlerror()));
                     }
 
                     builder_t builder(m_module_graph, module, m_artifacts_dir);
@@ -349,14 +349,14 @@ std::vector<path_t> builder_t::export_libraries(const module_t& module, library_
                 const auto& builder_plugin = build_builder(module);
                 void* builder_plugin_handle = dlopen(builder_plugin.c_str(), RTLD_NOW | RTLD_LOCAL | RTLD_NODELETE);
                 if (!builder_plugin_handle) {
-                    throw std::runtime_error(std::format("builder_t::export_libraries: failed to load builder plugin '{}': {}", builder_plugin.string(), dlerror()));
+                    throw std::runtime_error(std::format("builder_t::export_libraries: failed to load builder plugin '{}': {}", builder_plugin, dlerror()));
                 }
 
                 try {
                     typedef void (*builder__export_libraries_t)(const builder_t* builder, library_type_t library_type);
                     builder__export_libraries_t builder__export_libraries = (builder__export_libraries_t) dlsym(builder_plugin_handle, "builder__export_libraries");
                     if (!builder__export_libraries) {
-                        throw std::runtime_error(std::format("builder_t::export_libraries: failed to load symbol 'builder__export_libraries' from builder plugin '{}': {}", builder_plugin.string(), dlerror()));
+                        throw std::runtime_error(std::format("builder_t::export_libraries: failed to load symbol 'builder__export_libraries' from builder plugin '{}': {}", builder_plugin, dlerror()));
                     }
 
                     builder_t builder(m_module_graph, module, m_artifacts_dir);
@@ -468,7 +468,7 @@ path_t builder_t::build_builder(const module_t& module) const {
     }
 
     if (!filesystem_t::exists(builder)) {
-        throw std::runtime_error(std::format("builder_t::build_builder: expected builder plugin '{}' to exist but it does not", builder.string()));
+        throw std::runtime_error(std::format("builder_t::build_builder: expected builder plugin '{}' to exist but it does not", builder));
     }
 
     return builder;

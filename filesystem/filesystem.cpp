@@ -62,7 +62,7 @@ path_t::path_t(const std::filesystem::path& path):
 path_t path_t::parent() const {
     const auto parent_path = m_path.parent_path();
     if (parent_path == m_path) {
-        throw std::runtime_error(std::format("path_t::parent: '{}' is a root path and has no parent", m_path.string()));
+        throw std::runtime_error(std::format("path_t::parent: '{}' is a root path and has no parent", *this));
     }
 
     return path_t(parent_path);
@@ -75,7 +75,7 @@ bool path_t::is_child(const path_t& other) const {
 
 relative_path_t path_t::relative(const path_t& other) const {
     if (!is_child(other)) {
-        throw std::runtime_error(std::format("path_t::relative: path '{}' is not a child of base path '{}'", other.m_path.string(), m_path.string()));
+        throw std::runtime_error(std::format("path_t::relative: path '{}' is not a child of base path '{}'", other, *this));
     }
 
     return relative_path_t(other.m_path.lexically_relative(m_path));
@@ -118,7 +118,7 @@ path_t path_t::operator/(const relative_path_t& relative_path) const {
 
     const auto rel = result.m_path.lexically_relative(m_path);
     if (rel.empty() || rel == "." || rel.native().starts_with("..")) {
-        throw std::runtime_error(std::format("path_t::operator/: path '{}' must not escape the base path '{}'", result.m_path.string(), m_path.string()));
+        throw std::runtime_error(std::format("path_t::operator/: path '{}' must not escape the base path '{}'", result, *this));
     }
 
     return result;
@@ -128,7 +128,7 @@ path_t path_t::operator+(std::string_view postfix) const {
     path_t result(append_postfix(m_path, postfix));
 
     if (!result.is_sibling(*this) || result == *this) {
-        throw std::runtime_error(std::format("path_t::operator+: path '{}' must be a strict sibling of base path '{}'", result.m_path.string(), m_path.string()));
+        throw std::runtime_error(std::format("path_t::operator+: path '{}' must be a strict sibling of base path '{}'", result, *this));
     }
 
     return result;

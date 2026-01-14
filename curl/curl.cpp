@@ -33,7 +33,7 @@ path_t curl_t::download(const std::string& url, const path_t& install_path) {
         filesystem_t::create_directories(install_path_parent);
     }
 
-    std::cout << std::format("curl -L {} -o {}", url, install_path.string()) << std::endl;
+    std::cout << std::format("curl -L {} -o {}", url, install_path) << std::endl;
 
     struct guard_t {
         guard_t(CURL* c) : curl(c) {}
@@ -56,7 +56,7 @@ path_t curl_t::download(const std::string& url, const path_t& install_path) {
 
     std::ofstream ofs(install_path.string(), std::ios::binary | std::ios::trunc);
     if (!ofs) {
-        throw std::runtime_error(std::format("curl_t::download: failed to open file '{}' for writing", install_path.string()));
+        throw std::runtime_error(std::format("curl_t::download: failed to open file '{}' for writing", install_path));
     }
 
     write_result_t write_result = {
@@ -70,7 +70,7 @@ path_t curl_t::download(const std::string& url, const path_t& install_path) {
     CURLcode result = curl_easy_perform(curl);
 
     if (write_result.failed) {
-        throw std::runtime_error(std::format("curl_t::download: failed to write downloaded data to file '{}'", install_path.string()));
+        throw std::runtime_error(std::format("curl_t::download: failed to write downloaded data to file '{}'", install_path));
     }
 
     if (result != CURLE_OK) {

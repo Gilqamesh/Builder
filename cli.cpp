@@ -33,7 +33,7 @@ int main(int argc, char** argv) {
 
             const auto new_cli = builder_builder.import_install_dir() / relative_path_t("cli");
             if (!filesystem_t::exists(new_cli)) {
-                throw std::runtime_error(std::format("expected updated '{}' to exist but it does not", new_cli.string()));
+                throw std::runtime_error(std::format("expected updated '{}' to exist but it does not", new_cli));
             }
 
             std::vector<process_arg_t> process_args;
@@ -45,7 +45,7 @@ int main(int argc, char** argv) {
         }
 
         if (!filesystem_t::exists(modules_dir)) {
-            throw std::runtime_error(std::format("modules directory does not exist '{}'", modules_dir.string()));
+            throw std::runtime_error(std::format("modules directory does not exist '{}'", modules_dir));
         }
 
         const bool is_svg_option_enabled = false;
@@ -61,7 +61,7 @@ int main(int argc, char** argv) {
             const auto binary_dir = builder.import_install_dir();
             const auto binary_location = binary_dir / relative_path_t(binary);
             if (!filesystem_t::exists(binary_location)) {
-                throw std::runtime_error(std::format("binary '{}' at location '{}' does not exist", binary, binary_location.string()));
+                throw std::runtime_error(std::format("binary '{}' at location '{}' does not exist", binary, binary_location));
             }
 
             filesystem_t::current_path(binary_dir);
