@@ -7,10 +7,12 @@
 #include <sys/wait.h>
 #include <cstring>
 
-int process_t::create_and_wait(const std::vector<process_arg_t>& args) {
+namespace process {
+
+int create_and_wait(const std::vector<process_arg_t>& args) {
     const auto pid = fork();
     if (pid == -1) {
-        throw std::runtime_error(std::format("process_t::create_and_wait: fork failed: {}", std::strerror(errno)));
+        throw std::runtime_error(std::format("process::create_and_wait: fork failed: {}", std::strerror(errno)));
     }
 
     if (pid == 0) {
@@ -19,7 +21,7 @@ int process_t::create_and_wait(const std::vector<process_arg_t>& args) {
 
     int status = 0;
     if (waitpid(pid, &status, 0) == -1) {
-        throw std::runtime_error(std::format("process_t::create_and_wait: waitpid failed: {}", std::strerror(errno)));
+        throw std::runtime_error(std::format("process::create_and_wait: waitpid failed: {}", std::strerror(errno)));
     }
 
     if (WIFEXITED(status)) {
@@ -27,15 +29,15 @@ int process_t::create_and_wait(const std::vector<process_arg_t>& args) {
     } else if (WIFSIGNALED(status)) {
         const int return_value = -WTERMSIG(status);
         if (0 <= return_value) {
-            throw std::runtime_error(std::format("process_t::create_and_wait: unreachable state reached after waitpid, WIFSIGNALED but non-negative return value: {}", return_value));
+            throw std::runtime_error(std::format("process::create_and_wait: unreachable state reached after waitpid, WIFSIGNALED but non-negative return value: {}", return_value));
         }
         return return_value;
     } else {
-        throw std::runtime_error(std::format("process_t::create_and_wait: unreachable state reached after waitpid, status: {}", status));
+        throw std::runtime_error(std::format("process::create_and_wait: unreachable state reached after waitpid, status: {}", status));
     }
 }
 
-[[noreturn]] void process_t::exec(const std::vector<process_arg_t>& args) {
+[[noreturn]] void exec(const std::vector<process_arg_t>& args) {
     std::vector<char*> cargs;
 
     std::string pretty_print;
@@ -49,9 +51,9 @@ int process_t::create_and_wait(const std::vector<process_arg_t>& args) {
                 if constexpr (std::is_same_v<T, std::string>) {
                     cargs.push_back(const_cast<char*>(v.c_str()));
                     return v;
-                } else if constexpr (std::is_same_v<T, path_t>) {
+                } else if constexpr (std::is_same_v<T, filesystem::path_t>) {
                     cargs.push_back(const_cast<char*>(v.c_str()));
-                    return pretty_path_t(v).string();
+                    return filesystem::pretty_path_t(v).string();
                 } else {
                     static_assert(false, "non-exhaustive visitor!");
                 }
@@ -63,7 +65,9 @@ int process_t::create_and_wait(const std::vector<process_arg_t>& args) {
 
     std::cout << pretty_print << std::endl;
     if (execv(cargs[0], cargs.data()) == -1) {
-        throw std::runtime_error(std::format("process_t::exec: execv failed: {}", std::strerror(errno)));
+        throw std::runtime_error(std::format("process::exec: execv failed: {}", std::strerror(errno)));
     }
-    throw std::runtime_error("process_t::exec: unreachable state reached after execv");
+    throw std::runtime_error("process::exec: unreachable state reached after execv");
 }
+
+} // namespace process

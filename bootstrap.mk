@@ -4,13 +4,13 @@ ARTIFACTS_DIR ?= $(error ARTIFACTS_DIR is required)
 TARGET_MODULE := builder
 
 SRC_REL := \
-	compiler/cpp_compiler.cpp \
+	cpp_compiler/cpp_compiler.cpp \
 	filesystem/filesystem.cpp \
 	process/process.cpp \
 	shared_library/shared_library.cpp \
-	builder.cpp \
+	module_builder.cpp \
 	cli.cpp \
-	module_graph.cpp
+	module.cpp
 SRC := $(patsubst %,$(MODULES_DIR)/$(TARGET_MODULE)/%,$(SRC_REL))
 
 CLI := $(ARTIFACTS_DIR)/$(TARGET_MODULE)/.bootstrap/cli

@@ -13,9 +13,9 @@ int main(int argc, char** argv) {
         const auto input_file = std::filesystem::path(argv[1]);
         const auto install_path = std::filesystem::path(argv[2]);
         if (input_file.extension() == ".zip") {
-            zip_t::unzip(input_file, install_path);
+            zip::unzip(input_file, install_path);
         } else {
-            zip_t::zip(input_file, install_path);
+            zip::zip(input_file, install_path);
         }
     } catch (const std::exception& e) {
         std::cerr << std::format("{}: '{}'", argv[0], e.what()) << std::endl;

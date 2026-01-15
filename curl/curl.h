@@ -1,13 +1,14 @@
-#ifndef BUILDER_PROJECT_BUILDER_CURL_CURL_H
-# define BUILDER_PROJECT_BUILDER_CURL_CURL_H
+#ifndef CURL_CURL_H
+# define CURL_CURL_H
 
 # include "../filesystem/filesystem.h"
 
 # include <string>
 
-class curl_t {
-public:
-    static path_t download(const std::string& url, const path_t& install_path);
-};
+namespace curl {
 
-#endif // BUILDER_PROJECT_BUILDER_CURL_CURL_H
+filesystem::path_t download(const std::string& url, const filesystem::path_t& install_path);
+
+} // namespace curl
+
+#endif // CURL_CURL_H

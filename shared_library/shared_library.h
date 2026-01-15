@@ -1,11 +1,14 @@
-#ifndef BUILDER_PROJECT_BUILDER_SHARED_LIBRARY_SHARED_LIBRARY_H
-# define BUILDER_PROJECT_BUILDER_SHARED_LIBRARY_SHARED_LIBRARY_H
+#ifndef SHARED_LIBRARY_SHARED_LIBRARY_H
+# define SHARED_LIBRARY_SHARED_LIBRARY_H
 
 # include "../filesystem/filesystem.h"
 
-enum class shared_library_lifetime_t {
+namespace shared_library {
+// TODO: move symbol out of here; introduce better abstractions for loader / binary semantics
+
+enum class lifetime_t {
     PROCESS, // Library is intended to live for the entire process lifetime
-    DTOR // Library lifetime is tied to shared_library_t object lifetime
+    DTOR // Library lifetime is tied to loader_t object lifetime
 };
 
 enum class symbol_resolution_t {
@@ -20,14 +23,14 @@ enum class symbol_visibility_t {
 
 /**
  * symbol_t
- * - Non-owning, type-erased symbol address returned by shared_library_t::resolve()
+ * - Non-owning, type-erased symbol address returned by loader_t::resolve()
  * - Convertible to a function pointer type
  *
  * Invariants:
  * - m_symbol != nullptr
  *
  * Example:
- *   using fn_t = void (*)(const builder_t*, library_type_t);
+ *   using fn_t = void (*)(const module_builder_t*, library_type_t);
  *   fn_t fn = lib.resolve("builder__export_interface");
  */
 class symbol_t {
@@ -42,7 +45,7 @@ private:
 };
 
 /**
- * shared_library_t
+ * loader_t
  * 
  * RAII wrapper around a dynamically loaded shared library.
  *
@@ -59,22 +62,22 @@ private:
  * - symbol_resolution / symbol_visibility are ctor-only policy
  * - No type safety across ABI boundaries
  */
-class shared_library_t {
+class loader_t {
 public:
-    shared_library_t(
-        const path_t& path,
-        shared_library_lifetime_t shared_library_lifetime,
+    loader_t(
+        const filesystem::path_t& path,
+        lifetime_t shared_library_lifetime,
         symbol_resolution_t symbol_resolution,
         symbol_visibility_t symbol_visibility
     );
 
-    ~shared_library_t();
+    ~loader_t();
 
-    shared_library_t(const shared_library_t& other) = delete;
-    shared_library_t& operator=(const shared_library_t& other) = delete;
+    loader_t(const loader_t& other) = delete;
+    loader_t& operator=(const loader_t& other) = delete;
 
-    shared_library_t(shared_library_t&& other) noexcept;
-    shared_library_t& operator=(shared_library_t&& other) noexcept;
+    loader_t(loader_t&& other) noexcept;
+    loader_t& operator=(loader_t&& other) noexcept;
 
     /**
      * Resolve a symbol by name.
@@ -87,7 +90,7 @@ private:
     void close_handle();
 
 private:
-    shared_library_lifetime_t m_shared_library_lifetime;
+    lifetime_t m_shared_library_lifetime;
     void* m_handle;
 };
 
@@ -98,4 +101,6 @@ symbol_t::operator F() const {
     return reinterpret_cast<F>(m_symbol);
 }
 
-#endif // BUILDER_PROJECT_BUILDER_SHARED_LIBRARY_SHARED_LIBRARY_H
+} // namespace shared_library
+
+#endif // SHARED_LIBRARY_SHARED_LIBRARY_H

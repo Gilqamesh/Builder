@@ -1,10 +1,12 @@
-#include "module_graph.h"
-#include "compiler/cpp_compiler.h"
+#include "module.h"
+#include "cpp_compiler/cpp_compiler.h"
 #include "json/json.hpp"
 #include "process/process.h"
 
 #include <format>
 #include <fstream>
+
+namespace builder {
 
 module_t::module_t(const std::string& name, uint64_t version):
     m_name(name),
@@ -32,7 +34,7 @@ module_graph_t::module_graph_t(
     std::unordered_map<const module_t*, const module_scc_t*> scc_by_module,
     module_t* builder_module,
     module_t* target_module,
-    const path_t& modules_dir
+    const filesystem::path_t& modules_dir
 ):
     m_scc_by_module(std::move(scc_by_module)),
     m_builder_module(builder_module),
@@ -50,7 +52,7 @@ const module_scc_t* module_graph_t::module_scc(const module_t& module) const {
     return it->second;
 }
 
-module_graph_t module_graph_t::discover(const path_t& modules_dir, const std::string& target_module_name) {
+module_graph_t module_graph_t::discover(const filesystem::path_t& modules_dir, const std::string& target_module_name) {
     std::unordered_map<std::string, discover_result_t> discover_results;
     module_t* target_module = discover(modules_dir, target_module_name, discover_results);
 
@@ -88,7 +90,7 @@ module_graph_t module_graph_t::discover(const path_t& modules_dir, const std::st
     auto builder_it = discover_results.find("builder");
     module_t* builder_module = nullptr;
     if (builder_it == discover_results.end()) {
-        builder_module = new module_t("builder", derive_version(modules_dir / relative_path_t("builder")));
+        builder_module = new module_t("builder", derive_version(modules_dir / filesystem::relative_path_t("builder")));
         module_scc_t* builder_module_scc = new module_scc_t;
         builder_module_scc->modules.push_back(builder_module);
         scc_by_module[builder_module] = builder_module_scc;
@@ -177,7 +179,7 @@ void module_graph_t::visit_sccs_topo(const module_scc_t* scc, const std::functio
     f(scc);
 }
 
-const path_t& module_graph_t::modules_dir() const {
+const filesystem::path_t& module_graph_t::modules_dir() const {
     return m_modules_dir;
 }
 
@@ -193,21 +195,21 @@ uint64_t module_graph_t::derive_version(const std::filesystem::file_time_type& f
     return static_cast<uint64_t>(file_time_type.time_since_epoch().count() - std::numeric_limits<std::filesystem::file_time_type::duration::rep>::min());
 }
 
-uint64_t module_graph_t::derive_version(const path_t& dir) {
+uint64_t module_graph_t::derive_version(const filesystem::path_t& dir) {
     // TODO: compare builder bin file hash instead of timestamp for more robust check
 
     auto latest_module_file = std::filesystem::file_time_type::min();
 
-    for (const auto& path : filesystem_t::find(dir, filesystem_t::include_all, filesystem_t::descend_all)) {
-        latest_module_file = std::max(latest_module_file, filesystem_t::last_write_time(path));
+    for (const auto& path : filesystem::find(dir, filesystem::find_include_predicate_t::include_all, filesystem::find_descend_predicate_t::descend_all)) {
+        latest_module_file = std::max(latest_module_file, filesystem::last_write_time(path));
     }
 
     return derive_version(latest_module_file);
 }
 
-void module_graph_t::svg(const path_t& dir, const std::string& file_name_stem) {
-    if (!filesystem_t::exists(dir)) {
-        filesystem_t::create_directories(dir);
+void module_graph_t::svg(const filesystem::path_t& dir, const std::string& file_name_stem) {
+    if (!filesystem::exists(dir)) {
+        filesystem::create_directories(dir);
     }
 
     svg_overview(dir, file_name_stem + "_overview");
@@ -218,16 +220,16 @@ void module_graph_t::svg(const path_t& dir, const std::string& file_name_stem) {
     });
 }
 
-path_t versioned_path_t::make(const path_t& base, std::string_view string_view, uint64_t version) {
-    return base / relative_path_t(string_view) / relative_path_t((std::string(string_view) + "@" + std::to_string(version)));
+filesystem::path_t versioned_path_t::make(const filesystem::path_t& base, std::string_view string_view, uint64_t version) {
+    return base / filesystem::relative_path_t(string_view) / filesystem::relative_path_t((std::string(string_view) + "@" + std::to_string(version)));
 }
 
-bool versioned_path_t::is_versioned(const path_t& path) {
+bool versioned_path_t::is_versioned(const filesystem::path_t& path) {
     const auto filename = path.filename();
     return filename.find_last_of('@') != std::string::npos;
 }
 
-uint64_t versioned_path_t::parse(const path_t& path) {
+uint64_t versioned_path_t::parse(const filesystem::path_t& path) {
     const auto filename = path.filename();
     const auto at_pos = filename.find_last_of('@');
     if (at_pos == std::string::npos) {
@@ -242,14 +244,14 @@ uint64_t versioned_path_t::parse(const path_t& path) {
     }
 }
 
-module_t* module_graph_t::discover(const path_t& modules_dir, const std::string& module_name, std::unordered_map<std::string, discover_result_t>& discover_results) {
+module_t* module_graph_t::discover(const filesystem::path_t& modules_dir, const std::string& module_name, std::unordered_map<std::string, discover_result_t>& discover_results) {
     auto it = discover_results.find(module_name);
     if (it != discover_results.end()) {
         return it->second.module;
     }
 
-    const auto module_dir = modules_dir / relative_path_t(module_name);
-    if (!filesystem_t::exists(module_dir)) {
+    const auto module_dir = modules_dir / filesystem::relative_path_t(module_name);
+    if (!filesystem::exists(module_dir)) {
         throw std::runtime_error(std::format("module_graph_t::discover: module directory does not exist '{}'", module_dir));
     }
 
@@ -261,13 +263,13 @@ module_t* module_graph_t::discover(const path_t& modules_dir, const std::string&
         return module;
     }
 
-    const auto builder_cpp = module_dir / relative_path_t(module_t::BUILDER_CPP);
-    if (!filesystem_t::exists(builder_cpp)) {
+    const auto builder_cpp = module_dir / filesystem::relative_path_t(module_t::BUILDER_CPP);
+    if (!filesystem::exists(builder_cpp)) {
         throw std::runtime_error(std::format("module_graph_t::discover: module '{}' is missing required file '{}'", module_name, builder_cpp));
     }
 
-    const auto deps_json_path = module_dir / relative_path_t(module_t::DEPS_JSON);
-    if (!filesystem_t::exists(deps_json_path)) {
+    const auto deps_json_path = module_dir / filesystem::relative_path_t(module_t::DEPS_JSON);
+    if (!filesystem::exists(deps_json_path)) {
         throw std::runtime_error(std::format("module_graph_t::discover: module '{}' is missing required file '{}'", module_name, deps_json_path));
     }
 
@@ -309,15 +311,15 @@ module_t* module_graph_t::discover(const path_t& modules_dir, const std::string&
     return module;
 }
 
-void module_graph_t::svg_overview(const path_t& dir, const std::string& file_name_stem) {
-    if (!filesystem_t::exists(dir)) {
+void module_graph_t::svg_overview(const filesystem::path_t& dir, const std::string& file_name_stem) {
+    if (!filesystem::exists(dir)) {
         // TODO: cleanup after fail
-        filesystem_t::create_directories(dir);
+        filesystem::create_directories(dir);
     }
 
-    const auto dot_file = dir / relative_path_t(file_name_stem + ".dot");
-    const auto svg_file = dir / relative_path_t(file_name_stem + ".svg");
-    const auto png_file = dir / relative_path_t(file_name_stem + ".png");
+    const auto dot_file = dir / filesystem::relative_path_t(file_name_stem + ".dot");
+    const auto svg_file = dir / filesystem::relative_path_t(file_name_stem + ".svg");
+    const auto png_file = dir / filesystem::relative_path_t(file_name_stem + ".png");
 
     std::ofstream ofs(dot_file.string());
     if (!ofs) {
@@ -380,7 +382,7 @@ void module_graph_t::svg_overview(const path_t& dir, const std::string& file_nam
     ofs << "}\n";
     ofs.close();
 
-    const int dot_command_result = process_t::create_and_wait({
+    const int dot_command_result = process::create_and_wait({
         DOT_PATH,
         "-Tsvg",
         dot_file,
@@ -393,7 +395,7 @@ void module_graph_t::svg_overview(const path_t& dir, const std::string& file_nam
         throw std::runtime_error(std::format("module_graph_t::svg_overview: graphviz render failed, command terminated by signal {}", -dot_command_result));
     }
 
-    const int rsvg_convert_result = process_t::create_and_wait({
+    const int rsvg_convert_result = process::create_and_wait({
         RSVG_CONVERT_PATH,
         svg_file,
         "-o",
@@ -405,19 +407,19 @@ void module_graph_t::svg_overview(const path_t& dir, const std::string& file_nam
         throw std::runtime_error(std::format("module_graph_t::svg_overview: could not create svg, command terminated by signal {}", -rsvg_convert_result));
     }
 
-    filesystem_t::remove(dot_file);
-    filesystem_t::remove(svg_file);
+    filesystem::remove(dot_file);
+    filesystem::remove(svg_file);
 }
 
-void module_graph_t::svg_sccs(const path_t& dir, const std::string& file_name_stem) {
-    if (!filesystem_t::exists(dir)) {
+void module_graph_t::svg_sccs(const filesystem::path_t& dir, const std::string& file_name_stem) {
+    if (!filesystem::exists(dir)) {
         // TODO: cleanup after fail
-        filesystem_t::create_directories(dir);
+        filesystem::create_directories(dir);
     }
 
-    const auto dot_file = dir / relative_path_t(file_name_stem + ".dot");
-    const auto svg_file = dir / relative_path_t(file_name_stem + ".svg");
-    const auto png_file = dir / relative_path_t(file_name_stem + ".png");
+    const auto dot_file = dir / filesystem::relative_path_t(file_name_stem + ".dot");
+    const auto svg_file = dir / filesystem::relative_path_t(file_name_stem + ".svg");
+    const auto png_file = dir / filesystem::relative_path_t(file_name_stem + ".png");
 
     std::ofstream ofs(dot_file.string());
     if (!ofs) {
@@ -462,7 +464,7 @@ void module_graph_t::svg_sccs(const path_t& dir, const std::string& file_name_st
     ofs << "}\n";
     ofs.close();
 
-    const int dot_command_result = process_t::create_and_wait({
+    const int dot_command_result = process::create_and_wait({
         DOT_PATH,
         "-Tsvg",
         dot_file,
@@ -475,7 +477,7 @@ void module_graph_t::svg_sccs(const path_t& dir, const std::string& file_name_st
         throw std::runtime_error(std::format("module_graph_t::svg_sccs: graphviz render failed, command terminated by signal {}", -dot_command_result));
     }
 
-    const int rsvg_convert_result = process_t::create_and_wait({
+    const int rsvg_convert_result = process::create_and_wait({
         RSVG_CONVERT_PATH,
         svg_file,
         "-o",
@@ -487,19 +489,19 @@ void module_graph_t::svg_sccs(const path_t& dir, const std::string& file_name_st
         throw std::runtime_error(std::format("module_graph_t::svg_sccs: could not create svg, command terminated by signal {}", -rsvg_convert_result));
     }
 
-    filesystem_t::remove(dot_file);
-    filesystem_t::remove(svg_file);
+    filesystem::remove(dot_file);
+    filesystem::remove(svg_file);
 }
 
-void module_graph_t::svg_scc(const path_t& dir, const module_scc_t* scc, const std::string& file_name_stem) {
-    if (!filesystem_t::exists(dir)) {
+void module_graph_t::svg_scc(const filesystem::path_t& dir, const module_scc_t* scc, const std::string& file_name_stem) {
+    if (!filesystem::exists(dir)) {
         // TODO: cleanup after fail
-        filesystem_t::create_directories(dir);
+        filesystem::create_directories(dir);
     }
 
-    const auto dot_file = dir / relative_path_t(file_name_stem + ".dot");
-    const auto svg_file = dir / relative_path_t(file_name_stem + ".svg");
-    const auto png_file = dir / relative_path_t(file_name_stem + ".png");
+    const auto dot_file = dir / filesystem::relative_path_t(file_name_stem + ".dot");
+    const auto svg_file = dir / filesystem::relative_path_t(file_name_stem + ".svg");
+    const auto png_file = dir / filesystem::relative_path_t(file_name_stem + ".png");
 
     std::ofstream ofs(dot_file.string());
     if (!ofs)
@@ -523,7 +525,7 @@ void module_graph_t::svg_scc(const path_t& dir, const module_scc_t* scc, const s
     ofs << "}\n";
     ofs.close();
 
-    const int neato_command_result = process_t::create_and_wait({
+    const int neato_command_result = process::create_and_wait({
         NEATO_PATH,
         "-Tsvg",
         dot_file,
@@ -536,7 +538,7 @@ void module_graph_t::svg_scc(const path_t& dir, const module_scc_t* scc, const s
         throw std::runtime_error(std::format("module_graph_t::svg_scc: graphviz render failed, command terminated by signal {}", -neato_command_result));
     }
 
-    const int rsvg_convert_result = process_t::create_and_wait({
+    const int rsvg_convert_result = process::create_and_wait({
         RSVG_CONVERT_PATH,
         svg_file,
         "-o",
@@ -548,6 +550,8 @@ void module_graph_t::svg_scc(const path_t& dir, const module_scc_t* scc, const s
         throw std::runtime_error(std::format("module_graph_t::svg_scc: could not create svg, command terminated by signal {}", -rsvg_convert_result));
     }
 
-    filesystem_t::remove(dot_file);
-    filesystem_t::remove(svg_file);
+    filesystem::remove(dot_file);
+    filesystem::remove(svg_file);
 }
+
+} // namespace builder

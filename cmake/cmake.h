@@ -1,21 +1,21 @@
-#ifndef BUILDER_PROJECT_BUILDER_CMAKE_CMAKE_H
-# define BUILDER_PROJECT_BUILDER_CMAKE_CMAKE_H
+#ifndef CMAKE_CMAKE_H
+# define CMAKE_CMAKE_H
 
 # include "../filesystem/filesystem.h"
 
 # include <vector>
 # include <optional>
 
-class cmake_t {
-public:
-    static const constexpr char* CMAKE_PATH = "/usr/bin/cmake";
-    
-public:
-    static void configure(const path_t& source_dir, const path_t& build_dir, const std::vector<std::pair<std::string, std::string>>& define_key_values);
+namespace cmake {
 
-    static void build(const path_t& build_dir, std::optional<size_t> n_jobs);
+inline const constexpr char* CMAKE_PATH = "/usr/bin/cmake";
 
-    static void install(const path_t& install_dir);
-};
+void configure(const filesystem::path_t& source_dir, const filesystem::path_t& build_dir, const std::vector<std::pair<std::string, std::string>>& define_key_values);
 
-#endif // BUILDER_PROJECT_BUILDER_CMAKE_CMAKE_H
+void build(const filesystem::path_t& build_dir, std::optional<size_t> n_jobs);
+
+void install(const filesystem::path_t& install_dir);
+
+} // namespace cmake
+
+#endif // CMAKE_CMAKE_H

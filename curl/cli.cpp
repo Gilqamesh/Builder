@@ -12,7 +12,7 @@ int main(int argc, char** argv) {
     try {
         const std::string url = argv[1];
         const std::filesystem::path out_path = argv[2];
-        const auto download_path = curl_t::download(url, out_path);
+        const auto download_path = curl::download(url, out_path);
     } catch (const std::exception& e) {
         std::cerr << std::format("{}: '{}'", argv[0], e.what()) << std::endl;
     }
