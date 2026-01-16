@@ -1,7 +1,7 @@
 #ifndef BUILDER_MODULE_H
 # define BUILDER_MODULE_H
 
-# include "filesystem/filesystem.h"
+# include "filesystem.h"
 
 # include <string>
 # include <unordered_map>

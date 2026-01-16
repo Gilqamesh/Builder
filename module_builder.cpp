@@ -1,7 +1,7 @@
 #include "module_builder.h"
-#include "cpp_compiler/cpp_compiler.h"
-#include "process/process.h"
-#include "shared_library/shared_library.h"
+#include "cpp_compiler.h"
+#include "process.h"
+#include "shared_library.h"
 
 #include <format>
 #include <fstream>

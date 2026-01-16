@@ -1,41 +1,46 @@
-#ifndef BUILDER_CPP_COMPILER_H
-# define BUILDER_CPP_COMPILER_H
+#ifndef COMPILER_CPP_COMPILER_H
+# define COMPILER_CPP_COMPILER_H
 
-# include "module_builder.h"
-# include "cpp_compiler/cpp_compiler.h"
+# include "filesystem.h"
 
-namespace builder::cpp_compiler {
+# include <vector>
+
+namespace cpp_compiler {
+
+const constexpr char* CPP_COMPILER_PATH = "/usr/bin/clang++";
+const constexpr char* C_COMPILER_PATH = "/usr/bin/clang";
+const constexpr char* AR_PATH = "/usr/bin/ar";
 
 filesystem::path_t create_static_library(
-    const module_builder_t* module_builder,
+    const filesystem::path_t& cache_dir,
+    const filesystem::path_t& source_dir,
+    const std::vector<filesystem::path_t>& include_dirs,
     const std::vector<filesystem::path_t>& source_files,
     const std::vector<std::pair<std::string, std::string>>& define_key_values,
-    const filesystem::relative_path_t& relative_static_library_path
+    const filesystem::path_t& static_library
 );
 
 filesystem::path_t create_shared_library(
-    const module_builder_t* module_builder,
+    const filesystem::path_t& cache_dir,
+    const filesystem::path_t& source_dir,
+    const std::vector<filesystem::path_t>& include_dirs,
     const std::vector<filesystem::path_t>& source_files,
     const std::vector<std::pair<std::string, std::string>>& define_key_values,
-    const filesystem::relative_path_t& relative_shared_library_path
-);
-
-filesystem::path_t create_library(
-    const module_builder_t* module_builder,
-    const std::vector<filesystem::path_t>& source_files,
-    const std::vector<std::pair<std::string, std::string>>& define_key_values,
-    const filesystem::relative_path_t& relative_libary_stem,
-    library_type_t library_type
+    const std::vector<filesystem::path_t>& dsos,
+    const filesystem::path_t& shared_library
 );
 
 filesystem::path_t create_binary(
-    const module_builder_t* module_builder,
+    const filesystem::path_t& cache_dir,
+    const filesystem::path_t& source_dir,
+    const std::vector<filesystem::path_t>& include_dirs,
     const std::vector<filesystem::path_t>& source_files,
     const std::vector<std::pair<std::string, std::string>>& define_key_values,
-    library_type_t library_type,
-    const filesystem::relative_path_t& relative_binary_path
+    const std::vector<std::vector<filesystem::path_t>>& library_groups,
+    bool TEMP_assume_all_link_inputs_are_shared,
+    const filesystem::path_t& binary
 );
 
-} // namespace builder::cpp_compiler
+} // namespace cpp_compiler
 
-#endif // BUILDER_CPP_COMPILER_H
+#endif // COMPILER_CPP_COMPILER_H

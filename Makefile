@@ -56,9 +56,7 @@ CFLAGS   := -g
 
 SOURCES := \
 	cmake/cmake.cpp \
-	cpp_compiler/cpp_compiler.cpp \
 	curl/curl.cpp \
-	filesystem/filesystem.cpp \
 	gzip/gzip.cpp \
 	gzip/external/adler32.c \
 	gzip/external/crc32.c \
@@ -72,12 +70,12 @@ SOURCES := \
 	gzip/external/gzread.c \
 	gzip/external/gzwrite.c \
 	gzip/external/gzclose.c \
-	cpp_compiler.cpp \
 	filesystem.cpp \
+	cpp_compiler.cpp \
 	module_builder.cpp \
 	module.cpp \
-	process/process.cpp \
-	shared_library/shared_library.cpp \
+	process.cpp \
+	shared_library.cpp \
 	tar/tar.cpp \
 	tar/external/microtar.c \
 	zip/external/miniz.c \
@@ -136,13 +134,9 @@ $(LIBRARIES_BUILD_DIR)/%.o: $(SOURCE_DIR)/%.c FORCE
 
 CLI_SOURCES := \
 	cmake/cli.cpp \
-	cpp_compiler/cli.cpp \
 	curl/cli.cpp \
-	filesystem/cli.cpp \
 	gzip/cli.cpp \
 	json/cli.cpp \
-	process/cli.cpp \
-	shared_library/cli.cpp \
 	tar/cli.cpp \
 	zip/cli.cpp \
 	cli.cpp

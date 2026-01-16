@@ -1,7 +1,7 @@
 #ifndef GZIP_GZIP_H
 # define GZIP_GZIP_H
 
-# include "../filesystem/filesystem.h"
+# include "../filesystem.h"
 
 namespace gzip {
 

@@ -1,7 +1,7 @@
 #ifndef SHARED_LIBRARY_SHARED_LIBRARY_H
 # define SHARED_LIBRARY_SHARED_LIBRARY_H
 
-# include "../filesystem/filesystem.h"
+# include "filesystem.h"
 
 namespace shared_library {
 // TODO: move symbol out of here; introduce better abstractions for loader / binary semantics

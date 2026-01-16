@@ -1,7 +1,7 @@
 #include "module.h"
-#include "cpp_compiler/cpp_compiler.h"
+#include "cpp_compiler.h"
 #include "json/json.hpp"
-#include "process/process.h"
+#include "process.h"
 
 #include <format>
 #include <fstream>
