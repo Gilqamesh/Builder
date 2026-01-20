@@ -14,24 +14,16 @@
 
 namespace builder {
 
-class module_t {
-public:
+struct module_t {
     static const constexpr char* BUILDER_CPP = "builder.cpp";
     static const constexpr char* DEPS_JSON = "deps.json";
     static const constexpr char* DEPS_KEY = "deps";
+    static const constexpr char* BUILDER_MODULE_NAME = "builder";
 
-public:
-    module_t(const std::string& name, uint64_t version);
-
-    const std::string& name() const;
-    uint64_t version() const;
-    void version(uint64_t new_version);
-
-    bool operator==(const module_t& other) const;
-
-private:
-    std::string m_name;
+    const filesystem::path_t m_source_dir;
     uint64_t m_version;
+    std::unordered_set<const module_t*> m_module_dependencies;
+    std::unordered_set<const module_t*> m_builder_dependencies;
 };
 
 struct module_scc_t {
@@ -52,11 +44,14 @@ public:
     static const constexpr char* NEATO_PATH = "/usr/bin/neato";
 
 public:
-    static module_graph_t discover(const filesystem::path_t& modules_dir, const std::string& target_module_name);
+    static module_graph_t discover(const filesystem::path_t& modules_dir, const filesystem::path_t& builder_dir, const std::string& target_module_name);
 
     const filesystem::path_t& modules_dir() const;
     const module_t& builder_module() const;
     const module_t& target_module() const;
+
+    filesystem::path_t source_dir(const module_t* module) const;
+    filesystem::path_t builder_source_path(const module_t* module) const;
 
     static uint64_t derive_version(const std::filesystem::file_time_type& file_time_type);
     static uint64_t derive_version(const filesystem::path_t& dir);
@@ -64,6 +59,7 @@ public:
     const module_scc_t* module_scc(const module_t& module) const;
 
     void visit_sccs_topo(const module_scc_t* from, const std::function<void(const module_scc_t*)>& f) const;
+    void visit_builders_topo(const module_t* module, const std::function<void(const module_t*)>& f) const;
 
 public: /* debug */
     void svg(const filesystem::path_t& dir, const std::string& file_name_stem);
@@ -76,11 +72,13 @@ private:
         const filesystem::path_t& modules_dir
     );
 
-    struct discover_result_t {
-        module_t* module;
-        std::unordered_set<module_t*> dependencies;
-    };
-    static module_t* discover(const filesystem::path_t& modules_dir, const std::string& module_name, std::unordered_map<std::string, discover_result_t>& discover_results);
+    static module_t* discover(
+        const filesystem::path_t& module_dir,
+        const std::string& module_name,
+        const filesystem::path_t& builders_dir,
+        std::unordered_map<filesystem::path_t, module_t*>& discovered_modules_by_module_source_dir
+    );
+
     struct module_info_t {
         int index;
         int lowlink;
@@ -90,6 +88,7 @@ private:
     static uint64_t version_sccs(module_scc_t* scc, std::unordered_map<module_scc_t*, uint64_t>& visited, uint64_t minimum_version);
 
     void visit_sccs_topo(const module_scc_t* scc, const std::function<void(const module_scc_t*)>& f, std::unordered_set<const module_scc_t*>& visited) const;
+    void visit_builders_topo(const module_t* module, const std::function<void(const module_t*)>& f, std::unordered_set<const module_t*>& on_stack, std::unordered_set<const module_t*>& visited) const;
 
 private: /* debug */
     void svg_overview(const filesystem::path_t& dir, const std::string& file_name_stem);

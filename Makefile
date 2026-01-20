@@ -70,16 +70,16 @@ SOURCES := \
 	gzip/external/gzread.c \
 	gzip/external/gzwrite.c \
 	gzip/external/gzclose.c \
-	filesystem.cpp \
-	cpp_compiler.cpp \
-	module_builder.cpp \
-	module.cpp \
-	process.cpp \
-	shared_library.cpp \
 	tar/tar.cpp \
 	tar/external/microtar.c \
 	zip/external/miniz.c \
-	zip/zip.cpp
+	zip/zip.cpp \
+	kernel/cpp_compiler.cpp \
+	kernel/filesystem.cpp \
+	kernel/module_builder.cpp \
+	kernel/module.cpp \
+	kernel/process.cpp \
+	kernel/shared_library.cpp
 
 BUILDER_LIBRARY_OBJECTS := $(addprefix $(LIBRARIES_BUILD_DIR)/,$(SOURCES))
 BUILDER_LIBRARY_OBJECTS := $(BUILDER_LIBRARY_OBJECTS:.cpp=.o)
@@ -139,7 +139,7 @@ CLI_SOURCES := \
 	json/cli.cpp \
 	tar/cli.cpp \
 	zip/cli.cpp \
-	cli.cpp
+	kernel/cli.cpp
 
 CLI_BINS := $(patsubst %.cpp,$(IMPORT_INSTALL_DIR)/%,$(CLI_SOURCES))
 

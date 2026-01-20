@@ -87,10 +87,10 @@ module_graph_t module_graph_t::discover(const filesystem::path_t& modules_dir, c
         }
     }
 
-    auto builder_it = discover_results.find("builder");
+    auto builder_it = discover_results.find(module_t::BUILDER_MODULE_NAME);
     module_t* builder_module = nullptr;
     if (builder_it == discover_results.end()) {
-        builder_module = new module_t("builder", derive_version(modules_dir / filesystem::relative_path_t("builder")));
+        builder_module = new module_t(module_t::BUILDER_MODULE_NAME, derive_version(modules_dir / filesystem::relative_path_t(module_t::BUILDER_MODULE_NAME)));
         module_scc_t* builder_module_scc = new module_scc_t;
         builder_module_scc->modules.push_back(builder_module);
         scc_by_module[builder_module] = builder_module_scc;
@@ -179,6 +179,52 @@ void module_graph_t::visit_sccs_topo(const module_scc_t* scc, const std::functio
     f(scc);
 }
 
+void module_graph_t::visit_builders_topo(const module_t* module, const std::function<void(const module_t*)>& f) const {
+    std::unordered_set<const module_t*> visited;
+    std::unordered_set<const module_t*> on_stack;
+    return visit_builders_topo(module, f, on_stack, visited);
+}
+
+void module_graph_t::visit_builders_topo(const module_t* module, const std::function<void(const module_t*)>& f, std::unordered_set<const module_t*>& on_stack, std::unordered_set<const module_t*>& visited) const {
+    if (visited.contains(module)) {
+        return ;
+    }
+
+    if (!on_stack.insert(module).second) {
+        // TODO: better error reporting for builder modules
+        throw std::runtime_error(std::format("module_graph_t::visit_builders_topo: cyclic dependency detected while building builder for module '{}'", module.name()));
+    }
+
+    const auto builder_source = builder_source_path(module);
+    if (!filesystem::exists(builder_source)) {
+        throw std::runtime_error(std::format("module_graph_t::visit_builders_topo: builder source file '{}' does not exist", builder_source));
+    }
+
+    std::ifstream ifs(builder_source.string());
+    if (!ifs) {
+        throw std::runtime_error(std::format("module_graph_t::visit_builders_topo: failed to open builder source file '{}' for reading", builder_source));
+    }
+
+    const std::regex module_regex(std::format(R"(^\s*#\s*include\s*<\s*{}\s*/\s*([A-Za-z_][A-Za-z0-9_]*)\s*/\s*[^>]+>\s*$)", module_t::BUILDER_MODULE_NAME));
+
+    std::string line;
+    while (ifs && getline(ifs, line)) {
+        std::smatch match;
+        if (!std::regex_match(line, match, module_regex)) {
+            continue ;
+        }
+
+        const auto dependency_module_name = match[1].str();
+        const auto& dependency_module = m_module_graph.module_by_name(dependency_module_name);
+        visit_builders_topo(&dependency_module, f, on_stack, visited);
+    }
+
+    on_stack.erase(module);
+    visited.insert(module);
+
+    f(module);
+}
+
 const filesystem::path_t& module_graph_t::modules_dir() const {
     return m_modules_dir;
 }
@@ -189,6 +235,14 @@ const module_t& module_graph_t::builder_module() const {
 
 const module_t& module_graph_t::target_module() const {
     return *m_target_module;
+}
+
+filesystem::path_t module_graph_t::source_dir(const module_t* module) const {
+    return modules_dir() / filesystem::relative_path_t(module->name);
+}
+
+filesystem::path_t module_graph_t::builder_source_path(const module_t* module) const {
+    return source_dir(module) / filesystem::relative_path_t(module_t::BUILDER_CPP);
 }
 
 uint64_t module_graph_t::derive_version(const std::filesystem::file_time_type& file_time_type) {
@@ -244,31 +298,58 @@ uint64_t versioned_path_t::parse(const filesystem::path_t& path) {
     }
 }
 
-module_t* module_graph_t::discover(const filesystem::path_t& modules_dir, const std::string& module_name, std::unordered_map<std::string, discover_result_t>& discover_results) {
-    auto it = discover_results.find(module_name);
-    if (it != discover_results.end()) {
-        return it->second.module;
+module_t* module_graph_t::discover(
+    const filesystem::path_t& module_dir,
+    const std::string& module_name,
+    const filesystem::path_t& builder_dir,
+    std::unordered_map<filesystem::path_t, module_t*>& discovered_modules_by_module_source_dir
+) {
+    const auto module_source_dir = modules_dir / filesystem::relative_path_t(module_name);
+    auto it = discovered_modules_by_module_source_dir.find(module_source_dir);
+    if (it != discovered_modules_by_module_source_dir.end()) {
+        return it->second;
     }
 
-    const auto module_dir = modules_dir / filesystem::relative_path_t(module_name);
-    if (!filesystem::exists(module_dir)) {
-        throw std::runtime_error(std::format("module_graph_t::discover: module directory does not exist '{}'", module_dir));
+    if (!filesystem::exists(module_source_dir)) {
+        throw std::runtime_error(std::format("module_graph_t::discover: module directory does not exist '{}'", module_source_dir));
     }
 
-    auto module = new module_t(module_name, derive_version(module_dir));
-    const auto r = discover_results.emplace(module_name, discover_result_t { .module = module, .dependencies = {} });
-    it = r.first;
+    auto module = new module_t {
+        .m_source_dir = module_source_dir,
+        .m_version = derive_version(module_source_dir)
+    };
+    discovered_modules_by_module_source_dir.emplace(module_source_dir, module);
 
-    if (module->name() == "builder") {
-        return module;
+    {
+        const auto builder_cpp = module_source_dir / filesystem::relative_path_t(module_t::BUILDER_CPP);
+        if (!filesystem::exists(builder_cpp)) {
+            throw std::runtime_error(std::format("module_graph_t::discover: module '{}' is missing required file '{}'", module_name, builder_cpp));
+        }
+
+        std::ifstream ifs(builder_cpp.string());
+        if (!ifs) {
+            throw std::runtime_error(std::format("module_graph_t::discover: failed to open file '{}' for reading", builder_cpp));
+        }
+
+        const std::regex builder_module_regex(std::format(R"(^\s*#\s*include\s*<\s*{}\s*/\s*([A-Za-z_][A-Za-z0-9_]*)\s*/\s*[^>]+>\s*$)", module_t::BUILDER_MODULE_NAME));
+        std::string line;
+        while (ifs && getline(ifs, line)) {
+            std::smatch match;
+            if (!std::regex_match(line, match, module_regex)) {
+                continue ;
+            }
+
+            const auto builder_module_name = match[1].str();
+            module->m_builder_dependencies.insert(discover(
+                builder_dir,
+                builder_module_name,
+                builder_dir,
+                discovered_modules_by_module_source_dir
+            ));
+        }
     }
 
-    const auto builder_cpp = module_dir / filesystem::relative_path_t(module_t::BUILDER_CPP);
-    if (!filesystem::exists(builder_cpp)) {
-        throw std::runtime_error(std::format("module_graph_t::discover: module '{}' is missing required file '{}'", module_name, builder_cpp));
-    }
-
-    const auto deps_json_path = module_dir / filesystem::relative_path_t(module_t::DEPS_JSON);
+    const auto deps_json_path = module_source_dir / filesystem::relative_path_t(module_t::DEPS_JSON);
     if (!filesystem::exists(deps_json_path)) {
         throw std::runtime_error(std::format("module_graph_t::discover: module '{}' is missing required file '{}'", module_name, deps_json_path));
     }
@@ -296,16 +377,21 @@ module_t* module_graph_t::discover(const filesystem::path_t& modules_dir, const 
     }
     const auto& module_deps_array = deps_it->get_ref<const nlohmann::json::array_t&>();
 
-    for (const auto& module_deps : module_deps_array) {
-        if (!module_deps.is_string()) {
+    for (const auto& module_dep : module_dep_array) {
+        if (!module_dep.is_string()) {
             throw std::runtime_error(std::format("module_graph_t::discover: invalid deps json file '{}': '{}' array must contain only strings", deps_json_path, module_t::DEPS_KEY));
         }
-        const std::string module_deps_str = module_deps.get<std::string>();
-        if (module_deps_str.empty()) {
+        const std::string module_dep_str = module_dep.get<std::string>();
+        if (module_dep_str.empty()) {
             throw std::runtime_error(std::format("module_graph_t::discover: invalid deps json file '{}': '{}' array must not contain empty strings", deps_json_path, module_t::DEPS_KEY));
         }
 
-        it->second.dependencies.insert(discover(modules_dir, module_deps_str, discover_results));
+        module->m_module_dependencies.insert(discover(
+            module_dir,
+            module_dep_str,
+            builder_dir,
+            discovered_modules_by_module_source_dir
+        ));
     }
 
     return module;

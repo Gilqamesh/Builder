@@ -206,7 +206,7 @@ filesystem::path_t module_builder_t::import_install_dir() const {
 }
 
 filesystem::path_t module_builder_t::source_dir(const module_t& module) const {
-    return modules_dir() / filesystem::relative_path_t(module.name());
+    return m_module_graph.source_dir(&module);
 }
 
 filesystem::path_t module_builder_t::artifact_dir(const module_t& module) const {
@@ -218,11 +218,11 @@ filesystem::path_t module_builder_t::artifact_alias_dir(const module_t& module) 
 }
 
 filesystem::path_t module_builder_t::builder_source_path(const module_t& module) const {
-    return source_dir(module) / filesystem::relative_path_t(module_t::BUILDER_CPP);
+    return m_module_graph.builder_source_path(&module);
 }
 
 filesystem::path_t module_builder_t::builder_dir(const module_t& module) const {
-    return artifact_dir(module) / filesystem::relative_path_t("builder");
+    return artifact_dir(module) / filesystem::relative_path_t(module_t::BUILDER_MODULE_NAME);
 }
 
 filesystem::path_t module_builder_t::builder_build_dir(const module_t& module) const {
@@ -234,7 +234,7 @@ filesystem::path_t module_builder_t::builder_install_dir(const module_t& module)
 }
 
 filesystem::path_t module_builder_t::builder_install_path(const module_t& module) const {
-    return builder_install_dir(module) / filesystem::relative_path_t("builder.so");
+    return builder_install_dir(module) / filesystem::relative_path_t(std::string(module_t::BUILDER_MODULE_NAME) + ".so");
 }
 
 filesystem::path_t module_builder_t::interface_dir(const module_t& module) const {
@@ -412,6 +412,7 @@ void module_builder_t::run_import_libraries(const module_t& module) const {
 }
 
 filesystem::path_t module_builder_t::build_builder(const module_t& module) const {
+<<<<<<< Updated upstream:module_builder.cpp
     const auto builder = builder_install_path(module);
     if (!filesystem::exists(builder)) {
         const auto& builder_module = m_module_graph.builder_module();
@@ -436,6 +437,11 @@ filesystem::path_t module_builder_t::build_builder(const module_t& module) const
     }
 
     return builder;
+=======
+    m_module_graph.visit_builders_topo(&module, [](const module_t* module) {
+
+    });
+>>>>>>> Stashed changes:kernel/module_builder.cpp
 }
 
 filesystem::relative_path_t module_builder_t::build_relative_dir() const {

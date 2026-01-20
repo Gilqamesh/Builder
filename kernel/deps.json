@@ -1,0 +1,18 @@
+{
+    "module_dependencies": [
+        {
+            "workspace_relative_path": "ws1",
+            "module_relative_path": "b"
+        },
+        {
+            "workspace_relative_path": "ws2",
+            "module_relative_path": "a"
+        }
+    ],
+    "producer_dependencies": [
+        {
+            "workspace_relative_path": "ws3",
+            "module_relative_path": "a"
+        }
+    ]
+}
