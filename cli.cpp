@@ -107,8 +107,8 @@ void render_graph_svg(const graph::workspace_ecosystem_t& ecosystem, const std::
 }
 
 int main(int argc, char** argv) {
-    if (argc < 5) {
-        std::cerr << std::format("usage: {} <workspace_ecosystem_path> <workspace_relative_path> <module_relative_path> <artifacts_path> [binary_relative_path] [args...]", argv[0]) << std::endl;
+    if (argc < 4) {
+        std::cerr << std::format("usage: {} <workspace_ecosystem_path> <workspace_relative_path> <module_relative_path> [binary_relative_path] [args...]", argv[0]) << std::endl;
         return 1;
     }
 
@@ -116,18 +116,18 @@ int main(int argc, char** argv) {
         const auto workspace_ecosystem_path = filesystem::path_t(argv[1]);
         const auto workspace_relative_path = filesystem::relative_path_t(argv[2]);
         const auto module_relative_path = filesystem::relative_path_t(argv[3]);
-        const auto artifacts_path = filesystem::path_t(argv[4]);
 
         graph::workspace_ecosystem_t* workspace_ecosystem = new graph::workspace_ecosystem_t {
-            .absolute_path_to_workspace_directory = workspace_ecosystem_path
+            .absolute_path_to_workspace_directory = workspace_ecosystem_path,
+            .artifact_dir = workspace_ecosystem_path / filesystem::relative_path_t("artifacts")
         };
 
         graph::module_t* target_module = workspace_ecosystem->discover_module(workspace_relative_path, module_relative_path);
 
         target_module->validate();
 
-        builder::module_builder_t kernel_module_builder(*workspace_ecosystem, *workspace_ecosystem->this_module, artifacts_path);
-        builder::module_builder_t target_module_builder(*workspace_ecosystem, *target_module, artifacts_path);
+        builder::module_builder_t kernel_module_builder(*workspace_ecosystem, *workspace_ecosystem->this_module);
+        builder::module_builder_t target_module_builder(*workspace_ecosystem, *target_module);
 
         const auto cli = filesystem::canonical(filesystem::path_t("/proc/self/exe"));
         const auto cli_last_write_time = filesystem::last_write_time(cli);
@@ -153,8 +153,8 @@ int main(int argc, char** argv) {
 
         target_module_builder.import_libraries();
 
-        if (5 < argc) {
-            const auto binary = filesystem::relative_path_t(argv[5]);
+        if (4 < argc) {
+            const auto binary = filesystem::relative_path_t(argv[4]);
             const auto binary_dir = target_module_builder.import_install_dir();
             const auto binary_location = binary_dir / binary;
             if (!filesystem::exists(binary_location)) {
@@ -165,7 +165,7 @@ int main(int argc, char** argv) {
 
             std::vector<process::process_arg_t> process_args;
             process_args.push_back(binary.string());
-            for (int i = 6; i < argc; ++i) {
+            for (int i = 5; i < argc; ++i) {
                 process_args.push_back(argv[i]);
             }
             process::exec(process_args);

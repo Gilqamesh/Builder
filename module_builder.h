@@ -32,7 +32,7 @@ public:
     };
 
 public:
-    module_builder_t(graph::workspace_ecosystem_t& workspace_ecosystem, graph::module_t& module, const filesystem::path_t& artifacts_dir);
+    module_builder_t(graph::workspace_ecosystem_t& workspace_ecosystem, graph::module_t& module);
 
     std::vector<filesystem::path_t> export_interfaces(library_type_t library_type) const;
     std::vector<std::vector<filesystem::path_t>> export_libraries(library_type_t library_type) const;
@@ -43,7 +43,6 @@ public:
     void install_import(const filesystem::path_t& artifact, const filesystem::relative_path_t& relative_install_path) const;
 
     filesystem::path_t workspace_ecosystem_dir() const;
-    filesystem::path_t artifacts_dir() const;
 
     filesystem::path_t source_dir() const;
     filesystem::path_t artifact_dir() const;
@@ -111,7 +110,6 @@ private:
 private:
     graph::workspace_ecosystem_t& m_workspace_ecosystem;
     graph::module_t& m_module;
-    filesystem::path_t m_artifacts_dir;
 };
 
 BUILDER_EXTERN void module_builder__export_interface(const module_builder_t* module_builder, library_type_t library_type);

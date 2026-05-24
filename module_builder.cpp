@@ -19,8 +19,6 @@ namespace builder {
 
 namespace {
 
-inline const constexpr char* ARTIFACTS_ROOT_DIR = ".cpp_builder_artifacts";
-
 std::string module_display_name(const graph::module_t& module) {
     return std::format("{}/{}", module.workspace->workspace_relative_path_to_workspace_ecosystem.string(), module.module_relative_path_to_workspace.string());
 }
@@ -93,10 +91,9 @@ void visit_sccs_topo(const graph::module_scc_t* scc, const std::function<void(co
 
 } // namespace
 
-module_builder_t::module_builder_t(graph::workspace_ecosystem_t& workspace_ecosystem, graph::module_t& module, const filesystem::path_t& artifacts_dir):
+module_builder_t::module_builder_t(graph::workspace_ecosystem_t& workspace_ecosystem, graph::module_t& module):
     m_workspace_ecosystem(workspace_ecosystem),
-    m_module(module),
-    m_artifacts_dir(artifacts_dir)
+    m_module(module)
 {
 }
 
@@ -169,10 +166,6 @@ void module_builder_t::install_import(const filesystem::path_t& artifact, const 
 
 filesystem::path_t module_builder_t::workspace_ecosystem_dir() const {
     return m_workspace_ecosystem.absolute_path_to_workspace_directory;
-}
-
-filesystem::path_t module_builder_t::artifacts_dir() const {
-    return m_artifacts_dir;
 }
 
 filesystem::path_t module_builder_t::source_dir() const {
@@ -248,7 +241,7 @@ filesystem::path_t module_builder_t::source_dir(const graph::module_t& module) c
 }
 
 filesystem::path_t module_builder_t::artifact_base_dir(const graph::module_t& module) const {
-    return m_artifacts_dir / filesystem::relative_path_t(ARTIFACTS_ROOT_DIR) / module.workspace->workspace_relative_path_to_workspace_ecosystem / module.module_relative_path_to_workspace;
+    return m_workspace_ecosystem.artifact_dir / module.workspace->workspace_relative_path_to_workspace_ecosystem / module.module_relative_path_to_workspace;
 }
 
 filesystem::path_t module_builder_t::artifact_dir(const graph::module_t& module) const {
@@ -411,7 +404,7 @@ void module_builder_t::run_phase(graph::module_t& module, phase_t phase, library
 void module_builder_t::run_module_producer_phase(graph::module_t& module, phase_t phase, library_type_t library_type) const {
     const auto builder_plugin = build_builder(module);
     shared_library::loader_t loader(builder_plugin, shared_library::lifetime_t::PROCESS, shared_library::symbol_resolution_t::LAZY, shared_library::symbol_visibility_t::LOCAL);
-    module_builder_t module_builder(m_workspace_ecosystem, module, m_artifacts_dir);
+    module_builder_t module_builder(m_workspace_ecosystem, module);
 
     switch (phase) {
         case phase_t::EXPORT_INTERFACE:
@@ -520,7 +513,7 @@ filesystem::path_t module_builder_t::build_builder(graph::module_t& module) cons
     std::vector<filesystem::path_t> libraries;
 
     for (auto* dependency : module.module_builder->dependencies) {
-        module_builder_t dependency_builder(m_workspace_ecosystem, *dependency, m_artifacts_dir);
+        module_builder_t dependency_builder(m_workspace_ecosystem, *dependency);
         auto dependency_interfaces = dependency_builder.export_interfaces(library_type_t::SHARED);
         include_dirs.insert(include_dirs.end(), std::make_move_iterator(dependency_interfaces.begin()), std::make_move_iterator(dependency_interfaces.end()));
 

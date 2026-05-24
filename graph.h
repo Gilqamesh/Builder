@@ -85,6 +85,7 @@ struct workspace_t {
 
 struct workspace_ecosystem_t {
     filesystem::path_t absolute_path_to_workspace_directory;
+    filesystem::path_t artifact_dir;
     std::unordered_map<filesystem::relative_path_t, workspace_t*> workspace_by_workspace_relative_path_to_workspace_ecosystem;
     workspace_t* this_workspace;
     module_t* this_module;
