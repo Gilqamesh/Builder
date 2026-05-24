@@ -117,6 +117,32 @@ module_builder_t& phase_base_t::module_builder() const {
     return m_module_builder;
 }
 
+source_phase_t::source_phase_t(module_builder_t& module_builder, graph::module_t& module, const iphase_t* predecessor):
+    phase_base_t("source", module_builder, module, predecessor)
+{
+}
+
+filesystem::path_t source_phase_t::dir() const {
+    return module_builder().source_phase_dir();
+}
+
+filesystem::path_t source_phase_t::build_dir() const {
+    return module_builder().source_phase_build_dir();
+}
+
+filesystem::path_t source_phase_t::install_dir() const {
+    return module_builder().source_phase_install_dir();
+}
+
+void source_phase_t::execute() const {
+    throw std::runtime_error("kernel::cpp_builder::builder::source_phase_t::execute: source phase materialization is not implemented yet");
+}
+
+const source_phase_t::output_t& source_phase_t::output() const {
+    m_output.source_roots = { install_dir() };
+    return m_output;
+}
+
 export_interface_phase_t::export_interface_phase_t(module_builder_t& module_builder, graph::module_t& module, library_type_t library_type, const iphase_t* predecessor):
     phase_base_t("export_interface", module_builder, module, predecessor),
     library_type(library_type)
@@ -205,7 +231,8 @@ const import_libraries_phase_t::output_t& import_libraries_phase_t::output() con
 }
 
 phase_chain_t::phase_chain_t(module_builder_t& module_builder, graph::module_t& module, library_type_t library_type):
-    export_interface(module_builder, module, library_type),
+    source(module_builder, module),
+    export_interface(module_builder, module, library_type, &source),
     export_libraries(module_builder, module, library_type, &export_interface),
     import_libraries(module_builder, module, &export_libraries)
 {
@@ -309,6 +336,18 @@ filesystem::path_t module_builder_t::artifact_latest_dir() const {
     return artifact_latest_dir(m_module);
 }
 
+filesystem::path_t module_builder_t::source_phase_dir() const {
+    return source_phase_dir(m_module);
+}
+
+filesystem::path_t module_builder_t::source_phase_build_dir() const {
+    return source_phase_build_dir(m_module);
+}
+
+filesystem::path_t module_builder_t::source_phase_install_dir() const {
+    return source_phase_install_dir(m_module);
+}
+
 filesystem::path_t module_builder_t::builder_source_path() const {
     return builder_source_path(m_module);
 }
@@ -397,6 +436,18 @@ void module_builder_t::publish_latest_stage(const iphase_t& phase) const {
 
     filesystem::create_directory_symlink(phase.dir(), latest_stage_tmp_dir);
     filesystem::rename_replace(latest_stage_tmp_dir, latest_stage_dir);
+}
+
+filesystem::path_t module_builder_t::source_phase_dir(const graph::module_t& module) const {
+    return artifact_dir(module) / filesystem::relative_path_t("source");
+}
+
+filesystem::path_t module_builder_t::source_phase_build_dir(const graph::module_t& module) const {
+    return source_phase_dir(module) / build_relative_dir();
+}
+
+filesystem::path_t module_builder_t::source_phase_install_dir(const graph::module_t& module) const {
+    return source_phase_dir(module) / install_relative_dir();
 }
 
 filesystem::path_t module_builder_t::builder_source_path(const graph::module_t& module) const {

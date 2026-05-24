@@ -41,6 +41,10 @@ struct iphase_t {
     virtual filesystem::path_t install_dir() const = 0;
 };
 
+struct source_output_t {
+    std::vector<filesystem::path_t> source_roots;
+};
+
 struct export_interface_output_t {
     std::vector<filesystem::path_t> interfaces;
 };
@@ -73,6 +77,24 @@ private:
     module_builder_t& m_module_builder;
     graph::module_t& m_module;
     const iphase_t* m_predecessor;
+};
+
+struct source_phase_t : phase_base_t {
+    using output_t = source_output_t;
+
+    source_phase_t(module_builder_t& module_builder, graph::module_t& module, const iphase_t* predecessor = nullptr);
+
+    filesystem::path_t dir() const override;
+    filesystem::path_t build_dir() const override;
+    filesystem::path_t install_dir() const override;
+
+private:
+    friend class phase_base_t;
+
+    void execute() const;
+    const output_t& output() const;
+
+    mutable output_t m_output;
 };
 
 struct export_interface_phase_t : phase_base_t {
@@ -137,6 +159,7 @@ class phase_chain_t {
 public:
     phase_chain_t(module_builder_t& module_builder, graph::module_t& module, library_type_t library_type);
 
+    source_phase_t source;
     export_interface_phase_t export_interface;
     export_libraries_phase_t export_libraries;
     import_libraries_phase_t import_libraries;
@@ -169,6 +192,10 @@ public:
     filesystem::path_t artifact_dir() const;
     filesystem::path_t artifact_latest_dir() const;
 
+    filesystem::path_t source_phase_dir() const;
+    filesystem::path_t source_phase_build_dir() const;
+    filesystem::path_t source_phase_install_dir() const;
+
     filesystem::path_t builder_source_path() const;
     filesystem::path_t builder_dir() const;
     filesystem::path_t builder_build_dir() const;
@@ -189,6 +216,7 @@ public:
 
 private:
     friend class phase_base_t;
+    friend struct source_phase_t;
     friend struct export_interface_phase_t;
     friend struct export_libraries_phase_t;
     friend struct import_libraries_phase_t;
@@ -212,6 +240,10 @@ private:
     filesystem::path_t artifact_dir(const graph::module_t& module) const;
     filesystem::path_t artifact_latest_dir(const graph::module_t& module) const;
     void publish_latest_stage(const iphase_t& phase) const;
+
+    filesystem::path_t source_phase_dir(const graph::module_t& module) const;
+    filesystem::path_t source_phase_build_dir(const graph::module_t& module) const;
+    filesystem::path_t source_phase_install_dir(const graph::module_t& module) const;
 
     filesystem::path_t builder_source_path(const graph::module_t& module) const;
     filesystem::path_t builder_dir(const graph::module_t& module) const;
