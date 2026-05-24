@@ -4,6 +4,8 @@
 # include "graph.h"
 
 # include <cstdint>
+# include <format>
+# include <stdexcept>
 # include <string_view>
 # include <vector>
 
@@ -37,8 +39,6 @@ struct iphase_t {
     virtual filesystem::path_t dir() const = 0;
     virtual filesystem::path_t build_dir() const = 0;
     virtual filesystem::path_t install_dir() const = 0;
-
-    virtual void run() const = 0;
 };
 
 struct export_interface_output_t {
@@ -61,11 +61,12 @@ public:
     graph::module_t& module() const override;
 
     filesystem::path_t source_dir() const override;
-    void run() const final;
+
+    template <class phase_t>
+    const typename phase_t::output_t& materialize() const;
 
 protected:
     module_builder_t& module_builder() const;
-    virtual void execute() const = 0;
 
 private:
     std::string_view m_name;
@@ -83,11 +84,16 @@ struct export_interface_phase_t : phase_base_t {
     filesystem::path_t build_dir() const override;
     filesystem::path_t install_dir() const override;
 
-protected:
-    void execute() const override;
-
 public:
     const library_type_t library_type;
+
+private:
+    friend class phase_base_t;
+
+    void execute() const;
+    const output_t& output() const;
+
+    mutable output_t m_output;
 };
 
 struct export_libraries_phase_t : phase_base_t {
@@ -98,11 +104,16 @@ struct export_libraries_phase_t : phase_base_t {
     filesystem::path_t build_dir() const override;
     filesystem::path_t install_dir() const override;
 
-protected:
-    void execute() const override;
-
 public:
     const library_type_t library_type;
+
+private:
+    friend class phase_base_t;
+
+    void execute() const;
+    const output_t& output() const;
+
+    mutable output_t m_output;
 };
 
 struct import_libraries_phase_t : phase_base_t {
@@ -113,8 +124,13 @@ struct import_libraries_phase_t : phase_base_t {
     filesystem::path_t build_dir() const override;
     filesystem::path_t install_dir() const override;
 
-protected:
-    void execute() const override;
+private:
+    friend class phase_base_t;
+
+    void execute() const;
+    const output_t& output() const;
+
+    mutable output_t m_output;
 };
 
 class phase_chain_t {
@@ -222,6 +238,66 @@ private:
     graph::workspace_ecosystem_t& m_workspace_ecosystem;
     graph::module_t& m_module;
 };
+
+template <class phase_t>
+const typename phase_t::output_t& phase_base_t::materialize() const {
+    const auto* phase = dynamic_cast<const phase_t*>(this);
+    if (phase == nullptr) {
+        const auto* previous_phase = predecessor();
+        if (previous_phase == nullptr) {
+            throw std::runtime_error(std::format("kernel::cpp_builder::builder::phase_base_t::materialize: requested phase is not in the current phase '{}' or its configured predecessor chain", name()));
+        }
+
+        const auto* previous_phase_base = dynamic_cast<const phase_base_t*>(previous_phase);
+        if (previous_phase_base == nullptr) {
+            throw std::runtime_error(std::format("kernel::cpp_builder::builder::phase_base_t::materialize: predecessor of phase '{}' is not a phase_base_t", name()));
+        }
+
+        return previous_phase_base->materialize<phase_t>();
+    }
+
+    const auto root_dir = dir();
+    const auto build_dir = this->build_dir();
+    const auto install_dir = this->install_dir();
+    const auto marker_path = [&](std::string_view state) {
+        return build_dir / filesystem::relative_path_t(std::format("{}.{}", name(), state));
+    };
+    const auto started_marker = marker_path("started");
+    const auto complete_marker = marker_path("complete");
+
+    if (filesystem::exists(complete_marker)) {
+        m_module_builder.publish_latest_stage(*this);
+        return phase->output();
+    }
+
+    if (filesystem::exists(started_marker)) {
+        throw std::runtime_error(std::format("kernel::cpp_builder::builder::phase_base_t::materialize: re-entry detected for phase '{}'", name()));
+    }
+
+    if (filesystem::exists(root_dir)) {
+        filesystem::remove_all(root_dir);
+    }
+
+    try {
+        if (!filesystem::exists(build_dir)) {
+            filesystem::create_directories(build_dir);
+        }
+        filesystem::touch(started_marker);
+        filesystem::create_directories(install_dir);
+
+        phase->execute();
+        const auto& result = phase->output();
+
+        m_module_builder.publish_latest_stage(*this);
+        filesystem::touch(complete_marker);
+        filesystem::remove(started_marker);
+
+        return result;
+    } catch (...) {
+        filesystem::remove_all(root_dir);
+        throw ;
+    }
+}
 
 BUILDER_EXTERN void module_builder__export_interface(const module_builder_t* module_builder, library_type_t library_type);
 BUILDER_EXTERN void module_builder__export_libraries(const module_builder_t* module_builder, library_type_t library_type);

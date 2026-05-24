@@ -113,51 +113,6 @@ filesystem::path_t phase_base_t::source_dir() const {
     return m_module_builder.source_dir();
 }
 
-void phase_base_t::run() const {
-    const auto root_dir = dir();
-    const auto build_dir = this->build_dir();
-    const auto install_dir = this->install_dir();
-    const auto marker_path = [&](std::string_view state) {
-        return build_dir / filesystem::relative_path_t(std::format("{}.{}", name(), state));
-    };
-    const auto started_marker = marker_path("started");
-    const auto complete_marker = marker_path("complete");
-
-    if (filesystem::exists(complete_marker)) {
-        m_module_builder.publish_latest_stage(*this);
-        return ;
-    }
-
-    if (filesystem::exists(started_marker)) {
-        throw std::runtime_error(std::format("kernel::cpp_builder::builder::phase_base_t::run: re-entry detected for phase '{}' of module '{}'", name(), module_display_name(module())));
-    }
-
-    if (const auto previous_phase = predecessor()) {
-        previous_phase->run();
-    }
-
-    if (filesystem::exists(root_dir)) {
-        filesystem::remove_all(root_dir);
-    }
-
-    try {
-        if (!filesystem::exists(build_dir)) {
-            filesystem::create_directories(build_dir);
-        }
-        filesystem::touch(started_marker);
-        filesystem::create_directories(install_dir);
-
-        execute();
-
-        m_module_builder.publish_latest_stage(*this);
-        filesystem::touch(complete_marker);
-        filesystem::remove(started_marker);
-    } catch (...) {
-        filesystem::remove_all(root_dir);
-        throw ;
-    }
-}
-
 module_builder_t& phase_base_t::module_builder() const {
     return m_module_builder;
 }
@@ -184,6 +139,11 @@ void export_interface_phase_t::execute() const {
     module_builder().dispatch_phase(*this);
 }
 
+const export_interface_phase_t::output_t& export_interface_phase_t::output() const {
+    m_output.interfaces = { install_dir() };
+    return m_output;
+}
+
 export_libraries_phase_t::export_libraries_phase_t(module_builder_t& module_builder, graph::module_t& module, library_type_t library_type, const iphase_t* predecessor):
     phase_base_t("export_libraries", module_builder, module, predecessor),
     library_type(library_type)
@@ -203,7 +163,18 @@ filesystem::path_t export_libraries_phase_t::install_dir() const {
 }
 
 void export_libraries_phase_t::execute() const {
+    (void) materialize<export_interface_phase_t>();
     module_builder().dispatch_phase(*this);
+}
+
+const export_libraries_phase_t::output_t& export_libraries_phase_t::output() const {
+    auto libraries = filesystem::find(install_dir(), !filesystem::find_include_predicate_t::is_dir, filesystem::find_descend_predicate_t::descend_all);
+
+    m_output.library_groups.clear();
+    if (!libraries.empty()) {
+        m_output.library_groups.emplace_back(std::move(libraries));
+    }
+    return m_output;
 }
 
 import_libraries_phase_t::import_libraries_phase_t(module_builder_t& module_builder, graph::module_t& module, const iphase_t* predecessor):
@@ -224,7 +195,13 @@ filesystem::path_t import_libraries_phase_t::install_dir() const {
 }
 
 void import_libraries_phase_t::execute() const {
+    (void) materialize<export_libraries_phase_t>();
     module_builder().dispatch_phase(*this);
+}
+
+const import_libraries_phase_t::output_t& import_libraries_phase_t::output() const {
+    m_output = {};
+    return m_output;
 }
 
 phase_chain_t::phase_chain_t(module_builder_t& module_builder, graph::module_t& module, library_type_t library_type):
@@ -249,8 +226,10 @@ std::vector<filesystem::path_t> module_builder_t::export_interfaces(library_type
 
     visit_sccs_topo(m_module.module_scc, [&](const graph::module_scc_t* scc) {
         for (auto* module : scc->modules) {
-            run_phase(*module, phase_t::EXPORT_INTERFACE, library_type);
-            exported_interfaces.push_back(interface_install_dir(*module, library_type));
+            module_builder_t module_builder(m_workspace_ecosystem, *module);
+            phase_chain_t phase_chain(module_builder, *module, library_type);
+            const auto& output = phase_chain.export_interface.materialize<export_interface_phase_t>();
+            exported_interfaces.insert(exported_interfaces.end(), output.interfaces.begin(), output.interfaces.end());
         }
     });
 
@@ -264,9 +243,12 @@ std::vector<std::vector<filesystem::path_t>> module_builder_t::export_libraries(
         std::vector<filesystem::path_t> library_group;
 
         for (auto* module : scc->modules) {
-            run_phase(*module, phase_t::EXPORT_LIBRARIES, library_type);
-            auto libraries = filesystem::find(libraries_install_dir(*module, library_type), !filesystem::find_include_predicate_t::is_dir, filesystem::find_descend_predicate_t::descend_all);
-            library_group.insert(library_group.end(), std::make_move_iterator(libraries.begin()), std::make_move_iterator(libraries.end()));
+            module_builder_t module_builder(m_workspace_ecosystem, *module);
+            phase_chain_t phase_chain(module_builder, *module, library_type);
+            const auto& output = phase_chain.export_libraries.materialize<export_libraries_phase_t>();
+            for (const auto& module_library_group : output.library_groups) {
+                library_group.insert(library_group.end(), module_library_group.begin(), module_library_group.end());
+            }
         }
 
         if (!library_group.empty()) {
@@ -478,9 +460,18 @@ void module_builder_t::run_phase(graph::module_t& module, phase_t phase, library
     phase_chain_t phase_chain(module_builder, module, library_type);
 
     switch (phase) {
-        case phase_t::EXPORT_INTERFACE: return phase_chain.export_interface.run();
-        case phase_t::EXPORT_LIBRARIES: return phase_chain.export_libraries.run();
-        case phase_t::IMPORT_LIBRARIES: return phase_chain.import_libraries.run();
+        case phase_t::EXPORT_INTERFACE: {
+            (void) phase_chain.export_interface.materialize<export_interface_phase_t>();
+            return ;
+        }
+        case phase_t::EXPORT_LIBRARIES: {
+            (void) phase_chain.export_libraries.materialize<export_libraries_phase_t>();
+            return ;
+        }
+        case phase_t::IMPORT_LIBRARIES: {
+            (void) phase_chain.import_libraries.materialize<import_libraries_phase_t>();
+            return ;
+        }
         default: throw std::runtime_error(std::format("kernel::cpp_builder::builder::module_builder_t::run_phase: unknown phase {}", static_cast<std::underlying_type_t<phase_t>>(phase)));
     }
 }
