@@ -148,16 +148,16 @@ graph::module_t& phase_base_t::module() const {
     return m_module;
 }
 
-filesystem::path_t phase_base_t::dir() const {
+filesystem::path_t phase_base_t::artifact_dir() const {
     return m_module_builder.artifact_dir(m_module) / filesystem::relative_path_t(std::string(m_name));
 }
 
 filesystem::path_t phase_base_t::build_dir() const {
-    return dir() / m_module_builder.library_type_relative_dir(library_type) / m_module_builder.build_relative_dir();
+    return artifact_dir() / m_module_builder.build_relative_dir() / m_module_builder.library_type_relative_dir(library_type);
 }
 
 filesystem::path_t phase_base_t::install_dir() const {
-    return dir() / m_module_builder.library_type_relative_dir(library_type) / m_module_builder.install_relative_dir();
+    return artifact_dir() / m_module_builder.install_relative_dir() / m_module_builder.library_type_relative_dir(library_type);
 }
 
 std::string phase_base_t::producer_symbol_name() const {
@@ -170,7 +170,7 @@ module_builder_t& phase_base_t::module_builder() const {
 
 source_phase_t::source_phase_t(module_builder_t& module_builder, graph::module_t& module, library_type_t library_type, const iphase_t* predecessor):
     phase_base_t("source", module_builder, module, library_type, predecessor),
-    m_output(module_builder.artifact_dir(module) / filesystem::relative_path_t("source") / module_builder.library_type_relative_dir(library_type) / module_builder.install_relative_dir())
+    m_output(module_builder.artifact_dir(module) / filesystem::relative_path_t("source") / module_builder.install_relative_dir() / module_builder.library_type_relative_dir(library_type))
 {
 }
 
@@ -350,7 +350,7 @@ filesystem::path_t module_builder_t::artifact_latest_dir(const graph::module_t& 
 
 void module_builder_t::publish_latest_stage(const iphase_t& phase) const {
     const auto latest_dir = artifact_latest_dir(phase.module());
-    const auto latest_stage_dir = latest_dir / artifact_dir(phase.module()).relative(phase.dir());
+    const auto latest_stage_dir = latest_dir / artifact_dir(phase.module()).relative(phase.artifact_dir());
     const auto latest_stage_tmp_dir = latest_stage_dir + "_tmp";
 
     if (filesystem::exists(latest_stage_tmp_dir)) {
@@ -361,7 +361,7 @@ void module_builder_t::publish_latest_stage(const iphase_t& phase) const {
         filesystem::create_directories(latest_dir);
     }
 
-    filesystem::create_directory_symlink(phase.dir(), latest_stage_tmp_dir);
+    filesystem::create_directory_symlink(phase.artifact_dir(), latest_stage_tmp_dir);
     filesystem::rename_replace(latest_stage_tmp_dir, latest_stage_dir);
 }
 

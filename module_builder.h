@@ -36,7 +36,7 @@ struct iphase_t {
     virtual const iphase_t* predecessor() const = 0;
     virtual graph::module_t& module() const = 0;
 
-    virtual filesystem::path_t dir() const = 0;
+    virtual filesystem::path_t artifact_dir() const = 0;
     virtual filesystem::path_t build_dir() const = 0;
     virtual filesystem::path_t install_dir() const = 0;
 };
@@ -63,7 +63,7 @@ public:
     std::string_view name() const override;
     const iphase_t* predecessor() const override;
     graph::module_t& module() const override;
-    filesystem::path_t dir() const override;
+    filesystem::path_t artifact_dir() const override;
     filesystem::path_t build_dir() const override;
     filesystem::path_t install_dir() const override;
     std::string producer_symbol_name() const;
@@ -222,7 +222,6 @@ const typename phase_t::output_t& phase_base_t::materialize() const {
         return previous_phase_base->materialize<phase_t>();
     }
 
-    const auto root_dir = dir();
     const auto build_dir = this->build_dir();
     const auto install_dir = this->install_dir();
     const auto marker_path = [&](std::string_view state) {
@@ -240,8 +239,11 @@ const typename phase_t::output_t& phase_base_t::materialize() const {
         throw std::runtime_error(std::format("kernel::cpp_builder::builder::phase_base_t::materialize: re-entry detected for phase '{}'", name()));
     }
 
-    if (filesystem::exists(root_dir)) {
-        filesystem::remove_all(root_dir);
+    if (filesystem::exists(build_dir)) {
+        filesystem::remove_all(build_dir);
+    }
+    if (filesystem::exists(install_dir)) {
+        filesystem::remove_all(install_dir);
     }
 
     try {
@@ -260,7 +262,8 @@ const typename phase_t::output_t& phase_base_t::materialize() const {
 
         return result;
     } catch (...) {
-        filesystem::remove_all(root_dir);
+        filesystem::remove_all(build_dir);
+        filesystem::remove_all(install_dir);
         throw ;
     }
 }
