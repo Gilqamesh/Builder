@@ -63,6 +63,14 @@ std::vector<filesystem::path_t> kernel_library_source_files(const filesystem::pa
     };
 }
 
+const filesystem::path_t& single_source_root(const source_output_t& source_output, std::string_view phase_name) {
+    if (source_output.source_roots.size() != 1) {
+        throw std::runtime_error(std::format("kernel::cpp_builder::builder::{}: expected exactly one source root but found {}", phase_name, source_output.source_roots.size()));
+    }
+
+    return source_output.source_roots.front();
+}
+
 void visit_sccs_topo_impl(const graph::module_scc_t* scc, const std::function<void(const graph::module_scc_t*)>& f, std::unordered_set<const graph::module_scc_t*>& visited) {
     if (!visited.insert(scc).second) {
         return ;
@@ -170,6 +178,7 @@ filesystem::path_t export_interface_phase_t::install_dir() const {
 }
 
 void export_interface_phase_t::execute() const {
+    (void) materialize<source_phase_t>();
     module_builder().dispatch_phase(*this);
 }
 
@@ -197,6 +206,7 @@ filesystem::path_t export_libraries_phase_t::install_dir() const {
 }
 
 void export_libraries_phase_t::execute() const {
+    (void) materialize<source_phase_t>();
     (void) materialize<export_interface_phase_t>();
     module_builder().dispatch_phase(*this);
 }
@@ -229,6 +239,7 @@ filesystem::path_t import_libraries_phase_t::install_dir() const {
 }
 
 void import_libraries_phase_t::execute() const {
+    (void) materialize<source_phase_t>();
     (void) materialize<export_libraries_phase_t>();
     module_builder().dispatch_phase(*this);
 }
@@ -584,7 +595,8 @@ void module_builder_t::run_module_producer_phase(const import_libraries_phase_t&
 }
 
 void module_builder_t::run_kernel_phase(const export_interface_phase_t& phase) const {
-    const auto module_source_dir = phase.source_dir();
+    const auto& source_output = phase.materialize<source_phase_t>();
+    const auto& module_source_dir = single_source_root(source_output, "module_builder_t::run_kernel_phase(export_interface)");
 
     for (const auto& interface : filesystem::find(module_source_dir, filesystem::find_include_predicate_t::h_file || filesystem::find_include_predicate_t::hpp_file, filesystem::find_descend_predicate_t::descend_all)) {
         const auto relative_interface = module_source_dir.relative(interface);
@@ -598,7 +610,9 @@ void module_builder_t::run_kernel_phase(const export_interface_phase_t& phase) c
 }
 
 void module_builder_t::run_kernel_phase(const export_libraries_phase_t& phase) const {
-    const auto module_source_dir = phase.source_dir();
+    const auto& source_output = phase.materialize<source_phase_t>();
+    const auto& interface_output = phase.materialize<export_interface_phase_t>();
+    const auto& module_source_dir = single_source_root(source_output, "module_builder_t::run_kernel_phase(export_libraries)");
     const auto library_name = [&]() {
         switch (phase.library_type) {
             case library_type_t::STATIC: return filesystem::relative_path_t("libcpp_builder.a");
@@ -614,7 +628,7 @@ void module_builder_t::run_kernel_phase(const export_libraries_phase_t& phase) c
             compiler::create_static_library(
                 phase.build_dir(),
                 module_source_dir,
-                { interface_install_dir(phase.module(), phase.library_type) },
+                interface_output.interfaces,
                 kernel_library_source_files(module_source_dir),
                 compiler_path_defines(),
                 library_path
@@ -624,7 +638,7 @@ void module_builder_t::run_kernel_phase(const export_libraries_phase_t& phase) c
             compiler::create_shared_library(
                 phase.build_dir(),
                 module_source_dir,
-                { interface_install_dir(phase.module(), phase.library_type) },
+                interface_output.interfaces,
                 kernel_library_source_files(module_source_dir),
                 compiler_path_defines(),
                 {},
@@ -636,13 +650,15 @@ void module_builder_t::run_kernel_phase(const export_libraries_phase_t& phase) c
 }
 
 void module_builder_t::run_kernel_phase(const import_libraries_phase_t& phase) const {
-    const auto module_source_dir = phase.source_dir();
+    const auto& source_output = phase.materialize<source_phase_t>();
+    const auto& interface_output = phase.materialize<export_interface_phase_t>();
+    const auto& module_source_dir = single_source_root(source_output, "module_builder_t::run_kernel_phase(import_libraries)");
     const auto library_path = libraries_install_dir(phase.module(), library_type_t::SHARED) / filesystem::relative_path_t("libcpp_builder.so");
 
     compiler::create_binary(
         phase.build_dir(),
         module_source_dir,
-        { interface_install_dir(phase.module(), library_type_t::SHARED) },
+        interface_output.interfaces,
         { module_source_dir / filesystem::relative_path_t("cli.cpp") },
         compiler_path_defines(),
         { { library_path } },
