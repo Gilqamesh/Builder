@@ -38,6 +38,7 @@ struct iphase_t {
     virtual filesystem::path_t build_dir() const = 0;
     virtual filesystem::path_t install_dir() const = 0;
 
+    virtual bool updates_artifact_alias() const = 0;
     virtual void run() const = 0;
 };
 
@@ -61,6 +62,7 @@ public:
     graph::module_t& module() const override;
 
     filesystem::path_t source_dir() const override;
+    bool updates_artifact_alias() const override;
 
 protected:
     module_builder_t& module_builder() const;
@@ -94,6 +96,7 @@ struct export_libraries_phase_t : phase_base_t {
     filesystem::path_t build_dir() const override;
     filesystem::path_t install_dir() const override;
 
+    bool updates_artifact_alias() const override;
     void run() const override;
 
     const library_type_t library_type;
@@ -165,7 +168,17 @@ public:
     filesystem::path_t import_install_dir() const;
 
 private:
+    friend struct export_interface_phase_t;
+    friend struct export_libraries_phase_t;
+    friend struct import_libraries_phase_t;
+
     void run_phase(graph::module_t& module, phase_t phase, library_type_t library_type) const;
+    void run_phase(const iphase_t& phase) const;
+
+    void dispatch_phase(const export_interface_phase_t& phase) const;
+    void dispatch_phase(const export_libraries_phase_t& phase) const;
+    void dispatch_phase(const import_libraries_phase_t& phase) const;
+
     void run_module_producer_phase(graph::module_t& module, phase_t phase, library_type_t library_type) const;
 
     void run_kernel_phase(graph::module_t& module, phase_t phase, library_type_t library_type) const;
@@ -195,10 +208,6 @@ private:
     filesystem::path_t import_dir(const graph::module_t& module) const;
     filesystem::path_t import_build_dir(const graph::module_t& module) const;
     filesystem::path_t import_install_dir(const graph::module_t& module) const;
-
-    filesystem::path_t phase_dir(const graph::module_t& module, phase_t phase) const;
-    filesystem::path_t phase_build_dir(const graph::module_t& module, phase_t phase, library_type_t library_type) const;
-    filesystem::path_t phase_install_dir(const graph::module_t& module, phase_t phase, library_type_t library_type) const;
 
     filesystem::path_t build_builder(graph::module_t& module) const;
     filesystem::relative_path_t build_relative_dir() const;
