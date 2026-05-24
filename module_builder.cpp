@@ -113,6 +113,51 @@ filesystem::path_t phase_base_t::source_dir() const {
     return m_module_builder.source_dir();
 }
 
+void phase_base_t::run() const {
+    const auto root_dir = dir();
+    const auto build_dir = this->build_dir();
+    const auto install_dir = this->install_dir();
+    const auto marker_path = [&](std::string_view state) {
+        return build_dir / filesystem::relative_path_t(std::format("{}.{}", name(), state));
+    };
+    const auto started_marker = marker_path("started");
+    const auto complete_marker = marker_path("complete");
+
+    if (filesystem::exists(complete_marker)) {
+        m_module_builder.publish_latest_stage(*this);
+        return ;
+    }
+
+    if (filesystem::exists(started_marker)) {
+        throw std::runtime_error(std::format("kernel::cpp_builder::builder::phase_base_t::run: re-entry detected for phase '{}' of module '{}'", name(), module_display_name(module())));
+    }
+
+    if (const auto previous_phase = predecessor()) {
+        previous_phase->run();
+    }
+
+    if (filesystem::exists(root_dir)) {
+        filesystem::remove_all(root_dir);
+    }
+
+    try {
+        if (!filesystem::exists(build_dir)) {
+            filesystem::create_directories(build_dir);
+        }
+        filesystem::touch(started_marker);
+        filesystem::create_directories(install_dir);
+
+        execute();
+
+        m_module_builder.publish_latest_stage(*this);
+        filesystem::touch(complete_marker);
+        filesystem::remove(started_marker);
+    } catch (...) {
+        filesystem::remove_all(root_dir);
+        throw ;
+    }
+}
+
 module_builder_t& phase_base_t::module_builder() const {
     return m_module_builder;
 }
@@ -135,7 +180,7 @@ filesystem::path_t export_interface_phase_t::install_dir() const {
     return module_builder().interface_install_dir(library_type);
 }
 
-void export_interface_phase_t::run() const {
+void export_interface_phase_t::execute() const {
     module_builder().dispatch_phase(*this);
 }
 
@@ -157,7 +202,7 @@ filesystem::path_t export_libraries_phase_t::install_dir() const {
     return module_builder().libraries_install_dir(library_type);
 }
 
-void export_libraries_phase_t::run() const {
+void export_libraries_phase_t::execute() const {
     module_builder().dispatch_phase(*this);
 }
 
@@ -178,7 +223,7 @@ filesystem::path_t import_libraries_phase_t::install_dir() const {
     return module_builder().import_install_dir();
 }
 
-void import_libraries_phase_t::run() const {
+void import_libraries_phase_t::execute() const {
     module_builder().dispatch_phase(*this);
 }
 
@@ -433,55 +478,10 @@ void module_builder_t::run_phase(graph::module_t& module, phase_t phase, library
     phase_chain_t phase_chain(module_builder, module, library_type);
 
     switch (phase) {
-        case phase_t::EXPORT_INTERFACE: return module_builder.run_phase(phase_chain.export_interface);
-        case phase_t::EXPORT_LIBRARIES: return module_builder.run_phase(phase_chain.export_libraries);
-        case phase_t::IMPORT_LIBRARIES: return module_builder.run_phase(phase_chain.import_libraries);
+        case phase_t::EXPORT_INTERFACE: return phase_chain.export_interface.run();
+        case phase_t::EXPORT_LIBRARIES: return phase_chain.export_libraries.run();
+        case phase_t::IMPORT_LIBRARIES: return phase_chain.import_libraries.run();
         default: throw std::runtime_error(std::format("kernel::cpp_builder::builder::module_builder_t::run_phase: unknown phase {}", static_cast<std::underlying_type_t<phase_t>>(phase)));
-    }
-}
-
-void module_builder_t::run_phase(const iphase_t& phase) const {
-    const auto root_dir = phase.dir();
-    const auto build_dir = phase.build_dir();
-    const auto install_dir = phase.install_dir();
-    const auto marker_path = [&](std::string_view state) {
-        return build_dir / filesystem::relative_path_t(std::format("{}.{}", phase.name(), state));
-    };
-    const auto started_marker = marker_path("started");
-    const auto complete_marker = marker_path("complete");
-
-    if (filesystem::exists(complete_marker)) {
-        publish_latest_stage(phase);
-        return ;
-    }
-
-    if (filesystem::exists(started_marker)) {
-        throw std::runtime_error(std::format("kernel::cpp_builder::builder::module_builder_t::run_phase: re-entry detected for phase '{}' of module '{}'", phase.name(), module_display_name(phase.module())));
-    }
-
-    if (const auto predecessor = phase.predecessor()) {
-        run_phase(*predecessor);
-    }
-
-    if (filesystem::exists(root_dir)) {
-        filesystem::remove_all(root_dir);
-    }
-
-    try {
-        if (!filesystem::exists(build_dir)) {
-            filesystem::create_directories(build_dir);
-        }
-        filesystem::touch(started_marker);
-        filesystem::create_directories(install_dir);
-
-        phase.run();
-
-        publish_latest_stage(phase);
-        filesystem::touch(complete_marker);
-        filesystem::remove(started_marker);
-    } catch (...) {
-        filesystem::remove_all(root_dir);
-        throw ;
     }
 }
 

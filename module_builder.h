@@ -61,9 +61,11 @@ public:
     graph::module_t& module() const override;
 
     filesystem::path_t source_dir() const override;
+    void run() const final;
 
 protected:
     module_builder_t& module_builder() const;
+    virtual void execute() const = 0;
 
 private:
     std::string_view m_name;
@@ -81,8 +83,10 @@ struct export_interface_phase_t : phase_base_t {
     filesystem::path_t build_dir() const override;
     filesystem::path_t install_dir() const override;
 
-    void run() const override;
+protected:
+    void execute() const override;
 
+public:
     const library_type_t library_type;
 };
 
@@ -94,8 +98,10 @@ struct export_libraries_phase_t : phase_base_t {
     filesystem::path_t build_dir() const override;
     filesystem::path_t install_dir() const override;
 
-    void run() const override;
+protected:
+    void execute() const override;
 
+public:
     const library_type_t library_type;
 };
 
@@ -107,7 +113,8 @@ struct import_libraries_phase_t : phase_base_t {
     filesystem::path_t build_dir() const override;
     filesystem::path_t install_dir() const override;
 
-    void run() const override;
+protected:
+    void execute() const override;
 };
 
 class phase_chain_t {
@@ -165,12 +172,12 @@ public:
     filesystem::path_t import_install_dir() const;
 
 private:
+    friend class phase_base_t;
     friend struct export_interface_phase_t;
     friend struct export_libraries_phase_t;
     friend struct import_libraries_phase_t;
 
     void run_phase(graph::module_t& module, phase_t phase, library_type_t library_type) const;
-    void run_phase(const iphase_t& phase) const;
 
     void dispatch_phase(const export_interface_phase_t& phase) const;
     void dispatch_phase(const export_libraries_phase_t& phase) const;
