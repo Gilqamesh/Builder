@@ -38,7 +38,6 @@ struct iphase_t {
     virtual filesystem::path_t build_dir() const = 0;
     virtual filesystem::path_t install_dir() const = 0;
 
-    virtual bool updates_artifact_alias() const = 0;
     virtual void run() const = 0;
 };
 
@@ -62,7 +61,6 @@ public:
     graph::module_t& module() const override;
 
     filesystem::path_t source_dir() const override;
-    bool updates_artifact_alias() const override;
 
 protected:
     module_builder_t& module_builder() const;
@@ -96,7 +94,6 @@ struct export_libraries_phase_t : phase_base_t {
     filesystem::path_t build_dir() const override;
     filesystem::path_t install_dir() const override;
 
-    bool updates_artifact_alias() const override;
     void run() const override;
 
     const library_type_t library_type;
@@ -147,7 +144,7 @@ public:
 
     filesystem::path_t source_dir() const;
     filesystem::path_t artifact_dir() const;
-    filesystem::path_t artifact_alias_dir() const;
+    filesystem::path_t artifact_latest_dir() const;
 
     filesystem::path_t builder_source_path() const;
     filesystem::path_t builder_dir() const;
@@ -181,15 +178,15 @@ private:
 
     void run_module_producer_phase(graph::module_t& module, phase_t phase, library_type_t library_type) const;
 
-    void run_kernel_phase(graph::module_t& module, phase_t phase, library_type_t library_type) const;
-    void run_kernel_export_interface(graph::module_t& module, library_type_t library_type) const;
-    void run_kernel_export_libraries(graph::module_t& module, library_type_t library_type) const;
-    void run_kernel_import_libraries(graph::module_t& module) const;
+    void run_kernel_phase(const export_interface_phase_t& phase) const;
+    void run_kernel_phase(const export_libraries_phase_t& phase) const;
+    void run_kernel_phase(const import_libraries_phase_t& phase) const;
 
     filesystem::path_t source_dir(const graph::module_t& module) const;
     filesystem::path_t artifact_base_dir(const graph::module_t& module) const;
     filesystem::path_t artifact_dir(const graph::module_t& module) const;
-    filesystem::path_t artifact_alias_dir(const graph::module_t& module) const;
+    filesystem::path_t artifact_latest_dir(const graph::module_t& module) const;
+    void publish_latest_stage(const iphase_t& phase) const;
 
     filesystem::path_t builder_source_path(const graph::module_t& module) const;
     filesystem::path_t builder_dir(const graph::module_t& module) const;

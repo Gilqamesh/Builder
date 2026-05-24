@@ -113,10 +113,6 @@ filesystem::path_t phase_base_t::source_dir() const {
     return m_module_builder.source_dir();
 }
 
-bool phase_base_t::updates_artifact_alias() const {
-    return false;
-}
-
 module_builder_t& phase_base_t::module_builder() const {
     return m_module_builder;
 }
@@ -159,10 +155,6 @@ filesystem::path_t export_libraries_phase_t::build_dir() const {
 
 filesystem::path_t export_libraries_phase_t::install_dir() const {
     return module_builder().libraries_install_dir(library_type);
-}
-
-bool export_libraries_phase_t::updates_artifact_alias() const {
-    return true;
 }
 
 void export_libraries_phase_t::run() const {
@@ -286,8 +278,8 @@ filesystem::path_t module_builder_t::artifact_dir() const {
     return artifact_dir(m_module);
 }
 
-filesystem::path_t module_builder_t::artifact_alias_dir() const {
-    return artifact_alias_dir(m_module);
+filesystem::path_t module_builder_t::artifact_latest_dir() const {
+    return artifact_latest_dir(m_module);
 }
 
 filesystem::path_t module_builder_t::builder_source_path() const {
@@ -359,8 +351,25 @@ filesystem::path_t module_builder_t::artifact_dir(const graph::module_t& module)
     return artifact_base_dir(module) / filesystem::relative_path_t(versioned_dir_name);
 }
 
-filesystem::path_t module_builder_t::artifact_alias_dir(const graph::module_t& module) const {
-    return artifact_base_dir(module) / filesystem::relative_path_t("alias");
+filesystem::path_t module_builder_t::artifact_latest_dir(const graph::module_t& module) const {
+    return artifact_base_dir(module) / filesystem::relative_path_t("latest");
+}
+
+void module_builder_t::publish_latest_stage(const iphase_t& phase) const {
+    const auto latest_dir = artifact_latest_dir(phase.module());
+    const auto latest_stage_dir = latest_dir / artifact_dir(phase.module()).relative(phase.dir());
+    const auto latest_stage_tmp_dir = latest_stage_dir + "_tmp";
+
+    if (filesystem::exists(latest_stage_tmp_dir)) {
+        filesystem::remove_all(latest_stage_tmp_dir);
+    }
+
+    if (!filesystem::exists(latest_dir)) {
+        filesystem::create_directories(latest_dir);
+    }
+
+    filesystem::create_directory_symlink(phase.dir(), latest_stage_tmp_dir);
+    filesystem::rename_replace(latest_stage_tmp_dir, latest_stage_dir);
 }
 
 filesystem::path_t module_builder_t::builder_source_path(const graph::module_t& module) const {
@@ -442,6 +451,7 @@ void module_builder_t::run_phase(const iphase_t& phase) const {
     const auto complete_marker = marker_path("complete");
 
     if (filesystem::exists(complete_marker)) {
+        publish_latest_stage(phase);
         return ;
     }
 
@@ -466,16 +476,7 @@ void module_builder_t::run_phase(const iphase_t& phase) const {
 
         phase.run();
 
-        if (phase.updates_artifact_alias()) {
-            const auto alias_dir = artifact_alias_dir(phase.module());
-            const auto alias_tmp_dir = alias_dir + "_tmp";
-            if (filesystem::exists(alias_tmp_dir)) {
-                filesystem::remove_all(alias_tmp_dir);
-            }
-            filesystem::create_directory_symlink(artifact_dir(phase.module()), alias_tmp_dir);
-            filesystem::rename_replace(alias_tmp_dir, alias_dir);
-        }
-
+        publish_latest_stage(phase);
         filesystem::touch(complete_marker);
         filesystem::remove(started_marker);
     } catch (...) {
@@ -486,7 +487,7 @@ void module_builder_t::run_phase(const iphase_t& phase) const {
 
 void module_builder_t::dispatch_phase(const export_interface_phase_t& phase) const {
     if (&phase.module() == m_workspace_ecosystem.this_module) {
-        run_kernel_export_interface(phase.module(), phase.library_type);
+        run_kernel_phase(phase);
     } else {
         run_module_producer_phase(phase.module(), phase_t::EXPORT_INTERFACE, phase.library_type);
     }
@@ -494,7 +495,7 @@ void module_builder_t::dispatch_phase(const export_interface_phase_t& phase) con
 
 void module_builder_t::dispatch_phase(const export_libraries_phase_t& phase) const {
     if (&phase.module() == m_workspace_ecosystem.this_module) {
-        run_kernel_export_libraries(phase.module(), phase.library_type);
+        run_kernel_phase(phase);
     } else {
         run_module_producer_phase(phase.module(), phase_t::EXPORT_LIBRARIES, phase.library_type);
     }
@@ -502,7 +503,7 @@ void module_builder_t::dispatch_phase(const export_libraries_phase_t& phase) con
 
 void module_builder_t::dispatch_phase(const import_libraries_phase_t& phase) const {
     if (&phase.module() == m_workspace_ecosystem.this_module) {
-        run_kernel_import_libraries(phase.module());
+        run_kernel_phase(phase);
     } else {
         run_module_producer_phase(phase.module(), phase_t::IMPORT_LIBRARIES, library_type_t::SHARED);
     }
@@ -529,25 +530,12 @@ void module_builder_t::run_module_producer_phase(graph::module_t& module, phase_
     }
 }
 
-void module_builder_t::run_kernel_phase(graph::module_t& module, phase_t phase, library_type_t library_type) const {
-    switch (phase) {
-        case phase_t::EXPORT_INTERFACE: {
-            run_kernel_export_interface(module, library_type);
-        } break ;
-        case phase_t::EXPORT_LIBRARIES: {
-            run_kernel_export_libraries(module, library_type);
-        } break ;
-        case phase_t::IMPORT_LIBRARIES: {
-            run_kernel_import_libraries(module);
-        } break ;
-        default: throw std::runtime_error(std::format("kernel::cpp_builder::builder::module_builder_t::run_kernel_phase: unknown phase {}", static_cast<std::underlying_type_t<phase_t>>(phase)));
-    }
-}
+void module_builder_t::run_kernel_phase(const export_interface_phase_t& phase) const {
+    const auto module_source_dir = phase.source_dir();
 
-void module_builder_t::run_kernel_export_interface(graph::module_t& module, library_type_t library_type) const {
-    for (const auto& interface : filesystem::find(source_dir(module), filesystem::find_include_predicate_t::h_file || filesystem::find_include_predicate_t::hpp_file, filesystem::find_descend_predicate_t::descend_all)) {
-        const auto relative_interface = source_dir(module).relative(interface);
-        const auto target_path = interface_install_dir(module, library_type) / relative_interface;
+    for (const auto& interface : filesystem::find(module_source_dir, filesystem::find_include_predicate_t::h_file || filesystem::find_include_predicate_t::hpp_file, filesystem::find_descend_predicate_t::descend_all)) {
+        const auto relative_interface = module_source_dir.relative(interface);
+        const auto target_path = phase.install_dir() / relative_interface;
         const auto target_path_parent = target_path.parent();
         if (!filesystem::exists(target_path_parent)) {
             filesystem::create_directories(target_path_parent);
@@ -556,24 +544,24 @@ void module_builder_t::run_kernel_export_interface(graph::module_t& module, libr
     }
 }
 
-void module_builder_t::run_kernel_export_libraries(graph::module_t& module, library_type_t library_type) const {
-    const auto module_source_dir = source_dir(module);
+void module_builder_t::run_kernel_phase(const export_libraries_phase_t& phase) const {
+    const auto module_source_dir = phase.source_dir();
     const auto library_name = [&]() {
-        switch (library_type) {
+        switch (phase.library_type) {
             case library_type_t::STATIC: return filesystem::relative_path_t("libcpp_builder.a");
             case library_type_t::SHARED: return filesystem::relative_path_t("libcpp_builder.so");
-            default: throw std::runtime_error(std::format("kernel::cpp_builder::builder::module_builder_t::run_kernel_export_libraries: unknown library_type {}", static_cast<std::underlying_type_t<library_type_t>>(library_type)));
+            default: throw std::runtime_error(std::format("kernel::cpp_builder::builder::module_builder_t::run_kernel_phase: unknown library_type {}", static_cast<std::underlying_type_t<library_type_t>>(phase.library_type)));
         }
     }();
 
-    const auto library_path = libraries_install_dir(module, library_type) / library_name;
+    const auto library_path = phase.install_dir() / library_name;
 
-    switch (library_type) {
+    switch (phase.library_type) {
         case library_type_t::STATIC: {
             compiler::create_static_library(
-                libraries_build_dir(module, library_type),
+                phase.build_dir(),
                 module_source_dir,
-                { interface_install_dir(module, library_type) },
+                { interface_install_dir(phase.module(), phase.library_type) },
                 kernel_library_source_files(module_source_dir),
                 compiler_path_defines(),
                 library_path
@@ -581,32 +569,32 @@ void module_builder_t::run_kernel_export_libraries(graph::module_t& module, libr
         } break ;
         case library_type_t::SHARED: {
             compiler::create_shared_library(
-                libraries_build_dir(module, library_type),
+                phase.build_dir(),
                 module_source_dir,
-                { interface_install_dir(module, library_type) },
+                { interface_install_dir(phase.module(), phase.library_type) },
                 kernel_library_source_files(module_source_dir),
                 compiler_path_defines(),
                 {},
                 library_path
             );
         } break ;
-        default: throw std::runtime_error(std::format("kernel::cpp_builder::builder::module_builder_t::run_kernel_export_libraries: unknown library_type {}", static_cast<std::underlying_type_t<library_type_t>>(library_type)));
+        default: throw std::runtime_error(std::format("kernel::cpp_builder::builder::module_builder_t::run_kernel_phase: unknown library_type {}", static_cast<std::underlying_type_t<library_type_t>>(phase.library_type)));
     }
 }
 
-void module_builder_t::run_kernel_import_libraries(graph::module_t& module) const {
-    const auto module_source_dir = source_dir(module);
-    const auto library_path = libraries_install_dir(module, library_type_t::SHARED) / filesystem::relative_path_t("libcpp_builder.so");
+void module_builder_t::run_kernel_phase(const import_libraries_phase_t& phase) const {
+    const auto module_source_dir = phase.source_dir();
+    const auto library_path = libraries_install_dir(phase.module(), library_type_t::SHARED) / filesystem::relative_path_t("libcpp_builder.so");
 
     compiler::create_binary(
-        import_build_dir(module),
+        phase.build_dir(),
         module_source_dir,
-        { interface_install_dir(module, library_type_t::SHARED) },
+        { interface_install_dir(phase.module(), library_type_t::SHARED) },
         { module_source_dir / filesystem::relative_path_t("cli.cpp") },
         compiler_path_defines(),
         { { library_path } },
         true,
-        import_install_dir(module) / filesystem::relative_path_t("cli")
+        phase.install_dir() / filesystem::relative_path_t("cli")
     );
 }
 
