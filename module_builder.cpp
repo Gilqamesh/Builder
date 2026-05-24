@@ -480,7 +480,7 @@ void module_builder_t::dispatch_phase(const export_interface_phase_t& phase) con
     if (&phase.module() == m_workspace_ecosystem.this_module) {
         run_kernel_phase(phase);
     } else {
-        run_module_producer_phase(phase.module(), phase_t::EXPORT_INTERFACE, phase.library_type);
+        run_module_producer_phase(phase);
     }
 }
 
@@ -488,7 +488,7 @@ void module_builder_t::dispatch_phase(const export_libraries_phase_t& phase) con
     if (&phase.module() == m_workspace_ecosystem.this_module) {
         run_kernel_phase(phase);
     } else {
-        run_module_producer_phase(phase.module(), phase_t::EXPORT_LIBRARIES, phase.library_type);
+        run_module_producer_phase(phase);
     }
 }
 
@@ -496,29 +496,32 @@ void module_builder_t::dispatch_phase(const import_libraries_phase_t& phase) con
     if (&phase.module() == m_workspace_ecosystem.this_module) {
         run_kernel_phase(phase);
     } else {
-        run_module_producer_phase(phase.module(), phase_t::IMPORT_LIBRARIES, library_type_t::SHARED);
+        run_module_producer_phase(phase);
     }
 }
 
-void module_builder_t::run_module_producer_phase(graph::module_t& module, phase_t phase, library_type_t library_type) const {
-    const auto builder_plugin = build_builder(module);
+void module_builder_t::run_module_producer_phase(const export_interface_phase_t& phase) const {
+    const auto builder_plugin = build_builder(phase.module());
     shared_library::loader_t loader(builder_plugin, shared_library::lifetime_t::PROCESS, shared_library::symbol_resolution_t::LAZY, shared_library::symbol_visibility_t::LOCAL);
-    module_builder_t module_builder(m_workspace_ecosystem, module);
+    using fn_t = void (*)(const export_interface_phase_t*);
+    fn_t fn = loader.resolve(phase_symbol_name(phase_t::EXPORT_INTERFACE));
+    fn(&phase);
+}
 
-    switch (phase) {
-        case phase_t::EXPORT_INTERFACE:
-        case phase_t::EXPORT_LIBRARIES: {
-            using fn_t = void (*)(const module_builder_t*, library_type_t);
-            fn_t fn = loader.resolve(phase_symbol_name(phase));
-            fn(&module_builder, library_type);
-        } break ;
-        case phase_t::IMPORT_LIBRARIES: {
-            using fn_t = void (*)(const module_builder_t*);
-            fn_t fn = loader.resolve(phase_symbol_name(phase));
-            fn(&module_builder);
-        } break ;
-        default: throw std::runtime_error(std::format("kernel::cpp_builder::builder::module_builder_t::run_module_producer_phase: unknown phase {}", static_cast<std::underlying_type_t<phase_t>>(phase)));
-    }
+void module_builder_t::run_module_producer_phase(const export_libraries_phase_t& phase) const {
+    const auto builder_plugin = build_builder(phase.module());
+    shared_library::loader_t loader(builder_plugin, shared_library::lifetime_t::PROCESS, shared_library::symbol_resolution_t::LAZY, shared_library::symbol_visibility_t::LOCAL);
+    using fn_t = void (*)(const export_libraries_phase_t*);
+    fn_t fn = loader.resolve(phase_symbol_name(phase_t::EXPORT_LIBRARIES));
+    fn(&phase);
+}
+
+void module_builder_t::run_module_producer_phase(const import_libraries_phase_t& phase) const {
+    const auto builder_plugin = build_builder(phase.module());
+    shared_library::loader_t loader(builder_plugin, shared_library::lifetime_t::PROCESS, shared_library::symbol_resolution_t::LAZY, shared_library::symbol_visibility_t::LOCAL);
+    using fn_t = void (*)(const import_libraries_phase_t*);
+    fn_t fn = loader.resolve(phase_symbol_name(phase_t::IMPORT_LIBRARIES));
+    fn(&phase);
 }
 
 void module_builder_t::run_kernel_phase(const export_interface_phase_t& phase) const {

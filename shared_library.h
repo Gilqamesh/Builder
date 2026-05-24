@@ -34,7 +34,7 @@ enum class symbol_visibility_t {
  * - m_symbol != nullptr
  *
  * Example:
- *   using fn_t = void (*)(const module_builder_t*, library_type_t);
+ *   using fn_t = void (*)(const export_interface_phase_t*);
  *   fn_t fn = lib.resolve("module_builder__export_interface");
  */
 class symbol_t {

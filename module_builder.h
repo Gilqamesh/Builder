@@ -199,7 +199,9 @@ private:
     void dispatch_phase(const export_libraries_phase_t& phase) const;
     void dispatch_phase(const import_libraries_phase_t& phase) const;
 
-    void run_module_producer_phase(graph::module_t& module, phase_t phase, library_type_t library_type) const;
+    void run_module_producer_phase(const export_interface_phase_t& phase) const;
+    void run_module_producer_phase(const export_libraries_phase_t& phase) const;
+    void run_module_producer_phase(const import_libraries_phase_t& phase) const;
 
     void run_kernel_phase(const export_interface_phase_t& phase) const;
     void run_kernel_phase(const export_libraries_phase_t& phase) const;
@@ -299,9 +301,9 @@ const typename phase_t::output_t& phase_base_t::materialize() const {
     }
 }
 
-BUILDER_EXTERN void module_builder__export_interface(const module_builder_t* module_builder, library_type_t library_type);
-BUILDER_EXTERN void module_builder__export_libraries(const module_builder_t* module_builder, library_type_t library_type);
-BUILDER_EXTERN void module_builder__import_libraries(const module_builder_t* module_builder);
+BUILDER_EXTERN void module_builder__export_interface(const export_interface_phase_t* phase);
+BUILDER_EXTERN void module_builder__export_libraries(const export_libraries_phase_t* phase);
+BUILDER_EXTERN void module_builder__import_libraries(const import_libraries_phase_t* phase);
 
 } // namespace builder
 
