@@ -135,7 +135,15 @@ filesystem::path_t source_phase_t::install_dir() const {
 }
 
 void source_phase_t::execute() const {
-    throw std::runtime_error("kernel::cpp_builder::builder::source_phase_t::execute: source phase materialization is not implemented yet");
+    const auto module_source_dir = source_dir();
+    for (const auto& source_path : filesystem::find(module_source_dir, !filesystem::find_include_predicate_t::is_dir, filesystem::find_descend_predicate_t::descend_all)) {
+        const auto target_path = install_dir() / module_source_dir.relative(source_path);
+        const auto target_path_parent = target_path.parent();
+        if (!filesystem::exists(target_path_parent)) {
+            filesystem::create_directories(target_path_parent);
+        }
+        filesystem::copy(source_path, target_path);
+    }
 }
 
 const source_phase_t::output_t& source_phase_t::output() const {
