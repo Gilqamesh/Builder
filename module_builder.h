@@ -42,6 +42,8 @@ struct iphase_t {
 };
 
 struct source_output_t {
+    explicit source_output_t(const filesystem::path_t& source_root);
+
     filesystem::path_t source_root;
 };
 
@@ -54,6 +56,10 @@ struct export_libraries_output_t {
 };
 
 struct import_libraries_output_t {
+    explicit import_libraries_output_t(const filesystem::path_t& import_root);
+
+    filesystem::path_t import_root;
+    filesystem::path_t cli;
 };
 
 class phase_base_t : public iphase_t {

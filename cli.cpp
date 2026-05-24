@@ -134,11 +134,10 @@ int main(int argc, char** argv) {
         const auto cli = filesystem::canonical(filesystem::path_t("/proc/self/exe"));
         const auto cli_last_write_time = filesystem::last_write_time(cli);
         const auto cli_version = graph::derive_version(cli_last_write_time);
+        const auto& kernel_import_output = kernel_phase_chain.import_libraries.materialize<builder::import_libraries_phase_t>();
 
-        if (!filesystem::exists(kernel_phase_chain.import_libraries.install_dir()) || cli_version.value < workspace_ecosystem->this_module->version.value) {
-            (void) kernel_phase_chain.import_libraries.materialize<builder::import_libraries_phase_t>();
-
-            const auto new_cli = kernel_phase_chain.import_libraries.install_dir() / filesystem::relative_path_t("cli");
+        if (cli_version.value < workspace_ecosystem->this_module->version.value) {
+            const auto& new_cli = kernel_import_output.cli;
             if (!filesystem::exists(new_cli)) {
                 throw std::runtime_error(std::format("kernel::cpp_builder::cli: expected updated '{}' to exist but it does not", new_cli));
             }
@@ -153,11 +152,11 @@ int main(int argc, char** argv) {
 
         render_graph_svg(*workspace_ecosystem, workspace_relative_path.string() + module_relative_path.string() + ".svg");
 
-        (void) target_phase_chain.import_libraries.materialize<builder::import_libraries_phase_t>();
+        const auto& target_import_output = target_phase_chain.import_libraries.materialize<builder::import_libraries_phase_t>();
 
         if (4 < argc) {
             const auto binary = filesystem::relative_path_t(argv[4]);
-            const auto binary_dir = target_phase_chain.import_libraries.install_dir();
+            const auto& binary_dir = target_import_output.import_root;
             const auto binary_location = binary_dir / binary;
             if (!filesystem::exists(binary_location)) {
                 throw std::runtime_error(std::format("kernel::cpp_builder::cli: binary '{}' at location '{}' does not exist", binary, binary_location));

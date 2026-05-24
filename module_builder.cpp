@@ -111,6 +111,17 @@ void validate_phase_module(const module_builder_t& module_builder, const graph::
 
 } // namespace
 
+source_output_t::source_output_t(const filesystem::path_t& configured_source_root):
+    source_root(configured_source_root)
+{
+}
+
+import_libraries_output_t::import_libraries_output_t(const filesystem::path_t& configured_import_root):
+    import_root(configured_import_root),
+    cli(configured_import_root / filesystem::relative_path_t("cli"))
+{
+}
+
 template <class phase_t>
 void module_builder_t::dispatch_phase(const phase_t& phase) const {
     if (&phase.module() == m_workspace_ecosystem.this_module) {
@@ -170,7 +181,7 @@ module_builder_t& phase_base_t::module_builder() const {
 
 source_phase_t::source_phase_t(module_builder_t& module_builder, graph::module_t& module, library_type_t library_type, const iphase_t* predecessor):
     phase_base_t("source", module_builder, module, library_type, predecessor),
-    m_output(module_builder.artifact_dir(module) / filesystem::relative_path_t("source") / module_builder.install_relative_dir() / module_builder.library_type_relative_dir(library_type))
+    m_output(install_dir())
 {
 }
 
@@ -228,7 +239,8 @@ const export_libraries_phase_t::output_t& export_libraries_phase_t::output() con
 }
 
 import_libraries_phase_t::import_libraries_phase_t(module_builder_t& module_builder, graph::module_t& module, library_type_t library_type, const iphase_t* predecessor):
-    phase_base_t("import_libraries", module_builder, module, library_type, predecessor)
+    phase_base_t("import_libraries", module_builder, module, library_type, predecessor),
+    m_output(install_dir())
 {
 }
 
@@ -239,7 +251,11 @@ void import_libraries_phase_t::execute() const {
 }
 
 const import_libraries_phase_t::output_t& import_libraries_phase_t::output() const {
-    m_output = {};
+    m_output.import_root = install_dir();
+    m_output.cli = m_output.import_root / filesystem::relative_path_t("cli");
+    if (!filesystem::exists(m_output.cli)) {
+        throw std::runtime_error(std::format("kernel::cpp_builder::builder::import_libraries_phase_t::output: expected module cli '{}' to exist", m_output.cli));
+    }
     return m_output;
 }
 
