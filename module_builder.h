@@ -6,6 +6,7 @@
 # include <cstdint>
 # include <format>
 # include <stdexcept>
+# include <string>
 # include <string_view>
 # include <vector>
 
@@ -57,11 +58,17 @@ struct import_libraries_output_t {
 
 class phase_base_t : public iphase_t {
 public:
-    phase_base_t(std::string_view name, module_builder_t& module_builder, graph::module_t& module, const iphase_t* predecessor);
+    phase_base_t(std::string_view name, module_builder_t& module_builder, graph::module_t& module, library_type_t library_type, const iphase_t* predecessor);
 
     std::string_view name() const override;
     const iphase_t* predecessor() const override;
     graph::module_t& module() const override;
+    filesystem::path_t dir() const override;
+    filesystem::path_t build_dir() const override;
+    filesystem::path_t install_dir() const override;
+    std::string producer_symbol_name() const;
+
+    const library_type_t library_type;
 
     template <class phase_t>
     const typename phase_t::output_t& materialize() const;
@@ -79,11 +86,7 @@ private:
 struct source_phase_t : phase_base_t {
     using output_t = source_output_t;
 
-    source_phase_t(module_builder_t& module_builder, graph::module_t& module, const iphase_t* predecessor = nullptr);
-
-    filesystem::path_t dir() const override;
-    filesystem::path_t build_dir() const override;
-    filesystem::path_t install_dir() const override;
+    source_phase_t(module_builder_t& module_builder, graph::module_t& module, library_type_t library_type, const iphase_t* predecessor = nullptr);
 
 private:
     friend class phase_base_t;
@@ -99,13 +102,6 @@ struct export_interface_phase_t : phase_base_t {
 
     export_interface_phase_t(module_builder_t& module_builder, graph::module_t& module, library_type_t library_type, const iphase_t* predecessor = nullptr);
 
-    filesystem::path_t dir() const override;
-    filesystem::path_t build_dir() const override;
-    filesystem::path_t install_dir() const override;
-
-public:
-    const library_type_t library_type;
-
 private:
     friend class phase_base_t;
 
@@ -119,12 +115,6 @@ struct export_libraries_phase_t : phase_base_t {
     using output_t = export_libraries_output_t;
 
     export_libraries_phase_t(module_builder_t& module_builder, graph::module_t& module, library_type_t library_type, const iphase_t* predecessor = nullptr);
-    filesystem::path_t dir() const override;
-    filesystem::path_t build_dir() const override;
-    filesystem::path_t install_dir() const override;
-
-public:
-    const library_type_t library_type;
 
 private:
     friend class phase_base_t;
@@ -138,10 +128,7 @@ private:
 struct import_libraries_phase_t : phase_base_t {
     using output_t = import_libraries_output_t;
 
-    import_libraries_phase_t(module_builder_t& module_builder, graph::module_t& module, const iphase_t* predecessor = nullptr);
-    filesystem::path_t dir() const override;
-    filesystem::path_t build_dir() const override;
-    filesystem::path_t install_dir() const override;
+    import_libraries_phase_t(module_builder_t& module_builder, graph::module_t& module, library_type_t library_type, const iphase_t* predecessor = nullptr);
 
 private:
     friend class phase_base_t;
@@ -168,51 +155,9 @@ void install_import(const import_libraries_phase_t& phase, const filesystem::pat
 
 class module_builder_t {
 public:
-    enum class phase_t : uint8_t {
-        EXPORT_INTERFACE,
-        EXPORT_LIBRARIES,
-        IMPORT_LIBRARIES
-    };
-
-public:
     module_builder_t(graph::workspace_ecosystem_t& workspace_ecosystem, graph::module_t& module);
 
     graph::module_t& module() const;
-
-    std::vector<filesystem::path_t> export_interfaces(library_type_t library_type) const;
-    std::vector<std::vector<filesystem::path_t>> export_libraries(library_type_t library_type) const;
-    void import_libraries() const;
-
-    void install_interface(const filesystem::path_t& interface, const filesystem::relative_path_t& relative_install_path, library_type_t library_type) const;
-    void install_library(const filesystem::path_t& library, const filesystem::relative_path_t& relative_install_path, library_type_t library_type) const;
-    void install_import(const filesystem::path_t& artifact, const filesystem::relative_path_t& relative_install_path) const;
-
-    filesystem::path_t workspace_ecosystem_dir() const;
-
-    filesystem::path_t artifact_dir() const;
-    filesystem::path_t artifact_latest_dir() const;
-
-    filesystem::path_t source_phase_dir() const;
-    filesystem::path_t source_phase_build_dir() const;
-    filesystem::path_t source_phase_install_dir() const;
-
-    filesystem::path_t builder_source_path() const;
-    filesystem::path_t builder_dir() const;
-    filesystem::path_t builder_build_dir() const;
-    filesystem::path_t builder_install_dir() const;
-    filesystem::path_t builder_install_path() const;
-
-    filesystem::path_t interface_dir() const;
-    filesystem::path_t interface_build_dir(library_type_t library_type) const;
-    filesystem::path_t interface_install_dir(library_type_t library_type) const;
-
-    filesystem::path_t libraries_dir() const;
-    filesystem::path_t libraries_build_dir(library_type_t library_type) const;
-    filesystem::path_t libraries_install_dir(library_type_t library_type) const;
-
-    filesystem::path_t import_dir() const;
-    filesystem::path_t import_build_dir() const;
-    filesystem::path_t import_install_dir() const;
 
 private:
     friend class phase_base_t;
@@ -221,47 +166,34 @@ private:
     friend struct export_libraries_phase_t;
     friend struct import_libraries_phase_t;
 
-    void run_phase(graph::module_t& module, phase_t phase, library_type_t library_type) const;
+    std::vector<filesystem::path_t> export_interfaces(library_type_t library_type) const;
+    std::vector<std::vector<filesystem::path_t>> export_libraries(library_type_t library_type) const;
 
-    void dispatch_phase(const export_interface_phase_t& phase) const;
-    void dispatch_phase(const export_libraries_phase_t& phase) const;
-    void dispatch_phase(const import_libraries_phase_t& phase) const;
-
-    void run_module_producer_phase(const export_interface_phase_t& phase) const;
-    void run_module_producer_phase(const export_libraries_phase_t& phase) const;
-    void run_module_producer_phase(const import_libraries_phase_t& phase) const;
+    template <class phase_t>
+    void dispatch_phase(const phase_t& phase) const;
 
     void run_kernel_phase(const export_interface_phase_t& phase) const;
     void run_kernel_phase(const export_libraries_phase_t& phase) const;
     void run_kernel_phase(const import_libraries_phase_t& phase) const;
 
     filesystem::path_t source_dir(const graph::module_t& module) const;
+
+    filesystem::path_t builder_source_path() const;
+    filesystem::path_t builder_dir() const;
+    filesystem::path_t builder_build_dir() const;
+    filesystem::path_t builder_install_dir() const;
+    filesystem::path_t builder_install_path() const;
+
     filesystem::path_t artifact_base_dir(const graph::module_t& module) const;
     filesystem::path_t artifact_dir(const graph::module_t& module) const;
     filesystem::path_t artifact_latest_dir(const graph::module_t& module) const;
     void publish_latest_stage(const iphase_t& phase) const;
-
-    filesystem::path_t source_phase_dir(const graph::module_t& module) const;
-    filesystem::path_t source_phase_build_dir(const graph::module_t& module) const;
-    filesystem::path_t source_phase_install_dir(const graph::module_t& module) const;
 
     filesystem::path_t builder_source_path(const graph::module_t& module) const;
     filesystem::path_t builder_dir(const graph::module_t& module) const;
     filesystem::path_t builder_build_dir(const graph::module_t& module) const;
     filesystem::path_t builder_install_dir(const graph::module_t& module) const;
     filesystem::path_t builder_install_path(const graph::module_t& module) const;
-
-    filesystem::path_t interface_dir(const graph::module_t& module) const;
-    filesystem::path_t interface_build_dir(const graph::module_t& module, library_type_t library_type) const;
-    filesystem::path_t interface_install_dir(const graph::module_t& module, library_type_t library_type) const;
-
-    filesystem::path_t libraries_dir(const graph::module_t& module) const;
-    filesystem::path_t libraries_build_dir(const graph::module_t& module, library_type_t library_type) const;
-    filesystem::path_t libraries_install_dir(const graph::module_t& module, library_type_t library_type) const;
-
-    filesystem::path_t import_dir(const graph::module_t& module) const;
-    filesystem::path_t import_build_dir(const graph::module_t& module) const;
-    filesystem::path_t import_install_dir(const graph::module_t& module) const;
 
     filesystem::path_t build_builder(graph::module_t& module) const;
     filesystem::relative_path_t build_relative_dir() const;

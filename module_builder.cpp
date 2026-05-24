@@ -45,15 +45,6 @@ std::string module_display_name(const graph::module_t& module) {
     return std::format("{}/{}", module.workspace->workspace_relative_path_to_workspace_ecosystem.string(), module.module_relative_path_to_workspace.string());
 }
 
-const char* phase_symbol_name(module_builder_t::phase_t phase) {
-    switch (phase) {
-        case module_builder_t::phase_t::EXPORT_INTERFACE: return "module_builder__export_interface";
-        case module_builder_t::phase_t::EXPORT_LIBRARIES: return "module_builder__export_libraries";
-        case module_builder_t::phase_t::IMPORT_LIBRARIES: return "module_builder__import_libraries";
-        default: throw std::runtime_error(std::format("kernel::cpp_builder::builder::phase_symbol_name: unknown phase {}", static_cast<std::underlying_type_t<module_builder_t::phase_t>>(phase)));
-    }
-}
-
 std::string quote_define_value(std::string_view value) {
     std::string result = "\"";
     for (const char c : value) {
@@ -120,7 +111,23 @@ void validate_phase_module(const module_builder_t& module_builder, const graph::
 
 } // namespace
 
-phase_base_t::phase_base_t(std::string_view name, module_builder_t& module_builder, graph::module_t& module, const iphase_t* predecessor):
+template <class phase_t>
+void module_builder_t::dispatch_phase(const phase_t& phase) const {
+    if (&phase.module() == m_workspace_ecosystem.this_module) {
+        run_kernel_phase(phase);
+        return ;
+    }
+
+    const auto builder_plugin = build_builder(phase.module());
+    shared_library::loader_t loader(builder_plugin, shared_library::lifetime_t::PROCESS, shared_library::symbol_resolution_t::LAZY, shared_library::symbol_visibility_t::LOCAL);
+    using fn_t = void (*)(const phase_t*);
+    const auto producer_symbol_name = phase.producer_symbol_name();
+    fn_t fn = loader.resolve(producer_symbol_name.c_str());
+    fn(&phase);
+}
+
+phase_base_t::phase_base_t(std::string_view name, module_builder_t& module_builder, graph::module_t& module, library_type_t configured_library_type, const iphase_t* predecessor):
+    library_type(configured_library_type),
     m_name(name),
     m_module_builder(module_builder),
     m_module(module),
@@ -141,26 +148,30 @@ graph::module_t& phase_base_t::module() const {
     return m_module;
 }
 
+filesystem::path_t phase_base_t::dir() const {
+    return m_module_builder.artifact_dir(m_module) / filesystem::relative_path_t(std::string(m_name));
+}
+
+filesystem::path_t phase_base_t::build_dir() const {
+    return dir() / m_module_builder.library_type_relative_dir(library_type) / m_module_builder.build_relative_dir();
+}
+
+filesystem::path_t phase_base_t::install_dir() const {
+    return dir() / m_module_builder.library_type_relative_dir(library_type) / m_module_builder.install_relative_dir();
+}
+
+std::string phase_base_t::producer_symbol_name() const {
+    return std::format("module_builder__{}", m_name);
+}
+
 module_builder_t& phase_base_t::module_builder() const {
     return m_module_builder;
 }
 
-source_phase_t::source_phase_t(module_builder_t& module_builder, graph::module_t& module, const iphase_t* predecessor):
-    phase_base_t("source", module_builder, module, predecessor),
-    m_output(module_builder.source_phase_install_dir())
+source_phase_t::source_phase_t(module_builder_t& module_builder, graph::module_t& module, library_type_t library_type, const iphase_t* predecessor):
+    phase_base_t("source", module_builder, module, library_type, predecessor),
+    m_output(module_builder.artifact_dir(module) / filesystem::relative_path_t("source") / module_builder.library_type_relative_dir(library_type) / module_builder.install_relative_dir())
 {
-}
-
-filesystem::path_t source_phase_t::dir() const {
-    return module_builder().source_phase_dir();
-}
-
-filesystem::path_t source_phase_t::build_dir() const {
-    return module_builder().source_phase_build_dir();
-}
-
-filesystem::path_t source_phase_t::install_dir() const {
-    return module_builder().source_phase_install_dir();
 }
 
 void source_phase_t::execute() const {
@@ -181,21 +192,8 @@ const source_phase_t::output_t& source_phase_t::output() const {
 }
 
 export_interface_phase_t::export_interface_phase_t(module_builder_t& module_builder, graph::module_t& module, library_type_t library_type, const iphase_t* predecessor):
-    phase_base_t("export_interface", module_builder, module, predecessor),
-    library_type(library_type)
+    phase_base_t("export_interface", module_builder, module, library_type, predecessor)
 {
-}
-
-filesystem::path_t export_interface_phase_t::dir() const {
-    return module_builder().interface_dir();
-}
-
-filesystem::path_t export_interface_phase_t::build_dir() const {
-    return module_builder().interface_build_dir(library_type);
-}
-
-filesystem::path_t export_interface_phase_t::install_dir() const {
-    return module_builder().interface_install_dir(library_type);
 }
 
 void export_interface_phase_t::execute() const {
@@ -209,21 +207,8 @@ const export_interface_phase_t::output_t& export_interface_phase_t::output() con
 }
 
 export_libraries_phase_t::export_libraries_phase_t(module_builder_t& module_builder, graph::module_t& module, library_type_t library_type, const iphase_t* predecessor):
-    phase_base_t("export_libraries", module_builder, module, predecessor),
-    library_type(library_type)
+    phase_base_t("export_libraries", module_builder, module, library_type, predecessor)
 {
-}
-
-filesystem::path_t export_libraries_phase_t::dir() const {
-    return module_builder().libraries_dir();
-}
-
-filesystem::path_t export_libraries_phase_t::build_dir() const {
-    return module_builder().libraries_build_dir(library_type);
-}
-
-filesystem::path_t export_libraries_phase_t::install_dir() const {
-    return module_builder().libraries_install_dir(library_type);
 }
 
 void export_libraries_phase_t::execute() const {
@@ -242,21 +227,9 @@ const export_libraries_phase_t::output_t& export_libraries_phase_t::output() con
     return m_output;
 }
 
-import_libraries_phase_t::import_libraries_phase_t(module_builder_t& module_builder, graph::module_t& module, const iphase_t* predecessor):
-    phase_base_t("import_libraries", module_builder, module, predecessor)
+import_libraries_phase_t::import_libraries_phase_t(module_builder_t& module_builder, graph::module_t& module, library_type_t library_type, const iphase_t* predecessor):
+    phase_base_t("import_libraries", module_builder, module, library_type, predecessor)
 {
-}
-
-filesystem::path_t import_libraries_phase_t::dir() const {
-    return module_builder().import_dir();
-}
-
-filesystem::path_t import_libraries_phase_t::build_dir() const {
-    return module_builder().import_build_dir();
-}
-
-filesystem::path_t import_libraries_phase_t::install_dir() const {
-    return module_builder().import_install_dir();
 }
 
 void import_libraries_phase_t::execute() const {
@@ -271,10 +244,10 @@ const import_libraries_phase_t::output_t& import_libraries_phase_t::output() con
 }
 
 phase_chain_t::phase_chain_t(module_builder_t& module_builder, graph::module_t& module, library_type_t library_type):
-    source(module_builder, module),
+    source(module_builder, module, library_type),
     export_interface(module_builder, module, library_type, &source),
     export_libraries(module_builder, module, library_type, &export_interface),
-    import_libraries(module_builder, module, &export_libraries)
+    import_libraries(module_builder, module, library_type, &export_libraries)
 {
 }
 
@@ -338,46 +311,6 @@ std::vector<std::vector<filesystem::path_t>> module_builder_t::export_libraries(
     return library_groups;
 }
 
-void module_builder_t::import_libraries() const {
-    run_phase(m_module, phase_t::IMPORT_LIBRARIES, library_type_t::SHARED);
-}
-
-void module_builder_t::install_interface(const filesystem::path_t& interface, const filesystem::relative_path_t& relative_install_path, library_type_t library_type) const {
-    install_artifact(interface_install_dir(library_type), interface, relative_install_path);
-}
-
-void module_builder_t::install_library(const filesystem::path_t& library, const filesystem::relative_path_t& relative_install_path, library_type_t library_type) const {
-    install_artifact(libraries_install_dir(library_type), library, relative_install_path);
-}
-
-void module_builder_t::install_import(const filesystem::path_t& artifact, const filesystem::relative_path_t& relative_install_path) const {
-    install_artifact(import_install_dir(), artifact, relative_install_path);
-}
-
-filesystem::path_t module_builder_t::workspace_ecosystem_dir() const {
-    return m_workspace_ecosystem.absolute_path_to_workspace_directory;
-}
-
-filesystem::path_t module_builder_t::artifact_dir() const {
-    return artifact_dir(m_module);
-}
-
-filesystem::path_t module_builder_t::artifact_latest_dir() const {
-    return artifact_latest_dir(m_module);
-}
-
-filesystem::path_t module_builder_t::source_phase_dir() const {
-    return source_phase_dir(m_module);
-}
-
-filesystem::path_t module_builder_t::source_phase_build_dir() const {
-    return source_phase_build_dir(m_module);
-}
-
-filesystem::path_t module_builder_t::source_phase_install_dir() const {
-    return source_phase_install_dir(m_module);
-}
-
 filesystem::path_t module_builder_t::builder_source_path() const {
     return builder_source_path(m_module);
 }
@@ -396,42 +329,6 @@ filesystem::path_t module_builder_t::builder_install_dir() const {
 
 filesystem::path_t module_builder_t::builder_install_path() const {
     return builder_install_path(m_module);
-}
-
-filesystem::path_t module_builder_t::interface_dir() const {
-    return interface_dir(m_module);
-}
-
-filesystem::path_t module_builder_t::interface_build_dir(library_type_t library_type) const {
-    return interface_build_dir(m_module, library_type);
-}
-
-filesystem::path_t module_builder_t::interface_install_dir(library_type_t library_type) const {
-    return interface_install_dir(m_module, library_type);
-}
-
-filesystem::path_t module_builder_t::libraries_dir() const {
-    return libraries_dir(m_module);
-}
-
-filesystem::path_t module_builder_t::libraries_build_dir(library_type_t library_type) const {
-    return libraries_build_dir(m_module, library_type);
-}
-
-filesystem::path_t module_builder_t::libraries_install_dir(library_type_t library_type) const {
-    return libraries_install_dir(m_module, library_type);
-}
-
-filesystem::path_t module_builder_t::import_dir() const {
-    return import_dir(m_module);
-}
-
-filesystem::path_t module_builder_t::import_build_dir() const {
-    return import_build_dir(m_module);
-}
-
-filesystem::path_t module_builder_t::import_install_dir() const {
-    return import_install_dir(m_module);
 }
 
 filesystem::path_t module_builder_t::source_dir(const graph::module_t& module) const {
@@ -468,18 +365,6 @@ void module_builder_t::publish_latest_stage(const iphase_t& phase) const {
     filesystem::rename_replace(latest_stage_tmp_dir, latest_stage_dir);
 }
 
-filesystem::path_t module_builder_t::source_phase_dir(const graph::module_t& module) const {
-    return artifact_dir(module) / filesystem::relative_path_t("source");
-}
-
-filesystem::path_t module_builder_t::source_phase_build_dir(const graph::module_t& module) const {
-    return source_phase_dir(module) / build_relative_dir();
-}
-
-filesystem::path_t module_builder_t::source_phase_install_dir(const graph::module_t& module) const {
-    return source_phase_dir(module) / install_relative_dir();
-}
-
 filesystem::path_t module_builder_t::builder_source_path(const graph::module_t& module) const {
     return module.builder_path();
 }
@@ -498,111 +383,6 @@ filesystem::path_t module_builder_t::builder_install_dir(const graph::module_t& 
 
 filesystem::path_t module_builder_t::builder_install_path(const graph::module_t& module) const {
     return builder_install_dir(module) / filesystem::relative_path_t("builder.so");
-}
-
-filesystem::path_t module_builder_t::interface_dir(const graph::module_t& module) const {
-    return artifact_dir(module) / filesystem::relative_path_t("interface");
-}
-
-filesystem::path_t module_builder_t::interface_build_dir(const graph::module_t& module, library_type_t library_type) const {
-    return interface_dir(module) / library_type_relative_dir(library_type) / build_relative_dir();
-}
-
-filesystem::path_t module_builder_t::interface_install_dir(const graph::module_t& module, library_type_t library_type) const {
-    return interface_dir(module) / library_type_relative_dir(library_type) / install_relative_dir();
-}
-
-filesystem::path_t module_builder_t::libraries_dir(const graph::module_t& module) const {
-    return artifact_dir(module) / filesystem::relative_path_t("libraries");
-}
-
-filesystem::path_t module_builder_t::libraries_build_dir(const graph::module_t& module, library_type_t library_type) const {
-    return libraries_dir(module) / library_type_relative_dir(library_type) / build_relative_dir();
-}
-
-filesystem::path_t module_builder_t::libraries_install_dir(const graph::module_t& module, library_type_t library_type) const {
-    return libraries_dir(module) / library_type_relative_dir(library_type) / install_relative_dir();
-}
-
-filesystem::path_t module_builder_t::import_dir(const graph::module_t& module) const {
-    return artifact_dir(module) / filesystem::relative_path_t("import");
-}
-
-filesystem::path_t module_builder_t::import_build_dir(const graph::module_t& module) const {
-    return import_dir(module) / build_relative_dir();
-}
-
-filesystem::path_t module_builder_t::import_install_dir(const graph::module_t& module) const {
-    return import_dir(module) / install_relative_dir();
-}
-
-void module_builder_t::run_phase(graph::module_t& module, phase_t phase, library_type_t library_type) const {
-    module_builder_t module_builder(m_workspace_ecosystem, module);
-    phase_chain_t phase_chain(module_builder, module, library_type);
-
-    switch (phase) {
-        case phase_t::EXPORT_INTERFACE: {
-            (void) phase_chain.export_interface.materialize<export_interface_phase_t>();
-            return ;
-        }
-        case phase_t::EXPORT_LIBRARIES: {
-            (void) phase_chain.export_libraries.materialize<export_libraries_phase_t>();
-            return ;
-        }
-        case phase_t::IMPORT_LIBRARIES: {
-            (void) phase_chain.import_libraries.materialize<import_libraries_phase_t>();
-            return ;
-        }
-        default: throw std::runtime_error(std::format("kernel::cpp_builder::builder::module_builder_t::run_phase: unknown phase {}", static_cast<std::underlying_type_t<phase_t>>(phase)));
-    }
-}
-
-void module_builder_t::dispatch_phase(const export_interface_phase_t& phase) const {
-    if (&phase.module() == m_workspace_ecosystem.this_module) {
-        run_kernel_phase(phase);
-    } else {
-        run_module_producer_phase(phase);
-    }
-}
-
-void module_builder_t::dispatch_phase(const export_libraries_phase_t& phase) const {
-    if (&phase.module() == m_workspace_ecosystem.this_module) {
-        run_kernel_phase(phase);
-    } else {
-        run_module_producer_phase(phase);
-    }
-}
-
-void module_builder_t::dispatch_phase(const import_libraries_phase_t& phase) const {
-    if (&phase.module() == m_workspace_ecosystem.this_module) {
-        run_kernel_phase(phase);
-    } else {
-        run_module_producer_phase(phase);
-    }
-}
-
-void module_builder_t::run_module_producer_phase(const export_interface_phase_t& phase) const {
-    const auto builder_plugin = build_builder(phase.module());
-    shared_library::loader_t loader(builder_plugin, shared_library::lifetime_t::PROCESS, shared_library::symbol_resolution_t::LAZY, shared_library::symbol_visibility_t::LOCAL);
-    using fn_t = void (*)(const export_interface_phase_t*);
-    fn_t fn = loader.resolve(phase_symbol_name(phase_t::EXPORT_INTERFACE));
-    fn(&phase);
-}
-
-void module_builder_t::run_module_producer_phase(const export_libraries_phase_t& phase) const {
-    const auto builder_plugin = build_builder(phase.module());
-    shared_library::loader_t loader(builder_plugin, shared_library::lifetime_t::PROCESS, shared_library::symbol_resolution_t::LAZY, shared_library::symbol_visibility_t::LOCAL);
-    using fn_t = void (*)(const export_libraries_phase_t*);
-    fn_t fn = loader.resolve(phase_symbol_name(phase_t::EXPORT_LIBRARIES));
-    fn(&phase);
-}
-
-void module_builder_t::run_module_producer_phase(const import_libraries_phase_t& phase) const {
-    const auto builder_plugin = build_builder(phase.module());
-    shared_library::loader_t loader(builder_plugin, shared_library::lifetime_t::PROCESS, shared_library::symbol_resolution_t::LAZY, shared_library::symbol_visibility_t::LOCAL);
-    using fn_t = void (*)(const import_libraries_phase_t*);
-    fn_t fn = loader.resolve(phase_symbol_name(phase_t::IMPORT_LIBRARIES));
-    fn(&phase);
 }
 
 void module_builder_t::run_kernel_phase(const export_interface_phase_t& phase) const {

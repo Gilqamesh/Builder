@@ -128,15 +128,17 @@ int main(int argc, char** argv) {
 
         builder::module_builder_t kernel_module_builder(*workspace_ecosystem, *workspace_ecosystem->this_module);
         builder::module_builder_t target_module_builder(*workspace_ecosystem, *target_module);
+        builder::phase_chain_t kernel_phase_chain(kernel_module_builder, *workspace_ecosystem->this_module, builder::library_type_t::SHARED);
+        builder::phase_chain_t target_phase_chain(target_module_builder, *target_module, builder::library_type_t::SHARED);
 
         const auto cli = filesystem::canonical(filesystem::path_t("/proc/self/exe"));
         const auto cli_last_write_time = filesystem::last_write_time(cli);
         const auto cli_version = graph::derive_version(cli_last_write_time);
 
-        if (!filesystem::exists(kernel_module_builder.import_install_dir()) || cli_version.value < workspace_ecosystem->this_module->version.value) {
-            kernel_module_builder.import_libraries();
+        if (!filesystem::exists(kernel_phase_chain.import_libraries.install_dir()) || cli_version.value < workspace_ecosystem->this_module->version.value) {
+            (void) kernel_phase_chain.import_libraries.materialize<builder::import_libraries_phase_t>();
 
-            const auto new_cli = kernel_module_builder.import_install_dir() / filesystem::relative_path_t("cli");
+            const auto new_cli = kernel_phase_chain.import_libraries.install_dir() / filesystem::relative_path_t("cli");
             if (!filesystem::exists(new_cli)) {
                 throw std::runtime_error(std::format("kernel::cpp_builder::cli: expected updated '{}' to exist but it does not", new_cli));
             }
@@ -151,11 +153,11 @@ int main(int argc, char** argv) {
 
         render_graph_svg(*workspace_ecosystem, workspace_relative_path.string() + module_relative_path.string() + ".svg");
 
-        target_module_builder.import_libraries();
+        (void) target_phase_chain.import_libraries.materialize<builder::import_libraries_phase_t>();
 
         if (4 < argc) {
             const auto binary = filesystem::relative_path_t(argv[4]);
-            const auto binary_dir = target_module_builder.import_install_dir();
+            const auto binary_dir = target_phase_chain.import_libraries.install_dir();
             const auto binary_location = binary_dir / binary;
             if (!filesystem::exists(binary_location)) {
                 throw std::runtime_error(std::format("kernel::cpp_builder::cli: binary '{}' at location '{}' does not exist", binary, binary_location));
