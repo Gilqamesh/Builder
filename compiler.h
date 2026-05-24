@@ -1,18 +1,34 @@
-#ifndef COMPILER_CPP_COMPILER_H
-# define COMPILER_CPP_COMPILER_H
+#ifndef KERNEL_CPP_BUILDER_COMPILER_H
+# define KERNEL_CPP_BUILDER_COMPILER_H
 
-# include "../filesystem/filesystem.h"
+# include "filesystem.h"
 
 # include <vector>
 
-namespace cpp_compiler {
+namespace kernel {
 
-const constexpr char* CPP_COMPILER_PATH = "/usr/bin/clang++";
-const constexpr char* C_COMPILER_PATH = "/usr/bin/clang";
-const constexpr char* AR_PATH = "/usr/bin/ar";
+namespace cpp_builder {
+
+namespace compiler {
+
+#ifndef KERNEL_CPP_BUILDER_CPP_COMPILER_PATH
+# define KERNEL_CPP_BUILDER_CPP_COMPILER_PATH "/usr/bin/clang++"
+#endif
+
+#ifndef KERNEL_CPP_BUILDER_C_COMPILER_PATH
+# define KERNEL_CPP_BUILDER_C_COMPILER_PATH "/usr/bin/clang"
+#endif
+
+#ifndef KERNEL_CPP_BUILDER_AR_PATH
+# define KERNEL_CPP_BUILDER_AR_PATH "/usr/bin/ar"
+#endif
+
+inline constexpr const char* CPP_COMPILER_PATH = KERNEL_CPP_BUILDER_CPP_COMPILER_PATH;
+inline constexpr const char* C_COMPILER_PATH = KERNEL_CPP_BUILDER_C_COMPILER_PATH;
+inline constexpr const char* AR_PATH = KERNEL_CPP_BUILDER_AR_PATH;
 
 filesystem::path_t create_static_library(
-    const filesystem::path_t& cache_dir,
+    const filesystem::path_t& build_dir,
     const filesystem::path_t& source_dir,
     const std::vector<filesystem::path_t>& include_dirs,
     const std::vector<filesystem::path_t>& source_files,
@@ -21,7 +37,7 @@ filesystem::path_t create_static_library(
 );
 
 filesystem::path_t create_shared_library(
-    const filesystem::path_t& cache_dir,
+    const filesystem::path_t& build_dir,
     const filesystem::path_t& source_dir,
     const std::vector<filesystem::path_t>& include_dirs,
     const std::vector<filesystem::path_t>& source_files,
@@ -31,7 +47,7 @@ filesystem::path_t create_shared_library(
 );
 
 filesystem::path_t create_binary(
-    const filesystem::path_t& cache_dir,
+    const filesystem::path_t& build_dir,
     const filesystem::path_t& source_dir,
     const std::vector<filesystem::path_t>& include_dirs,
     const std::vector<filesystem::path_t>& source_files,
@@ -41,6 +57,10 @@ filesystem::path_t create_binary(
     const filesystem::path_t& binary
 );
 
-} // namespace cpp_compiler
+} // namespace compiler
 
-#endif // COMPILER_CPP_COMPILER_H
+} // namespace cpp_builder
+
+} // namespace kernel
+
+#endif // KERNEL_CPP_BUILDER_COMPILER_H

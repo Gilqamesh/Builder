@@ -1,0 +1,14 @@
+{
+    "module_dependencies": [
+        {
+            "workspace_relative_path": "kernel",
+            "module_relative_path": "cpp_builder"
+        }
+    ],
+    "builder_dependencies": [
+        {
+            "workspace_relative_path": "kernel",
+            "module_relative_path": "cpp_builder"
+        }
+    ]
+}

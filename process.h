@@ -1,10 +1,14 @@
-#ifndef PROCESS_PROCESS_H
-# define PROCESS_PROCESS_H
+#ifndef KERNEL_CPP_BUILDER_PROCESS_H
+# define KERNEL_CPP_BUILDER_PROCESS_H
 
-# include "../filesystem/filesystem.h"
+# include "filesystem.h"
 
 # include <variant>
 # include <vector>
+
+namespace kernel {
+
+namespace cpp_builder {
 
 namespace process {
 
@@ -23,4 +27,8 @@ int create_and_wait(const std::vector<process_arg_t>& args);
 
 } // namespace process
 
-#endif // PROCESS_PROCESS_H
+} // namespace cpp_builder
+
+} // namespace kernel
+
+#endif // KERNEL_CPP_BUILDER_PROCESS_H

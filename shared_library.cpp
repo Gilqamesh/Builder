@@ -2,6 +2,10 @@
 
 #include <dlfcn.h>
 
+namespace kernel {
+
+namespace cpp_builder {
+
 namespace shared_library {
 
 symbol_t::symbol_t(void* symbol):
@@ -100,3 +104,7 @@ void loader_t::close_handle() {
 }
 
 } // namespace shared_library
+
+} // namespace cpp_builder
+
+} // namespace kernel

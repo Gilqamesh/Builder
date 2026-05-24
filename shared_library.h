@@ -1,7 +1,11 @@
-#ifndef SHARED_LIBRARY_SHARED_LIBRARY_H
-# define SHARED_LIBRARY_SHARED_LIBRARY_H
+#ifndef KERNEL_CPP_BUILDER_SHARED_LIBRARY_H
+# define KERNEL_CPP_BUILDER_SHARED_LIBRARY_H
 
-# include "../filesystem/filesystem.h"
+# include "filesystem.h"
+
+namespace kernel {
+
+namespace cpp_builder {
 
 namespace shared_library {
 // TODO: move symbol out of here; introduce better abstractions for loader / binary semantics
@@ -31,7 +35,7 @@ enum class symbol_visibility_t {
  *
  * Example:
  *   using fn_t = void (*)(const module_builder_t*, library_type_t);
- *   fn_t fn = lib.resolve("builder__export_interface");
+ *   fn_t fn = lib.resolve("module_builder__export_interface");
  */
 class symbol_t {
 public:
@@ -103,4 +107,8 @@ symbol_t::operator F() const {
 
 } // namespace shared_library
 
-#endif // SHARED_LIBRARY_SHARED_LIBRARY_H
+} // namespace cpp_builder
+
+} // namespace kernel
+
+#endif // KERNEL_CPP_BUILDER_SHARED_LIBRARY_H

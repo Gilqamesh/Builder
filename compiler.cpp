@@ -1,5 +1,5 @@
-#include "cpp_compiler.h"
-#include "../process/process.h"
+#include "compiler.h"
+#include "process.h"
 
 #include <format>
 #include <ranges>
@@ -7,10 +7,14 @@
 #include <sstream>
 #include <fstream>
 
-namespace cpp_compiler {
+namespace kernel {
+
+namespace cpp_builder {
+
+namespace compiler {
 
 static std::vector<filesystem::path_t> create_object_files(
-    const filesystem::path_t& cache_dir,
+    const filesystem::path_t& build_dir,
     const filesystem::path_t& source_dir,
     const std::vector<filesystem::path_t>& include_dirs,
     const std::vector<filesystem::path_t>& source_files,
@@ -20,8 +24,8 @@ static std::vector<filesystem::path_t> create_object_files(
     std::vector<filesystem::path_t> result;
     result.reserve(source_files.size());
 
-    if (!filesystem::exists(cache_dir)) {
-        filesystem::create_directories(cache_dir);
+    if (!filesystem::exists(build_dir)) {
+        filesystem::create_directories(build_dir);
     }
 
     std::vector<process::process_arg_t> process_prefix_args;
@@ -45,7 +49,7 @@ static std::vector<filesystem::path_t> create_object_files(
         }
 
         const auto rel = source_dir.relative(source_file);
-        auto object_file = cache_dir / rel;
+        auto object_file = build_dir / rel;
         object_file.extension(".o");
 
         const auto object_file_dir = object_file.parent();
@@ -74,7 +78,7 @@ static std::vector<filesystem::path_t> create_object_files(
 }
 
 filesystem::path_t create_static_library(
-    const filesystem::path_t& cache_dir,
+    const filesystem::path_t& build_dir,
     const filesystem::path_t& source_dir,
     const std::vector<filesystem::path_t>& include_dirs,
     const std::vector<filesystem::path_t>& source_files,
@@ -82,7 +86,7 @@ filesystem::path_t create_static_library(
     const filesystem::path_t& static_library
 ) {
     const auto object_files = create_object_files(
-        cache_dir,
+        build_dir,
         source_dir,
         include_dirs,
         source_files,
@@ -116,7 +120,7 @@ filesystem::path_t create_static_library(
 }
 
 filesystem::path_t create_shared_library(
-    const filesystem::path_t& cache_dir,
+    const filesystem::path_t& build_dir,
     const filesystem::path_t& source_dir,
     const std::vector<filesystem::path_t>& include_dirs,
     const std::vector<filesystem::path_t>& source_files,
@@ -125,7 +129,7 @@ filesystem::path_t create_shared_library(
     const filesystem::path_t& shared_library
 ) {
     const auto object_files = create_object_files(
-        cache_dir,
+        build_dir,
         source_dir,
         include_dirs,
         source_files,
@@ -169,7 +173,7 @@ filesystem::path_t create_shared_library(
 }
 
 filesystem::path_t create_binary(
-    const filesystem::path_t& cache_dir,
+    const filesystem::path_t& build_dir,
     const filesystem::path_t& source_dir,
     const std::vector<filesystem::path_t>& include_dirs,
     const std::vector<filesystem::path_t>& source_files,
@@ -178,7 +182,7 @@ filesystem::path_t create_binary(
     bool TEMP_assume_all_link_inputs_are_shared,
     const filesystem::path_t& binary
 ) {
-    const auto object_files = create_object_files(cache_dir, source_dir, include_dirs, source_files, define_key_values, TEMP_assume_all_link_inputs_are_shared);
+    const auto object_files = create_object_files(build_dir, source_dir, include_dirs, source_files, define_key_values, TEMP_assume_all_link_inputs_are_shared);
 
     const auto binary_dir = binary.parent();
     if (!filesystem::exists(binary_dir)) {
@@ -229,4 +233,8 @@ filesystem::path_t create_binary(
     return binary;
 }
 
-} // namespace cpp_compiler
+} // namespace compiler
+
+} // namespace cpp_builder
+
+} // namespace kernel
