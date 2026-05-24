@@ -195,6 +195,13 @@ void import_libraries_phase_t::run() const {
     throw_phase_run_not_wired(*this);
 }
 
+phase_chain_t::phase_chain_t(module_builder_t& module_builder, graph::module_t& module, library_type_t library_type):
+    export_interface(module_builder, module, library_type),
+    export_libraries(module_builder, module, library_type, &export_interface),
+    import_libraries(module_builder, module, &export_libraries)
+{
+}
+
 module_builder_t::module_builder_t(graph::workspace_ecosystem_t& workspace_ecosystem, graph::module_t& module):
     m_workspace_ecosystem(workspace_ecosystem),
     m_module(module)

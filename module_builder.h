@@ -110,6 +110,15 @@ struct import_libraries_phase_t : phase_base_t {
     void run() const override;
 };
 
+class phase_chain_t {
+public:
+    phase_chain_t(module_builder_t& module_builder, graph::module_t& module, library_type_t library_type);
+
+    export_interface_phase_t export_interface;
+    export_libraries_phase_t export_libraries;
+    import_libraries_phase_t import_libraries;
+};
+
 class module_builder_t {
 public:
     enum class phase_t : uint8_t {
