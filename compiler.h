@@ -1,8 +1,10 @@
 #ifndef KERNEL_CPP_BUILDER_COMPILER_H
 # define KERNEL_CPP_BUILDER_COMPILER_H
 
-# include "filesystem.h"
+# include "module_builder.h"
 
+# include <string>
+# include <utility>
 # include <vector>
 
 namespace kernel {
@@ -28,33 +30,27 @@ inline constexpr const char* C_COMPILER_PATH = KERNEL_CPP_BUILDER_C_COMPILER_PAT
 inline constexpr const char* AR_PATH = KERNEL_CPP_BUILDER_AR_PATH;
 
 filesystem::path_t create_static_library(
-    const filesystem::path_t& build_dir,
-    const filesystem::path_t& source_dir,
-    const std::vector<filesystem::path_t>& include_dirs,
-    const std::vector<filesystem::path_t>& source_files,
+    const builder::export_libraries_phase_t& phase,
+    const std::vector<filesystem::relative_path_t>& relative_source_files,
     const std::vector<std::pair<std::string, std::string>>& define_key_values,
-    const filesystem::path_t& static_library
+    const filesystem::relative_path_t& relative_output_path
 );
 
 filesystem::path_t create_shared_library(
-    const filesystem::path_t& build_dir,
-    const filesystem::path_t& source_dir,
-    const std::vector<filesystem::path_t>& include_dirs,
-    const std::vector<filesystem::path_t>& source_files,
+    const builder::export_libraries_phase_t& phase,
+    const std::vector<filesystem::relative_path_t>& relative_source_files,
     const std::vector<std::pair<std::string, std::string>>& define_key_values,
     const std::vector<filesystem::path_t>& dsos,
-    const filesystem::path_t& shared_library
+    const filesystem::relative_path_t& relative_output_path
 );
 
 filesystem::path_t create_binary(
-    const filesystem::path_t& build_dir,
-    const filesystem::path_t& source_dir,
-    const std::vector<filesystem::path_t>& include_dirs,
-    const std::vector<filesystem::path_t>& source_files,
+    const builder::import_libraries_phase_t& phase,
+    const std::vector<filesystem::relative_path_t>& relative_source_files,
     const std::vector<std::pair<std::string, std::string>>& define_key_values,
     const std::vector<std::vector<filesystem::path_t>>& library_groups,
     bool TEMP_assume_all_link_inputs_are_shared,
-    const filesystem::path_t& binary
+    const filesystem::relative_path_t& relative_output_path
 );
 
 } // namespace compiler

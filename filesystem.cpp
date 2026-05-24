@@ -1,5 +1,7 @@
 #include "filesystem.h"
 
+#include "module_builder.h"
+
 #include <format>
 #include <algorithm>
 #include <iostream>
@@ -338,6 +340,10 @@ std::vector<path_t> find(const path_t& dir, const find_include_predicate_t& incl
 
 std::vector<path_t> find(const path_t& dir, const find_include_predicate_t& include_predicate, const find_descend_predicate_t& descend_predicate) {
     return find(dir, include_predicate, descend_predicate, 0);
+}
+
+std::vector<path_t> find(const builder::iphase_t& phase, const find_include_predicate_t& include_predicate, const find_descend_predicate_t& descend_predicate) {
+    return find(phase.install_dir(), include_predicate, descend_predicate);
 }
 
 path_t canonical(const path_t& path) {

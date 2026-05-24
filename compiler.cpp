@@ -13,6 +13,20 @@ namespace cpp_builder {
 
 namespace compiler {
 
+static std::vector<filesystem::path_t> resolve_source_files(
+    const filesystem::path_t& source_root,
+    const std::vector<filesystem::relative_path_t>& relative_source_files
+) {
+    std::vector<filesystem::path_t> source_files;
+    source_files.reserve(relative_source_files.size());
+
+    for (const auto& relative_source_file : relative_source_files) {
+        source_files.push_back(source_root / relative_source_file);
+    }
+
+    return source_files;
+}
+
 static std::vector<filesystem::path_t> create_object_files(
     const filesystem::path_t& build_dir,
     const filesystem::path_t& source_dir,
@@ -77,7 +91,7 @@ static std::vector<filesystem::path_t> create_object_files(
     return result;
 }
 
-filesystem::path_t create_static_library(
+static filesystem::path_t create_static_library_impl(
     const filesystem::path_t& build_dir,
     const filesystem::path_t& source_dir,
     const std::vector<filesystem::path_t>& include_dirs,
@@ -119,7 +133,7 @@ filesystem::path_t create_static_library(
     return static_library;
 }
 
-filesystem::path_t create_shared_library(
+static filesystem::path_t create_shared_library_impl(
     const filesystem::path_t& build_dir,
     const filesystem::path_t& source_dir,
     const std::vector<filesystem::path_t>& include_dirs,
@@ -172,7 +186,7 @@ filesystem::path_t create_shared_library(
     return shared_library;
 }
 
-filesystem::path_t create_binary(
+static filesystem::path_t create_binary_impl(
     const filesystem::path_t& build_dir,
     const filesystem::path_t& source_dir,
     const std::vector<filesystem::path_t>& include_dirs,
@@ -231,6 +245,89 @@ filesystem::path_t create_binary(
     }
 
     return binary;
+}
+
+filesystem::path_t create_static_library(
+    const builder::export_libraries_phase_t& phase,
+    const std::vector<filesystem::relative_path_t>& relative_source_files,
+    const std::vector<std::pair<std::string, std::string>>& define_key_values,
+    const filesystem::relative_path_t& relative_output_path
+) {
+    const auto& source_output = phase.materialize<builder::source_phase_t>();
+    const auto& interface_output = phase.materialize<builder::export_interface_phase_t>();
+
+    return create_static_library_impl(
+        phase.build_dir(),
+        source_output.source_root,
+        interface_output.interfaces,
+        resolve_source_files(source_output.source_root, relative_source_files),
+        define_key_values,
+        phase.install_dir() / relative_output_path
+    );
+}
+
+filesystem::path_t create_shared_library(
+    const builder::export_libraries_phase_t& phase,
+    const std::vector<filesystem::relative_path_t>& relative_source_files,
+    const std::vector<std::pair<std::string, std::string>>& define_key_values,
+    const std::vector<filesystem::path_t>& dsos,
+    const filesystem::relative_path_t& relative_output_path
+) {
+    const auto& source_output = phase.materialize<builder::source_phase_t>();
+    const auto& interface_output = phase.materialize<builder::export_interface_phase_t>();
+
+    return create_shared_library_impl(
+        phase.build_dir(),
+        source_output.source_root,
+        interface_output.interfaces,
+        resolve_source_files(source_output.source_root, relative_source_files),
+        define_key_values,
+        dsos,
+        phase.install_dir() / relative_output_path
+    );
+}
+
+filesystem::path_t create_binary(
+    const builder::import_libraries_phase_t& phase,
+    const std::vector<filesystem::relative_path_t>& relative_source_files,
+    const std::vector<std::pair<std::string, std::string>>& define_key_values,
+    const std::vector<std::vector<filesystem::path_t>>& library_groups,
+    bool TEMP_assume_all_link_inputs_are_shared,
+    const filesystem::relative_path_t& relative_output_path
+) {
+    const auto& source_output = phase.materialize<builder::source_phase_t>();
+    const auto& interface_output = phase.materialize<builder::export_interface_phase_t>();
+
+    return create_binary_impl(
+        phase.build_dir(),
+        source_output.source_root,
+        interface_output.interfaces,
+        resolve_source_files(source_output.source_root, relative_source_files),
+        define_key_values,
+        library_groups,
+        TEMP_assume_all_link_inputs_are_shared,
+        phase.install_dir() / relative_output_path
+    );
+}
+
+filesystem::path_t create_builder_shared_library(
+    const filesystem::path_t& build_dir,
+    const filesystem::path_t& source_dir,
+    const std::vector<filesystem::path_t>& include_dirs,
+    const filesystem::path_t& builder_source_file,
+    const std::vector<std::pair<std::string, std::string>>& define_key_values,
+    const std::vector<filesystem::path_t>& libraries,
+    const filesystem::path_t& builder_plugin
+) {
+    return create_shared_library_impl(
+        build_dir,
+        source_dir,
+        include_dirs,
+        { builder_source_file },
+        define_key_values,
+        libraries,
+        builder_plugin
+    );
 }
 
 } // namespace compiler

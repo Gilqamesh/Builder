@@ -162,6 +162,10 @@ public:
     import_libraries_phase_t import_libraries;
 };
 
+void install_interface(const export_interface_phase_t& phase, const filesystem::path_t& interface, const filesystem::relative_path_t& relative_install_path);
+void install_library(const export_libraries_phase_t& phase, const filesystem::path_t& library, const filesystem::relative_path_t& relative_install_path);
+void install_import(const import_libraries_phase_t& phase, const filesystem::path_t& artifact, const filesystem::relative_path_t& relative_install_path);
+
 class module_builder_t {
 public:
     enum class phase_t : uint8_t {
