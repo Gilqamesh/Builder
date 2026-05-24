@@ -89,12 +89,120 @@ void visit_sccs_topo(const graph::module_scc_t* scc, const std::function<void(co
     visit_sccs_topo_impl(scc, f, visited);
 }
 
+void validate_phase_module(const module_builder_t& module_builder, const graph::module_t& module, std::string_view phase_name) {
+    if (&module_builder.module() != &module) {
+        throw std::runtime_error(std::format("kernel::cpp_builder::builder::{}: module builder for '{}' cannot construct phase for '{}'", phase_name, module_display_name(module_builder.module()), module_display_name(module)));
+    }
+}
+
+[[noreturn]] void throw_phase_run_not_wired(const iphase_t& phase) {
+    throw std::runtime_error(std::format("kernel::cpp_builder::builder::phase::run: phase '{}' of module '{}' is not wired yet", phase.name(), module_display_name(phase.module())));
+}
+
 } // namespace
+
+phase_base_t::phase_base_t(std::string_view name, module_builder_t& module_builder, graph::module_t& module, const iphase_t* predecessor):
+    m_name(name),
+    m_module_builder(module_builder),
+    m_module(module),
+    m_predecessor(predecessor)
+{
+    validate_phase_module(m_module_builder, m_module, m_name);
+}
+
+std::string_view phase_base_t::name() const {
+    return m_name;
+}
+
+const iphase_t* phase_base_t::predecessor() const {
+    return m_predecessor;
+}
+
+graph::module_t& phase_base_t::module() const {
+    return m_module;
+}
+
+filesystem::path_t phase_base_t::source_dir() const {
+    return m_module_builder.source_dir();
+}
+
+module_builder_t& phase_base_t::module_builder() const {
+    return m_module_builder;
+}
+
+export_interface_phase_t::export_interface_phase_t(module_builder_t& module_builder, graph::module_t& module, library_type_t library_type, const iphase_t* predecessor):
+    phase_base_t("export_interface", module_builder, module, predecessor),
+    library_type(library_type)
+{
+}
+
+filesystem::path_t export_interface_phase_t::dir() const {
+    return module_builder().interface_dir();
+}
+
+filesystem::path_t export_interface_phase_t::build_dir() const {
+    return module_builder().interface_build_dir(library_type);
+}
+
+filesystem::path_t export_interface_phase_t::install_dir() const {
+    return module_builder().interface_install_dir(library_type);
+}
+
+void export_interface_phase_t::run() const {
+    throw_phase_run_not_wired(*this);
+}
+
+export_libraries_phase_t::export_libraries_phase_t(module_builder_t& module_builder, graph::module_t& module, library_type_t library_type, const iphase_t* predecessor):
+    phase_base_t("export_libraries", module_builder, module, predecessor),
+    library_type(library_type)
+{
+}
+
+filesystem::path_t export_libraries_phase_t::dir() const {
+    return module_builder().libraries_dir();
+}
+
+filesystem::path_t export_libraries_phase_t::build_dir() const {
+    return module_builder().libraries_build_dir(library_type);
+}
+
+filesystem::path_t export_libraries_phase_t::install_dir() const {
+    return module_builder().libraries_install_dir(library_type);
+}
+
+void export_libraries_phase_t::run() const {
+    throw_phase_run_not_wired(*this);
+}
+
+import_libraries_phase_t::import_libraries_phase_t(module_builder_t& module_builder, graph::module_t& module, const iphase_t* predecessor):
+    phase_base_t("import_libraries", module_builder, module, predecessor)
+{
+}
+
+filesystem::path_t import_libraries_phase_t::dir() const {
+    return module_builder().import_dir();
+}
+
+filesystem::path_t import_libraries_phase_t::build_dir() const {
+    return module_builder().import_build_dir();
+}
+
+filesystem::path_t import_libraries_phase_t::install_dir() const {
+    return module_builder().import_install_dir();
+}
+
+void import_libraries_phase_t::run() const {
+    throw_phase_run_not_wired(*this);
+}
 
 module_builder_t::module_builder_t(graph::workspace_ecosystem_t& workspace_ecosystem, graph::module_t& module):
     m_workspace_ecosystem(workspace_ecosystem),
     m_module(module)
 {
+}
+
+graph::module_t& module_builder_t::module() const {
+    return m_module;
 }
 
 std::vector<filesystem::path_t> module_builder_t::export_interfaces(library_type_t library_type) const {

@@ -4,6 +4,7 @@
 # include "graph.h"
 
 # include <cstdint>
+# include <string_view>
 # include <vector>
 
 namespace kernel {
@@ -23,6 +24,92 @@ enum class library_type_t : uint8_t {
     SHARED
 };
 
+class module_builder_t;
+
+struct iphase_t {
+    virtual ~iphase_t() = default;
+
+    virtual std::string_view name() const = 0;
+    virtual const iphase_t* predecessor() const = 0;
+    virtual graph::module_t& module() const = 0;
+
+    virtual filesystem::path_t source_dir() const = 0;
+    virtual filesystem::path_t dir() const = 0;
+    virtual filesystem::path_t build_dir() const = 0;
+    virtual filesystem::path_t install_dir() const = 0;
+
+    virtual void run() const = 0;
+};
+
+struct export_interface_output_t {
+    std::vector<filesystem::path_t> interfaces;
+};
+
+struct export_libraries_output_t {
+    std::vector<std::vector<filesystem::path_t>> library_groups;
+};
+
+struct import_libraries_output_t {
+};
+
+class phase_base_t : public iphase_t {
+public:
+    phase_base_t(std::string_view name, module_builder_t& module_builder, graph::module_t& module, const iphase_t* predecessor);
+
+    std::string_view name() const override;
+    const iphase_t* predecessor() const override;
+    graph::module_t& module() const override;
+
+    filesystem::path_t source_dir() const override;
+
+protected:
+    module_builder_t& module_builder() const;
+
+private:
+    std::string_view m_name;
+    module_builder_t& m_module_builder;
+    graph::module_t& m_module;
+    const iphase_t* m_predecessor;
+};
+
+struct export_interface_phase_t : phase_base_t {
+    using output_t = export_interface_output_t;
+
+    export_interface_phase_t(module_builder_t& module_builder, graph::module_t& module, library_type_t library_type, const iphase_t* predecessor = nullptr);
+
+    filesystem::path_t dir() const override;
+    filesystem::path_t build_dir() const override;
+    filesystem::path_t install_dir() const override;
+
+    void run() const override;
+
+    const library_type_t library_type;
+};
+
+struct export_libraries_phase_t : phase_base_t {
+    using output_t = export_libraries_output_t;
+
+    export_libraries_phase_t(module_builder_t& module_builder, graph::module_t& module, library_type_t library_type, const iphase_t* predecessor = nullptr);
+    filesystem::path_t dir() const override;
+    filesystem::path_t build_dir() const override;
+    filesystem::path_t install_dir() const override;
+
+    void run() const override;
+
+    const library_type_t library_type;
+};
+
+struct import_libraries_phase_t : phase_base_t {
+    using output_t = import_libraries_output_t;
+
+    import_libraries_phase_t(module_builder_t& module_builder, graph::module_t& module, const iphase_t* predecessor = nullptr);
+    filesystem::path_t dir() const override;
+    filesystem::path_t build_dir() const override;
+    filesystem::path_t install_dir() const override;
+
+    void run() const override;
+};
+
 class module_builder_t {
 public:
     enum class phase_t : uint8_t {
@@ -33,6 +120,8 @@ public:
 
 public:
     module_builder_t(graph::workspace_ecosystem_t& workspace_ecosystem, graph::module_t& module);
+
+    graph::module_t& module() const;
 
     std::vector<filesystem::path_t> export_interfaces(library_type_t library_type) const;
     std::vector<std::vector<filesystem::path_t>> export_libraries(library_type_t library_type) const;
