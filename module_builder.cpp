@@ -117,10 +117,6 @@ graph::module_t& phase_base_t::module() const {
     return m_module;
 }
 
-filesystem::path_t phase_base_t::source_dir() const {
-    return m_module_builder.source_dir();
-}
-
 module_builder_t& phase_base_t::module_builder() const {
     return m_module_builder;
 }
@@ -143,7 +139,7 @@ filesystem::path_t source_phase_t::install_dir() const {
 }
 
 void source_phase_t::execute() const {
-    const auto module_source_dir = source_dir();
+    const auto module_source_dir = module_builder().source_dir(module());
     for (const auto& source_path : filesystem::find(module_source_dir, !filesystem::find_include_predicate_t::is_dir, filesystem::find_descend_predicate_t::descend_all)) {
         const auto target_path = install_dir() / module_source_dir.relative(source_path);
         const auto target_path_parent = target_path.parent();
@@ -341,10 +337,6 @@ void module_builder_t::install_import(const filesystem::path_t& artifact, const 
 
 filesystem::path_t module_builder_t::workspace_ecosystem_dir() const {
     return m_workspace_ecosystem.absolute_path_to_workspace_directory;
-}
-
-filesystem::path_t module_builder_t::source_dir() const {
-    return source_dir(m_module);
 }
 
 filesystem::path_t module_builder_t::artifact_dir() const {

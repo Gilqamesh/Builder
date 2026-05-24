@@ -35,7 +35,6 @@ struct iphase_t {
     virtual const iphase_t* predecessor() const = 0;
     virtual graph::module_t& module() const = 0;
 
-    virtual filesystem::path_t source_dir() const = 0;
     virtual filesystem::path_t dir() const = 0;
     virtual filesystem::path_t build_dir() const = 0;
     virtual filesystem::path_t install_dir() const = 0;
@@ -63,8 +62,6 @@ public:
     std::string_view name() const override;
     const iphase_t* predecessor() const override;
     graph::module_t& module() const override;
-
-    filesystem::path_t source_dir() const override;
 
     template <class phase_t>
     const typename phase_t::output_t& materialize() const;
@@ -188,7 +185,6 @@ public:
 
     filesystem::path_t workspace_ecosystem_dir() const;
 
-    filesystem::path_t source_dir() const;
     filesystem::path_t artifact_dir() const;
     filesystem::path_t artifact_latest_dir() const;
 
