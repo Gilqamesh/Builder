@@ -41,7 +41,7 @@ struct iphase_t {
 };
 
 struct source_output_t {
-    std::vector<filesystem::path_t> source_roots;
+    filesystem::path_t source_root;
 };
 
 struct export_interface_output_t {
