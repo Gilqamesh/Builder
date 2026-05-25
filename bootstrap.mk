@@ -41,6 +41,7 @@ SRC := \
 	$(KERNEL_DIR)/compiler.cpp \
 	$(KERNEL_DIR)/shared_library.cpp \
 	$(KERNEL_DIR)/graph.cpp \
+	$(KERNEL_DIR)/phase.cpp \
 	$(KERNEL_DIR)/module_builder.cpp \
 	$(KERNEL_DIR)/cli.cpp
 
