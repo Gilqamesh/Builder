@@ -191,11 +191,28 @@ const typename phase_t::output_t& phase_base_t::materialize() const {
     const auto marker_path = [&](std::string_view state) {
         return build_dir / filesystem::relative_path_t(std::format("{}.{}", name(), state));
     };
+    const auto publish_latest_stage = [&]() {
+        const auto phase_artifact_dir = this->artifact_dir();
+        const auto latest_dir = m_module_builder.artifact_latest_dir(m_module);
+        const auto latest_stage_dir = latest_dir / m_module_builder.artifact_dir(m_module).relative(phase_artifact_dir);
+        const auto latest_stage_tmp_dir = latest_stage_dir + "_tmp";
+
+        if (filesystem::exists(latest_stage_tmp_dir)) {
+            filesystem::remove_all(latest_stage_tmp_dir);
+        }
+
+        if (!filesystem::exists(latest_dir)) {
+            filesystem::create_directories(latest_dir);
+        }
+
+        filesystem::create_directory_symlink(phase_artifact_dir, latest_stage_tmp_dir);
+        filesystem::rename_replace(latest_stage_tmp_dir, latest_stage_dir);
+    };
     const auto started_marker = marker_path("started");
     const auto complete_marker = marker_path("complete");
 
     if (filesystem::exists(complete_marker)) {
-        m_module_builder.publish_latest_stage(*this);
+        publish_latest_stage();
         return phase->output();
     }
 
@@ -220,7 +237,7 @@ const typename phase_t::output_t& phase_base_t::materialize() const {
         phase->execute();
         const auto& result = phase->output();
 
-        m_module_builder.publish_latest_stage(*this);
+        publish_latest_stage();
         filesystem::touch(complete_marker);
         filesystem::remove(started_marker);
 

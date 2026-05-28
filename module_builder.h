@@ -35,7 +35,6 @@ private:
     filesystem::path_t artifact_base_dir(const graph::module_t& module) const;
     filesystem::path_t artifact_dir(const graph::module_t& module) const;
     filesystem::path_t artifact_latest_dir(const graph::module_t& module) const;
-    void publish_latest_stage(const iphase_t& phase) const;
 
     filesystem::path_t builder_source_path(const graph::module_t& module) const;
     filesystem::path_t builder_dir(const graph::module_t& module) const;

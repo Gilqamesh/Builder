@@ -97,23 +97,6 @@ filesystem::path_t module_builder_t::artifact_latest_dir(const graph::module_t& 
     return artifact_base_dir(module) / filesystem::relative_path_t("latest");
 }
 
-void module_builder_t::publish_latest_stage(const iphase_t& phase) const {
-    const auto latest_dir = artifact_latest_dir(phase.module());
-    const auto latest_stage_dir = latest_dir / artifact_dir(phase.module()).relative(phase.artifact_dir());
-    const auto latest_stage_tmp_dir = latest_stage_dir + "_tmp";
-
-    if (filesystem::exists(latest_stage_tmp_dir)) {
-        filesystem::remove_all(latest_stage_tmp_dir);
-    }
-
-    if (!filesystem::exists(latest_dir)) {
-        filesystem::create_directories(latest_dir);
-    }
-
-    filesystem::create_directory_symlink(phase.artifact_dir(), latest_stage_tmp_dir);
-    filesystem::rename_replace(latest_stage_tmp_dir, latest_stage_dir);
-}
-
 filesystem::path_t module_builder_t::builder_source_path(const graph::module_t& module) const {
     return module.builder_path();
 }
