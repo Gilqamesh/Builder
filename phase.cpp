@@ -72,6 +72,30 @@ binary_output_t::binary_output_t(const filesystem::path_t& configured_binary_roo
 {
 }
 
+source_output_t materialized_output(const source_phase_t& phase) {
+    return source_output_t(phase.install_dir());
+}
+
+interface_output_t materialized_output(const interface_phase_t& phase) {
+    return interface_output_t {
+        .interfaces = { phase.install_dir() }
+    };
+}
+
+library_output_t materialized_output(const library_phase_t& phase) {
+    return library_output_t {
+        .libraries = filesystem::find(phase, !filesystem::find_include_predicate_t::is_dir, filesystem::find_descend_predicate_t::descend_all)
+    };
+}
+
+binary_output_t materialized_output(const binary_phase_t& phase) {
+    binary_output_t output(phase.install_dir());
+    if (!filesystem::exists(output.cli)) {
+        throw std::runtime_error(std::format("kernel::cpp_builder::builder::binary_phase_t::materialized_output: expected module cli '{}' to exist", output.cli));
+    }
+    return output;
+}
+
 phase_base_t::phase_base_t(std::string_view name, module_builder_t& module_builder, graph::module_t& module, library_type_t configured_library_type, const iphase_t* predecessor):
     library_type(configured_library_type),
     m_name(name),
@@ -213,7 +237,8 @@ const typename phase_t::output_t& phase_base_t::materialize() const {
 
     if (filesystem::exists(complete_marker)) {
         publish_latest_stage();
-        return phase->output();
+        phase->m_output = materialized_output(*phase);
+        return phase->m_output;
     }
 
     if (filesystem::exists(started_marker)) {
@@ -235,13 +260,13 @@ const typename phase_t::output_t& phase_base_t::materialize() const {
         filesystem::create_directories(install_dir);
 
         phase->execute();
-        const auto& result = phase->output();
+        phase->m_output = materialized_output(*phase);
 
         publish_latest_stage();
         filesystem::touch(complete_marker);
         filesystem::remove(started_marker);
 
-        return result;
+        return phase->m_output;
     } catch (...) {
         filesystem::remove_all(build_dir);
         filesystem::remove_all(install_dir);
@@ -272,19 +297,9 @@ void source_phase_t::execute() const {
     }
 }
 
-const source_phase_t::output_t& source_phase_t::output() const {
-    m_output.source_root = install_dir();
-    return m_output;
-}
-
 interface_phase_t::interface_phase_t(module_builder_t& module_builder, graph::module_t& module, library_type_t library_type, const iphase_t* predecessor):
     producer_phase_t("interface", module_builder, module, library_type, predecessor)
 {
-}
-
-const interface_phase_t::output_t& interface_phase_t::output() const {
-    m_output.interfaces = { install_dir() };
-    return m_output;
 }
 
 library_phase_t::library_phase_t(module_builder_t& module_builder, graph::module_t& module, library_type_t library_type, const iphase_t* predecessor):
@@ -292,24 +307,10 @@ library_phase_t::library_phase_t(module_builder_t& module_builder, graph::module
 {
 }
 
-const library_phase_t::output_t& library_phase_t::output() const {
-    m_output.libraries = filesystem::find(*this, !filesystem::find_include_predicate_t::is_dir, filesystem::find_descend_predicate_t::descend_all);
-    return m_output;
-}
-
 binary_phase_t::binary_phase_t(module_builder_t& module_builder, graph::module_t& module, library_type_t library_type, const iphase_t* predecessor):
     producer_phase_t("binary", module_builder, module, library_type, predecessor),
     m_output(install_dir())
 {
-}
-
-const binary_phase_t::output_t& binary_phase_t::output() const {
-    m_output.binary_root = install_dir();
-    m_output.cli = m_output.binary_root / filesystem::relative_path_t("cli");
-    if (!filesystem::exists(m_output.cli)) {
-        throw std::runtime_error(std::format("kernel::cpp_builder::builder::binary_phase_t::output: expected module cli '{}' to exist", m_output.cli));
-    }
-    return m_output;
 }
 
 phase_chain_t::phase_chain_t(module_builder_t& module_builder, graph::module_t& module, library_type_t library_type):

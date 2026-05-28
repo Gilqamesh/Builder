@@ -107,7 +107,6 @@ private:
     friend class phase_base_t;
 
     void execute() const;
-    const output_t& output() const;
 
     mutable output_t m_output;
 };
@@ -120,8 +119,6 @@ struct interface_phase_t : producer_phase_t<interface_phase_t> {
 private:
     friend class phase_base_t;
 
-    const output_t& output() const;
-
     mutable output_t m_output;
 };
 
@@ -133,8 +130,6 @@ struct library_phase_t : producer_phase_t<library_phase_t> {
 private:
     friend class phase_base_t;
 
-    const output_t& output() const;
-
     mutable output_t m_output;
 };
 
@@ -145,8 +140,6 @@ struct binary_phase_t : producer_phase_t<binary_phase_t> {
 
 private:
     friend class phase_base_t;
-
-    const output_t& output() const;
 
     mutable output_t m_output;
 };
