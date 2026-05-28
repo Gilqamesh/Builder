@@ -55,11 +55,7 @@ std::vector<std::pair<std::string, std::string>> tool_path_defines() {
     return {
         { "KERNEL_CPP_BUILDER_CXX_COMPILER_PATH", quote_define_value(compiler::CXX_COMPILER_PATH) },
         { "KERNEL_CPP_BUILDER_CC_COMPILER_PATH", quote_define_value(compiler::CC_COMPILER_PATH) },
-        { "KERNEL_CPP_BUILDER_AR_PATH", quote_define_value(compiler::AR_PATH) },
-        { "KERNEL_CPP_BUILDER_LN_PATH", quote_define_value(compiler::LN_PATH) },
-        { "KERNEL_CPP_BUILDER_MKDIR_PATH", quote_define_value(compiler::MKDIR_PATH) },
-        { "KERNEL_CPP_BUILDER_MV_PATH", quote_define_value(compiler::MV_PATH) },
-        { "KERNEL_CPP_BUILDER_RM_PATH", quote_define_value(compiler::RM_PATH) }
+        { "KERNEL_CPP_BUILDER_AR_PATH", quote_define_value(compiler::AR_PATH) }
     };
 }
 

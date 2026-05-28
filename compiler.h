@@ -25,29 +25,9 @@ namespace compiler {
 # define KERNEL_CPP_BUILDER_AR_PATH "/usr/bin/ar"
 #endif
 
-#ifndef KERNEL_CPP_BUILDER_LN_PATH
-# define KERNEL_CPP_BUILDER_LN_PATH "/usr/bin/ln"
-#endif
-
-#ifndef KERNEL_CPP_BUILDER_MKDIR_PATH
-# define KERNEL_CPP_BUILDER_MKDIR_PATH "/usr/bin/mkdir"
-#endif
-
-#ifndef KERNEL_CPP_BUILDER_MV_PATH
-# define KERNEL_CPP_BUILDER_MV_PATH "/usr/bin/mv"
-#endif
-
-#ifndef KERNEL_CPP_BUILDER_RM_PATH
-# define KERNEL_CPP_BUILDER_RM_PATH "/usr/bin/rm"
-#endif
-
 inline constexpr const char* CXX_COMPILER_PATH = KERNEL_CPP_BUILDER_CXX_COMPILER_PATH;
 inline constexpr const char* CC_COMPILER_PATH = KERNEL_CPP_BUILDER_CC_COMPILER_PATH;
 inline constexpr const char* AR_PATH = KERNEL_CPP_BUILDER_AR_PATH;
-inline constexpr const char* LN_PATH = KERNEL_CPP_BUILDER_LN_PATH;
-inline constexpr const char* MKDIR_PATH = KERNEL_CPP_BUILDER_MKDIR_PATH;
-inline constexpr const char* MV_PATH = KERNEL_CPP_BUILDER_MV_PATH;
-inline constexpr const char* RM_PATH = KERNEL_CPP_BUILDER_RM_PATH;
 
 filesystem::path_t create_static_library(
     const builder::library_phase_t& phase,
