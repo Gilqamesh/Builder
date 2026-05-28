@@ -127,9 +127,7 @@ int main(int argc, char** argv) {
         target_module->validate();
 
         builder::module_builder_t kernel_module_builder(*workspace_ecosystem, *workspace_ecosystem->this_module);
-        builder::module_builder_t target_module_builder(*workspace_ecosystem, *target_module);
         builder::phase_chain_t kernel_phase_chain(kernel_module_builder, *workspace_ecosystem->this_module, builder::library_type_t::SHARED);
-        builder::phase_chain_t target_phase_chain(target_module_builder, *target_module, builder::library_type_t::SHARED);
 
         const auto cli = filesystem::canonical(filesystem::path_t("/proc/self/exe"));
         const auto cli_last_write_time = filesystem::last_write_time(cli);
@@ -152,6 +150,8 @@ int main(int argc, char** argv) {
 
         render_graph_svg(*workspace_ecosystem, workspace_relative_path.string() + module_relative_path.string() + ".svg");
 
+        builder::module_builder_t target_module_builder(*workspace_ecosystem, *target_module);
+        builder::phase_chain_t target_phase_chain(target_module_builder, *target_module, builder::library_type_t::SHARED);
         const auto& target_binary_output = target_phase_chain.binary.materialize<builder::binary_phase_t>();
 
         if (4 < argc) {

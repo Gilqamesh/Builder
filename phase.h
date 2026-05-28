@@ -79,6 +79,10 @@ public:
 
 protected:
     module_builder_t& module_builder() const;
+    bool is_kernel_module() const;
+
+    template <class phase_t>
+    void dispatch_producer(const phase_t& phase) const;
 
 private:
     std::string_view m_name;

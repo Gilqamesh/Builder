@@ -28,13 +28,6 @@ private:
     std::vector<filesystem::path_t> interface_roots(library_type_t library_type) const;
     std::vector<std::vector<filesystem::path_t>> library_groups(library_type_t library_type) const;
 
-    template <class phase_t>
-    void dispatch_phase(const phase_t& phase) const;
-
-    void run_kernel_phase(const interface_phase_t& phase) const;
-    void run_kernel_phase(const library_phase_t& phase) const;
-    void run_kernel_phase(const binary_phase_t& phase) const;
-
     filesystem::path_t source_dir(const graph::module_t& module) const;
 
     filesystem::path_t builder_source_path() const;
