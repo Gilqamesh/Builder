@@ -129,13 +129,28 @@ bool phase_base_t::is_kernel_module() const {
 }
 
 template <class phase_t>
-void phase_base_t::dispatch_producer(const phase_t& phase) const {
-    const auto builder_plugin = m_module_builder.build_builder(m_module);
+void phase_base_t::dispatch_producer(const phase_t& phase, const filesystem::path_t& builder_plugin) const {
     shared_library::loader_t loader(builder_plugin, shared_library::lifetime_t::PROCESS, shared_library::symbol_resolution_t::LAZY, shared_library::symbol_visibility_t::LOCAL);
     using fn_t = void (*)(const phase_t*);
     const auto producer_symbol_name = phase.producer_symbol_name();
     fn_t fn = loader.resolve(producer_symbol_name.c_str());
     fn(&phase);
+}
+
+template <class phase_t>
+void phase_base_t::dispatch_producer(const phase_t& phase) const {
+    dispatch_producer(phase, m_module_builder.build_builder(m_module));
+}
+
+template <class phase_t>
+bool phase_base_t::try_dispatch_bootstrapped_kernel_producer(const phase_t& phase) const {
+    const auto builder_plugin = m_module_builder.builder_install_latest_path(m_module);
+    if (!filesystem::exists(builder_plugin)) {
+        return false;
+    }
+
+    dispatch_producer(phase, builder_plugin);
+    return true;
 }
 
 template <class phase_t>
@@ -236,6 +251,10 @@ interface_phase_t::interface_phase_t(module_builder_t& module_builder, graph::mo
 
 void interface_phase_t::execute() const {
     if (is_kernel_module()) {
+        if (try_dispatch_bootstrapped_kernel_producer(*this)) {
+            return ;
+        }
+
         const auto& module_source_dir = materialize<source_phase_t>().source_root;
 
         for (const auto& interface : filesystem::find(module_source_dir, filesystem::find_include_predicate_t::h_file || filesystem::find_include_predicate_t::hpp_file, filesystem::find_descend_predicate_t::descend_all)) {
@@ -259,6 +278,10 @@ library_phase_t::library_phase_t(module_builder_t& module_builder, graph::module
 
 void library_phase_t::execute() const {
     if (is_kernel_module()) {
+        if (try_dispatch_bootstrapped_kernel_producer(*this)) {
+            return ;
+        }
+
         const auto library_name = [&]() {
             switch (library_type) {
                 case library_type_t::STATIC: return filesystem::relative_path_t("libcpp_builder.a");
@@ -310,9 +333,12 @@ binary_phase_t::binary_phase_t(module_builder_t& module_builder, graph::module_t
 }
 
 void binary_phase_t::execute() const {
-    const auto& library_output = materialize<library_phase_t>();
-
     if (is_kernel_module()) {
+        if (try_dispatch_bootstrapped_kernel_producer(*this)) {
+            return ;
+        }
+
+        const auto& library_output = materialize<library_phase_t>();
         compiler::create_binary(
             *this,
             { filesystem::relative_path_t("cli.cpp") },
@@ -324,6 +350,7 @@ void binary_phase_t::execute() const {
         return ;
     }
 
+    materialize<library_phase_t>();
     dispatch_producer(*this);
 }
 

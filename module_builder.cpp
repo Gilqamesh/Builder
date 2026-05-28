@@ -200,6 +200,10 @@ filesystem::path_t module_builder_t::builder_install_path(const graph::module_t&
     return builder_install_dir(module) / filesystem::relative_path_t("builder.so");
 }
 
+filesystem::path_t module_builder_t::builder_install_latest_path(const graph::module_t& module) const {
+    return artifact_latest_dir(module) / filesystem::relative_path_t("builder/install/builder.so");
+}
+
 filesystem::path_t module_builder_t::build_builder(graph::module_t& module) const {
     const auto builder_plugin = builder_install_path(module);
     if (filesystem::exists(builder_plugin)) {

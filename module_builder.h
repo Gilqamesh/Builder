@@ -46,6 +46,7 @@ private:
     filesystem::path_t builder_build_dir(const graph::module_t& module) const;
     filesystem::path_t builder_install_dir(const graph::module_t& module) const;
     filesystem::path_t builder_install_path(const graph::module_t& module) const;
+    filesystem::path_t builder_install_latest_path(const graph::module_t& module) const;
 
     filesystem::path_t build_builder(graph::module_t& module) const;
     filesystem::relative_path_t build_relative_dir() const;

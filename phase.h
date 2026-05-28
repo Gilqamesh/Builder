@@ -84,6 +84,13 @@ protected:
     template <class phase_t>
     void dispatch_producer(const phase_t& phase) const;
 
+    template <class phase_t>
+    bool try_dispatch_bootstrapped_kernel_producer(const phase_t& phase) const;
+
+private:
+    template <class phase_t>
+    void dispatch_producer(const phase_t& phase, const filesystem::path_t& builder_plugin) const;
+
 private:
     std::string_view m_name;
     module_builder_t& m_module_builder;
