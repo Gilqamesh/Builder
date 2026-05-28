@@ -19,21 +19,6 @@ graph::module_t& module_builder_t::module() const {
     return m_module;
 }
 
-std::vector<std::vector<filesystem::path_t>> module_builder_t::library_groups(library_type_t library_type) const {
-    std::vector<std::vector<filesystem::path_t>> result;
-
-    module_builder_t module_builder(m_workspace_ecosystem, m_module);
-    phase_chain_t phase_chain(module_builder, m_module, library_type);
-    const auto outputs = phase_chain.library.materialize<library_phase_t>();
-    for (const auto& output : outputs) {
-        if (!output.libraries.empty()) {
-            result.push_back(output.libraries);
-        }
-    }
-
-    return result;
-}
-
 filesystem::path_t module_builder_t::source_dir(const graph::module_t& module) const {
     return module.source_dir();
 }

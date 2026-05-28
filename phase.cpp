@@ -5,7 +5,6 @@
 #include "shared_library.h"
 
 #include <format>
-#include <iterator>
 #include <stdexcept>
 #include <string>
 #include <string_view>
@@ -214,9 +213,9 @@ void producer_phase_t<phase_t>::execute() const {
                 include_dirs.insert(include_dirs.end(), dependency_interface_output.interfaces.begin(), dependency_interface_output.interfaces.end());
             }
 
-            auto dependency_library_groups = dependency_builder.library_groups(library_type_t::SHARED);
-            for (auto& dependency_library_group : dependency_library_groups) {
-                libraries.insert(libraries.end(), std::make_move_iterator(dependency_library_group.begin()), std::make_move_iterator(dependency_library_group.end()));
+            const auto dependency_library_outputs = dependency_phase_chain.library.materialize<library_phase_t>();
+            for (const auto& dependency_library_output : dependency_library_outputs) {
+                libraries.insert(libraries.end(), dependency_library_output.libraries.begin(), dependency_library_output.libraries.end());
             }
         }
 
