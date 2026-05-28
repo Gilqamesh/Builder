@@ -85,18 +85,12 @@ extern "C" void phase__library(const kernel::cpp_builder::builder::library_phase
 
 extern "C" void phase__binary(const kernel::cpp_builder::builder::binary_phase_t* phase) {
     const auto library_outputs = phase->materialize<kernel::cpp_builder::builder::library_phase_t>();
-    std::vector<std::vector<kernel::cpp_builder::filesystem::path_t>> library_groups;
-    for (const auto& library_output : library_outputs) {
-        if (!library_output.libraries.empty()) {
-            library_groups.push_back(library_output.libraries);
-        }
-    }
 
     kernel::cpp_builder::compiler::create_binary(
         *phase,
         { kernel::cpp_builder::filesystem::relative_path_t("cli.cpp") },
         tool_path_defines(),
-        library_groups,
+        library_outputs,
         true,
         kernel::cpp_builder::filesystem::relative_path_t("cli")
     );

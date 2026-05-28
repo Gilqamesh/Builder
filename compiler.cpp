@@ -47,6 +47,16 @@ static std::vector<filesystem::path_t> binary_include_dirs(const builder::binary
     return flatten_interface_outputs(phase.materialize<builder::interface_phase_t>());
 }
 
+static std::vector<filesystem::path_t> link_ordered_libraries(const std::vector<builder::library_output_t>& library_outputs) {
+    std::vector<filesystem::path_t> libraries;
+
+    for (auto output_it = library_outputs.rbegin(); output_it != library_outputs.rend(); ++output_it) {
+        libraries.insert(libraries.end(), output_it->libraries.begin(), output_it->libraries.end());
+    }
+
+    return libraries;
+}
+
 static std::vector<filesystem::path_t> create_object_files(
     const filesystem::path_t& build_dir,
     const filesystem::path_t& source_dir,
@@ -159,7 +169,7 @@ static filesystem::path_t create_shared_library_impl(
     const std::vector<filesystem::path_t>& include_dirs,
     const std::vector<filesystem::path_t>& source_files,
     const std::vector<std::pair<std::string, std::string>>& define_key_values,
-    const std::vector<filesystem::path_t>& dsos,
+    const std::vector<builder::library_output_t>& library_outputs,
     const filesystem::path_t& shared_library
 ) {
     const auto object_files = create_object_files(
@@ -186,12 +196,12 @@ static filesystem::path_t create_shared_library_impl(
         process_args.push_back(object_file);
     }
 
-    for (const auto& dso : dsos) {
-        if (!filesystem::exists(dso)) {
-            throw std::runtime_error(std::format("cpp_compiler::create_shared_library: dso does not exist '{}'", dso));
+    for (const auto& library : link_ordered_libraries(library_outputs)) {
+        if (!filesystem::exists(library)) {
+            throw std::runtime_error(std::format("cpp_compiler::create_shared_library: library does not exist '{}'", library));
         }
 
-        process_args.push_back(dso);
+        process_args.push_back(library);
     }
 
     const int process_result = process::create_and_wait(process_args);
@@ -212,7 +222,7 @@ static filesystem::path_t create_binary_impl(
     const std::vector<filesystem::path_t>& include_dirs,
     const std::vector<filesystem::path_t>& source_files,
     const std::vector<std::pair<std::string, std::string>>& define_key_values,
-    const std::vector<std::vector<filesystem::path_t>>& library_groups,
+    const std::vector<builder::library_output_t>& library_outputs,
     bool TEMP_assume_all_link_inputs_are_shared,
     const filesystem::path_t& binary
 ) {
@@ -233,25 +243,25 @@ static filesystem::path_t create_binary_impl(
         process_args.push_back(object_file);
     }
 
-    // TODO: mixed static/shared interleave of start/end group, typify 'library_groups'
-    for (auto library_group_it = library_groups.rbegin(); library_group_it != library_groups.rend(); ++library_group_it) {
-        if (!TEMP_assume_all_link_inputs_are_shared && 1 < library_group_it->size()) {
+    // TODO: mixed static/shared interleave of start/end group.
+    for (auto library_output_it = library_outputs.rbegin(); library_output_it != library_outputs.rend(); ++library_output_it) {
+        if (!TEMP_assume_all_link_inputs_are_shared && 1 < library_output_it->libraries.size()) {
             process_args.push_back("-Wl,--start-group");
         }
-        for (const auto& library : *library_group_it) {
+        for (const auto& library : library_output_it->libraries) {
             if (!filesystem::exists(library)) {
                 throw std::runtime_error(std::format("cpp_compiler::create_binary: library does not exist '{}'", library));
             }
             process_args.push_back(library);
         }
-        if (!TEMP_assume_all_link_inputs_are_shared && 1 < library_group_it->size()) {
+        if (!TEMP_assume_all_link_inputs_are_shared && 1 < library_output_it->libraries.size()) {
             process_args.push_back("-Wl,--end-group");
         }
     }
 
-    for (const auto& library_group : library_groups) {
-        for (const auto& library_group : library_group) {
-            process_args.push_back(std::format("-Wl,-rpath,{}", library_group.parent()));
+    for (const auto& library_output : library_outputs) {
+        for (const auto& library : library_output.libraries) {
+            process_args.push_back(std::format("-Wl,-rpath,{}", library.parent()));
         }
     }
     
@@ -291,7 +301,7 @@ filesystem::path_t create_shared_library(
     const builder::library_phase_t& phase,
     const std::vector<filesystem::relative_path_t>& relative_source_files,
     const std::vector<std::pair<std::string, std::string>>& define_key_values,
-    const std::vector<filesystem::path_t>& dsos,
+    const std::vector<builder::library_output_t>& library_outputs,
     const filesystem::relative_path_t& relative_output_path
 ) {
     const auto source_outputs = phase.materialize<builder::source_phase_t>();
@@ -304,7 +314,7 @@ filesystem::path_t create_shared_library(
         include_dirs,
         resolve_source_files(source_output.source_root, relative_source_files),
         define_key_values,
-        dsos,
+        library_outputs,
         phase.install_dir() / relative_output_path
     );
 }
@@ -313,7 +323,7 @@ filesystem::path_t create_binary(
     const builder::binary_phase_t& phase,
     const std::vector<filesystem::relative_path_t>& relative_source_files,
     const std::vector<std::pair<std::string, std::string>>& define_key_values,
-    const std::vector<std::vector<filesystem::path_t>>& library_groups,
+    const std::vector<builder::library_output_t>& library_outputs,
     bool TEMP_assume_all_link_inputs_are_shared,
     const filesystem::relative_path_t& relative_output_path
 ) {
@@ -327,7 +337,7 @@ filesystem::path_t create_binary(
         include_dirs,
         resolve_source_files(source_output.source_root, relative_source_files),
         define_key_values,
-        library_groups,
+        library_outputs,
         TEMP_assume_all_link_inputs_are_shared,
         phase.install_dir() / relative_output_path
     );
@@ -348,7 +358,7 @@ filesystem::path_t create_builder_shared_library(
         include_dirs,
         { builder_source_file },
         define_key_values,
-        libraries,
+        { builder::library_output_t { .libraries = libraries } },
         builder_plugin
     );
 }
