@@ -79,23 +79,24 @@ public:
 
 protected:
     module_builder_t& module_builder() const;
-    bool is_kernel_module() const;
-
-    template <class phase_t>
-    void dispatch_producer(const phase_t& phase) const;
-
-    template <class phase_t>
-    bool try_dispatch_bootstrapped_kernel_producer(const phase_t& phase) const;
-
-private:
-    template <class phase_t>
-    void dispatch_producer(const phase_t& phase, const filesystem::path_t& builder_plugin) const;
+    filesystem::path_t builder_plugin() const;
 
 private:
     std::string_view m_name;
     module_builder_t& m_module_builder;
     graph::module_t& m_module;
     const iphase_t* m_predecessor;
+};
+
+template <class phase_t>
+class producer_phase_t : public phase_base_t {
+protected:
+    using phase_base_t::phase_base_t;
+
+private:
+    friend class phase_base_t;
+
+    void execute() const;
 };
 
 struct source_phase_t : phase_base_t {
@@ -112,7 +113,7 @@ private:
     mutable output_t m_output;
 };
 
-struct interface_phase_t : phase_base_t {
+struct interface_phase_t : producer_phase_t<interface_phase_t> {
     using output_t = interface_output_t;
 
     interface_phase_t(module_builder_t& module_builder, graph::module_t& module, library_type_t library_type, const iphase_t* predecessor = nullptr);
@@ -120,13 +121,12 @@ struct interface_phase_t : phase_base_t {
 private:
     friend class phase_base_t;
 
-    void execute() const;
     const output_t& output() const;
 
     mutable output_t m_output;
 };
 
-struct library_phase_t : phase_base_t {
+struct library_phase_t : producer_phase_t<library_phase_t> {
     using output_t = library_output_t;
 
     library_phase_t(module_builder_t& module_builder, graph::module_t& module, library_type_t library_type, const iphase_t* predecessor = nullptr);
@@ -134,13 +134,12 @@ struct library_phase_t : phase_base_t {
 private:
     friend class phase_base_t;
 
-    void execute() const;
     const output_t& output() const;
 
     mutable output_t m_output;
 };
 
-struct binary_phase_t : phase_base_t {
+struct binary_phase_t : producer_phase_t<binary_phase_t> {
     using output_t = binary_output_t;
 
     binary_phase_t(module_builder_t& module_builder, graph::module_t& module, library_type_t library_type, const iphase_t* predecessor = nullptr);
@@ -148,7 +147,6 @@ struct binary_phase_t : phase_base_t {
 private:
     friend class phase_base_t;
 
-    void execute() const;
     const output_t& output() const;
 
     mutable output_t m_output;

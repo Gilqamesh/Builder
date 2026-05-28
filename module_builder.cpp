@@ -205,6 +205,13 @@ filesystem::path_t module_builder_t::builder_install_latest_path(const graph::mo
 }
 
 filesystem::path_t module_builder_t::build_builder(graph::module_t& module) const {
+    if (&module == m_workspace_ecosystem.this_module) {
+        const auto latest_builder_plugin = builder_install_latest_path(module);
+        if (filesystem::exists(latest_builder_plugin)) {
+            return latest_builder_plugin;
+        }
+    }
+
     const auto builder_plugin = builder_install_path(module);
     if (filesystem::exists(builder_plugin)) {
         return builder_plugin;

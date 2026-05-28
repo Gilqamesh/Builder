@@ -1,12 +1,10 @@
 #include "phase.h"
 
-#include "compiler.h"
 #include "module_builder.h"
 #include "shared_library.h"
 
 #include <format>
 #include <stdexcept>
-#include <type_traits>
 #include <utility>
 
 namespace kernel {
@@ -35,38 +33,6 @@ void validate_phase_module(const module_builder_t& module_builder, const graph::
     if (&module_builder.module() != &module) {
         throw std::runtime_error(std::format("kernel::cpp_builder::builder::{}: module builder for '{}' cannot construct phase for '{}'", phase_name, module_display_name(module_builder.module()), module_display_name(module)));
     }
-}
-
-std::string quote_define_value(std::string_view value) {
-    std::string result = "\"";
-    for (const char c : value) {
-        if (c == '\\' || c == '"') {
-            result.push_back('\\');
-        }
-        result.push_back(c);
-    }
-    result.push_back('"');
-    return result;
-}
-
-std::vector<std::pair<std::string, std::string>> tool_path_defines() {
-    return {
-        { "KERNEL_CPP_BUILDER_CXX_COMPILER_PATH", quote_define_value(compiler::CXX_COMPILER_PATH) },
-        { "KERNEL_CPP_BUILDER_CC_COMPILER_PATH", quote_define_value(compiler::CC_COMPILER_PATH) },
-        { "KERNEL_CPP_BUILDER_AR_PATH", quote_define_value(compiler::AR_PATH) }
-    };
-}
-
-std::vector<filesystem::relative_path_t> kernel_library_source_files() {
-    return {
-        filesystem::relative_path_t("filesystem.cpp"),
-        filesystem::relative_path_t("process.cpp"),
-        filesystem::relative_path_t("compiler.cpp"),
-        filesystem::relative_path_t("shared_library.cpp"),
-        filesystem::relative_path_t("graph.cpp"),
-        filesystem::relative_path_t("phase.cpp"),
-        filesystem::relative_path_t("module_builder.cpp")
-    };
 }
 
 } // namespace
@@ -124,33 +90,18 @@ module_builder_t& phase_base_t::module_builder() const {
     return m_module_builder;
 }
 
-bool phase_base_t::is_kernel_module() const {
-    return &m_module == m_module_builder.m_workspace_ecosystem.this_module;
+filesystem::path_t phase_base_t::builder_plugin() const {
+    return m_module_builder.build_builder(m_module);
 }
 
 template <class phase_t>
-void phase_base_t::dispatch_producer(const phase_t& phase, const filesystem::path_t& builder_plugin) const {
+void producer_phase_t<phase_t>::execute() const {
+    const auto builder_plugin = this->builder_plugin();
     shared_library::loader_t loader(builder_plugin, shared_library::lifetime_t::PROCESS, shared_library::symbol_resolution_t::LAZY, shared_library::symbol_visibility_t::LOCAL);
     using fn_t = void (*)(const phase_t*);
-    const auto producer_symbol_name = phase.producer_symbol_name();
+    const auto producer_symbol_name = this->producer_symbol_name();
     fn_t fn = loader.resolve(producer_symbol_name.c_str());
-    fn(&phase);
-}
-
-template <class phase_t>
-void phase_base_t::dispatch_producer(const phase_t& phase) const {
-    dispatch_producer(phase, m_module_builder.build_builder(m_module));
-}
-
-template <class phase_t>
-bool phase_base_t::try_dispatch_bootstrapped_kernel_producer(const phase_t& phase) const {
-    const auto builder_plugin = m_module_builder.builder_install_latest_path(m_module);
-    if (!filesystem::exists(builder_plugin)) {
-        return false;
-    }
-
-    dispatch_producer(phase, builder_plugin);
-    return true;
+    fn(static_cast<const phase_t*>(this));
 }
 
 template <class phase_t>
@@ -245,25 +196,8 @@ const source_phase_t::output_t& source_phase_t::output() const {
 }
 
 interface_phase_t::interface_phase_t(module_builder_t& module_builder, graph::module_t& module, library_type_t library_type, const iphase_t* predecessor):
-    phase_base_t("interface", module_builder, module, library_type, predecessor)
+    producer_phase_t("interface", module_builder, module, library_type, predecessor)
 {
-}
-
-void interface_phase_t::execute() const {
-    if (is_kernel_module()) {
-        if (try_dispatch_bootstrapped_kernel_producer(*this)) {
-            return ;
-        }
-
-        const auto& module_source_dir = materialize<source_phase_t>().source_root;
-
-        for (const auto& interface : filesystem::find(module_source_dir, filesystem::find_include_predicate_t::h_file || filesystem::find_include_predicate_t::hpp_file, filesystem::find_descend_predicate_t::descend_all)) {
-            builder::install_interface(*this, interface, module_source_dir.relative(interface));
-        }
-        return ;
-    }
-
-    dispatch_producer(*this);
 }
 
 const interface_phase_t::output_t& interface_phase_t::output() const {
@@ -272,48 +206,8 @@ const interface_phase_t::output_t& interface_phase_t::output() const {
 }
 
 library_phase_t::library_phase_t(module_builder_t& module_builder, graph::module_t& module, library_type_t library_type, const iphase_t* predecessor):
-    phase_base_t("library", module_builder, module, library_type, predecessor)
+    producer_phase_t("library", module_builder, module, library_type, predecessor)
 {
-}
-
-void library_phase_t::execute() const {
-    if (is_kernel_module()) {
-        if (try_dispatch_bootstrapped_kernel_producer(*this)) {
-            return ;
-        }
-
-        const auto library_name = [&]() {
-            switch (library_type) {
-                case library_type_t::STATIC: return filesystem::relative_path_t("libcpp_builder.a");
-                case library_type_t::SHARED: return filesystem::relative_path_t("libcpp_builder.so");
-                default: throw std::runtime_error(std::format("kernel::cpp_builder::builder::library_phase_t::execute: unknown library_type {}", static_cast<std::underlying_type_t<library_type_t>>(library_type)));
-            }
-        }();
-
-        switch (library_type) {
-            case library_type_t::STATIC: {
-                compiler::create_static_library(
-                    *this,
-                    kernel_library_source_files(),
-                    tool_path_defines(),
-                    library_name
-                );
-            } break ;
-            case library_type_t::SHARED: {
-                compiler::create_shared_library(
-                    *this,
-                    kernel_library_source_files(),
-                    tool_path_defines(),
-                    {},
-                    library_name
-                );
-            } break ;
-            default: throw std::runtime_error(std::format("kernel::cpp_builder::builder::library_phase_t::execute: unknown library_type {}", static_cast<std::underlying_type_t<library_type_t>>(library_type)));
-        }
-        return ;
-    }
-
-    dispatch_producer(*this);
 }
 
 const library_phase_t::output_t& library_phase_t::output() const {
@@ -327,31 +221,9 @@ const library_phase_t::output_t& library_phase_t::output() const {
 }
 
 binary_phase_t::binary_phase_t(module_builder_t& module_builder, graph::module_t& module, library_type_t library_type, const iphase_t* predecessor):
-    phase_base_t("binary", module_builder, module, library_type, predecessor),
+    producer_phase_t("binary", module_builder, module, library_type, predecessor),
     m_output(install_dir())
 {
-}
-
-void binary_phase_t::execute() const {
-    if (is_kernel_module()) {
-        if (try_dispatch_bootstrapped_kernel_producer(*this)) {
-            return ;
-        }
-
-        const auto& library_output = materialize<library_phase_t>();
-        compiler::create_binary(
-            *this,
-            { filesystem::relative_path_t("cli.cpp") },
-            tool_path_defines(),
-            library_output.library_groups,
-            true,
-            filesystem::relative_path_t("cli")
-        );
-        return ;
-    }
-
-    materialize<library_phase_t>();
-    dispatch_producer(*this);
 }
 
 const binary_phase_t::output_t& binary_phase_t::output() const {
