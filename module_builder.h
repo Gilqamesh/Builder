@@ -20,6 +20,8 @@ public:
 
 private:
     friend class phase_base_t;
+    template <class phase_t>
+    friend class producer_phase_t;
     friend struct source_phase_t;
     friend struct interface_phase_t;
     friend struct library_phase_t;
@@ -29,12 +31,6 @@ private:
     std::vector<std::vector<filesystem::path_t>> library_groups(library_type_t library_type) const;
 
     filesystem::path_t source_dir(const graph::module_t& module) const;
-
-    filesystem::path_t builder_source_path() const;
-    filesystem::path_t builder_dir() const;
-    filesystem::path_t builder_build_dir() const;
-    filesystem::path_t builder_install_dir() const;
-    filesystem::path_t builder_install_path() const;
 
     filesystem::path_t artifact_base_dir(const graph::module_t& module) const;
     filesystem::path_t artifact_dir(const graph::module_t& module) const;
@@ -48,7 +44,6 @@ private:
     filesystem::path_t builder_install_path(const graph::module_t& module) const;
     filesystem::path_t builder_install_latest_path(const graph::module_t& module) const;
 
-    filesystem::path_t build_builder(graph::module_t& module) const;
     filesystem::relative_path_t build_relative_dir() const;
     filesystem::relative_path_t install_relative_dir() const;
     filesystem::relative_path_t library_type_relative_dir(library_type_t library_type) const;

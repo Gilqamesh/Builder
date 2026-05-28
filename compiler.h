@@ -53,6 +53,16 @@ filesystem::path_t create_binary(
     const filesystem::relative_path_t& relative_output_path
 );
 
+filesystem::path_t create_builder_shared_library(
+    const filesystem::path_t& build_dir,
+    const filesystem::path_t& source_dir,
+    const std::vector<filesystem::path_t>& include_dirs,
+    const filesystem::path_t& builder_source_file,
+    const std::vector<std::pair<std::string, std::string>>& define_key_values,
+    const std::vector<filesystem::path_t>& libraries,
+    const filesystem::path_t& builder_plugin
+);
+
 } // namespace compiler
 
 } // namespace cpp_builder

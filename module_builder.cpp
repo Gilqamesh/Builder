@@ -1,35 +1,9 @@
 #include "module_builder.h"
 
-#include "compiler.h"
 #include <format>
 #include <functional>
-#include <iterator>
-#include <string>
-#include <string_view>
 #include <type_traits>
 #include <unordered_set>
-
-namespace kernel {
-
-namespace cpp_builder {
-
-namespace compiler {
-
-filesystem::path_t create_builder_shared_library(
-    const filesystem::path_t& build_dir,
-    const filesystem::path_t& source_dir,
-    const std::vector<filesystem::path_t>& include_dirs,
-    const filesystem::path_t& builder_source_file,
-    const std::vector<std::pair<std::string, std::string>>& define_key_values,
-    const std::vector<filesystem::path_t>& libraries,
-    const filesystem::path_t& builder_plugin
-);
-
-} // namespace compiler
-
-} // namespace cpp_builder
-
-} // namespace kernel
 
 namespace kernel {
 
@@ -38,26 +12,6 @@ namespace cpp_builder {
 namespace builder {
 
 namespace {
-
-std::string quote_define_value(std::string_view value) {
-    std::string result = "\"";
-    for (const char c : value) {
-        if (c == '\\' || c == '"') {
-            result.push_back('\\');
-        }
-        result.push_back(c);
-    }
-    result.push_back('"');
-    return result;
-}
-
-std::vector<std::pair<std::string, std::string>> tool_path_defines() {
-    return {
-        { "KERNEL_CPP_BUILDER_CXX_COMPILER_PATH", quote_define_value(compiler::CXX_COMPILER_PATH) },
-        { "KERNEL_CPP_BUILDER_CC_COMPILER_PATH", quote_define_value(compiler::CC_COMPILER_PATH) },
-        { "KERNEL_CPP_BUILDER_AR_PATH", quote_define_value(compiler::AR_PATH) }
-    };
-}
 
 void visit_sccs_topo_impl(const graph::module_scc_t* scc, const std::function<void(const graph::module_scc_t*)>& f, std::unordered_set<const graph::module_scc_t*>& visited) {
     if (!visited.insert(scc).second) {
@@ -126,26 +80,6 @@ std::vector<std::vector<filesystem::path_t>> module_builder_t::library_groups(li
     return result;
 }
 
-filesystem::path_t module_builder_t::builder_source_path() const {
-    return builder_source_path(m_module);
-}
-
-filesystem::path_t module_builder_t::builder_dir() const {
-    return builder_dir(m_module);
-}
-
-filesystem::path_t module_builder_t::builder_build_dir() const {
-    return builder_build_dir(m_module);
-}
-
-filesystem::path_t module_builder_t::builder_install_dir() const {
-    return builder_install_dir(m_module);
-}
-
-filesystem::path_t module_builder_t::builder_install_path() const {
-    return builder_install_path(m_module);
-}
-
 filesystem::path_t module_builder_t::source_dir(const graph::module_t& module) const {
     return module.source_dir();
 }
@@ -202,50 +136,6 @@ filesystem::path_t module_builder_t::builder_install_path(const graph::module_t&
 
 filesystem::path_t module_builder_t::builder_install_latest_path(const graph::module_t& module) const {
     return artifact_latest_dir(module) / filesystem::relative_path_t("builder/install/builder.so");
-}
-
-filesystem::path_t module_builder_t::build_builder(graph::module_t& module) const {
-    if (&module == m_workspace_ecosystem.this_module) {
-        const auto latest_builder_plugin = builder_install_latest_path(module);
-        if (filesystem::exists(latest_builder_plugin)) {
-            return latest_builder_plugin;
-        }
-    }
-
-    const auto builder_plugin = builder_install_path(module);
-    if (filesystem::exists(builder_plugin)) {
-        return builder_plugin;
-    }
-
-    std::vector<filesystem::path_t> include_dirs;
-    std::vector<filesystem::path_t> libraries;
-
-    for (auto* dependency : module.module_builder->dependencies) {
-        module_builder_t dependency_builder(m_workspace_ecosystem, *dependency);
-        auto dependency_interfaces = dependency_builder.interface_roots(library_type_t::SHARED);
-        include_dirs.insert(include_dirs.end(), std::make_move_iterator(dependency_interfaces.begin()), std::make_move_iterator(dependency_interfaces.end()));
-
-        auto dependency_library_groups = dependency_builder.library_groups(library_type_t::SHARED);
-        for (auto& dependency_library_group : dependency_library_groups) {
-            libraries.insert(libraries.end(), std::make_move_iterator(dependency_library_group.begin()), std::make_move_iterator(dependency_library_group.end()));
-        }
-    }
-
-    compiler::create_builder_shared_library(
-        builder_build_dir(module),
-        source_dir(module),
-        include_dirs,
-        builder_source_path(module),
-        tool_path_defines(),
-        libraries,
-        builder_plugin
-    );
-
-    if (!filesystem::exists(builder_plugin)) {
-        throw std::runtime_error(std::format("kernel::cpp_builder::builder::module_builder_t::build_builder: expected builder plugin '{}' to exist but it does not", builder_plugin));
-    }
-
-    return builder_plugin;
 }
 
 filesystem::relative_path_t module_builder_t::build_relative_dir() const {

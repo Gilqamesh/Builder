@@ -79,7 +79,6 @@ public:
 
 protected:
     module_builder_t& module_builder() const;
-    filesystem::path_t builder_plugin() const;
 
 private:
     std::string_view m_name;

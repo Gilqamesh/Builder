@@ -1,10 +1,14 @@
 #include "phase.h"
 
+#include "compiler.h"
 #include "module_builder.h"
 #include "shared_library.h"
 
 #include <format>
+#include <iterator>
 #include <stdexcept>
+#include <string>
+#include <string_view>
 #include <utility>
 
 namespace kernel {
@@ -27,6 +31,26 @@ void install_artifact(const filesystem::path_t& install_dir, const filesystem::p
     }
 
     filesystem::copy(artifact, target_path);
+}
+
+std::string quote_define_value(std::string_view value) {
+    std::string result = "\"";
+    for (const char c : value) {
+        if (c == '\\' || c == '"') {
+            result.push_back('\\');
+        }
+        result.push_back(c);
+    }
+    result.push_back('"');
+    return result;
+}
+
+std::vector<std::pair<std::string, std::string>> tool_path_defines() {
+    return {
+        { "KERNEL_CPP_BUILDER_CXX_COMPILER_PATH", quote_define_value(compiler::CXX_COMPILER_PATH) },
+        { "KERNEL_CPP_BUILDER_CC_COMPILER_PATH", quote_define_value(compiler::CC_COMPILER_PATH) },
+        { "KERNEL_CPP_BUILDER_AR_PATH", quote_define_value(compiler::AR_PATH) }
+    };
 }
 
 void validate_phase_module(const module_builder_t& module_builder, const graph::module_t& module, std::string_view phase_name) {
@@ -90,13 +114,54 @@ module_builder_t& phase_base_t::module_builder() const {
     return m_module_builder;
 }
 
-filesystem::path_t phase_base_t::builder_plugin() const {
-    return m_module_builder.build_builder(m_module);
-}
-
 template <class phase_t>
 void producer_phase_t<phase_t>::execute() const {
-    const auto builder_plugin = this->builder_plugin();
+    auto& module_builder = this->module_builder();
+    auto& module = this->module();
+    const auto builder_plugin = [&]() {
+        if (&module == module_builder.m_workspace_ecosystem.this_module) {
+            const auto latest_builder_plugin = module_builder.builder_install_latest_path(module);
+            if (filesystem::exists(latest_builder_plugin)) {
+                return latest_builder_plugin;
+            }
+        }
+
+        const auto builder_plugin = module_builder.builder_install_path(module);
+        if (filesystem::exists(builder_plugin)) {
+            return builder_plugin;
+        }
+
+        std::vector<filesystem::path_t> include_dirs;
+        std::vector<filesystem::path_t> libraries;
+
+        for (auto* dependency : module.module_builder->dependencies) {
+            module_builder_t dependency_builder(module_builder.m_workspace_ecosystem, *dependency);
+            auto dependency_interfaces = dependency_builder.interface_roots(library_type_t::SHARED);
+            include_dirs.insert(include_dirs.end(), std::make_move_iterator(dependency_interfaces.begin()), std::make_move_iterator(dependency_interfaces.end()));
+
+            auto dependency_library_groups = dependency_builder.library_groups(library_type_t::SHARED);
+            for (auto& dependency_library_group : dependency_library_groups) {
+                libraries.insert(libraries.end(), std::make_move_iterator(dependency_library_group.begin()), std::make_move_iterator(dependency_library_group.end()));
+            }
+        }
+
+        compiler::create_builder_shared_library(
+            module_builder.builder_build_dir(module),
+            module_builder.source_dir(module),
+            include_dirs,
+            module_builder.builder_source_path(module),
+            tool_path_defines(),
+            libraries,
+            builder_plugin
+        );
+
+        if (!filesystem::exists(builder_plugin)) {
+            throw std::runtime_error(std::format("kernel::cpp_builder::builder::producer_phase_t::execute: expected builder plugin '{}' to exist", builder_plugin));
+        }
+
+        return builder_plugin;
+    }();
+
     shared_library::loader_t loader(builder_plugin, shared_library::lifetime_t::PROCESS, shared_library::symbol_resolution_t::LAZY, shared_library::symbol_visibility_t::LOCAL);
     using fn_t = void (*)(const phase_t*);
     const auto producer_symbol_name = this->producer_symbol_name();
