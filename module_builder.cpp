@@ -1,36 +1,13 @@
 #include "module_builder.h"
 
 #include <format>
-#include <functional>
 #include <type_traits>
-#include <unordered_set>
 
 namespace kernel {
 
 namespace cpp_builder {
 
 namespace builder {
-
-namespace {
-
-void visit_sccs_topo_impl(const graph::module_scc_t* scc, const std::function<void(const graph::module_scc_t*)>& f, std::unordered_set<const graph::module_scc_t*>& visited) {
-    if (!visited.insert(scc).second) {
-        return ;
-    }
-
-    for (const auto* dependency : scc->dependencies) {
-        visit_sccs_topo_impl(dependency, f, visited);
-    }
-
-    f(scc);
-}
-
-void visit_sccs_topo(const graph::module_scc_t* scc, const std::function<void(const graph::module_scc_t*)>& f) {
-    std::unordered_set<const graph::module_scc_t*> visited;
-    visit_sccs_topo_impl(scc, f, visited);
-}
-
-} // namespace
 
 module_builder_t::module_builder_t(graph::workspace_ecosystem_t& workspace_ecosystem, graph::module_t& module):
     m_workspace_ecosystem(workspace_ecosystem),
@@ -45,14 +22,12 @@ graph::module_t& module_builder_t::module() const {
 std::vector<filesystem::path_t> module_builder_t::interface_roots(library_type_t library_type) const {
     std::vector<filesystem::path_t> result;
 
-    visit_sccs_topo(m_module.module_scc, [&](const graph::module_scc_t* scc) {
-        for (auto* module : scc->modules) {
-            module_builder_t module_builder(m_workspace_ecosystem, *module);
-            phase_chain_t phase_chain(module_builder, *module, library_type);
-            const auto& output = phase_chain.interface.materialize<interface_phase_t>();
-            result.insert(result.end(), output.interfaces.begin(), output.interfaces.end());
-        }
-    });
+    module_builder_t module_builder(m_workspace_ecosystem, m_module);
+    phase_chain_t phase_chain(module_builder, m_module, library_type);
+    const auto outputs = phase_chain.interface.materialize<interface_phase_t>();
+    for (const auto& output : outputs) {
+        result.insert(result.end(), output.interfaces.begin(), output.interfaces.end());
+    }
 
     return result;
 }
@@ -60,20 +35,14 @@ std::vector<filesystem::path_t> module_builder_t::interface_roots(library_type_t
 std::vector<std::vector<filesystem::path_t>> module_builder_t::library_groups(library_type_t library_type) const {
     std::vector<std::vector<filesystem::path_t>> result;
 
-    visit_sccs_topo(m_module.module_scc, [&](const graph::module_scc_t* scc) {
-        std::vector<filesystem::path_t> library_group;
-
-        for (auto* module : scc->modules) {
-            module_builder_t module_builder(m_workspace_ecosystem, *module);
-            phase_chain_t phase_chain(module_builder, *module, library_type);
-            const auto& output = phase_chain.library.materialize<library_phase_t>();
-            library_group.insert(library_group.end(), output.libraries.begin(), output.libraries.end());
+    module_builder_t module_builder(m_workspace_ecosystem, m_module);
+    phase_chain_t phase_chain(module_builder, m_module, library_type);
+    const auto outputs = phase_chain.library.materialize<library_phase_t>();
+    for (const auto& output : outputs) {
+        if (!output.libraries.empty()) {
+            result.push_back(output.libraries);
         }
-
-        if (!library_group.empty()) {
-            result.emplace_back(std::move(library_group));
-        }
-    });
+    }
 
     return result;
 }

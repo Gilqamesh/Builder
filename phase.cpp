@@ -9,6 +9,7 @@
 #include <stdexcept>
 #include <string>
 #include <string_view>
+#include <type_traits>
 #include <utility>
 
 namespace kernel {
@@ -59,6 +60,9 @@ void validate_phase_module(const module_builder_t& module_builder, const graph::
     }
 }
 
+template <class>
+inline constexpr bool always_false_v = false;
+
 } // namespace
 
 source_output_t::source_output_t(const filesystem::path_t& configured_source_root):
@@ -94,6 +98,49 @@ binary_output_t materialized_output(const binary_phase_t& phase) {
         throw std::runtime_error(std::format("kernel::cpp_builder::builder::binary_phase_t::materialized_output: expected module cli '{}' to exist", output.cli));
     }
     return output;
+}
+
+bool output_matches_install_dir(const source_output_t& output, const filesystem::path_t& install_dir) {
+    return output.source_root == install_dir;
+}
+
+bool output_matches_install_dir(const interface_output_t& output, const filesystem::path_t& install_dir) {
+    for (const auto& interface : output.interfaces) {
+        if (interface == install_dir) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+bool output_matches_install_dir(const library_output_t& output, const filesystem::path_t& install_dir) {
+    for (const auto& library : output.libraries) {
+        if (install_dir.is_child(library)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+bool output_matches_install_dir(const binary_output_t& output, const filesystem::path_t& install_dir) {
+    return output.binary_root == install_dir;
+}
+
+template <class phase_t>
+const phase_t& phase_from_chain(const phase_chain_t& phase_chain) {
+    if constexpr (std::is_same_v<phase_t, source_phase_t>) {
+        return phase_chain.source;
+    } else if constexpr (std::is_same_v<phase_t, interface_phase_t>) {
+        return phase_chain.interface;
+    } else if constexpr (std::is_same_v<phase_t, library_phase_t>) {
+        return phase_chain.library;
+    } else if constexpr (std::is_same_v<phase_t, binary_phase_t>) {
+        return phase_chain.binary;
+    } else {
+        static_assert(always_false_v<phase_t>, "unsupported phase type");
+    }
 }
 
 phase_base_t::phase_base_t(std::string_view name, module_builder_t& module_builder, graph::module_t& module, library_type_t configured_library_type, const iphase_t* predecessor):
@@ -194,31 +241,37 @@ void producer_phase_t<phase_t>::execute() const {
 }
 
 template <class phase_t>
-const typename phase_t::output_t& phase_base_t::materialize() const {
+const phase_t& phase_base_t::exact_phase() const {
     const auto* phase = dynamic_cast<const phase_t*>(this);
     if (phase == nullptr) {
         const auto* previous_phase = predecessor();
         if (previous_phase == nullptr) {
-            throw std::runtime_error(std::format("phase_base_t::materialize: requested phase is not in the current phase '{}' or its configured predecessor chain", name()));
+            throw std::runtime_error(std::format("phase_base_t::exact_phase: requested phase is not in the current phase '{}' or its configured predecessor chain", name()));
         }
 
         const auto* previous_phase_base = dynamic_cast<const phase_base_t*>(previous_phase);
         if (previous_phase_base == nullptr) {
-            throw std::runtime_error(std::format("phase_base_t::materialize: predecessor of phase '{}' is not a phase_base_t", name()));
+            throw std::runtime_error(std::format("phase_base_t::exact_phase: predecessor of phase '{}' is not a phase_base_t", name()));
         }
 
-        return previous_phase_base->materialize<phase_t>();
+        return previous_phase_base->exact_phase<phase_t>();
     }
 
-    const auto build_dir = this->build_dir();
-    const auto install_dir = this->install_dir();
+    return *phase;
+}
+
+template <class phase_t>
+typename phase_t::output_t phase_base_t::materialize_exact() const {
+    const auto& phase = exact_phase<phase_t>();
+    const auto build_dir = phase.build_dir();
+    const auto install_dir = phase.install_dir();
     const auto marker_path = [&](std::string_view state) {
-        return build_dir / filesystem::relative_path_t(std::format("{}.{}", name(), state));
+        return build_dir / filesystem::relative_path_t(std::format("{}.{}", phase.name(), state));
     };
     const auto publish_latest_stage = [&]() {
-        const auto phase_artifact_dir = this->artifact_dir();
-        const auto latest_dir = m_module_builder.artifact_latest_dir(m_module);
-        const auto latest_stage_dir = latest_dir / m_module_builder.artifact_dir(m_module).relative(phase_artifact_dir);
+        const auto phase_artifact_dir = phase.artifact_dir();
+        const auto latest_dir = phase.m_module_builder.artifact_latest_dir(phase.m_module);
+        const auto latest_stage_dir = latest_dir / phase.m_module_builder.artifact_dir(phase.m_module).relative(phase_artifact_dir);
         const auto latest_stage_tmp_dir = latest_stage_dir + "_tmp";
 
         if (filesystem::exists(latest_stage_tmp_dir)) {
@@ -236,13 +289,13 @@ const typename phase_t::output_t& phase_base_t::materialize() const {
     const auto complete_marker = marker_path("complete");
 
     if (filesystem::exists(complete_marker)) {
+        auto result = materialized_output(phase);
         publish_latest_stage();
-        phase->m_output = materialized_output(*phase);
-        return phase->m_output;
+        return result;
     }
 
     if (filesystem::exists(started_marker)) {
-        throw std::runtime_error(std::format("phase_base_t::materialize: re-entry detected for phase '{}'", name()));
+        throw std::runtime_error(std::format("phase_base_t::materialize_exact: re-entry detected for phase '{}'", phase.name()));
     }
 
     if (filesystem::exists(build_dir)) {
@@ -259,14 +312,14 @@ const typename phase_t::output_t& phase_base_t::materialize() const {
         filesystem::touch(started_marker);
         filesystem::create_directories(install_dir);
 
-        phase->execute();
-        phase->m_output = materialized_output(*phase);
+        phase.execute();
+        auto result = materialized_output(phase);
 
         publish_latest_stage();
         filesystem::touch(complete_marker);
         filesystem::remove(started_marker);
 
-        return phase->m_output;
+        return result;
     } catch (...) {
         filesystem::remove_all(build_dir);
         filesystem::remove_all(install_dir);
@@ -274,14 +327,78 @@ const typename phase_t::output_t& phase_base_t::materialize() const {
     }
 }
 
-template const source_phase_t::output_t& phase_base_t::materialize<source_phase_t>() const;
-template const interface_phase_t::output_t& phase_base_t::materialize<interface_phase_t>() const;
-template const library_phase_t::output_t& phase_base_t::materialize<library_phase_t>() const;
-template const binary_phase_t::output_t& phase_base_t::materialize<binary_phase_t>() const;
+template <class phase_t>
+std::vector<typename phase_t::output_t> phase_base_t::materialize() const {
+    std::unordered_set<const graph::module_scc_t*> visited_sccs;
+    return materialize<phase_t>(visited_sccs);
+}
+
+template <class phase_t>
+std::vector<typename phase_t::output_t> phase_base_t::materialize(std::unordered_set<const graph::module_scc_t*>& visited_sccs) const {
+    const auto* scc = module().module_scc;
+    if (scc == nullptr) {
+        throw std::runtime_error(std::format("phase_base_t::materialize: module '{}' has no SCC", module_display_name(module())));
+    }
+
+    std::vector<typename phase_t::output_t> outputs;
+    append_materialized_scc_outputs<phase_t>(*scc, visited_sccs, outputs);
+    return outputs;
+}
+
+template <class phase_t>
+void phase_base_t::append_materialized_scc_outputs(const graph::module_scc_t& scc, std::unordered_set<const graph::module_scc_t*>& visited_sccs, std::vector<typename phase_t::output_t>& outputs) const {
+    if (!visited_sccs.insert(&scc).second) {
+        return ;
+    }
+
+    for (const auto* dependency : scc.dependencies) {
+        append_materialized_scc_outputs<phase_t>(*dependency, visited_sccs, outputs);
+    }
+
+    for (auto* module : scc.modules) {
+        module_builder_t module_builder(m_module_builder.m_workspace_ecosystem, *module);
+        phase_chain_t phase_chain(module_builder, *module, library_type);
+        outputs.push_back(phase_from_chain<phase_t>(phase_chain).template materialize_exact<phase_t>());
+    }
+}
+
+template <class phase_t>
+typename phase_t::output_t phase_base_t::current_output(const std::vector<typename phase_t::output_t>& outputs) const {
+    const auto& phase = exact_phase<phase_t>();
+    const auto install_dir = phase.install_dir();
+
+    for (const auto& output : outputs) {
+        if (output_matches_install_dir(output, install_dir)) {
+            return output;
+        }
+    }
+
+    if constexpr (std::is_same_v<phase_t, library_phase_t>) {
+        if (outputs.size() == 1 && outputs.front().libraries.empty()) {
+            return outputs.front();
+        }
+    }
+
+    throw std::runtime_error(std::format("phase_base_t::current_output: output for phase '{}' at install dir '{}' was not found", phase.name(), install_dir));
+}
+
+template std::vector<source_phase_t::output_t> phase_base_t::materialize<source_phase_t>() const;
+template std::vector<interface_phase_t::output_t> phase_base_t::materialize<interface_phase_t>() const;
+template std::vector<library_phase_t::output_t> phase_base_t::materialize<library_phase_t>() const;
+template std::vector<binary_phase_t::output_t> phase_base_t::materialize<binary_phase_t>() const;
+
+template std::vector<source_phase_t::output_t> phase_base_t::materialize<source_phase_t>(std::unordered_set<const graph::module_scc_t*>&) const;
+template std::vector<interface_phase_t::output_t> phase_base_t::materialize<interface_phase_t>(std::unordered_set<const graph::module_scc_t*>&) const;
+template std::vector<library_phase_t::output_t> phase_base_t::materialize<library_phase_t>(std::unordered_set<const graph::module_scc_t*>&) const;
+template std::vector<binary_phase_t::output_t> phase_base_t::materialize<binary_phase_t>(std::unordered_set<const graph::module_scc_t*>&) const;
+
+template source_phase_t::output_t phase_base_t::current_output<source_phase_t>(const std::vector<source_phase_t::output_t>&) const;
+template interface_phase_t::output_t phase_base_t::current_output<interface_phase_t>(const std::vector<interface_phase_t::output_t>&) const;
+template library_phase_t::output_t phase_base_t::current_output<library_phase_t>(const std::vector<library_phase_t::output_t>&) const;
+template binary_phase_t::output_t phase_base_t::current_output<binary_phase_t>(const std::vector<binary_phase_t::output_t>&) const;
 
 source_phase_t::source_phase_t(module_builder_t& module_builder, graph::module_t& module, library_type_t library_type, const iphase_t* predecessor):
-    phase_base_t("source", module_builder, module, library_type, predecessor),
-    m_output(install_dir())
+    phase_base_t("source", module_builder, module, library_type, predecessor)
 {
 }
 
@@ -308,8 +425,7 @@ library_phase_t::library_phase_t(module_builder_t& module_builder, graph::module
 }
 
 binary_phase_t::binary_phase_t(module_builder_t& module_builder, graph::module_t& module, library_type_t library_type, const iphase_t* predecessor):
-    producer_phase_t("binary", module_builder, module, library_type, predecessor),
-    m_output(install_dir())
+    producer_phase_t("binary", module_builder, module, library_type, predecessor)
 {
 }
 

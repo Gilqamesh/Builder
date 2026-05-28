@@ -6,6 +6,7 @@
 # include <cstdint>
 # include <string>
 # include <string_view>
+# include <unordered_set>
 # include <vector>
 
 namespace kernel {
@@ -75,12 +76,27 @@ public:
     const library_type_t library_type;
 
     template <class phase_t>
-    const typename phase_t::output_t& materialize() const;
+    std::vector<typename phase_t::output_t> materialize() const;
+
+    template <class phase_t>
+    std::vector<typename phase_t::output_t> materialize(std::unordered_set<const graph::module_scc_t*>& visited_sccs) const;
+
+    template <class phase_t>
+    typename phase_t::output_t current_output(const std::vector<typename phase_t::output_t>& outputs) const;
 
 protected:
     module_builder_t& module_builder() const;
 
 private:
+    template <class phase_t>
+    const phase_t& exact_phase() const;
+
+    template <class phase_t>
+    typename phase_t::output_t materialize_exact() const;
+
+    template <class phase_t>
+    void append_materialized_scc_outputs(const graph::module_scc_t& scc, std::unordered_set<const graph::module_scc_t*>& visited_sccs, std::vector<typename phase_t::output_t>& outputs) const;
+
     std::string_view m_name;
     module_builder_t& m_module_builder;
     graph::module_t& m_module;
@@ -107,8 +123,6 @@ private:
     friend class phase_base_t;
 
     void execute() const;
-
-    mutable output_t m_output;
 };
 
 struct interface_phase_t : producer_phase_t<interface_phase_t> {
@@ -118,8 +132,6 @@ struct interface_phase_t : producer_phase_t<interface_phase_t> {
 
 private:
     friend class phase_base_t;
-
-    mutable output_t m_output;
 };
 
 struct library_phase_t : producer_phase_t<library_phase_t> {
@@ -129,8 +141,6 @@ struct library_phase_t : producer_phase_t<library_phase_t> {
 
 private:
     friend class phase_base_t;
-
-    mutable output_t m_output;
 };
 
 struct binary_phase_t : producer_phase_t<binary_phase_t> {
@@ -140,8 +150,6 @@ struct binary_phase_t : producer_phase_t<binary_phase_t> {
 
 private:
     friend class phase_base_t;
-
-    mutable output_t m_output;
 };
 
 class phase_chain_t {

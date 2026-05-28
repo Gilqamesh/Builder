@@ -8,7 +8,6 @@
 #include <chrono>
 #include <sstream>
 #include <fstream>
-#include <unordered_set>
 
 namespace kernel {
 
@@ -30,44 +29,22 @@ static std::vector<filesystem::path_t> resolve_source_files(
     return source_files;
 }
 
-static void append_module_dependency_interfaces(
-    builder::library_type_t library_type,
-    graph::module_t& module,
-    std::unordered_set<const graph::module_t*>& visited,
-    std::vector<filesystem::path_t>& include_dirs
-) {
-    for (auto* dependency : module.dependencies) {
-        if (!visited.insert(dependency).second) {
-            continue ;
-        }
+static std::vector<filesystem::path_t> flatten_interface_outputs(const std::vector<builder::interface_output_t>& interface_outputs) {
+    std::vector<filesystem::path_t> include_dirs;
 
-        builder::module_builder_t dependency_builder(*dependency->workspace->workspace_ecosystem, *dependency);
-        builder::phase_chain_t dependency_phase_chain(dependency_builder, *dependency, library_type);
-        const auto& dependency_interfaces = dependency_phase_chain.interface.materialize<builder::interface_phase_t>();
-        include_dirs.insert(include_dirs.end(), dependency_interfaces.interfaces.begin(), dependency_interfaces.interfaces.end());
-
-        append_module_dependency_interfaces(library_type, *dependency, visited, include_dirs);
+    for (const auto& interface_output : interface_outputs) {
+        include_dirs.insert(include_dirs.end(), interface_output.interfaces.begin(), interface_output.interfaces.end());
     }
+
+    return include_dirs;
 }
 
 static std::vector<filesystem::path_t> library_include_dirs(const builder::library_phase_t& phase) {
-    const auto& interface_output = phase.materialize<builder::interface_phase_t>();
-    auto include_dirs = interface_output.interfaces;
-
-    std::unordered_set<const graph::module_t*> visited;
-    append_module_dependency_interfaces(phase.library_type, phase.module(), visited, include_dirs);
-
-    return include_dirs;
+    return flatten_interface_outputs(phase.materialize<builder::interface_phase_t>());
 }
 
 static std::vector<filesystem::path_t> binary_include_dirs(const builder::binary_phase_t& phase) {
-    const auto& interface_output = phase.materialize<builder::interface_phase_t>();
-    auto include_dirs = interface_output.interfaces;
-
-    std::unordered_set<const graph::module_t*> visited;
-    append_module_dependency_interfaces(phase.library_type, phase.module(), visited, include_dirs);
-
-    return include_dirs;
+    return flatten_interface_outputs(phase.materialize<builder::interface_phase_t>());
 }
 
 static std::vector<filesystem::path_t> create_object_files(
@@ -296,7 +273,8 @@ filesystem::path_t create_static_library(
     const std::vector<std::pair<std::string, std::string>>& define_key_values,
     const filesystem::relative_path_t& relative_output_path
 ) {
-    const auto& source_output = phase.materialize<builder::source_phase_t>();
+    const auto source_outputs = phase.materialize<builder::source_phase_t>();
+    const auto& source_output = phase.current_output<builder::source_phase_t>(source_outputs);
     const auto include_dirs = library_include_dirs(phase);
 
     return create_static_library_impl(
@@ -316,7 +294,8 @@ filesystem::path_t create_shared_library(
     const std::vector<filesystem::path_t>& dsos,
     const filesystem::relative_path_t& relative_output_path
 ) {
-    const auto& source_output = phase.materialize<builder::source_phase_t>();
+    const auto source_outputs = phase.materialize<builder::source_phase_t>();
+    const auto& source_output = phase.current_output<builder::source_phase_t>(source_outputs);
     const auto include_dirs = library_include_dirs(phase);
 
     return create_shared_library_impl(
@@ -338,7 +317,8 @@ filesystem::path_t create_binary(
     bool TEMP_assume_all_link_inputs_are_shared,
     const filesystem::relative_path_t& relative_output_path
 ) {
-    const auto& source_output = phase.materialize<builder::source_phase_t>();
+    const auto source_outputs = phase.materialize<builder::source_phase_t>();
+    const auto& source_output = phase.current_output<builder::source_phase_t>(source_outputs);
     const auto include_dirs = binary_include_dirs(phase);
 
     return create_binary_impl(
