@@ -207,8 +207,12 @@ void producer_phase_t<phase_t>::execute() const {
 
         for (auto* dependency : module.module_builder->dependencies) {
             module_builder_t dependency_builder(module_builder.m_workspace_ecosystem, *dependency);
-            auto dependency_interfaces = dependency_builder.interface_roots(library_type_t::SHARED);
-            include_dirs.insert(include_dirs.end(), std::make_move_iterator(dependency_interfaces.begin()), std::make_move_iterator(dependency_interfaces.end()));
+            phase_chain_t dependency_phase_chain(dependency_builder, *dependency, library_type_t::SHARED);
+
+            const auto dependency_interface_outputs = dependency_phase_chain.interface.materialize<interface_phase_t>();
+            for (const auto& dependency_interface_output : dependency_interface_outputs) {
+                include_dirs.insert(include_dirs.end(), dependency_interface_output.interfaces.begin(), dependency_interface_output.interfaces.end());
+            }
 
             auto dependency_library_groups = dependency_builder.library_groups(library_type_t::SHARED);
             for (auto& dependency_library_group : dependency_library_groups) {

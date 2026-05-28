@@ -19,19 +19,6 @@ graph::module_t& module_builder_t::module() const {
     return m_module;
 }
 
-std::vector<filesystem::path_t> module_builder_t::interface_roots(library_type_t library_type) const {
-    std::vector<filesystem::path_t> result;
-
-    module_builder_t module_builder(m_workspace_ecosystem, m_module);
-    phase_chain_t phase_chain(module_builder, m_module, library_type);
-    const auto outputs = phase_chain.interface.materialize<interface_phase_t>();
-    for (const auto& output : outputs) {
-        result.insert(result.end(), output.interfaces.begin(), output.interfaces.end());
-    }
-
-    return result;
-}
-
 std::vector<std::vector<filesystem::path_t>> module_builder_t::library_groups(library_type_t library_type) const {
     std::vector<std::vector<filesystem::path_t>> result;
 

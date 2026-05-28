@@ -27,7 +27,6 @@ private:
     friend struct library_phase_t;
     friend struct binary_phase_t;
 
-    std::vector<filesystem::path_t> interface_roots(library_type_t library_type) const;
     std::vector<std::vector<filesystem::path_t>> library_groups(library_type_t library_type) const;
 
     filesystem::path_t source_dir(const graph::module_t& module) const;
