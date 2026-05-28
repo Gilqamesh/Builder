@@ -293,12 +293,7 @@ library_phase_t::library_phase_t(module_builder_t& module_builder, graph::module
 }
 
 const library_phase_t::output_t& library_phase_t::output() const {
-    auto libraries = filesystem::find(*this, !filesystem::find_include_predicate_t::is_dir, filesystem::find_descend_predicate_t::descend_all);
-
-    m_output.library_groups.clear();
-    if (!libraries.empty()) {
-        m_output.library_groups.emplace_back(std::move(libraries));
-    }
+    m_output.libraries = filesystem::find(*this, !filesystem::find_include_predicate_t::is_dir, filesystem::find_descend_predicate_t::descend_all);
     return m_output;
 }
 

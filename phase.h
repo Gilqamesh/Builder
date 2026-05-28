@@ -50,7 +50,7 @@ struct interface_output_t {
 };
 
 struct library_output_t {
-    std::vector<std::vector<filesystem::path_t>> library_groups;
+    std::vector<filesystem::path_t> libraries;
 };
 
 struct binary_output_t {

@@ -67,9 +67,7 @@ std::vector<std::vector<filesystem::path_t>> module_builder_t::library_groups(li
             module_builder_t module_builder(m_workspace_ecosystem, *module);
             phase_chain_t phase_chain(module_builder, *module, library_type);
             const auto& output = phase_chain.library.materialize<library_phase_t>();
-            for (const auto& module_library_group : output.library_groups) {
-                library_group.insert(library_group.end(), module_library_group.begin(), module_library_group.end());
-            }
+            library_group.insert(library_group.end(), output.libraries.begin(), output.libraries.end());
         }
 
         if (!library_group.empty()) {
