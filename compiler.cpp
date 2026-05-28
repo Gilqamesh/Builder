@@ -86,7 +86,7 @@ static std::vector<filesystem::path_t> create_object_files(
     }
 
     std::vector<process::process_arg_t> process_prefix_args;
-    process_prefix_args.push_back(CPP_COMPILER_PATH);
+    process_prefix_args.push_back(CXX_COMPILER_PATH);
     process_prefix_args.push_back("-g");
     process_prefix_args.push_back("-std=c++23");
 
@@ -200,7 +200,7 @@ static filesystem::path_t create_shared_library_impl(
     }
 
     std::vector<process::process_arg_t> process_args;
-    process_args.push_back(CPP_COMPILER_PATH);
+    process_args.push_back(CXX_COMPILER_PATH);
     process_args.push_back("-g");
     process_args.push_back("-shared");
     process_args.push_back("-o");
@@ -247,7 +247,7 @@ static filesystem::path_t create_binary_impl(
     }
 
     std::vector<process::process_arg_t> process_args;
-    process_args.push_back(CPP_COMPILER_PATH);
+    process_args.push_back(CXX_COMPILER_PATH);
     process_args.push_back("-g");
     process_args.push_back("-std=c++23");
     process_args.push_back("-o");
