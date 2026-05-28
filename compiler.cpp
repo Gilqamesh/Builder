@@ -1,9 +1,10 @@
 #include "compiler.h"
 
-#include "module_builder.h"
 #include "process.h"
 
 #include <format>
+#include <stdexcept>
+#include <string_view>
 #include <ranges>
 #include <chrono>
 #include <sstream>
@@ -27,6 +28,23 @@ static std::vector<filesystem::path_t> resolve_source_files(
     }
 
     return source_files;
+}
+
+static const builder::iphase_t& phase_named(const builder::iphase_t& phase, std::string_view phase_name) {
+    const builder::iphase_t* current_phase = &phase;
+    while (current_phase != nullptr) {
+        if (current_phase->name() == phase_name) {
+            return *current_phase;
+        }
+        current_phase = current_phase->predecessor();
+    }
+
+    throw std::runtime_error(std::format("cpp_compiler::phase_named: phase '{}' is not in the predecessor chain for '{}'", phase_name, phase.name()));
+}
+
+static filesystem::path_t materialized_source_root(const builder::phase_base_t& phase) {
+    phase.materialize<builder::source_phase_t>();
+    return phase_named(phase, "source").install_dir();
 }
 
 static std::vector<filesystem::path_t> flatten_interface_outputs(const std::vector<builder::interface_output_t>& interface_outputs) {
@@ -283,15 +301,14 @@ filesystem::path_t create_static_library(
     const std::vector<std::pair<std::string, std::string>>& define_key_values,
     const filesystem::relative_path_t& relative_output_path
 ) {
-    const auto source_outputs = phase.materialize<builder::source_phase_t>();
-    const auto& source_output = phase.current_output<builder::source_phase_t>(source_outputs);
+    const auto source_root = materialized_source_root(phase);
     const auto include_dirs = library_include_dirs(phase);
 
     return create_static_library_impl(
         phase.build_dir(),
-        source_output.source_root,
+        source_root,
         include_dirs,
-        resolve_source_files(source_output.source_root, relative_source_files),
+        resolve_source_files(source_root, relative_source_files),
         define_key_values,
         phase.install_dir() / relative_output_path
     );
@@ -304,15 +321,14 @@ filesystem::path_t create_shared_library(
     const std::vector<builder::library_output_t>& library_outputs,
     const filesystem::relative_path_t& relative_output_path
 ) {
-    const auto source_outputs = phase.materialize<builder::source_phase_t>();
-    const auto& source_output = phase.current_output<builder::source_phase_t>(source_outputs);
+    const auto source_root = materialized_source_root(phase);
     const auto include_dirs = library_include_dirs(phase);
 
     return create_shared_library_impl(
         phase.build_dir(),
-        source_output.source_root,
+        source_root,
         include_dirs,
-        resolve_source_files(source_output.source_root, relative_source_files),
+        resolve_source_files(source_root, relative_source_files),
         define_key_values,
         library_outputs,
         phase.install_dir() / relative_output_path
@@ -327,15 +343,14 @@ filesystem::path_t create_binary(
     bool TEMP_assume_all_link_inputs_are_shared,
     const filesystem::relative_path_t& relative_output_path
 ) {
-    const auto source_outputs = phase.materialize<builder::source_phase_t>();
-    const auto& source_output = phase.current_output<builder::source_phase_t>(source_outputs);
+    const auto source_root = materialized_source_root(phase);
     const auto include_dirs = binary_include_dirs(phase);
 
     return create_binary_impl(
         phase.build_dir(),
-        source_output.source_root,
+        source_root,
         include_dirs,
-        resolve_source_files(source_output.source_root, relative_source_files),
+        resolve_source_files(source_root, relative_source_files),
         define_key_values,
         library_outputs,
         TEMP_assume_all_link_inputs_are_shared,

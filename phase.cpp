@@ -99,34 +99,6 @@ binary_output_t materialized_output(const binary_phase_t& phase) {
     return output;
 }
 
-bool output_matches_install_dir(const source_output_t& output, const filesystem::path_t& install_dir) {
-    return output.source_root == install_dir;
-}
-
-bool output_matches_install_dir(const interface_output_t& output, const filesystem::path_t& install_dir) {
-    for (const auto& interface : output.interfaces) {
-        if (interface == install_dir) {
-            return true;
-        }
-    }
-
-    return false;
-}
-
-bool output_matches_install_dir(const library_output_t& output, const filesystem::path_t& install_dir) {
-    for (const auto& library : output.libraries) {
-        if (install_dir.is_child(library)) {
-            return true;
-        }
-    }
-
-    return false;
-}
-
-bool output_matches_install_dir(const binary_output_t& output, const filesystem::path_t& install_dir) {
-    return output.binary_root == install_dir;
-}
-
 template <class phase_t>
 const phase_t& phase_from_chain(const phase_chain_t& phase_chain) {
     if constexpr (std::is_same_v<phase_t, source_phase_t>) {
@@ -365,26 +337,6 @@ void phase_base_t::append_materialized_scc_outputs(const graph::module_scc_t& sc
     }
 }
 
-template <class phase_t>
-typename phase_t::output_t phase_base_t::current_output(const std::vector<typename phase_t::output_t>& outputs) const {
-    const auto& phase = exact_phase<phase_t>();
-    const auto install_dir = phase.install_dir();
-
-    for (const auto& output : outputs) {
-        if (output_matches_install_dir(output, install_dir)) {
-            return output;
-        }
-    }
-
-    if constexpr (std::is_same_v<phase_t, library_phase_t>) {
-        if (outputs.size() == 1 && outputs.front().libraries.empty()) {
-            return outputs.front();
-        }
-    }
-
-    throw std::runtime_error(std::format("phase_base_t::current_output: output for phase '{}' at install dir '{}' was not found", phase.name(), install_dir));
-}
-
 template std::vector<source_phase_t::output_t> phase_base_t::materialize<source_phase_t>() const;
 template std::vector<interface_phase_t::output_t> phase_base_t::materialize<interface_phase_t>() const;
 template std::vector<library_phase_t::output_t> phase_base_t::materialize<library_phase_t>() const;
@@ -394,11 +346,6 @@ template std::vector<source_phase_t::output_t> phase_base_t::materialize<source_
 template std::vector<interface_phase_t::output_t> phase_base_t::materialize<interface_phase_t>(std::unordered_set<const graph::module_scc_t*>&) const;
 template std::vector<library_phase_t::output_t> phase_base_t::materialize<library_phase_t>(std::unordered_set<const graph::module_scc_t*>&) const;
 template std::vector<binary_phase_t::output_t> phase_base_t::materialize<binary_phase_t>(std::unordered_set<const graph::module_scc_t*>&) const;
-
-template source_phase_t::output_t phase_base_t::current_output<source_phase_t>(const std::vector<source_phase_t::output_t>&) const;
-template interface_phase_t::output_t phase_base_t::current_output<interface_phase_t>(const std::vector<interface_phase_t::output_t>&) const;
-template library_phase_t::output_t phase_base_t::current_output<library_phase_t>(const std::vector<library_phase_t::output_t>&) const;
-template binary_phase_t::output_t phase_base_t::current_output<binary_phase_t>(const std::vector<binary_phase_t::output_t>&) const;
 
 source_phase_t::source_phase_t(module_builder_t& module_builder, graph::module_t& module, library_type_t library_type, const iphase_t* predecessor):
     phase_base_t("source", module_builder, module, library_type, predecessor)

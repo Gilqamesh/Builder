@@ -81,9 +81,6 @@ public:
     template <class phase_t>
     std::vector<typename phase_t::output_t> materialize(std::unordered_set<const graph::module_scc_t*>& visited_sccs) const;
 
-    template <class phase_t>
-    typename phase_t::output_t current_output(const std::vector<typename phase_t::output_t>& outputs) const;
-
 protected:
     module_builder_t& module_builder() const;
 

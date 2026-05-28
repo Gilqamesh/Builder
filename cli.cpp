@@ -132,11 +132,10 @@ int main(int argc, char** argv) {
         const auto cli = filesystem::canonical(filesystem::path_t("/proc/self/exe"));
         const auto cli_last_write_time = filesystem::last_write_time(cli);
         const auto cli_version = graph::derive_version(cli_last_write_time);
-        const auto kernel_binary_outputs = kernel_phase_chain.binary.materialize<builder::binary_phase_t>();
-        const auto& kernel_binary_output = kernel_phase_chain.binary.current_output<builder::binary_phase_t>(kernel_binary_outputs);
+        kernel_phase_chain.binary.materialize<builder::binary_phase_t>();
 
         if (cli_version.value < workspace_ecosystem->this_module->version.value) {
-            const auto& new_cli = kernel_binary_output.cli;
+            const auto new_cli = kernel_phase_chain.binary.install_dir() / filesystem::relative_path_t("cli");
             if (!filesystem::exists(new_cli)) {
                 throw std::runtime_error(std::format("kernel::cpp_builder::cli: expected updated '{}' to exist but it does not", new_cli));
             }
@@ -153,12 +152,11 @@ int main(int argc, char** argv) {
 
         builder::module_builder_t target_module_builder(*workspace_ecosystem, *target_module);
         builder::phase_chain_t target_phase_chain(target_module_builder, *target_module, builder::library_type_t::SHARED);
-        const auto target_binary_outputs = target_phase_chain.binary.materialize<builder::binary_phase_t>();
-        const auto& target_binary_output = target_phase_chain.binary.current_output<builder::binary_phase_t>(target_binary_outputs);
+        target_phase_chain.binary.materialize<builder::binary_phase_t>();
 
         if (4 < argc) {
             const auto binary = filesystem::relative_path_t(argv[4]);
-            const auto& binary_dir = target_binary_output.binary_root;
+            const auto binary_dir = target_phase_chain.binary.install_dir();
             const auto binary_location = binary_dir / binary;
             if (!filesystem::exists(binary_location)) {
                 throw std::runtime_error(std::format("kernel::cpp_builder::cli: binary '{}' at location '{}' does not exist", binary, binary_location));

@@ -43,9 +43,8 @@ std::vector<kernel::cpp_builder::filesystem::relative_path_t> kernel_library_sou
 } // namespace
 
 extern "C" void phase__interface(const kernel::cpp_builder::builder::interface_phase_t* phase) {
-    const auto source_outputs = phase->materialize<kernel::cpp_builder::builder::source_phase_t>();
-    const auto& source_output = phase->current_output<kernel::cpp_builder::builder::source_phase_t>(source_outputs);
-    const auto& module_source_dir = source_output.source_root;
+    phase->materialize<kernel::cpp_builder::builder::source_phase_t>();
+    const auto module_source_dir = phase->predecessor()->install_dir();
 
     for (const auto& interface : kernel::cpp_builder::filesystem::find(module_source_dir, kernel::cpp_builder::filesystem::find_include_predicate_t::h_file || kernel::cpp_builder::filesystem::find_include_predicate_t::hpp_file, kernel::cpp_builder::filesystem::find_descend_predicate_t::descend_all)) {
         kernel::cpp_builder::builder::install_interface(*phase, interface, module_source_dir.relative(interface));
