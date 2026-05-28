@@ -50,7 +50,6 @@ SRC := \
 	$(KERNEL_DIR)/shared_library.cpp \
 	$(KERNEL_DIR)/graph.cpp \
 	$(KERNEL_DIR)/phase.cpp \
-	$(KERNEL_DIR)/module_builder.cpp \
 	$(KERNEL_DIR)/cli.cpp
 
 KERNEL_BUILDER_SRC := \
@@ -60,7 +59,6 @@ KERNEL_BUILDER_SRC := \
 	$(KERNEL_DIR)/shared_library.cpp \
 	$(KERNEL_DIR)/graph.cpp \
 	$(KERNEL_DIR)/phase.cpp \
-	$(KERNEL_DIR)/module_builder.cpp \
 	$(KERNEL_DIR)/builder.cpp
 
 .PHONY: bootstrap

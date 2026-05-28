@@ -60,6 +60,14 @@ struct module_t {
 
     filesystem::path_t source_dir() const;
     filesystem::path_t builder_path() const;
+    filesystem::path_t artifact_base_dir() const;
+    filesystem::path_t artifact_dir() const;
+    filesystem::path_t artifact_latest_dir() const;
+    filesystem::path_t builder_dir() const;
+    filesystem::path_t builder_build_dir() const;
+    filesystem::path_t builder_install_dir() const;
+    filesystem::path_t builder_install_path() const;
+    filesystem::path_t builder_install_latest_path() const;
 
     void validate();
 };

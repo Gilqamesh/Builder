@@ -35,8 +35,7 @@ std::vector<kernel::cpp_builder::filesystem::relative_path_t> kernel_library_sou
         kernel::cpp_builder::filesystem::relative_path_t("compiler.cpp"),
         kernel::cpp_builder::filesystem::relative_path_t("shared_library.cpp"),
         kernel::cpp_builder::filesystem::relative_path_t("graph.cpp"),
-        kernel::cpp_builder::filesystem::relative_path_t("phase.cpp"),
-        kernel::cpp_builder::filesystem::relative_path_t("module_builder.cpp")
+        kernel::cpp_builder::filesystem::relative_path_t("phase.cpp")
     };
 }
 

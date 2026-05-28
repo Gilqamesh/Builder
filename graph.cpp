@@ -20,6 +20,39 @@ filesystem::path_t module_t::builder_path() const {
     return source_dir() / filesystem::relative_path_t(BUILDER_CPP);
 }
 
+filesystem::path_t module_t::artifact_base_dir() const {
+    return workspace->workspace_ecosystem->artifact_dir / workspace->workspace_relative_path_to_workspace_ecosystem / module_relative_path_to_workspace;
+}
+
+filesystem::path_t module_t::artifact_dir() const {
+    const auto versioned_dir_name = std::format("{}@{}", module_relative_path_to_workspace.to_native_path().filename().string(), version.value);
+    return artifact_base_dir() / filesystem::relative_path_t(versioned_dir_name);
+}
+
+filesystem::path_t module_t::artifact_latest_dir() const {
+    return artifact_base_dir() / filesystem::relative_path_t("latest");
+}
+
+filesystem::path_t module_t::builder_dir() const {
+    return artifact_dir() / filesystem::relative_path_t("builder");
+}
+
+filesystem::path_t module_t::builder_build_dir() const {
+    return builder_dir() / filesystem::relative_path_t("build");
+}
+
+filesystem::path_t module_t::builder_install_dir() const {
+    return builder_dir() / filesystem::relative_path_t("install");
+}
+
+filesystem::path_t module_t::builder_install_path() const {
+    return builder_install_dir() / filesystem::relative_path_t("builder.so");
+}
+
+filesystem::path_t module_t::builder_install_latest_path() const {
+    return artifact_latest_dir() / filesystem::relative_path_t("builder/install/builder.so");
+}
+
 version_t derive_version(const std::filesystem::file_time_type& file_time_type) {
     return version_t {
         .value = static_cast<uint64_t>(file_time_type.time_since_epoch().count() - std::numeric_limits<std::filesystem::file_time_type::duration::rep>::min())
