@@ -42,7 +42,7 @@ static std::vector<filesystem::relative_path_t> kernel_library_source_files() {
 }
 
 BUILDER_EXTERN void phase__source(const kernel::cpp_builder::builder::source_phase_t* phase) {
-    const auto source_root = phase->module().source_dir();
+    const auto source_root = phase->source_dir();
 
     for (const auto& source : kernel::cpp_builder::filesystem::find(source_root, !kernel::cpp_builder::filesystem::find_include_predicate_t::is_dir, kernel::cpp_builder::filesystem::find_descend_predicate_t::descend_all)) {
         phase->add_source(source, source_root.relative(source));

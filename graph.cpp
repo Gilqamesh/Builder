@@ -55,41 +55,25 @@ filesystem::path_t module_t::builder_install_latest_path() const {
     return artifact_latest_dir() / filesystem::relative_path_t("builder/install/builder.so");
 }
 
-builder::module_phases_t& module_t::phases(builder::library_type_t library_type) const {
+builder::config_phase_t& module_t::config_phase(builder::library_type_t library_type) const {
     switch (library_type) {
         case builder::library_type_t::STATIC:
-            if (static_phases == nullptr) {
-                static_phases = new builder::module_phases_t(const_cast<module_t&>(*this), library_type);
+            if (static_config_phase == nullptr) {
+                static_config_phase = new builder::config_phase_t(const_cast<module_t&>(*this), library_type);
             }
-            return *static_phases;
+            return *static_config_phase;
         case builder::library_type_t::SHARED:
-            if (shared_phases == nullptr) {
-                shared_phases = new builder::module_phases_t(const_cast<module_t&>(*this), library_type);
+            if (shared_config_phase == nullptr) {
+                shared_config_phase = new builder::config_phase_t(const_cast<module_t&>(*this), library_type);
             }
-            return *shared_phases;
+            return *shared_config_phase;
         default:
-            throw std::runtime_error(std::format("kernel::cpp_builder::graph::module_t::phases: unknown library_type {}", static_cast<std::underlying_type_t<builder::library_type_t>>(library_type)));
+            throw std::runtime_error(std::format("kernel::cpp_builder::graph::module_t::config_phase: unknown library_type {}", static_cast<std::underlying_type_t<builder::library_type_t>>(library_type)));
     }
 }
 
-builder::config_phase_t& module_t::config_phase(builder::library_type_t library_type) const {
-    return phases(library_type).config;
-}
-
-builder::source_phase_t& module_t::source_phase(builder::library_type_t library_type) const {
-    return phases(library_type).source;
-}
-
-builder::interface_phase_t& module_t::interface_phase(builder::library_type_t library_type) const {
-    return phases(library_type).interface;
-}
-
-builder::library_phase_t& module_t::library_phase(builder::library_type_t library_type) const {
-    return phases(library_type).library;
-}
-
-builder::binary_phase_t& module_t::binary_phase(builder::library_type_t library_type) const {
-    return phases(library_type).binary;
+void module_t::configure(builder::library_type_t library_type) const {
+    configured_phase = &config_phase(library_type);
 }
 
 version_t derive_version(const std::filesystem::file_time_type& file_time_type) {

@@ -34,18 +34,11 @@ struct iphase_t {
 
     virtual std::string_view name() const = 0;
     virtual const iphase_t* predecessor() const = 0;
-    virtual graph::module_t& module() const = 0;
 
     virtual filesystem::path_t artifact_dir() const = 0;
     virtual filesystem::path_t build_dir() const = 0;
     virtual filesystem::path_t install_dir() const = 0;
 };
-
-struct config_phase_t;
-struct source_phase_t;
-struct interface_phase_t;
-struct library_phase_t;
-struct binary_phase_t;
 
 class phase_base_t : public iphase_t {
 public:
@@ -58,11 +51,11 @@ public:
 
     std::string_view name() const override;
     const iphase_t* predecessor() const override;
-    graph::module_t& module() const override;
     filesystem::path_t artifact_dir() const override;
     filesystem::path_t build_dir() const override;
     filesystem::path_t install_dir() const override;
     library_type_t library_type() const;
+    filesystem::path_t source_install_dir() const;
 
     template <class phase_t>
     typename phase_t::output_t materialize() const;
@@ -72,6 +65,7 @@ public:
 
 protected:
     void declare_output(const filesystem::path_t& artifact, const filesystem::relative_path_t& relative_install_path) const;
+    graph::module_t& m_module;
 
 private:
     struct declared_output_t {
@@ -90,21 +84,9 @@ private:
     ) const;
 
     std::string_view m_name;
-    graph::module_t& m_module;
     const library_type_t m_library_type;
     const iphase_t* m_predecessor;
     mutable std::vector<declared_output_t> m_declared_outputs;
-};
-
-struct config_phase_t : phase_base_t {
-    struct output_t {
-        library_type_t library_type;
-    };
-
-    config_phase_t(
-        graph::module_t& module,
-        library_type_t library_type
-    );
 };
 
 struct source_phase_t : phase_base_t {
@@ -118,12 +100,21 @@ struct source_phase_t : phase_base_t {
         const iphase_t* predecessor
     );
 
+    filesystem::path_t source_dir() const;
     void add_source(const filesystem::path_t& source, const filesystem::relative_path_t& relative_install_path) const;
 };
 
 struct interface_phase_t : phase_base_t {
     struct output_t {
         std::vector<filesystem::path_t> interfaces;
+
+        auto begin() const {
+            return interfaces.begin();
+        }
+
+        auto end() const {
+            return interfaces.end();
+        }
     };
 
     interface_phase_t(
@@ -140,6 +131,14 @@ struct interface_phase_t : phase_base_t {
 struct library_phase_t : phase_base_t {
     struct output_t {
         std::vector<filesystem::path_t> libraries;
+
+        auto begin() const {
+            return libraries.begin();
+        }
+
+        auto end() const {
+            return libraries.end();
+        }
     };
 
     library_phase_t(
@@ -166,11 +165,16 @@ struct binary_phase_t : phase_base_t {
     void add_binary(const filesystem::path_t& binary, const filesystem::relative_path_t& relative_install_path) const;
 };
 
-class module_phases_t {
-public:
-    module_phases_t(graph::module_t& module, library_type_t library_type);
+struct config_phase_t : phase_base_t {
+    struct output_t {
+        library_type_t library_type;
+    };
 
-    config_phase_t config;
+    config_phase_t(
+        graph::module_t& module,
+        library_type_t library_type
+    );
+
     source_phase_t source;
     interface_phase_t interface;
     library_phase_t library;
@@ -185,6 +189,10 @@ BUILDER_EXTERN void phase__binary(const binary_phase_t* phase);
 template <class phase_t>
 typename phase_t::output_t phase_base_t::materialize() const {
     const auto* current_phase = this;
+    if (const auto* config_phase = dynamic_cast<const config_phase_t*>(current_phase)) {
+        current_phase = &config_phase->binary;
+    }
+
     const phase_t* requested_phase = nullptr;
 
     while (requested_phase == nullptr) {
@@ -217,9 +225,10 @@ typename phase_t::output_t phase_base_t::materialize() const {
         return build_dir / filesystem::relative_path_t(std::format("{}.{}", phase.name(), state));
     };
     const auto publish_latest_stage = [&]() {
+        const auto& phase_base = static_cast<const phase_base_t&>(phase);
         const auto phase_artifact_dir = phase.artifact_dir();
-        const auto latest_dir = phase.module().artifact_latest_dir();
-        const auto latest_stage_dir = latest_dir / phase.module().artifact_dir().relative(phase_artifact_dir);
+        const auto latest_dir = phase_base.m_module.artifact_latest_dir();
+        const auto latest_stage_dir = latest_dir / phase_base.m_module.artifact_dir().relative(phase_artifact_dir);
         const auto latest_stage_tmp_dir = latest_stage_dir + "_tmp";
 
         if (filesystem::exists(latest_stage_tmp_dir)) {
@@ -315,14 +324,14 @@ typename phase_t::output_t phase_base_t::materialize() const {
 
 template <class phase_t>
 std::vector<typename phase_t::output_t> phase_base_t::materialize_all() const {
-    const auto* scc = module().module_scc;
+    const auto* scc = m_module.module_scc;
     if (scc == nullptr) {
         throw std::runtime_error(std::format(
             "phase_base_t::materialize_all: module '{}' has no SCC",
             std::format(
                 "{}/{}",
-                module().workspace->workspace_relative_path_to_workspace_ecosystem.string(),
-                module().module_relative_path_to_workspace.string()
+                m_module.workspace->workspace_relative_path_to_workspace_ecosystem.string(),
+                m_module.module_relative_path_to_workspace.string()
             )
         ));
     }
@@ -348,23 +357,34 @@ void phase_base_t::materialize_all(
     }
 
     for (auto* module : scc.modules) {
-        if constexpr (std::is_same_v<phase_t, config_phase_t>) {
-            outputs.push_back(module->config_phase(library_type()).template materialize<phase_t>());
-        } else if constexpr (std::is_same_v<phase_t, source_phase_t>) {
-            outputs.push_back(module->source_phase(library_type()).template materialize<phase_t>());
-        } else if constexpr (std::is_same_v<phase_t, interface_phase_t>) {
-            outputs.push_back(module->interface_phase(library_type()).template materialize<phase_t>());
-        } else if constexpr (std::is_same_v<phase_t, library_phase_t>) {
-            outputs.push_back(module->library_phase(library_type()).template materialize<phase_t>());
-        } else if constexpr (std::is_same_v<phase_t, binary_phase_t>) {
-            outputs.push_back(module->binary_phase(library_type()).template materialize<phase_t>());
-        } else {
-            static_assert(std::is_same_v<phase_t, void>, "unsupported phase type");
-        }
+        module->configure(library_type());
+        outputs.push_back(module->materialize<phase_t>());
     }
 }
 
 } // namespace builder
+
+namespace graph {
+
+template <class phase_t>
+typename phase_t::output_t module_t::materialize() const {
+    if (configured_phase == nullptr) {
+        throw std::runtime_error("kernel::cpp_builder::graph::module_t::materialize: module has not been configured");
+    }
+
+    return configured_phase->template materialize<phase_t>();
+}
+
+template <class phase_t>
+std::vector<typename phase_t::output_t> module_t::materialize_all() const {
+    if (configured_phase == nullptr) {
+        throw std::runtime_error("kernel::cpp_builder::graph::module_t::materialize_all: module has not been configured");
+    }
+
+    return configured_phase->template materialize_all<phase_t>();
+}
+
+} // namespace graph
 
 } // namespace cpp_builder
 

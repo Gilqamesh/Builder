@@ -60,10 +60,6 @@ const iphase_t* phase_base_t::predecessor() const {
     return m_predecessor;
 }
 
-graph::module_t& phase_base_t::module() const {
-    return m_module;
-}
-
 filesystem::path_t phase_base_t::artifact_dir() const {
     return m_module.artifact_dir() / filesystem::relative_path_t(std::string(m_name));
 }
@@ -78,6 +74,28 @@ filesystem::path_t phase_base_t::install_dir() const {
 
 library_type_t phase_base_t::library_type() const {
     return m_library_type;
+}
+
+filesystem::path_t phase_base_t::source_install_dir() const {
+    const phase_base_t* current_phase = this;
+
+    while (current_phase != nullptr) {
+        if (const auto* source_phase = dynamic_cast<const source_phase_t*>(current_phase)) {
+            return source_phase->install_dir();
+        }
+
+        const auto* previous_phase = current_phase->predecessor();
+        if (previous_phase == nullptr) {
+            break ;
+        }
+
+        current_phase = dynamic_cast<const phase_base_t*>(previous_phase);
+        if (current_phase == nullptr) {
+            throw std::runtime_error(std::format("kernel::cpp_builder::builder::phase_base_t::source_install_dir: predecessor of phase '{}' is not a phase_base_t", name()));
+        }
+    }
+
+    throw std::runtime_error(std::format("kernel::cpp_builder::builder::phase_base_t::source_install_dir: phase '{}' has no configured source phase", name()));
 }
 
 void phase_base_t::declare_output(const filesystem::path_t& artifact, const filesystem::relative_path_t& relative_install_path) const {
@@ -96,7 +114,7 @@ void phase_base_t::execute() const {
         return ;
     }
 
-    auto& module = this->module();
+    auto& module = m_module;
     const auto builder_plugin = [&]() {
         if (&module == module.workspace->workspace_ecosystem->this_module) {
             const auto latest_builder_plugin = module.builder_install_latest_path();
@@ -114,14 +132,14 @@ void phase_base_t::execute() const {
         std::vector<filesystem::path_t> libraries;
 
         for (auto* dependency : module.module_builder->dependencies) {
-            const auto dependency_interface_outputs = dependency->interface_phase(library_type_t::SHARED).materialize_all<interface_phase_t>();
-            for (const auto& dependency_interface_output : dependency_interface_outputs) {
-                include_dirs.insert(include_dirs.end(), dependency_interface_output.interfaces.begin(), dependency_interface_output.interfaces.end());
+            dependency->configure(library_type_t::SHARED);
+
+            for (const auto& dependency_include_dirs : dependency->materialize_all<interface_phase_t>()) {
+                include_dirs.insert(include_dirs.end(), dependency_include_dirs.begin(), dependency_include_dirs.end());
             }
 
-            const auto dependency_library_outputs = dependency->library_phase(library_type_t::SHARED).materialize_all<library_phase_t>();
-            for (const auto& dependency_library_output : dependency_library_outputs) {
-                libraries.insert(libraries.end(), dependency_library_output.libraries.begin(), dependency_library_output.libraries.end());
+            for (const auto& dependency_libraries : dependency->materialize_all<library_phase_t>()) {
+                libraries.insert(libraries.end(), dependency_libraries.begin(), dependency_libraries.end());
             }
         }
 
@@ -162,14 +180,13 @@ void phase_base_t::execute() const {
     }
 }
 
-config_phase_t::config_phase_t(graph::module_t& module, library_type_t library_type):
-    phase_base_t("config", module, library_type, nullptr)
-{
-}
-
 source_phase_t::source_phase_t(graph::module_t& module, library_type_t library_type, const iphase_t* predecessor):
     phase_base_t("source", module, library_type, predecessor)
 {
+}
+
+filesystem::path_t source_phase_t::source_dir() const {
+    return m_module.source_dir();
 }
 
 void source_phase_t::add_source(const filesystem::path_t& source, const filesystem::relative_path_t& relative_install_path) const {
@@ -216,9 +233,9 @@ void binary_phase_t::add_binary(const filesystem::path_t& binary, const filesyst
     declare_output(binary, relative_install_path);
 }
 
-module_phases_t::module_phases_t(graph::module_t& module, library_type_t library_type):
-    config(module, library_type),
-    source(module, library_type, &config),
+config_phase_t::config_phase_t(graph::module_t& module, library_type_t library_type):
+    phase_base_t("config", module, library_type, nullptr),
+    source(module, library_type, this),
     interface(module, library_type, &source),
     library(module, library_type, &interface),
     binary(module, library_type, &library)
