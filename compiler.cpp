@@ -282,7 +282,7 @@ filesystem::path_t create_static_library(
         interface_outputs,
         resolve_source_files(source_phase.install_dir(), source_output, relative_source_files),
         define_key_values,
-        phase.install_dir() / relative_output_path
+        phase.build_dir() / relative_output_path
     );
 }
 
@@ -304,7 +304,7 @@ filesystem::path_t create_shared_library(
         resolve_source_files(source_phase.install_dir(), source_output, relative_source_files),
         define_key_values,
         library_outputs,
-        phase.install_dir() / relative_output_path
+        phase.build_dir() / relative_output_path
     );
 }
 
@@ -328,7 +328,7 @@ filesystem::path_t create_binary(
         define_key_values,
         library_outputs,
         TEMP_assume_all_link_inputs_are_shared,
-        phase.install_dir() / relative_output_path
+        phase.build_dir() / relative_output_path
     );
 }
 

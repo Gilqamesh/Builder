@@ -48,36 +48,6 @@ filesystem::relative_path_t library_type_relative_dir(library_type_t library_typ
 
 } // namespace
 
-source_phase_t::output_t materialized_output(const source_phase_t& phase) {
-    return source_phase_t::output_t {
-        .sources = filesystem::find(phase, !filesystem::find_include_predicate_t::is_dir, filesystem::find_descend_predicate_t::descend_all)
-    };
-}
-
-interface_phase_t::output_t materialized_output(const interface_phase_t& phase) {
-    return interface_phase_t::output_t {
-        .interfaces = { phase.install_dir() }
-    };
-}
-
-library_phase_t::output_t materialized_output(const library_phase_t& phase) {
-    return library_phase_t::output_t {
-        .libraries = filesystem::find(phase, !filesystem::find_include_predicate_t::is_dir, filesystem::find_descend_predicate_t::descend_all)
-    };
-}
-
-binary_phase_t::output_t materialized_output(const binary_phase_t& phase) {
-    const auto binary_root = phase.install_dir();
-    binary_phase_t::output_t output {
-        .binary_root = binary_root,
-        .cli = binary_root / filesystem::relative_path_t("cli")
-    };
-    if (!filesystem::exists(output.cli)) {
-        throw std::runtime_error(std::format("kernel::cpp_builder::builder::binary_phase_t::materialized_output: expected module cli '{}' to exist", output.cli));
-    }
-    return output;
-}
-
 phase_base_t::phase_base_t(std::string_view name, graph::module_t& module, library_type_t configured_library_type, const iphase_t* predecessor):
     m_name(name),
     m_module(module),
@@ -114,8 +84,11 @@ library_type_t phase_base_t::library_type() const {
     return m_library_type;
 }
 
-void phase_base_t::install(const filesystem::path_t& artifact, const filesystem::relative_path_t& relative_install_path) const {
-    filesystem::copy(artifact, install_dir() / relative_install_path);
+void phase_base_t::declare_output(const filesystem::path_t& artifact, const filesystem::relative_path_t& relative_install_path) const {
+    m_declared_outputs.push_back(declared_output_t {
+        .artifact = artifact,
+        .relative_install_path = relative_install_path
+    });
 }
 
 std::string phase_base_t::producer_symbol_name() const {
@@ -196,9 +169,17 @@ source_phase_t::source_phase_t(graph::module_t& module, library_type_t library_t
 {
 }
 
+void source_phase_t::add_source(const filesystem::path_t& source, const filesystem::relative_path_t& relative_install_path) const {
+    declare_output(source, relative_install_path);
+}
+
 interface_phase_t::interface_phase_t(graph::module_t& module, library_type_t library_type, const iphase_t* predecessor):
     phase_base_t("interface", module, library_type, predecessor)
 {
+}
+
+void interface_phase_t::add_interface(const filesystem::path_t& interface, const filesystem::relative_path_t& relative_install_path) const {
+    declare_output(interface, relative_install_path);
 }
 
 library_phase_t::library_phase_t(graph::module_t& module, library_type_t library_type, const iphase_t* predecessor):
@@ -206,9 +187,17 @@ library_phase_t::library_phase_t(graph::module_t& module, library_type_t library
 {
 }
 
+void library_phase_t::add_library(const filesystem::path_t& library, const filesystem::relative_path_t& relative_install_path) const {
+    declare_output(library, relative_install_path);
+}
+
 binary_phase_t::binary_phase_t(graph::module_t& module, library_type_t library_type, const iphase_t* predecessor):
     phase_base_t("binary", module, library_type, predecessor)
 {
+}
+
+void binary_phase_t::add_binary(const filesystem::path_t& binary, const filesystem::relative_path_t& relative_install_path) const {
+    declare_output(binary, relative_install_path);
 }
 
 phase_chain_t::phase_chain_t(graph::module_t& module, library_type_t library_type):

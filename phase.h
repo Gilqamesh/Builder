@@ -57,7 +57,6 @@ public:
     filesystem::path_t build_dir() const override;
     filesystem::path_t install_dir() const override;
     library_type_t library_type() const;
-    void install(const filesystem::path_t& artifact, const filesystem::relative_path_t& relative_install_path) const;
 
     template <class phase_t>
     typename phase_t::output_t materialize() const;
@@ -65,7 +64,15 @@ public:
     template <class phase_t>
     std::vector<typename phase_t::output_t> materialize_all() const;
 
+protected:
+    void declare_output(const filesystem::path_t& artifact, const filesystem::relative_path_t& relative_install_path) const;
+
 private:
+    struct declared_output_t {
+        filesystem::path_t artifact;
+        filesystem::relative_path_t relative_install_path;
+    };
+
     void execute() const;
     std::string producer_symbol_name() const;
 
@@ -80,6 +87,7 @@ private:
     graph::module_t& m_module;
     const library_type_t m_library_type;
     const iphase_t* m_predecessor;
+    mutable std::vector<declared_output_t> m_declared_outputs;
 };
 
 struct source_phase_t : phase_base_t {
@@ -92,6 +100,8 @@ struct source_phase_t : phase_base_t {
         library_type_t library_type,
         const iphase_t* predecessor = nullptr
     );
+
+    void add_source(const filesystem::path_t& source, const filesystem::relative_path_t& relative_install_path) const;
 };
 
 struct interface_phase_t : phase_base_t {
@@ -104,6 +114,8 @@ struct interface_phase_t : phase_base_t {
         library_type_t library_type,
         const iphase_t* predecessor = nullptr
     );
+
+    void add_interface(const filesystem::path_t& interface, const filesystem::relative_path_t& relative_install_path) const;
 };
 
 struct library_phase_t : phase_base_t {
@@ -116,6 +128,8 @@ struct library_phase_t : phase_base_t {
         library_type_t library_type,
         const iphase_t* predecessor = nullptr
     );
+
+    void add_library(const filesystem::path_t& library, const filesystem::relative_path_t& relative_install_path) const;
 };
 
 struct binary_phase_t : phase_base_t {
@@ -129,6 +143,8 @@ struct binary_phase_t : phase_base_t {
         library_type_t library_type,
         const iphase_t* predecessor = nullptr
     );
+
+    void add_binary(const filesystem::path_t& binary, const filesystem::relative_path_t& relative_install_path) const;
 };
 
 class phase_chain_t {
@@ -140,11 +156,6 @@ public:
     library_phase_t library;
     binary_phase_t binary;
 };
-
-source_phase_t::output_t materialized_output(const source_phase_t& phase);
-interface_phase_t::output_t materialized_output(const interface_phase_t& phase);
-library_phase_t::output_t materialized_output(const library_phase_t& phase);
-binary_phase_t::output_t materialized_output(const binary_phase_t& phase);
 
 BUILDER_EXTERN void phase__source(const source_phase_t* phase);
 BUILDER_EXTERN void phase__interface(const interface_phase_t* phase);
@@ -234,9 +245,37 @@ typename phase_t::output_t phase_base_t::materialize() const {
     };
     const auto started_marker = marker_path("started");
     const auto complete_marker = marker_path("complete");
+    const auto installed_output = [&]() -> typename phase_t::output_t {
+        if constexpr (std::is_same_v<phase_t, source_phase_t>) {
+            return source_phase_t::output_t {
+                .sources = filesystem::find(install_dir, !filesystem::find_include_predicate_t::is_dir, filesystem::find_descend_predicate_t::descend_all)
+            };
+        } else if constexpr (std::is_same_v<phase_t, interface_phase_t>) {
+            return interface_phase_t::output_t {
+                .interfaces = { install_dir }
+            };
+        } else if constexpr (std::is_same_v<phase_t, library_phase_t>) {
+            return library_phase_t::output_t {
+                .libraries = filesystem::find(install_dir, !filesystem::find_include_predicate_t::is_dir, filesystem::find_descend_predicate_t::descend_all)
+            };
+        } else if constexpr (std::is_same_v<phase_t, binary_phase_t>) {
+            const auto cli = install_dir / filesystem::relative_path_t("cli");
+
+            if (!filesystem::exists(cli)) {
+                throw std::runtime_error(std::format("phase_base_t::materialize: expected module cli '{}' to exist", cli));
+            }
+
+            return binary_phase_t::output_t {
+                .binary_root = install_dir,
+                .cli = cli
+            };
+        } else {
+            static_assert(detail::always_false_v<phase_t>, "unsupported phase type");
+        }
+    };
 
     if (filesystem::exists(complete_marker)) {
-        auto result = materialized_output(phase);
+        auto result = installed_output();
         publish_latest_stage();
         return result;
     }
@@ -259,8 +298,14 @@ typename phase_t::output_t phase_base_t::materialize() const {
         filesystem::touch(started_marker);
         filesystem::create_directories(install_dir);
 
+        static_cast<const phase_base_t&>(phase).m_declared_outputs.clear();
         static_cast<const phase_base_t&>(phase).execute();
-        auto result = materialized_output(phase);
+
+        for (const auto& output : static_cast<const phase_base_t&>(phase).m_declared_outputs) {
+            filesystem::copy(output.artifact, install_dir / output.relative_install_path);
+        }
+
+        auto result = installed_output();
 
         publish_latest_stage();
         filesystem::touch(complete_marker);
