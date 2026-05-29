@@ -52,14 +52,14 @@ extern "C" void phase__interface(const kernel::cpp_builder::builder::interface_p
 
 extern "C" void phase__library(const kernel::cpp_builder::builder::library_phase_t* phase) {
     const auto library_name = [&]() {
-        switch (phase->library_type) {
+        switch (phase->library_type()) {
             case kernel::cpp_builder::builder::library_type_t::STATIC: return kernel::cpp_builder::filesystem::relative_path_t("libcpp_builder.a");
             case kernel::cpp_builder::builder::library_type_t::SHARED: return kernel::cpp_builder::filesystem::relative_path_t("libcpp_builder.so");
-            default: throw std::runtime_error(std::format("kernel::cpp_builder::phase__library: unknown library_type {}", static_cast<std::underlying_type_t<kernel::cpp_builder::builder::library_type_t>>(phase->library_type)));
+            default: throw std::runtime_error(std::format("kernel::cpp_builder::phase__library: unknown library_type {}", static_cast<std::underlying_type_t<kernel::cpp_builder::builder::library_type_t>>(phase->library_type())));
         }
     }();
 
-    switch (phase->library_type) {
+    switch (phase->library_type()) {
         case kernel::cpp_builder::builder::library_type_t::STATIC: {
             kernel::cpp_builder::compiler::create_static_library(
                 *phase,
@@ -77,7 +77,7 @@ extern "C" void phase__library(const kernel::cpp_builder::builder::library_phase
                 library_name
             );
         } break ;
-        default: throw std::runtime_error(std::format("kernel::cpp_builder::phase__library: unknown library_type {}", static_cast<std::underlying_type_t<kernel::cpp_builder::builder::library_type_t>>(phase->library_type)));
+        default: throw std::runtime_error(std::format("kernel::cpp_builder::phase__library: unknown library_type {}", static_cast<std::underlying_type_t<kernel::cpp_builder::builder::library_type_t>>(phase->library_type())));
     }
 }
 

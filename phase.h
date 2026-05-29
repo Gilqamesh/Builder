@@ -42,8 +42,6 @@ struct iphase_t {
 };
 
 struct source_output_t {
-    explicit source_output_t(const filesystem::path_t& source_root);
-
     filesystem::path_t source_root;
 };
 
@@ -56,8 +54,6 @@ struct library_output_t {
 };
 
 struct binary_output_t {
-    explicit binary_output_t(const filesystem::path_t& binary_root);
-
     filesystem::path_t binary_root;
     filesystem::path_t cli;
 };
@@ -72,19 +68,19 @@ public:
     filesystem::path_t artifact_dir() const override;
     filesystem::path_t build_dir() const override;
     filesystem::path_t install_dir() const override;
-    std::string producer_symbol_name() const;
-
-    const library_type_t library_type;
+    library_type_t library_type() const;
 
     template <class phase_t>
     std::vector<typename phase_t::output_t> materialize() const;
 
-    template <class phase_t>
-    std::vector<typename phase_t::output_t> materialize(std::unordered_set<const graph::module_scc_t*>& visited_sccs) const;
-
 private:
+    std::string producer_symbol_name() const;
+
     template <class phase_t>
     const phase_t& exact_phase() const;
+
+    template <class phase_t>
+    std::vector<typename phase_t::output_t> materialize(std::unordered_set<const graph::module_scc_t*>& visited_sccs) const;
 
     template <class phase_t>
     typename phase_t::output_t materialize_exact() const;
@@ -94,6 +90,7 @@ private:
 
     std::string_view m_name;
     graph::module_t& m_module;
+    const library_type_t m_library_type;
     const iphase_t* m_predecessor;
 };
 
@@ -306,7 +303,7 @@ void phase_base_t::append_materialized_scc_outputs(const graph::module_scc_t& sc
     }
 
     for (auto* module : scc.modules) {
-        phase_chain_t phase_chain(*module, library_type);
+        phase_chain_t phase_chain(*module, library_type());
         outputs.push_back(detail::phase_from_chain<phase_t>(phase_chain).template materialize_exact<phase_t>());
     }
 }
