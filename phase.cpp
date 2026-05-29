@@ -1,7 +1,6 @@
 #include "phase.h"
 
 #include "compiler.h"
-#include "shared_library.h"
 
 #include <format>
 #include <stdexcept>
@@ -109,75 +108,50 @@ std::string phase_base_t::producer_symbol_name() const {
     return std::format("phase__{}", m_name);
 }
 
-void phase_base_t::execute() const {
-    if (dynamic_cast<const config_phase_t*>(this) != nullptr) {
-        return ;
-    }
-
+filesystem::path_t phase_base_t::builder_plugin() const {
     auto& module = m_module;
-    const auto builder_plugin = [&]() {
-        if (&module == module.workspace->workspace_ecosystem->this_module) {
-            const auto latest_builder_plugin = module.builder_install_latest_path();
-            if (filesystem::exists(latest_builder_plugin)) {
-                return latest_builder_plugin;
-            }
+    if (&module == module.workspace->workspace_ecosystem->this_module) {
+        const auto latest_builder_plugin = module.builder_install_latest_path();
+        if (filesystem::exists(latest_builder_plugin)) {
+            return latest_builder_plugin;
         }
-
-        const auto builder_plugin = module.builder_install_path();
-        if (filesystem::exists(builder_plugin)) {
-            return builder_plugin;
-        }
-
-        std::vector<filesystem::path_t> include_dirs;
-        std::vector<filesystem::path_t> libraries;
-
-        for (auto* dependency : module.module_builder->dependencies) {
-            dependency->configure(library_type_t::SHARED);
-
-            for (const auto& dependency_include_dirs : dependency->materialize_all<interface_phase_t>()) {
-                include_dirs.insert(include_dirs.end(), dependency_include_dirs.begin(), dependency_include_dirs.end());
-            }
-
-            for (const auto& dependency_libraries : dependency->materialize_all<library_phase_t>()) {
-                libraries.insert(libraries.end(), dependency_libraries.begin(), dependency_libraries.end());
-            }
-        }
-
-        compiler::create_builder_shared_library(
-            module.builder_build_dir(),
-            module.source_dir(),
-            include_dirs,
-            module.builder_path(),
-            tool_path_defines(),
-            libraries,
-            builder_plugin
-        );
-
-        if (!filesystem::exists(builder_plugin)) {
-            throw std::runtime_error(std::format("kernel::cpp_builder::builder::execute: expected builder plugin '{}' to exist", builder_plugin));
-        }
-
-        return builder_plugin;
-    }();
-
-    const auto dispatch = [&]<class phase_t>(const phase_t& phase) {
-        shared_library::loader_t loader(builder_plugin, shared_library::lifetime_t::PROCESS, shared_library::symbol_resolution_t::LAZY, shared_library::symbol_visibility_t::LOCAL);
-        using fn_t = void (*)(const phase_t*);
-        fn_t fn = loader.resolve(producer_symbol_name().c_str());
-        fn(&phase);
-    };
-
-    if (const auto* phase = dynamic_cast<const source_phase_t*>(this)) {
-        dispatch(*phase);
-    } else if (const auto* phase = dynamic_cast<const interface_phase_t*>(this)) {
-        dispatch(*phase);
-    } else if (const auto* phase = dynamic_cast<const library_phase_t*>(this)) {
-        dispatch(*phase);
-    } else if (const auto* phase = dynamic_cast<const binary_phase_t*>(this)) {
-        dispatch(*phase);
-    } else {
-        throw std::runtime_error(std::format("kernel::cpp_builder::builder::phase_base_t::execute: unsupported phase '{}'", name()));
     }
+
+    const auto builder_plugin = module.builder_install_path();
+    if (filesystem::exists(builder_plugin)) {
+        return builder_plugin;
+    }
+
+    std::vector<filesystem::path_t> include_dirs;
+    std::vector<filesystem::path_t> libraries;
+
+    for (auto* dependency : module.module_builder->dependencies) {
+        dependency->configure(library_type_t::SHARED);
+
+        for (const auto& dependency_include_dirs : dependency->materialize_all<interface_phase_t>()) {
+            include_dirs.insert(include_dirs.end(), dependency_include_dirs.include_dirs.begin(), dependency_include_dirs.include_dirs.end());
+        }
+
+        for (const auto& dependency_libraries : dependency->materialize_all<library_phase_t>()) {
+            libraries.insert(libraries.end(), dependency_libraries.libraries.begin(), dependency_libraries.libraries.end());
+        }
+    }
+
+    compiler::create_builder_shared_library(
+        module.builder_build_dir(),
+        module.source_dir(),
+        include_dirs,
+        module.builder_path(),
+        tool_path_defines(),
+        libraries,
+        builder_plugin
+    );
+
+    if (!filesystem::exists(builder_plugin)) {
+        throw std::runtime_error(std::format("kernel::cpp_builder::builder::phase_base_t::builder_plugin: expected builder plugin '{}' to exist", builder_plugin));
+    }
+
+    return builder_plugin;
 }
 
 source_phase_t::source_phase_t(graph::module_t& module, library_type_t library_type, const iphase_t* predecessor):
@@ -191,6 +165,12 @@ filesystem::path_t source_phase_t::source_dir() const {
 
 void source_phase_t::add_source(const filesystem::path_t& source, const filesystem::relative_path_t& relative_install_path) const {
     declare_output(source, relative_install_path);
+}
+
+source_phase_t::output_t source_phase_t::installed_output() const {
+    return output_t {
+        .sources = filesystem::find(install_dir(), !filesystem::find_include_predicate_t::is_dir, filesystem::find_descend_predicate_t::descend_all)
+    };
 }
 
 interface_phase_t::interface_phase_t(graph::module_t& module, library_type_t library_type, const iphase_t* predecessor):
@@ -215,6 +195,12 @@ void interface_phase_t::add_interface(const filesystem::path_t& interface, const
     declare_output(interface, relative_install_path);
 }
 
+interface_phase_t::output_t interface_phase_t::installed_output() const {
+    return output_t {
+        .include_dirs = { install_dir() }
+    };
+}
+
 library_phase_t::library_phase_t(graph::module_t& module, library_type_t library_type, const iphase_t* predecessor):
     phase_base_t("library", module, library_type, predecessor)
 {
@@ -222,6 +208,12 @@ library_phase_t::library_phase_t(graph::module_t& module, library_type_t library
 
 void library_phase_t::add_library(const filesystem::path_t& library, const filesystem::relative_path_t& relative_install_path) const {
     declare_output(library, relative_install_path);
+}
+
+library_phase_t::output_t library_phase_t::installed_output() const {
+    return output_t {
+        .libraries = filesystem::find(install_dir(), !filesystem::find_include_predicate_t::is_dir, filesystem::find_descend_predicate_t::descend_all)
+    };
 }
 
 binary_phase_t::binary_phase_t(graph::module_t& module, library_type_t library_type, const iphase_t* predecessor):
@@ -233,6 +225,19 @@ void binary_phase_t::add_binary(const filesystem::path_t& binary, const filesyst
     declare_output(binary, relative_install_path);
 }
 
+binary_phase_t::output_t binary_phase_t::installed_output() const {
+    const auto cli = install_dir() / filesystem::relative_path_t("cli");
+
+    if (!filesystem::exists(cli)) {
+        throw std::runtime_error(std::format("kernel::cpp_builder::builder::binary_phase_t::installed_output: expected module cli '{}' to exist", cli));
+    }
+
+    return output_t {
+        .binary_root = install_dir(),
+        .cli = cli
+    };
+}
+
 config_phase_t::config_phase_t(graph::module_t& module, library_type_t library_type):
     phase_base_t("config", module, library_type, nullptr),
     source(module, library_type, this),
@@ -240,6 +245,12 @@ config_phase_t::config_phase_t(graph::module_t& module, library_type_t library_t
     library(module, library_type, &interface),
     binary(module, library_type, &library)
 {
+}
+
+config_phase_t::output_t config_phase_t::installed_output() const {
+    return output_t {
+        .library_type = library_type()
+    };
 }
 
 } // namespace builder

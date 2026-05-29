@@ -12,6 +12,8 @@
 # include <unordered_set>
 # include <vector>
 
+# include "shared_library.h"
+
 namespace kernel {
 
 namespace cpp_builder {
@@ -73,7 +75,11 @@ private:
         filesystem::relative_path_t relative_install_path;
     };
 
-    void execute() const;
+    filesystem::path_t builder_plugin() const;
+
+    template <class phase_t>
+    void execute(const phase_t& phase) const;
+
     std::string producer_symbol_name() const;
 
     template <class phase_t>
@@ -102,19 +108,12 @@ struct source_phase_t : phase_base_t {
 
     filesystem::path_t source_dir() const;
     void add_source(const filesystem::path_t& source, const filesystem::relative_path_t& relative_install_path) const;
+    output_t installed_output() const;
 };
 
 struct interface_phase_t : phase_base_t {
     struct output_t {
-        std::vector<filesystem::path_t> interfaces;
-
-        auto begin() const {
-            return interfaces.begin();
-        }
-
-        auto end() const {
-            return interfaces.end();
-        }
+        std::vector<filesystem::path_t> include_dirs;
     };
 
     interface_phase_t(
@@ -126,19 +125,12 @@ struct interface_phase_t : phase_base_t {
     filesystem::relative_path_t source_relative_path(const filesystem::path_t& source) const;
     void add_interface(const filesystem::path_t& interface) const;
     void add_interface(const filesystem::path_t& interface, const filesystem::relative_path_t& relative_install_path) const;
+    output_t installed_output() const;
 };
 
 struct library_phase_t : phase_base_t {
     struct output_t {
         std::vector<filesystem::path_t> libraries;
-
-        auto begin() const {
-            return libraries.begin();
-        }
-
-        auto end() const {
-            return libraries.end();
-        }
     };
 
     library_phase_t(
@@ -148,6 +140,7 @@ struct library_phase_t : phase_base_t {
     );
 
     void add_library(const filesystem::path_t& library, const filesystem::relative_path_t& relative_install_path) const;
+    output_t installed_output() const;
 };
 
 struct binary_phase_t : phase_base_t {
@@ -163,6 +156,7 @@ struct binary_phase_t : phase_base_t {
     );
 
     void add_binary(const filesystem::path_t& binary, const filesystem::relative_path_t& relative_install_path) const;
+    output_t installed_output() const;
 };
 
 struct config_phase_t : phase_base_t {
@@ -174,6 +168,8 @@ struct config_phase_t : phase_base_t {
         graph::module_t& module,
         library_type_t library_type
     );
+
+    output_t installed_output() const;
 
     source_phase_t source;
     interface_phase_t interface;
@@ -224,63 +220,11 @@ typename phase_t::output_t phase_base_t::materialize() const {
     const auto marker_path = [&](std::string_view state) {
         return build_dir / filesystem::relative_path_t(std::format("{}.{}", phase.name(), state));
     };
-    const auto publish_latest_stage = [&]() {
-        const auto& phase_base = static_cast<const phase_base_t&>(phase);
-        const auto phase_artifact_dir = phase.artifact_dir();
-        const auto latest_dir = phase_base.m_module.artifact_latest_dir();
-        const auto latest_stage_dir = latest_dir / phase_base.m_module.artifact_dir().relative(phase_artifact_dir);
-        const auto latest_stage_tmp_dir = latest_stage_dir + "_tmp";
-
-        if (filesystem::exists(latest_stage_tmp_dir)) {
-            filesystem::remove_all(latest_stage_tmp_dir);
-        }
-
-        if (!filesystem::exists(latest_dir)) {
-            filesystem::create_directories(latest_dir);
-        }
-
-        filesystem::create_directory_symlink(phase_artifact_dir, latest_stage_tmp_dir);
-        filesystem::rename_replace(latest_stage_tmp_dir, latest_stage_dir);
-    };
     const auto started_marker = marker_path("started");
     const auto complete_marker = marker_path("complete");
-    const auto installed_output = [&]() -> typename phase_t::output_t {
-        if constexpr (std::is_same_v<phase_t, config_phase_t>) {
-            return config_phase_t::output_t {
-                .library_type = phase.library_type()
-            };
-        } else if constexpr (std::is_same_v<phase_t, source_phase_t>) {
-            return source_phase_t::output_t {
-                .sources = filesystem::find(install_dir, !filesystem::find_include_predicate_t::is_dir, filesystem::find_descend_predicate_t::descend_all)
-            };
-        } else if constexpr (std::is_same_v<phase_t, interface_phase_t>) {
-            return interface_phase_t::output_t {
-                .interfaces = { install_dir }
-            };
-        } else if constexpr (std::is_same_v<phase_t, library_phase_t>) {
-            return library_phase_t::output_t {
-                .libraries = filesystem::find(install_dir, !filesystem::find_include_predicate_t::is_dir, filesystem::find_descend_predicate_t::descend_all)
-            };
-        } else if constexpr (std::is_same_v<phase_t, binary_phase_t>) {
-            const auto cli = install_dir / filesystem::relative_path_t("cli");
-
-            if (!filesystem::exists(cli)) {
-                throw std::runtime_error(std::format("phase_base_t::materialize: expected module cli '{}' to exist", cli));
-            }
-
-            return binary_phase_t::output_t {
-                .binary_root = install_dir,
-                .cli = cli
-            };
-        } else {
-            static_assert(std::is_same_v<phase_t, void>, "unsupported phase type");
-        }
-    };
 
     if (filesystem::exists(complete_marker)) {
-        auto result = installed_output();
-        publish_latest_stage();
-        return result;
+        return phase.installed_output();
     }
 
     if (filesystem::exists(started_marker)) {
@@ -302,15 +246,31 @@ typename phase_t::output_t phase_base_t::materialize() const {
         filesystem::create_directories(install_dir);
 
         static_cast<const phase_base_t&>(phase).m_declared_outputs.clear();
-        static_cast<const phase_base_t&>(phase).execute();
+        static_cast<const phase_base_t&>(phase).template execute<phase_t>(phase);
 
         for (const auto& output : static_cast<const phase_base_t&>(phase).m_declared_outputs) {
             filesystem::copy(output.artifact, install_dir / output.relative_install_path);
         }
 
-        auto result = installed_output();
+        auto result = phase.installed_output();
 
-        publish_latest_stage();
+        const auto& phase_base = static_cast<const phase_base_t&>(phase);
+        const auto phase_artifact_dir = phase.artifact_dir();
+        const auto latest_dir = phase_base.m_module.artifact_latest_dir();
+        const auto latest_stage_dir = latest_dir / phase_base.m_module.artifact_dir().relative(phase_artifact_dir);
+        const auto latest_stage_tmp_dir = latest_stage_dir + "_tmp";
+
+        if (filesystem::exists(latest_stage_tmp_dir)) {
+            filesystem::remove_all(latest_stage_tmp_dir);
+        }
+
+        if (!filesystem::exists(latest_dir)) {
+            filesystem::create_directories(latest_dir);
+        }
+
+        filesystem::create_directory_symlink(phase_artifact_dir, latest_stage_tmp_dir);
+        filesystem::rename_replace(latest_stage_tmp_dir, latest_stage_dir);
+
         filesystem::touch(complete_marker);
         filesystem::remove(started_marker);
 
@@ -360,6 +320,18 @@ void phase_base_t::materialize_all(
         module->configure(library_type());
         outputs.push_back(module->materialize<phase_t>());
     }
+}
+
+template <class phase_t>
+void phase_base_t::execute(const phase_t& phase) const {
+    if constexpr (std::is_same_v<phase_t, config_phase_t>) {
+        return ;
+    }
+
+    shared_library::loader_t loader(builder_plugin(), shared_library::lifetime_t::PROCESS, shared_library::symbol_resolution_t::LAZY, shared_library::symbol_visibility_t::LOCAL);
+    using fn_t = void (*)(const phase_t*);
+    fn_t fn = loader.resolve(producer_symbol_name().c_str());
+    fn(&phase);
 }
 
 } // namespace builder

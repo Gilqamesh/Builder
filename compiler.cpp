@@ -67,8 +67,8 @@ static std::vector<filesystem::path_t> create_object_files(
     }
 
     for (const auto& interface_output : interface_outputs) {
-        for (const auto& interface : interface_output.interfaces) {
-            process_prefix_args.push_back(std::format("-I{}", interface));
+        for (const auto& include_dir : interface_output.include_dirs) {
+            process_prefix_args.push_back(std::format("-I{}", include_dir));
         }
     }
 
@@ -349,7 +349,7 @@ filesystem::path_t create_builder_shared_library(
     return create_shared_library_impl(
         build_dir,
         source_dir,
-        { builder::interface_phase_t::output_t { .interfaces = include_dirs } },
+        { builder::interface_phase_t::output_t { .include_dirs = include_dirs } },
         { builder_source_file },
         define_key_values,
         { builder::library_phase_t::output_t { .libraries = libraries } },
