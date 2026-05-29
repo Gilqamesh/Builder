@@ -361,6 +361,11 @@ path_t canonical(const path_t& path) {
 void copy(const path_t& src, const path_t& dst) {
     std::cout << std::format("cp -r {} {}", pretty_path_t(src), pretty_path_t(dst)) << std::endl;
 
+    const auto parent = dst.parent();
+    if (!exists(parent)) {
+        create_directories(parent);
+    }
+
     std::error_code ec;
     std::filesystem::copy(src.to_native_path(), dst.to_native_path(), std::filesystem::copy_options::recursive, ec);
     if (ec) {

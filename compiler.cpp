@@ -4,7 +4,6 @@
 
 #include <format>
 #include <stdexcept>
-#include <string_view>
 #include <ranges>
 #include <chrono>
 #include <sstream>
@@ -18,67 +17,37 @@ namespace compiler {
 
 static std::vector<filesystem::path_t> resolve_source_files(
     const filesystem::path_t& source_root,
+    const builder::source_phase_t::output_t& source_output,
     const std::vector<filesystem::relative_path_t>& relative_source_files
 ) {
     std::vector<filesystem::path_t> source_files;
     source_files.reserve(relative_source_files.size());
 
     for (const auto& relative_source_file : relative_source_files) {
-        source_files.push_back(source_root / relative_source_file);
+        const auto source_file = source_root / relative_source_file;
+        bool materialized = false;
+
+        for (const auto& source : source_output.sources) {
+            if (source == source_file) {
+                materialized = true;
+                break ;
+            }
+        }
+
+        if (!materialized) {
+            throw std::runtime_error(std::format("cpp_compiler::resolve_source_files: source file '{}' was not materialized by source phase", source_file));
+        }
+
+        source_files.push_back(source_file);
     }
 
     return source_files;
 }
 
-static const builder::iphase_t& phase_named(const builder::iphase_t& phase, std::string_view phase_name) {
-    const builder::iphase_t* current_phase = &phase;
-    while (current_phase != nullptr) {
-        if (current_phase->name() == phase_name) {
-            return *current_phase;
-        }
-        current_phase = current_phase->predecessor();
-    }
-
-    throw std::runtime_error(std::format("cpp_compiler::phase_named: phase '{}' is not in the predecessor chain for '{}'", phase_name, phase.name()));
-}
-
-static filesystem::path_t materialized_source_root(const builder::phase_base_t& phase) {
-    phase.materialize<builder::source_phase_t>();
-    return phase_named(phase, "source").install_dir();
-}
-
-static std::vector<filesystem::path_t> flatten_interface_outputs(const std::vector<builder::interface_output_t>& interface_outputs) {
-    std::vector<filesystem::path_t> include_dirs;
-
-    for (const auto& interface_output : interface_outputs) {
-        include_dirs.insert(include_dirs.end(), interface_output.interfaces.begin(), interface_output.interfaces.end());
-    }
-
-    return include_dirs;
-}
-
-static std::vector<filesystem::path_t> library_include_dirs(const builder::library_phase_t& phase) {
-    return flatten_interface_outputs(phase.materialize<builder::interface_phase_t>());
-}
-
-static std::vector<filesystem::path_t> binary_include_dirs(const builder::binary_phase_t& phase) {
-    return flatten_interface_outputs(phase.materialize<builder::interface_phase_t>());
-}
-
-static std::vector<filesystem::path_t> link_ordered_libraries(const std::vector<builder::library_output_t>& library_outputs) {
-    std::vector<filesystem::path_t> libraries;
-
-    for (auto output_it = library_outputs.rbegin(); output_it != library_outputs.rend(); ++output_it) {
-        libraries.insert(libraries.end(), output_it->libraries.begin(), output_it->libraries.end());
-    }
-
-    return libraries;
-}
-
 static std::vector<filesystem::path_t> create_object_files(
     const filesystem::path_t& build_dir,
     const filesystem::path_t& source_dir,
-    const std::vector<filesystem::path_t>& include_dirs,
+    const std::vector<builder::interface_phase_t::output_t>& interface_outputs,
     const std::vector<filesystem::path_t>& source_files,
     const std::vector<std::pair<std::string, std::string>>& define_key_values,
     bool is_position_independent
@@ -95,14 +64,14 @@ static std::vector<filesystem::path_t> create_object_files(
     process_prefix_args.push_back("-g");
     process_prefix_args.push_back("-std=c++23");
 
-    std::string define_flags_str;
     for (const auto& [key, value] : define_key_values) {
         process_prefix_args.push_back(std::format("-D{}={}", key, value));
     }
 
-    std::string include_dirs_str;
-    for (const auto& include_dir : include_dirs) {
-        process_prefix_args.push_back(std::format("-I{}", include_dir));
+    for (const auto& interface_output : interface_outputs) {
+        for (const auto& interface : interface_output.interfaces) {
+            process_prefix_args.push_back(std::format("-I{}", interface));
+        }
     }
 
     for (const auto& source_file : source_files) {
@@ -142,7 +111,7 @@ static std::vector<filesystem::path_t> create_object_files(
 static filesystem::path_t create_static_library_impl(
     const filesystem::path_t& build_dir,
     const filesystem::path_t& source_dir,
-    const std::vector<filesystem::path_t>& include_dirs,
+    const std::vector<builder::interface_phase_t::output_t>& interface_outputs,
     const std::vector<filesystem::path_t>& source_files,
     const std::vector<std::pair<std::string, std::string>>& define_key_values,
     const filesystem::path_t& static_library
@@ -150,7 +119,7 @@ static filesystem::path_t create_static_library_impl(
     const auto object_files = create_object_files(
         build_dir,
         source_dir,
-        include_dirs,
+        interface_outputs,
         source_files,
         define_key_values,
         false
@@ -184,16 +153,16 @@ static filesystem::path_t create_static_library_impl(
 static filesystem::path_t create_shared_library_impl(
     const filesystem::path_t& build_dir,
     const filesystem::path_t& source_dir,
-    const std::vector<filesystem::path_t>& include_dirs,
+    const std::vector<builder::interface_phase_t::output_t>& interface_outputs,
     const std::vector<filesystem::path_t>& source_files,
     const std::vector<std::pair<std::string, std::string>>& define_key_values,
-    const std::vector<builder::library_output_t>& library_outputs,
+    const std::vector<builder::library_phase_t::output_t>& library_outputs,
     const filesystem::path_t& shared_library
 ) {
     const auto object_files = create_object_files(
         build_dir,
         source_dir,
-        include_dirs,
+        interface_outputs,
         source_files,
         define_key_values,
         true
@@ -214,12 +183,14 @@ static filesystem::path_t create_shared_library_impl(
         process_args.push_back(object_file);
     }
 
-    for (const auto& library : link_ordered_libraries(library_outputs)) {
-        if (!filesystem::exists(library)) {
-            throw std::runtime_error(std::format("cpp_compiler::create_shared_library: library does not exist '{}'", library));
-        }
+    for (auto library_output_it = library_outputs.rbegin(); library_output_it != library_outputs.rend(); ++library_output_it) {
+        for (const auto& library : library_output_it->libraries) {
+            if (!filesystem::exists(library)) {
+                throw std::runtime_error(std::format("cpp_compiler::create_shared_library: library does not exist '{}'", library));
+            }
 
-        process_args.push_back(library);
+            process_args.push_back(library);
+        }
     }
 
     const int process_result = process::create_and_wait(process_args);
@@ -237,14 +208,14 @@ static filesystem::path_t create_shared_library_impl(
 static filesystem::path_t create_binary_impl(
     const filesystem::path_t& build_dir,
     const filesystem::path_t& source_dir,
-    const std::vector<filesystem::path_t>& include_dirs,
+    const std::vector<builder::interface_phase_t::output_t>& interface_outputs,
     const std::vector<filesystem::path_t>& source_files,
     const std::vector<std::pair<std::string, std::string>>& define_key_values,
-    const std::vector<builder::library_output_t>& library_outputs,
+    const std::vector<builder::library_phase_t::output_t>& library_outputs,
     bool TEMP_assume_all_link_inputs_are_shared,
     const filesystem::path_t& binary
 ) {
-    const auto object_files = create_object_files(build_dir, source_dir, include_dirs, source_files, define_key_values, TEMP_assume_all_link_inputs_are_shared);
+    const auto object_files = create_object_files(build_dir, source_dir, interface_outputs, source_files, define_key_values, TEMP_assume_all_link_inputs_are_shared);
 
     const auto binary_dir = binary.parent();
     if (!filesystem::exists(binary_dir)) {
@@ -301,14 +272,15 @@ filesystem::path_t create_static_library(
     const std::vector<std::pair<std::string, std::string>>& define_key_values,
     const filesystem::relative_path_t& relative_output_path
 ) {
-    const auto source_root = materialized_source_root(phase);
-    const auto include_dirs = library_include_dirs(phase);
+    const builder::source_phase_t source_phase(phase.module(), phase.library_type());
+    const auto source_output = source_phase.materialize<builder::source_phase_t>();
+    const auto interface_outputs = phase.materialize_all<builder::interface_phase_t>();
 
     return create_static_library_impl(
         phase.build_dir(),
-        source_root,
-        include_dirs,
-        resolve_source_files(source_root, relative_source_files),
+        source_phase.install_dir(),
+        interface_outputs,
+        resolve_source_files(source_phase.install_dir(), source_output, relative_source_files),
         define_key_values,
         phase.install_dir() / relative_output_path
     );
@@ -318,17 +290,18 @@ filesystem::path_t create_shared_library(
     const builder::library_phase_t& phase,
     const std::vector<filesystem::relative_path_t>& relative_source_files,
     const std::vector<std::pair<std::string, std::string>>& define_key_values,
-    const std::vector<builder::library_output_t>& library_outputs,
+    const std::vector<builder::library_phase_t::output_t>& library_outputs,
     const filesystem::relative_path_t& relative_output_path
 ) {
-    const auto source_root = materialized_source_root(phase);
-    const auto include_dirs = library_include_dirs(phase);
+    const builder::source_phase_t source_phase(phase.module(), phase.library_type());
+    const auto source_output = source_phase.materialize<builder::source_phase_t>();
+    const auto interface_outputs = phase.materialize_all<builder::interface_phase_t>();
 
     return create_shared_library_impl(
         phase.build_dir(),
-        source_root,
-        include_dirs,
-        resolve_source_files(source_root, relative_source_files),
+        source_phase.install_dir(),
+        interface_outputs,
+        resolve_source_files(source_phase.install_dir(), source_output, relative_source_files),
         define_key_values,
         library_outputs,
         phase.install_dir() / relative_output_path
@@ -339,18 +312,19 @@ filesystem::path_t create_binary(
     const builder::binary_phase_t& phase,
     const std::vector<filesystem::relative_path_t>& relative_source_files,
     const std::vector<std::pair<std::string, std::string>>& define_key_values,
-    const std::vector<builder::library_output_t>& library_outputs,
+    const std::vector<builder::library_phase_t::output_t>& library_outputs,
     bool TEMP_assume_all_link_inputs_are_shared,
     const filesystem::relative_path_t& relative_output_path
 ) {
-    const auto source_root = materialized_source_root(phase);
-    const auto include_dirs = binary_include_dirs(phase);
+    const builder::source_phase_t source_phase(phase.module(), phase.library_type());
+    const auto source_output = source_phase.materialize<builder::source_phase_t>();
+    const auto interface_outputs = phase.materialize_all<builder::interface_phase_t>();
 
     return create_binary_impl(
         phase.build_dir(),
-        source_root,
-        include_dirs,
-        resolve_source_files(source_root, relative_source_files),
+        source_phase.install_dir(),
+        interface_outputs,
+        resolve_source_files(source_phase.install_dir(), source_output, relative_source_files),
         define_key_values,
         library_outputs,
         TEMP_assume_all_link_inputs_are_shared,
@@ -370,10 +344,10 @@ filesystem::path_t create_builder_shared_library(
     return create_shared_library_impl(
         build_dir,
         source_dir,
-        include_dirs,
+        { builder::interface_phase_t::output_t { .interfaces = include_dirs } },
         { builder_source_file },
         define_key_values,
-        { builder::library_output_t { .libraries = libraries } },
+        { builder::library_phase_t::output_t { .libraries = libraries } },
         builder_plugin
     );
 }

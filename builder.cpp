@@ -41,12 +41,22 @@ std::vector<kernel::cpp_builder::filesystem::relative_path_t> kernel_library_sou
 
 } // namespace
 
-extern "C" void phase__interface(const kernel::cpp_builder::builder::interface_phase_t* phase) {
-    phase->materialize<kernel::cpp_builder::builder::source_phase_t>();
-    const auto module_source_dir = phase->predecessor()->install_dir();
+extern "C" void phase__source(const kernel::cpp_builder::builder::source_phase_t* phase) {
+    const auto source_root = phase->module().source_dir();
 
-    for (const auto& interface : kernel::cpp_builder::filesystem::find(module_source_dir, kernel::cpp_builder::filesystem::find_include_predicate_t::h_file || kernel::cpp_builder::filesystem::find_include_predicate_t::hpp_file, kernel::cpp_builder::filesystem::find_descend_predicate_t::descend_all)) {
-        kernel::cpp_builder::builder::install_interface(*phase, interface, module_source_dir.relative(interface));
+    for (const auto& source : kernel::cpp_builder::filesystem::find(source_root, !kernel::cpp_builder::filesystem::find_include_predicate_t::is_dir, kernel::cpp_builder::filesystem::find_descend_predicate_t::descend_all)) {
+        phase->install(source, source_root.relative(source));
+    }
+}
+
+extern "C" void phase__interface(const kernel::cpp_builder::builder::interface_phase_t* phase) {
+    const kernel::cpp_builder::builder::source_phase_t source_phase(phase->module(), phase->library_type());
+    const auto source_output = source_phase.materialize<kernel::cpp_builder::builder::source_phase_t>();
+
+    for (const auto& interface : source_output.sources) {
+        if (kernel::cpp_builder::filesystem::find_include_predicate_t::h_file(interface) || kernel::cpp_builder::filesystem::find_include_predicate_t::hpp_file(interface)) {
+            phase->install(interface, source_phase.install_dir().relative(interface));
+        }
     }
 }
 
@@ -82,7 +92,7 @@ extern "C" void phase__library(const kernel::cpp_builder::builder::library_phase
 }
 
 extern "C" void phase__binary(const kernel::cpp_builder::builder::binary_phase_t* phase) {
-    const auto library_outputs = phase->materialize<kernel::cpp_builder::builder::library_phase_t>();
+    const auto library_outputs = phase->materialize_all<kernel::cpp_builder::builder::library_phase_t>();
 
     kernel::cpp_builder::compiler::create_binary(
         *phase,

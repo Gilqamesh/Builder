@@ -263,7 +263,7 @@ std::vector<path_t> find(const builder::iphase_t& phase, const find_include_pred
 path_t canonical(const path_t& path);
 
 /**
- * Copies a file or directory tree.
+ * Copies a file or directory tree. Creates the destination parent directories.
 */
 void copy(const path_t& src, const path_t& dst);
 

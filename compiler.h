@@ -40,7 +40,7 @@ filesystem::path_t create_shared_library(
     const builder::library_phase_t& phase,
     const std::vector<filesystem::relative_path_t>& relative_source_files,
     const std::vector<std::pair<std::string, std::string>>& define_key_values,
-    const std::vector<builder::library_output_t>& library_outputs,
+    const std::vector<builder::library_phase_t::output_t>& library_outputs,
     const filesystem::relative_path_t& relative_output_path
 );
 
@@ -48,7 +48,7 @@ filesystem::path_t create_binary(
     const builder::binary_phase_t& phase,
     const std::vector<filesystem::relative_path_t>& relative_source_files,
     const std::vector<std::pair<std::string, std::string>>& define_key_values,
-    const std::vector<builder::library_output_t>& library_outputs,
+    const std::vector<builder::library_phase_t::output_t>& library_outputs,
     bool TEMP_assume_all_link_inputs_are_shared,
     const filesystem::relative_path_t& relative_output_path
 );
