@@ -50,14 +50,13 @@ BUILDER_EXTERN void phase__source(const kernel::cpp_builder::builder::source_pha
 }
 
 BUILDER_EXTERN void phase__interface(const kernel::cpp_builder::builder::interface_phase_t* phase) {
-    const kernel::cpp_builder::builder::source_phase_t source_phase(phase->module(), phase->library_type());
-    const auto source_output = source_phase.materialize<kernel::cpp_builder::builder::source_phase_t>();
+    const auto source_output = phase->materialize<kernel::cpp_builder::builder::source_phase_t>();
 
     for (const auto& interface : source_output.sources) {
         if (kernel::cpp_builder::filesystem::find_include_predicate_t::h_file(interface) || kernel::cpp_builder::filesystem::find_include_predicate_t::hpp_file(interface)) {
             phase->add_interface(
                 interface,
-                kernel::cpp_builder::filesystem::relative_path_t(std::format("kernel/cpp_builder/{}", source_phase.install_dir().relative(interface).string()))
+                kernel::cpp_builder::filesystem::relative_path_t(std::format("kernel/cpp_builder/{}", phase->source_relative_path(interface)))
             );
         }
     }

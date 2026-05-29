@@ -41,6 +41,12 @@ struct iphase_t {
     virtual filesystem::path_t install_dir() const = 0;
 };
 
+struct config_phase_t;
+struct source_phase_t;
+struct interface_phase_t;
+struct library_phase_t;
+struct binary_phase_t;
+
 class phase_base_t : public iphase_t {
 public:
     phase_base_t(
@@ -90,6 +96,17 @@ private:
     mutable std::vector<declared_output_t> m_declared_outputs;
 };
 
+struct config_phase_t : phase_base_t {
+    struct output_t {
+        library_type_t library_type;
+    };
+
+    config_phase_t(
+        graph::module_t& module,
+        library_type_t library_type
+    );
+};
+
 struct source_phase_t : phase_base_t {
     struct output_t {
         std::vector<filesystem::path_t> sources;
@@ -98,7 +115,7 @@ struct source_phase_t : phase_base_t {
     source_phase_t(
         graph::module_t& module,
         library_type_t library_type,
-        const iphase_t* predecessor = nullptr
+        const iphase_t* predecessor
     );
 
     void add_source(const filesystem::path_t& source, const filesystem::relative_path_t& relative_install_path) const;
@@ -112,9 +129,11 @@ struct interface_phase_t : phase_base_t {
     interface_phase_t(
         graph::module_t& module,
         library_type_t library_type,
-        const iphase_t* predecessor = nullptr
+        const iphase_t* predecessor
     );
 
+    filesystem::relative_path_t source_relative_path(const filesystem::path_t& source) const;
+    void add_interface(const filesystem::path_t& interface) const;
     void add_interface(const filesystem::path_t& interface, const filesystem::relative_path_t& relative_install_path) const;
 };
 
@@ -126,7 +145,7 @@ struct library_phase_t : phase_base_t {
     library_phase_t(
         graph::module_t& module,
         library_type_t library_type,
-        const iphase_t* predecessor = nullptr
+        const iphase_t* predecessor
     );
 
     void add_library(const filesystem::path_t& library, const filesystem::relative_path_t& relative_install_path) const;
@@ -141,16 +160,17 @@ struct binary_phase_t : phase_base_t {
     binary_phase_t(
         graph::module_t& module,
         library_type_t library_type,
-        const iphase_t* predecessor = nullptr
+        const iphase_t* predecessor
     );
 
     void add_binary(const filesystem::path_t& binary, const filesystem::relative_path_t& relative_install_path) const;
 };
 
-class phase_chain_t {
+class module_phases_t {
 public:
-    phase_chain_t(graph::module_t& module, library_type_t library_type);
+    module_phases_t(graph::module_t& module, library_type_t library_type);
 
+    config_phase_t config;
     source_phase_t source;
     interface_phase_t interface;
     library_phase_t library;
@@ -216,7 +236,11 @@ typename phase_t::output_t phase_base_t::materialize() const {
     const auto started_marker = marker_path("started");
     const auto complete_marker = marker_path("complete");
     const auto installed_output = [&]() -> typename phase_t::output_t {
-        if constexpr (std::is_same_v<phase_t, source_phase_t>) {
+        if constexpr (std::is_same_v<phase_t, config_phase_t>) {
+            return config_phase_t::output_t {
+                .library_type = phase.library_type()
+            };
+        } else if constexpr (std::is_same_v<phase_t, source_phase_t>) {
             return source_phase_t::output_t {
                 .sources = filesystem::find(install_dir, !filesystem::find_include_predicate_t::is_dir, filesystem::find_descend_predicate_t::descend_all)
             };
@@ -272,19 +296,7 @@ typename phase_t::output_t phase_base_t::materialize() const {
         static_cast<const phase_base_t&>(phase).execute();
 
         for (const auto& output : static_cast<const phase_base_t&>(phase).m_declared_outputs) {
-            auto relative_install_path = output.relative_install_path;
-
-            if constexpr (std::is_same_v<phase_t, interface_phase_t>) {
-                if (&phase.module() == phase.module().workspace->workspace_ecosystem->this_module) {
-                    const auto relative_install_path_string = relative_install_path.string();
-
-                    if (!relative_install_path_string.starts_with("kernel/cpp_builder/")) {
-                        relative_install_path = filesystem::relative_path_t(std::format("kernel/cpp_builder/{}", relative_install_path_string));
-                    }
-                }
-            }
-
-            filesystem::copy(output.artifact, install_dir / relative_install_path);
+            filesystem::copy(output.artifact, install_dir / output.relative_install_path);
         }
 
         auto result = installed_output();
@@ -336,15 +348,16 @@ void phase_base_t::materialize_all(
     }
 
     for (auto* module : scc.modules) {
-        phase_chain_t phase_chain(*module, library_type());
-        if constexpr (std::is_same_v<phase_t, source_phase_t>) {
-            outputs.push_back(phase_chain.source.template materialize<phase_t>());
+        if constexpr (std::is_same_v<phase_t, config_phase_t>) {
+            outputs.push_back(module->config_phase(library_type()).template materialize<phase_t>());
+        } else if constexpr (std::is_same_v<phase_t, source_phase_t>) {
+            outputs.push_back(module->source_phase(library_type()).template materialize<phase_t>());
         } else if constexpr (std::is_same_v<phase_t, interface_phase_t>) {
-            outputs.push_back(phase_chain.interface.template materialize<phase_t>());
+            outputs.push_back(module->interface_phase(library_type()).template materialize<phase_t>());
         } else if constexpr (std::is_same_v<phase_t, library_phase_t>) {
-            outputs.push_back(phase_chain.library.template materialize<phase_t>());
+            outputs.push_back(module->library_phase(library_type()).template materialize<phase_t>());
         } else if constexpr (std::is_same_v<phase_t, binary_phase_t>) {
-            outputs.push_back(phase_chain.binary.template materialize<phase_t>());
+            outputs.push_back(module->binary_phase(library_type()).template materialize<phase_t>());
         } else {
             static_assert(std::is_same_v<phase_t, void>, "unsupported phase type");
         }

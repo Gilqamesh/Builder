@@ -5,6 +5,7 @@
 
 # include "filesystem.h"
 
+# include <cstdint>
 # include <unordered_set>
 # include <unordered_map>
 # include <stack>
@@ -12,6 +13,18 @@
 namespace kernel {
 
 namespace cpp_builder {
+
+namespace builder {
+
+enum class library_type_t : uint8_t;
+class module_phases_t;
+struct config_phase_t;
+struct source_phase_t;
+struct interface_phase_t;
+struct library_phase_t;
+struct binary_phase_t;
+
+} // namespace builder
 
 namespace graph {
 
@@ -57,6 +70,8 @@ struct module_t {
     version_t version;
     std::unordered_set<module_t*> dependencies;
     bool validated;
+    mutable builder::module_phases_t* static_phases = nullptr;
+    mutable builder::module_phases_t* shared_phases = nullptr;
 
     filesystem::path_t source_dir() const;
     filesystem::path_t builder_path() const;
@@ -68,6 +83,12 @@ struct module_t {
     filesystem::path_t builder_install_dir() const;
     filesystem::path_t builder_install_path() const;
     filesystem::path_t builder_install_latest_path() const;
+    builder::module_phases_t& phases(builder::library_type_t library_type) const;
+    builder::config_phase_t& config_phase(builder::library_type_t library_type) const;
+    builder::source_phase_t& source_phase(builder::library_type_t library_type) const;
+    builder::interface_phase_t& interface_phase(builder::library_type_t library_type) const;
+    builder::library_phase_t& library_phase(builder::library_type_t library_type) const;
+    builder::binary_phase_t& binary_phase(builder::library_type_t library_type) const;
 
     void validate();
 };

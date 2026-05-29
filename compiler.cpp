@@ -277,7 +277,7 @@ filesystem::path_t create_static_library(
     const std::vector<std::pair<std::string, std::string>>& define_key_values,
     const filesystem::relative_path_t& relative_output_path
 ) {
-    const builder::source_phase_t source_phase(phase.module(), phase.library_type());
+    const auto& source_phase = phase.module().source_phase(phase.library_type());
     const auto source_output = source_phase.materialize<builder::source_phase_t>();
     const auto interface_outputs = phase.materialize_all<builder::interface_phase_t>();
 
@@ -298,7 +298,7 @@ filesystem::path_t create_shared_library(
     const std::vector<builder::library_phase_t::output_t>& library_outputs,
     const filesystem::relative_path_t& relative_output_path
 ) {
-    const builder::source_phase_t source_phase(phase.module(), phase.library_type());
+    const auto& source_phase = phase.module().source_phase(phase.library_type());
     const auto source_output = source_phase.materialize<builder::source_phase_t>();
     const auto interface_outputs = phase.materialize_all<builder::interface_phase_t>();
 
@@ -321,7 +321,7 @@ filesystem::path_t create_binary(
     bool TEMP_assume_all_link_inputs_are_shared,
     const filesystem::relative_path_t& relative_output_path
 ) {
-    const builder::source_phase_t source_phase(phase.module(), phase.library_type());
+    const auto& source_phase = phase.module().source_phase(phase.library_type());
     const auto source_output = source_phase.materialize<builder::source_phase_t>();
     const auto interface_outputs = phase.materialize_all<builder::interface_phase_t>();
 

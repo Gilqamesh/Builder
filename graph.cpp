@@ -1,10 +1,12 @@
 #include "graph.h"
 
 #include "external/json.hpp"
+#include "phase.h"
 
 #include <fstream>
 #include <stack>
 #include <cassert>
+#include <type_traits>
 
 namespace kernel {
 
@@ -51,6 +53,43 @@ filesystem::path_t module_t::builder_install_path() const {
 
 filesystem::path_t module_t::builder_install_latest_path() const {
     return artifact_latest_dir() / filesystem::relative_path_t("builder/install/builder.so");
+}
+
+builder::module_phases_t& module_t::phases(builder::library_type_t library_type) const {
+    switch (library_type) {
+        case builder::library_type_t::STATIC:
+            if (static_phases == nullptr) {
+                static_phases = new builder::module_phases_t(const_cast<module_t&>(*this), library_type);
+            }
+            return *static_phases;
+        case builder::library_type_t::SHARED:
+            if (shared_phases == nullptr) {
+                shared_phases = new builder::module_phases_t(const_cast<module_t&>(*this), library_type);
+            }
+            return *shared_phases;
+        default:
+            throw std::runtime_error(std::format("kernel::cpp_builder::graph::module_t::phases: unknown library_type {}", static_cast<std::underlying_type_t<builder::library_type_t>>(library_type)));
+    }
+}
+
+builder::config_phase_t& module_t::config_phase(builder::library_type_t library_type) const {
+    return phases(library_type).config;
+}
+
+builder::source_phase_t& module_t::source_phase(builder::library_type_t library_type) const {
+    return phases(library_type).source;
+}
+
+builder::interface_phase_t& module_t::interface_phase(builder::library_type_t library_type) const {
+    return phases(library_type).interface;
+}
+
+builder::library_phase_t& module_t::library_phase(builder::library_type_t library_type) const {
+    return phases(library_type).library;
+}
+
+builder::binary_phase_t& module_t::binary_phase(builder::library_type_t library_type) const {
+    return phases(library_type).binary;
 }
 
 version_t derive_version(const std::filesystem::file_time_type& file_time_type) {
