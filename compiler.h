@@ -25,10 +25,6 @@ namespace compiler {
 # define KERNEL_CPP_BUILDER_AR_PATH "/usr/bin/ar"
 #endif
 
-inline constexpr const char* CXX_COMPILER_PATH = KERNEL_CPP_BUILDER_CXX_COMPILER_PATH;
-inline constexpr const char* CC_COMPILER_PATH = KERNEL_CPP_BUILDER_CC_COMPILER_PATH;
-inline constexpr const char* AR_PATH = KERNEL_CPP_BUILDER_AR_PATH;
-
 filesystem::path_t create_static_library(
     const builder::library_phase_t& phase,
     const std::vector<filesystem::relative_path_t>& relative_source_files,

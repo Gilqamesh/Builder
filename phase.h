@@ -162,36 +162,6 @@ BUILDER_EXTERN void phase__interface(const interface_phase_t* phase);
 BUILDER_EXTERN void phase__library(const library_phase_t* phase);
 BUILDER_EXTERN void phase__binary(const binary_phase_t* phase);
 
-namespace detail {
-
-inline std::string module_display_name(const graph::module_t& module) {
-    return std::format(
-        "{}/{}",
-        module.workspace->workspace_relative_path_to_workspace_ecosystem.string(),
-        module.module_relative_path_to_workspace.string()
-    );
-}
-
-template <class>
-inline constexpr bool always_false_v = false;
-
-template <class phase_t>
-const phase_t& phase_from_chain(const phase_chain_t& phase_chain) {
-    if constexpr (std::is_same_v<phase_t, source_phase_t>) {
-        return phase_chain.source;
-    } else if constexpr (std::is_same_v<phase_t, interface_phase_t>) {
-        return phase_chain.interface;
-    } else if constexpr (std::is_same_v<phase_t, library_phase_t>) {
-        return phase_chain.library;
-    } else if constexpr (std::is_same_v<phase_t, binary_phase_t>) {
-        return phase_chain.binary;
-    } else {
-        static_assert(always_false_v<phase_t>, "unsupported phase type");
-    }
-}
-
-} // namespace detail
-
 template <class phase_t>
 typename phase_t::output_t phase_base_t::materialize() const {
     const auto* current_phase = this;
@@ -270,7 +240,7 @@ typename phase_t::output_t phase_base_t::materialize() const {
                 .cli = cli
             };
         } else {
-            static_assert(detail::always_false_v<phase_t>, "unsupported phase type");
+            static_assert(std::is_same_v<phase_t, void>, "unsupported phase type");
         }
     };
 
@@ -302,7 +272,19 @@ typename phase_t::output_t phase_base_t::materialize() const {
         static_cast<const phase_base_t&>(phase).execute();
 
         for (const auto& output : static_cast<const phase_base_t&>(phase).m_declared_outputs) {
-            filesystem::copy(output.artifact, install_dir / output.relative_install_path);
+            auto relative_install_path = output.relative_install_path;
+
+            if constexpr (std::is_same_v<phase_t, interface_phase_t>) {
+                if (&phase.module() == phase.module().workspace->workspace_ecosystem->this_module) {
+                    const auto relative_install_path_string = relative_install_path.string();
+
+                    if (!relative_install_path_string.starts_with("kernel/cpp_builder/")) {
+                        relative_install_path = filesystem::relative_path_t(std::format("kernel/cpp_builder/{}", relative_install_path_string));
+                    }
+                }
+            }
+
+            filesystem::copy(output.artifact, install_dir / relative_install_path);
         }
 
         auto result = installed_output();
@@ -325,7 +307,11 @@ std::vector<typename phase_t::output_t> phase_base_t::materialize_all() const {
     if (scc == nullptr) {
         throw std::runtime_error(std::format(
             "phase_base_t::materialize_all: module '{}' has no SCC",
-            detail::module_display_name(module())
+            std::format(
+                "{}/{}",
+                module().workspace->workspace_relative_path_to_workspace_ecosystem.string(),
+                module().module_relative_path_to_workspace.string()
+            )
         ));
     }
 
@@ -351,7 +337,17 @@ void phase_base_t::materialize_all(
 
     for (auto* module : scc.modules) {
         phase_chain_t phase_chain(*module, library_type());
-        outputs.push_back(detail::phase_from_chain<phase_t>(phase_chain).template materialize<phase_t>());
+        if constexpr (std::is_same_v<phase_t, source_phase_t>) {
+            outputs.push_back(phase_chain.source.template materialize<phase_t>());
+        } else if constexpr (std::is_same_v<phase_t, interface_phase_t>) {
+            outputs.push_back(phase_chain.interface.template materialize<phase_t>());
+        } else if constexpr (std::is_same_v<phase_t, library_phase_t>) {
+            outputs.push_back(phase_chain.library.template materialize<phase_t>());
+        } else if constexpr (std::is_same_v<phase_t, binary_phase_t>) {
+            outputs.push_back(phase_chain.binary.template materialize<phase_t>());
+        } else {
+            static_assert(std::is_same_v<phase_t, void>, "unsupported phase type");
+        }
     }
 }
 

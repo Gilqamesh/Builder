@@ -16,9 +16,7 @@ namespace cpp_builder {
 
 namespace builder {
 
-namespace {
-
-std::string quote_define_value(std::string_view value) {
+static std::string quote_define_value(std::string_view value) {
     std::string result = "\"";
     for (const char c : value) {
         if (c == '\\' || c == '"') {
@@ -30,23 +28,21 @@ std::string quote_define_value(std::string_view value) {
     return result;
 }
 
-std::vector<std::pair<std::string, std::string>> tool_path_defines() {
+static std::vector<std::pair<std::string, std::string>> tool_path_defines() {
     return {
-        { "KERNEL_CPP_BUILDER_CXX_COMPILER_PATH", quote_define_value(compiler::CXX_COMPILER_PATH) },
-        { "KERNEL_CPP_BUILDER_CC_COMPILER_PATH", quote_define_value(compiler::CC_COMPILER_PATH) },
-        { "KERNEL_CPP_BUILDER_AR_PATH", quote_define_value(compiler::AR_PATH) }
+        { "KERNEL_CPP_BUILDER_CXX_COMPILER_PATH", quote_define_value(KERNEL_CPP_BUILDER_CXX_COMPILER_PATH) },
+        { "KERNEL_CPP_BUILDER_CC_COMPILER_PATH", quote_define_value(KERNEL_CPP_BUILDER_CC_COMPILER_PATH) },
+        { "KERNEL_CPP_BUILDER_AR_PATH", quote_define_value(KERNEL_CPP_BUILDER_AR_PATH) }
     };
 }
 
-filesystem::relative_path_t library_type_relative_dir(library_type_t library_type) {
+static filesystem::relative_path_t library_type_relative_dir(library_type_t library_type) {
     switch (library_type) {
         case library_type_t::STATIC: return filesystem::relative_path_t("static");
         case library_type_t::SHARED: return filesystem::relative_path_t("shared");
         default: throw std::runtime_error(std::format("kernel::cpp_builder::builder::library_type_relative_dir: unknown library_type {}", static_cast<std::underlying_type_t<library_type_t>>(library_type)));
     }
 }
-
-} // namespace
 
 phase_base_t::phase_base_t(std::string_view name, graph::module_t& module, library_type_t configured_library_type, const iphase_t* predecessor):
     m_name(name),

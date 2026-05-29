@@ -60,9 +60,7 @@ static std::vector<filesystem::path_t> create_object_files(
     }
 
     std::vector<process::process_arg_t> process_prefix_args;
-    process_prefix_args.push_back(CXX_COMPILER_PATH);
     process_prefix_args.push_back("-g");
-    process_prefix_args.push_back("-std=c++23");
 
     for (const auto& [key, value] : define_key_values) {
         process_prefix_args.push_back(std::format("-D{}={}", key, value));
@@ -88,7 +86,14 @@ static std::vector<filesystem::path_t> create_object_files(
             filesystem::create_directories(object_file_dir);
         }
 
-        std::vector<process::process_arg_t> process_args = process_prefix_args;
+        std::vector<process::process_arg_t> process_args;
+        if (source_file.extension() == ".c") {
+            process_args.push_back(KERNEL_CPP_BUILDER_CC_COMPILER_PATH);
+        } else {
+            process_args.push_back(KERNEL_CPP_BUILDER_CXX_COMPILER_PATH);
+            process_args.push_back("-std=c++23");
+        }
+        process_args.insert(process_args.end(), process_prefix_args.begin(), process_prefix_args.end());
         if (is_position_independent) {
             process_args.push_back("-fPIC");
         }
@@ -131,7 +136,7 @@ static filesystem::path_t create_static_library_impl(
     }
 
     std::vector<process::process_arg_t> process_args;
-    process_args.push_back(AR_PATH);
+    process_args.push_back(KERNEL_CPP_BUILDER_AR_PATH);
     process_args.push_back("rcs");
     process_args.push_back(static_library);
     for (const auto& object_file : object_files) {
@@ -174,7 +179,7 @@ static filesystem::path_t create_shared_library_impl(
     }
 
     std::vector<process::process_arg_t> process_args;
-    process_args.push_back(CXX_COMPILER_PATH);
+    process_args.push_back(KERNEL_CPP_BUILDER_CXX_COMPILER_PATH);
     process_args.push_back("-g");
     process_args.push_back("-shared");
     process_args.push_back("-o");
@@ -223,7 +228,7 @@ static filesystem::path_t create_binary_impl(
     }
 
     std::vector<process::process_arg_t> process_args;
-    process_args.push_back(CXX_COMPILER_PATH);
+    process_args.push_back(KERNEL_CPP_BUILDER_CXX_COMPILER_PATH);
     process_args.push_back("-g");
     process_args.push_back("-std=c++23");
     process_args.push_back("-o");
