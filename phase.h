@@ -96,7 +96,7 @@ struct interface_phase_t : phase_base_t {
         library_type_t library_type
     );
 
-    void add_interface(const filesystem::path_t& interface, const filesystem::relative_path_t& relative_install_path) const;
+    void add_interface(const filesystem::path_t& interface, const filesystem::relative_path_t& module_relative_install_path) const;
 };
 
 struct library_phase_t : phase_base_t {

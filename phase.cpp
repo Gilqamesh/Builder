@@ -75,7 +75,13 @@ interface_phase_t::interface_phase_t(graph::module_t& module, library_type_t lib
 {
 }
 
-void interface_phase_t::add_interface(const filesystem::path_t& interface, const filesystem::relative_path_t& relative_install_path) const {
+void interface_phase_t::add_interface(const filesystem::path_t& interface, const filesystem::relative_path_t& module_relative_install_path) const {
+    const auto relative_install_path = filesystem::relative_path_t(
+        m_module.workspace->workspace_relative_path_to_workspace_ecosystem.to_native_path()
+        / m_module.module_relative_path_to_workspace.to_native_path()
+        / module_relative_install_path.to_native_path()
+    );
+
     m_output.artifacts.push_back(output_artifact_t {
         .path = interface,
         .relative_path = relative_install_path
