@@ -132,7 +132,7 @@ filesystem::path_t module_t::materialize_builder_plugin() const {
         std::vector<filesystem::path_t> include_dirs;
         std::vector<filesystem::path_t> libraries;
 
-        for (auto* dependency : module_builder->dependencies) {
+        for (auto* dependency : producer_dependencies) {
             for (const auto& dependency_include_dirs : dependency->materialize_all<builder::interface_phase_t>(builder::library_type_t::SHARED)) {
                 include_dirs.push_back(dependency_include_dirs.root);
             }
@@ -244,17 +244,10 @@ module_t* workspace_ecosystem_t::discover_module_impl(filesystem::relative_path_
     auto module = new module_t {
         .workspace = workspace,
         .module_scc = nullptr,
-        .module_builder = nullptr,
         .module_relative_path_to_workspace = module_relative_path_to_workspace,
         .version = module_version,
         .validated = false
     };
-    auto builder = new builder_t {
-        .produced_module = module,
-        .builder_relative_path_to_produced_module = filesystem::relative_path_t(BUILDER_CPP),
-        .version = module_version
-    };
-    module->module_builder = builder;
 
     workspace->module_by_module_relative_path_to_workspace.emplace(module_relative_path_to_workspace, module);
 
@@ -284,8 +277,8 @@ module_t* workspace_ecosystem_t::discover_module_impl(filesystem::relative_path_
         module->dependencies.insert(discover_module_impl(filesystem::relative_path_t(module_dependency.workspace_relative_path), filesystem::relative_path_t(module_dependency.module_relative_path)));
     }
 
-    for (const auto& builder_dependency : json_module.builder_dependencies) {
-        builder->dependencies.insert(discover_module_impl(filesystem::relative_path_t(builder_dependency.workspace_relative_path), filesystem::relative_path_t(builder_dependency.module_relative_path)));
+    for (const auto& producer_dependency : json_module.builder_dependencies) {
+        module->producer_dependencies.insert(discover_module_impl(filesystem::relative_path_t(producer_dependency.workspace_relative_path), filesystem::relative_path_t(producer_dependency.module_relative_path)));
     }
 
     return module;
@@ -429,18 +422,13 @@ module_t* workspace_ecosystem_t::discover_module(filesystem::relative_path_t wor
 
         bool changed = false;
         for (auto* module : modules) {
-            version_t builder_version = module->version;
-            for (auto* builder_dependency : module->module_builder->dependencies) {
-                builder_version.value = std::max(builder_version.value, builder_dependency->version.value);
+            version_t producer_version = module->version;
+            for (auto* producer_dependency : module->producer_dependencies) {
+                producer_version.value = std::max(producer_version.value, producer_dependency->version.value);
             }
 
-            if (module->module_builder->version.value < builder_version.value) {
-                module->module_builder->version = builder_version;
-                changed = true;
-            }
-
-            if (module->version.value < builder_version.value) {
-                module->version = builder_version;
+            if (module->version.value < producer_version.value) {
+                module->version = producer_version;
                 changed = true;
             }
         }
@@ -474,15 +462,14 @@ void module_t::validate() {
         module_dependency->validate();
     }
 
-    const auto builder = module_builder;
-    const auto builder_level = level;
-    for (const auto builder_dependency : builder->dependencies) {
-        const auto builder_dependency_level = builder_dependency->workspace->level;
-        if (!(builder_dependency_level < builder_level)) {
-            throw std::runtime_error(std::format("kernel::cpp_builder::graph::validate_module: builder (workspace: {}, module: {}, level: {}) cannot depend on same or higher level module (workspace: {}, module: {}, level: {})", workspace->workspace_relative_path_to_workspace_ecosystem.string(), module_relative_path_to_workspace.string(), builder_level, builder_dependency->workspace->workspace_relative_path_to_workspace_ecosystem.string(), builder_dependency->module_relative_path_to_workspace.string(), builder_dependency_level));
+    const auto producer_level = level;
+    for (const auto producer_dependency : producer_dependencies) {
+        const auto producer_dependency_level = producer_dependency->workspace->level;
+        if (!(producer_dependency_level < producer_level)) {
+            throw std::runtime_error(std::format("kernel::cpp_builder::graph::validate_module: producer (workspace: {}, module: {}, level: {}) cannot depend on same or higher level module (workspace: {}, module: {}, level: {})", workspace->workspace_relative_path_to_workspace_ecosystem.string(), module_relative_path_to_workspace.string(), producer_level, producer_dependency->workspace->workspace_relative_path_to_workspace_ecosystem.string(), producer_dependency->module_relative_path_to_workspace.string(), producer_dependency_level));
         }
 
-        builder_dependency->validate();
+        producer_dependency->validate();
     }
 }
 

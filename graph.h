@@ -50,7 +50,6 @@ NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(json_module_t, module_dependencies, builder_d
 
 struct module_t;
 struct module_scc_t;
-struct builder_t;
 struct workspace_t;
 struct workspace_ecosystem_t;
 
@@ -61,10 +60,10 @@ struct version_t {
 struct module_t {
     workspace_t* workspace;
     module_scc_t* module_scc;
-    builder_t* module_builder;
     filesystem::relative_path_t module_relative_path_to_workspace;
     version_t version;
     std::unordered_set<module_t*> dependencies;
+    std::unordered_set<module_t*> producer_dependencies;
     bool validated;
     mutable builder::config_phase_t* static_config_phase = nullptr;
     mutable builder::config_phase_t* shared_config_phase = nullptr;
@@ -94,13 +93,6 @@ struct module_t {
 struct module_scc_t {
     std::vector<module_t*> modules;
     std::vector<module_scc_t*> dependencies;
-};
-
-struct builder_t {
-    module_t* produced_module;
-    filesystem::relative_path_t builder_relative_path_to_produced_module;
-    version_t version;
-    std::unordered_set<module_t*> dependencies;
 };
 
 struct workspace_t {

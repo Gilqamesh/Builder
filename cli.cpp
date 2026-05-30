@@ -70,7 +70,7 @@ void render_graph_svg(const graph::workspace_ecosystem_t& ecosystem, const std::
 
         // producer deps: dep -> producer
         for (auto* dst : modules)
-            for (auto* dep : dst->module_builder->dependencies)
+            for (auto* dep : dst->producer_dependencies)
                 f << std::format("  {} -> {};\n", mid(*dep), pid(*dst));
 
         // produce relation (producer -> module)
