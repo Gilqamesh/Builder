@@ -165,8 +165,8 @@ static filesystem::path_t create_shared_library_impl(
     const std::vector<filesystem::path_t>& include_dirs,
     const std::vector<filesystem::path_t>& source_files,
     const std::vector<std::pair<std::string, std::string>>& define_key_values,
-    const std::vector<builder::output_t>& library_outputs,
-    const std::vector<filesystem::path_t>& libraries,
+    const builder::link_inputs_t& link_inputs,
+    const std::vector<filesystem::path_t>& external_libraries,
     const filesystem::path_t& shared_library
 ) {
     const auto object_files = create_object_files(
@@ -194,17 +194,23 @@ static filesystem::path_t create_shared_library_impl(
         process_args.push_back(object_file);
     }
 
-    for (auto library_output_it = library_outputs.rbegin(); library_output_it != library_outputs.rend(); ++library_output_it) {
-        for (const auto& library : library_output_it->artifacts) {
-            if (!filesystem::exists(library.path)) {
-                throw std::runtime_error(std::format("cpp_compiler::create_shared_library: library does not exist '{}'", library.path));
+    for (const auto& group : link_inputs.groups) {
+        if (group.static_library_group) {
+            process_args.push_back("-Wl,--start-group");
+        }
+        for (const auto& library : group.libraries) {
+            if (!filesystem::exists(library)) {
+                throw std::runtime_error(std::format("cpp_compiler::create_shared_library: library does not exist '{}'", library));
             }
 
-            process_args.push_back(library.path);
+            process_args.push_back(library);
+        }
+        if (group.static_library_group) {
+            process_args.push_back("-Wl,--end-group");
         }
     }
 
-    for (const auto& library : libraries) {
+    for (const auto& library : external_libraries) {
         if (!filesystem::exists(library)) {
             throw std::runtime_error(std::format("cpp_compiler::create_shared_library: library does not exist '{}'", library));
         }
@@ -230,8 +236,7 @@ static filesystem::path_t create_binary_impl(
     const std::vector<builder::output_t>& interface_outputs,
     const std::vector<filesystem::path_t>& source_files,
     const std::vector<std::pair<std::string, std::string>>& define_key_values,
-    const std::vector<builder::output_t>& library_outputs,
-    bool TEMP_assume_all_link_inputs_are_shared,
+    const builder::link_inputs_t& link_inputs,
     const filesystem::path_t& binary
 ) {
     const auto object_files = create_object_files(
@@ -241,7 +246,7 @@ static filesystem::path_t create_binary_impl(
         {},
         source_files,
         define_key_values,
-        TEMP_assume_all_link_inputs_are_shared
+        true
     );
 
     const auto binary_dir = binary.parent();
@@ -259,25 +264,24 @@ static filesystem::path_t create_binary_impl(
         process_args.push_back(object_file);
     }
 
-    // TODO: mixed static/shared interleave of start/end group.
-    for (auto library_output_it = library_outputs.rbegin(); library_output_it != library_outputs.rend(); ++library_output_it) {
-        if (!TEMP_assume_all_link_inputs_are_shared && 1 < library_output_it->artifacts.size()) {
+    for (const auto& group : link_inputs.groups) {
+        if (group.static_library_group) {
             process_args.push_back("-Wl,--start-group");
         }
-        for (const auto& library : library_output_it->artifacts) {
-            if (!filesystem::exists(library.path)) {
-                throw std::runtime_error(std::format("cpp_compiler::create_binary: library does not exist '{}'", library.path));
+        for (const auto& library : group.libraries) {
+            if (!filesystem::exists(library)) {
+                throw std::runtime_error(std::format("cpp_compiler::create_binary: library does not exist '{}'", library));
             }
-            process_args.push_back(library.path);
+            process_args.push_back(library);
         }
-        if (!TEMP_assume_all_link_inputs_are_shared && 1 < library_output_it->artifacts.size()) {
+        if (group.static_library_group) {
             process_args.push_back("-Wl,--end-group");
         }
     }
 
-    for (const auto& library_output : library_outputs) {
-        for (const auto& library : library_output.artifacts) {
-            process_args.push_back(std::format("-Wl,-rpath,{}", library.path.parent()));
+    for (const auto& group : link_inputs.groups) {
+        for (const auto& library : group.libraries) {
+            process_args.push_back(std::format("-Wl,-rpath,{}", library.parent()));
         }
     }
     
@@ -316,11 +320,12 @@ filesystem::path_t create_shared_library(
     const builder::library_phase_t& phase,
     const std::vector<filesystem::relative_path_t>& relative_source_files,
     const std::vector<std::pair<std::string, std::string>>& define_key_values,
-    const std::vector<builder::output_t>& library_outputs,
+    const std::vector<filesystem::path_t>& external_libraries,
     const filesystem::relative_path_t& relative_output_path
 ) {
     const auto source_output = phase.materialize<builder::source_phase_t>();
     const auto interface_outputs = phase.materialize_all<builder::interface_phase_t>();
+    const auto link_inputs = phase.link_inputs();
 
     return create_shared_library_impl(
         phase.build_dir(),
@@ -329,8 +334,8 @@ filesystem::path_t create_shared_library(
         {},
         resolve_source_files(source_output, relative_source_files),
         define_key_values,
-        library_outputs,
-        {},
+        link_inputs,
+        external_libraries,
         phase.build_dir() / relative_output_path
     );
 }
@@ -339,12 +344,11 @@ filesystem::path_t create_binary(
     const builder::binary_phase_t& phase,
     const std::vector<filesystem::relative_path_t>& relative_source_files,
     const std::vector<std::pair<std::string, std::string>>& define_key_values,
-    const std::vector<builder::output_t>& library_outputs,
-    bool TEMP_assume_all_link_inputs_are_shared,
     const filesystem::relative_path_t& relative_output_path
 ) {
     const auto source_output = phase.materialize<builder::source_phase_t>();
     const auto interface_outputs = phase.materialize_all<builder::interface_phase_t>();
+    const auto link_inputs = phase.link_inputs();
 
     return create_binary_impl(
         phase.build_dir(),
@@ -352,8 +356,7 @@ filesystem::path_t create_binary(
         interface_outputs,
         resolve_source_files(source_output, relative_source_files),
         define_key_values,
-        library_outputs,
-        TEMP_assume_all_link_inputs_are_shared,
+        link_inputs,
         phase.build_dir() / relative_output_path
     );
 }
@@ -374,7 +377,7 @@ filesystem::path_t create_builder_shared_library(
         include_dirs,
         { builder_source_file },
         define_key_values,
-        {},
+        builder::link_inputs_t {},
         libraries,
         builder_plugin
     );

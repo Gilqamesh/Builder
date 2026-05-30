@@ -18,11 +18,17 @@ namespace builder {
 
 enum class library_type_t : uint8_t;
 struct configured_module_t;
+struct link_inputs_t;
 struct output_t;
 
 } // namespace builder
 
 namespace graph {
+
+enum class link_input_scope_t : uint8_t {
+    DEPENDENCIES,
+    DEPENDENCIES_AND_SELF
+};
 
 inline const constexpr char* THIS_MODULE = "cpp_builder";
 inline const constexpr char* THIS_WORKSPACE = "kernel";
@@ -80,6 +86,7 @@ struct module_t {
     filesystem::path_t builder_install_latest_path() const;
     filesystem::path_t materialize_builder_plugin() const;
     builder::configured_module_t& configured_module(builder::library_type_t library_type) const;
+    builder::link_inputs_t link_inputs(builder::library_type_t library_type, link_input_scope_t scope) const;
 
     template <class phase_t>
     builder::output_t materialize(builder::library_type_t library_type) const;

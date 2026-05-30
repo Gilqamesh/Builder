@@ -93,6 +93,10 @@ library_phase_t::library_phase_t(graph::module_t& module, library_type_t library
 {
 }
 
+link_inputs_t library_phase_t::link_inputs() const {
+    return m_module.link_inputs(library_type(), graph::link_input_scope_t::DEPENDENCIES);
+}
+
 void library_phase_t::add_library(const filesystem::path_t& library, const filesystem::relative_path_t& relative_install_path) const {
     m_output.artifacts.push_back(output_artifact_t {
         .path = library,
@@ -103,6 +107,10 @@ void library_phase_t::add_library(const filesystem::path_t& library, const files
 binary_phase_t::binary_phase_t(graph::module_t& module, library_type_t library_type):
     phase_base_t("binary", module, library_type)
 {
+}
+
+link_inputs_t binary_phase_t::link_inputs() const {
+    return m_module.link_inputs(library_type(), graph::link_input_scope_t::DEPENDENCIES_AND_SELF);
 }
 
 void binary_phase_t::add_binary(const filesystem::path_t& binary, const filesystem::relative_path_t& relative_install_path) const {

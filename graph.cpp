@@ -186,6 +186,76 @@ builder::configured_module_t& module_t::configured_module(builder::library_type_
     }
 }
 
+builder::link_inputs_t module_t::link_inputs(builder::library_type_t library_type, link_input_scope_t scope) const {
+    bool static_libraries = false;
+    switch (library_type) {
+        case builder::library_type_t::STATIC: static_libraries = true; break ;
+        case builder::library_type_t::SHARED: break ;
+        default: throw std::runtime_error(std::format("kernel::cpp_builder::graph::module_t::link_inputs: unknown library_type {}", static_cast<std::underlying_type_t<builder::library_type_t>>(library_type)));
+    }
+
+    const auto* scc = module_scc;
+    if (scc == nullptr) {
+        throw std::runtime_error(std::format(
+            "kernel::cpp_builder::graph::module_t::link_inputs: module '{}' has no SCC",
+            std::format(
+                "{}/{}",
+                workspace->workspace_relative_path_to_workspace_ecosystem.string(),
+                module_relative_path_to_workspace.string()
+            )
+        ));
+    }
+
+    std::unordered_set<const module_scc_t*> visited_sccs;
+    std::vector<const module_scc_t*> ordered_sccs;
+    const auto collect_scc = [&]<class self_t>(self_t& self, const module_scc_t& current_scc) -> void {
+        if (!visited_sccs.insert(&current_scc).second) {
+            return ;
+        }
+
+        for (const auto* dependency : current_scc.dependencies) {
+            self(self, *dependency);
+        }
+
+        ordered_sccs.push_back(&current_scc);
+    };
+
+    collect_scc(collect_scc, *scc);
+
+    switch (scope) {
+        case link_input_scope_t::DEPENDENCIES:
+            ordered_sccs.pop_back();
+            break ;
+        case link_input_scope_t::DEPENDENCIES_AND_SELF:
+            break ;
+        default:
+            throw std::runtime_error(std::format("kernel::cpp_builder::graph::module_t::link_inputs: unknown link_input_scope {}", static_cast<std::underlying_type_t<link_input_scope_t>>(scope)));
+    }
+
+    builder::link_inputs_t result;
+    for (auto scc_it = ordered_sccs.rbegin(); scc_it != ordered_sccs.rend(); ++scc_it) {
+        const auto& current_scc = **scc_it;
+        builder::link_input_group_t group {
+            .libraries = {},
+            .static_library_group = false
+        };
+
+        for (auto module_it = current_scc.modules.rbegin(); module_it != current_scc.modules.rend(); ++module_it) {
+            const auto library_output = (*module_it)->materialize<builder::library_phase_t>(library_type);
+            for (const auto& library : library_output.artifacts) {
+                group.libraries.push_back(library.path);
+            }
+        }
+
+        if (!group.libraries.empty()) {
+            group.static_library_group = static_libraries && 1 < group.libraries.size();
+            result.groups.push_back(group);
+        }
+    }
+
+    return result;
+}
+
 version_t derive_version(const std::filesystem::file_time_type& file_time_type) {
     return version_t {
         .value = static_cast<uint64_t>(file_time_type.time_since_epoch().count() - std::numeric_limits<std::filesystem::file_time_type::duration::rep>::min())

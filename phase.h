@@ -40,6 +40,15 @@ struct output_t {
     std::vector<output_artifact_t> artifacts;
 };
 
+struct link_input_group_t {
+    std::vector<filesystem::path_t> libraries;
+    bool static_library_group;
+};
+
+struct link_inputs_t {
+    std::vector<link_input_group_t> groups;
+};
+
 class phase_base_t {
 public:
     phase_base_t(
@@ -105,6 +114,7 @@ struct library_phase_t : phase_base_t {
         library_type_t library_type
     );
 
+    link_inputs_t link_inputs() const;
     void add_library(const filesystem::path_t& library, const filesystem::relative_path_t& relative_install_path) const;
 };
 
@@ -114,6 +124,7 @@ struct binary_phase_t : phase_base_t {
         library_type_t library_type
     );
 
+    link_inputs_t link_inputs() const;
     void add_binary(const filesystem::path_t& binary, const filesystem::relative_path_t& relative_install_path) const;
 };
 

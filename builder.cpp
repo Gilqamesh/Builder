@@ -96,15 +96,12 @@ BUILDER_EXTERN void phase__library(const kernel::cpp_builder::builder::library_p
 }
 
 BUILDER_EXTERN void phase__binary(const kernel::cpp_builder::builder::binary_phase_t* phase) {
-    const auto library_outputs = phase->materialize_all<kernel::cpp_builder::builder::library_phase_t>();
     const auto binary_name = kernel::cpp_builder::filesystem::relative_path_t("cli");
 
     const auto binary = kernel::cpp_builder::compiler::create_binary(
         *phase,
         { kernel::cpp_builder::filesystem::relative_path_t("cli.cpp") },
         kernel::cpp_builder::tool_path_defines(),
-        library_outputs,
-        true,
         binary_name
     );
     phase->add_binary(binary, binary_name);
