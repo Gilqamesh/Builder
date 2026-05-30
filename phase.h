@@ -9,7 +9,6 @@
 # include <string>
 # include <string_view>
 # include <type_traits>
-# include <unordered_set>
 # include <vector>
 
 # include "shared_library.h"
@@ -78,13 +77,6 @@ private:
     void execute(const phase_t& phase) const;
 
     std::string producer_symbol_name() const;
-
-    template <class phase_t>
-    void materialize_all(
-        const graph::module_scc_t& scc,
-        std::unordered_set<const graph::module_scc_t*>& visited_sccs,
-        std::vector<output_t>& outputs
-    ) const;
 
 };
 
@@ -260,41 +252,7 @@ output_t phase_base_t::materialize() const {
 
 template <class phase_t>
 std::vector<output_t> phase_base_t::materialize_all() const {
-    const auto* scc = m_module.module_scc;
-    if (scc == nullptr) {
-        throw std::runtime_error(std::format(
-            "phase_base_t::materialize_all: module '{}' has no SCC",
-            std::format(
-                "{}/{}",
-                m_module.workspace->workspace_relative_path_to_workspace_ecosystem.string(),
-                m_module.module_relative_path_to_workspace.string()
-            )
-        ));
-    }
-
-    std::unordered_set<const graph::module_scc_t*> visited_sccs;
-    std::vector<output_t> outputs;
-    materialize_all<phase_t>(*scc, visited_sccs, outputs);
-    return outputs;
-}
-
-template <class phase_t>
-void phase_base_t::materialize_all(
-    const graph::module_scc_t& scc,
-    std::unordered_set<const graph::module_scc_t*>& visited_sccs,
-    std::vector<output_t>& outputs
-) const {
-    if (!visited_sccs.insert(&scc).second) {
-        return ;
-    }
-
-    for (const auto* dependency : scc.dependencies) {
-        materialize_all<phase_t>(*dependency, visited_sccs, outputs);
-    }
-
-    for (auto* module : scc.modules) {
-        outputs.push_back(module->materialize<phase_t>(library_type()));
-    }
+    return m_module.materialize_all<phase_t>(library_type());
 }
 
 template <class phase_t>
@@ -320,7 +278,36 @@ builder::output_t module_t::materialize(builder::library_type_t library_type) co
 
 template <class phase_t>
 std::vector<builder::output_t> module_t::materialize_all(builder::library_type_t library_type) const {
-    return config_phase(library_type).template materialize_all<phase_t>();
+    const auto* scc = module_scc;
+    if (scc == nullptr) {
+        throw std::runtime_error(std::format(
+            "kernel::cpp_builder::graph::module_t::materialize_all: module '{}' has no SCC",
+            std::format(
+                "{}/{}",
+                workspace->workspace_relative_path_to_workspace_ecosystem.string(),
+                module_relative_path_to_workspace.string()
+            )
+        ));
+    }
+
+    std::unordered_set<const module_scc_t*> visited_sccs;
+    std::vector<builder::output_t> outputs;
+    const auto materialize_scc = [&]<class self_t>(self_t& self, const module_scc_t& current_scc) -> void {
+        if (!visited_sccs.insert(&current_scc).second) {
+            return ;
+        }
+
+        for (const auto* dependency : current_scc.dependencies) {
+            self(self, *dependency);
+        }
+
+        for (auto* module : current_scc.modules) {
+            outputs.push_back(module->materialize<phase_t>(library_type));
+        }
+    };
+
+    materialize_scc(materialize_scc, *scc);
+    return outputs;
 }
 
 } // namespace graph
