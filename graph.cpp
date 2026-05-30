@@ -1,18 +1,45 @@
 #include "graph.h"
 
+#include "compiler.h"
 #include "external/json.hpp"
 #include "phase.h"
 
 #include <fstream>
+#include <format>
 #include <stack>
 #include <cassert>
+#include <stdexcept>
+#include <string>
+#include <string_view>
 #include <type_traits>
+#include <utility>
+#include <vector>
 
 namespace kernel {
 
 namespace cpp_builder {
 
 namespace graph {
+
+static std::string quote_define_value(std::string_view value) {
+    std::string result = "\"";
+    for (const char c : value) {
+        if (c == '\\' || c == '"') {
+            result.push_back('\\');
+        }
+        result.push_back(c);
+    }
+    result.push_back('"');
+    return result;
+}
+
+static std::vector<std::pair<std::string, std::string>> tool_path_defines() {
+    return {
+        { "KERNEL_CPP_BUILDER_CXX_COMPILER_PATH", quote_define_value(KERNEL_CPP_BUILDER_CXX_COMPILER_PATH) },
+        { "KERNEL_CPP_BUILDER_CC_COMPILER_PATH", quote_define_value(KERNEL_CPP_BUILDER_CC_COMPILER_PATH) },
+        { "KERNEL_CPP_BUILDER_AR_PATH", quote_define_value(KERNEL_CPP_BUILDER_AR_PATH) }
+    };
+}
 
 filesystem::path_t module_t::source_dir() const {
     return workspace->workspace_ecosystem->absolute_path_to_workspace_directory / workspace->workspace_relative_path_to_workspace_ecosystem / module_relative_path_to_workspace;
@@ -53,6 +80,95 @@ filesystem::path_t module_t::builder_install_path() const {
 
 filesystem::path_t module_t::builder_install_latest_path() const {
     return artifact_latest_dir() / filesystem::relative_path_t("builder/install/builder.so");
+}
+
+filesystem::path_t module_t::materialize_builder_plugin() const {
+    const auto builder_plugin = builder_install_path();
+    const auto build_dir = builder_build_dir();
+    const auto install_dir = builder_install_dir();
+    const auto marker_path = [&](std::string_view state) {
+        return build_dir / filesystem::relative_path_t(std::format("builder.{}", state));
+    };
+    const auto started_marker = marker_path("started");
+    const auto complete_marker = marker_path("complete");
+
+    if (filesystem::exists(complete_marker)) {
+        if (!filesystem::exists(builder_plugin)) {
+            throw std::runtime_error(std::format("kernel::cpp_builder::graph::module_t::materialize_builder_plugin: completed builder plugin '{}' does not exist", builder_plugin));
+        }
+
+        return builder_plugin;
+    }
+
+    if (filesystem::exists(started_marker)) {
+        throw std::runtime_error(std::format("kernel::cpp_builder::graph::module_t::materialize_builder_plugin: re-entry detected for builder plugin '{}'", builder_plugin));
+    }
+
+    if (this == workspace->workspace_ecosystem->this_module) {
+        const auto latest_builder_plugin = builder_install_latest_path();
+        if (filesystem::exists(latest_builder_plugin)) {
+            return latest_builder_plugin;
+        }
+
+#ifdef KERNEL_CPP_BUILDER_BOOTSTRAP_BUILDER_PLUGIN_PATH
+        const auto bootstrap_builder_plugin = filesystem::path_t(KERNEL_CPP_BUILDER_BOOTSTRAP_BUILDER_PLUGIN_PATH);
+        if (filesystem::exists(bootstrap_builder_plugin)) {
+            return bootstrap_builder_plugin;
+        }
+#endif
+    }
+
+    if (filesystem::exists(build_dir)) {
+        filesystem::remove_all(build_dir);
+    }
+    if (filesystem::exists(install_dir)) {
+        filesystem::remove_all(install_dir);
+    }
+
+    try {
+        filesystem::create_directories(build_dir);
+        filesystem::touch(started_marker);
+
+        std::vector<filesystem::path_t> include_dirs;
+        std::vector<filesystem::path_t> libraries;
+
+        for (auto* dependency : module_builder->dependencies) {
+            dependency->configure(builder::library_type_t::SHARED);
+
+            for (const auto& dependency_include_dirs : dependency->materialize_all<builder::interface_phase_t>()) {
+                include_dirs.push_back(dependency_include_dirs.root);
+            }
+
+            for (const auto& dependency_libraries : dependency->materialize_all<builder::library_phase_t>()) {
+                for (const auto& library : dependency_libraries.artifacts) {
+                    libraries.push_back(library.path);
+                }
+            }
+        }
+
+        compiler::create_builder_shared_library(
+            build_dir,
+            source_dir(),
+            include_dirs,
+            builder_path(),
+            tool_path_defines(),
+            libraries,
+            builder_plugin
+        );
+
+        if (!filesystem::exists(builder_plugin)) {
+            throw std::runtime_error(std::format("kernel::cpp_builder::graph::module_t::materialize_builder_plugin: expected builder plugin '{}' to exist", builder_plugin));
+        }
+
+        filesystem::touch(complete_marker);
+        filesystem::remove(started_marker);
+
+        return builder_plugin;
+    } catch (...) {
+        filesystem::remove_all(build_dir);
+        filesystem::remove_all(install_dir);
+        throw ;
+    }
 }
 
 builder::config_phase_t& module_t::config_phase(builder::library_type_t library_type) const {

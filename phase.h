@@ -88,8 +88,6 @@ protected:
     mutable output_t m_output;
 
 private:
-    filesystem::path_t builder_plugin() const;
-
     template <class phase_t>
     void execute(const phase_t& phase) const;
 
@@ -333,7 +331,7 @@ void phase_base_t::execute(const phase_t& phase) const {
         return ;
     }
 
-    shared_library::loader_t loader(builder_plugin(), shared_library::lifetime_t::PROCESS, shared_library::symbol_resolution_t::LAZY, shared_library::symbol_visibility_t::LOCAL);
+    shared_library::loader_t loader(m_module.materialize_builder_plugin(), shared_library::lifetime_t::PROCESS, shared_library::symbol_resolution_t::LAZY, shared_library::symbol_visibility_t::LOCAL);
     using fn_t = void (*)(const phase_t*);
     fn_t fn = loader.resolve(producer_symbol_name().c_str());
     fn(&phase);

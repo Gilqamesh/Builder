@@ -80,6 +80,7 @@ struct module_t {
     filesystem::path_t builder_install_dir() const;
     filesystem::path_t builder_install_path() const;
     filesystem::path_t builder_install_latest_path() const;
+    filesystem::path_t materialize_builder_plugin() const;
     builder::config_phase_t& config_phase(builder::library_type_t library_type) const;
     void configure(builder::library_type_t library_type) const;
 

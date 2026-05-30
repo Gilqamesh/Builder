@@ -1,39 +1,15 @@
 #include "phase.h"
 
-#include "compiler.h"
-
 #include <format>
 #include <stdexcept>
-#include <string>
 #include <string_view>
 #include <type_traits>
-#include <utility>
 
 namespace kernel {
 
 namespace cpp_builder {
 
 namespace builder {
-
-static std::string quote_define_value(std::string_view value) {
-    std::string result = "\"";
-    for (const char c : value) {
-        if (c == '\\' || c == '"') {
-            result.push_back('\\');
-        }
-        result.push_back(c);
-    }
-    result.push_back('"');
-    return result;
-}
-
-static std::vector<std::pair<std::string, std::string>> tool_path_defines() {
-    return {
-        { "KERNEL_CPP_BUILDER_CXX_COMPILER_PATH", quote_define_value(KERNEL_CPP_BUILDER_CXX_COMPILER_PATH) },
-        { "KERNEL_CPP_BUILDER_CC_COMPILER_PATH", quote_define_value(KERNEL_CPP_BUILDER_CC_COMPILER_PATH) },
-        { "KERNEL_CPP_BUILDER_AR_PATH", quote_define_value(KERNEL_CPP_BUILDER_AR_PATH) }
-    };
-}
 
 static filesystem::relative_path_t library_type_relative_dir(library_type_t library_type) {
     switch (library_type) {
@@ -81,54 +57,6 @@ library_type_t phase_base_t::library_type() const {
 
 std::string phase_base_t::producer_symbol_name() const {
     return std::format("phase__{}", m_name);
-}
-
-filesystem::path_t phase_base_t::builder_plugin() const {
-    auto& module = m_module;
-    if (&module == module.workspace->workspace_ecosystem->this_module) {
-        const auto latest_builder_plugin = module.builder_install_latest_path();
-        if (filesystem::exists(latest_builder_plugin)) {
-            return latest_builder_plugin;
-        }
-    }
-
-    const auto builder_plugin = module.builder_install_path();
-    if (filesystem::exists(builder_plugin)) {
-        return builder_plugin;
-    }
-
-    std::vector<filesystem::path_t> include_dirs;
-    std::vector<filesystem::path_t> libraries;
-
-    for (auto* dependency : module.module_builder->dependencies) {
-        dependency->configure(library_type_t::SHARED);
-
-        for (const auto& dependency_include_dirs : dependency->materialize_all<interface_phase_t>()) {
-            include_dirs.push_back(dependency_include_dirs.root);
-        }
-
-        for (const auto& dependency_libraries : dependency->materialize_all<library_phase_t>()) {
-            for (const auto& library : dependency_libraries.artifacts) {
-                libraries.push_back(library.path);
-            }
-        }
-    }
-
-    compiler::create_builder_shared_library(
-        module.builder_build_dir(),
-        module.source_dir(),
-        include_dirs,
-        module.builder_path(),
-        tool_path_defines(),
-        libraries,
-        builder_plugin
-    );
-
-    if (!filesystem::exists(builder_plugin)) {
-        throw std::runtime_error(std::format("kernel::cpp_builder::builder::phase_base_t::builder_plugin: expected builder plugin '{}' to exist", builder_plugin));
-    }
-
-    return builder_plugin;
 }
 
 source_phase_t::source_phase_t(graph::module_t& module, library_type_t library_type, const iphase_t* predecessor):
