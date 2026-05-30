@@ -134,13 +134,14 @@ int main(int argc, char** argv) {
         const auto kernel_binary_output = workspace_ecosystem->this_module->materialize<builder::binary_phase_t>();
 
         if (cli_version.value < workspace_ecosystem->this_module->version.value) {
-            const auto new_cli = kernel_binary_output.cli;
-            if (!filesystem::exists(new_cli)) {
-                throw std::runtime_error(std::format("kernel::cpp_builder::cli: expected updated '{}' to exist but it does not", new_cli));
+            const auto new_cli_path = kernel_binary_output.root / filesystem::relative_path_t("cli");
+            const auto new_cli_matches = filesystem::find(kernel_binary_output, filesystem::find_include_predicate_t::path(new_cli_path));
+            if (new_cli_matches.empty()) {
+                throw std::runtime_error(std::format("kernel::cpp_builder::cli: expected updated '{}' in binary output but it does not exist", new_cli_path));
             }
 
             std::vector<process::process_arg_t> process_args;
-            process_args.push_back(new_cli);
+            process_args.push_back(new_cli_matches.front());
             for (int i = 1; i < argc; ++i) {
                 process_args.push_back(argv[i]);
             }
@@ -154,13 +155,13 @@ int main(int argc, char** argv) {
 
         if (4 < argc) {
             const auto binary = filesystem::relative_path_t(argv[4]);
-            const auto binary_dir = target_binary_output.binary_root;
-            const auto binary_location = binary_dir / binary;
-            if (!filesystem::exists(binary_location)) {
-                throw std::runtime_error(std::format("kernel::cpp_builder::cli: binary '{}' at location '{}' does not exist", binary, binary_location));
+            const auto binary_location = target_binary_output.root / binary;
+            const auto binary_matches = filesystem::find(target_binary_output, filesystem::find_include_predicate_t::path(binary_location));
+            if (binary_matches.empty()) {
+                throw std::runtime_error(std::format("kernel::cpp_builder::cli: binary '{}' at location '{}' does not exist in binary output", binary, binary_location));
             }
 
-            filesystem::current_path(binary_dir);
+            filesystem::current_path(target_binary_output.root);
 
             std::vector<process::process_arg_t> process_args;
             process_args.push_back(binary.string());

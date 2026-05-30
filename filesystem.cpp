@@ -346,6 +346,18 @@ std::vector<path_t> find(const builder::iphase_t& phase, const find_include_pred
     return find(phase.install_dir(), include_predicate, descend_predicate);
 }
 
+std::vector<path_t> find(const builder::output_t& output, const find_include_predicate_t& include_predicate) {
+    std::vector<path_t> result;
+
+    for (const auto& artifact : output.artifacts) {
+        if (include_predicate(artifact.path)) {
+            result.push_back(artifact.path);
+        }
+    }
+
+    return result;
+}
+
 path_t canonical(const path_t& path) {
     // std::cout << std::format("realpath {}", pretty_path_t(path)) << std::endl;
 

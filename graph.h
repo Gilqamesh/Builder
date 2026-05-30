@@ -18,6 +18,7 @@ namespace builder {
 
 enum class library_type_t : uint8_t;
 struct config_phase_t;
+struct output_t;
 
 } // namespace builder
 
@@ -83,10 +84,10 @@ struct module_t {
     void configure(builder::library_type_t library_type) const;
 
     template <class phase_t>
-    typename phase_t::output_t materialize() const;
+    builder::output_t materialize() const;
 
     template <class phase_t>
-    std::vector<typename phase_t::output_t> materialize_all() const;
+    std::vector<builder::output_t> materialize_all() const;
 
     void validate();
 };

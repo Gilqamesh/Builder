@@ -52,11 +52,11 @@ BUILDER_EXTERN void phase__source(const kernel::cpp_builder::builder::source_pha
 BUILDER_EXTERN void phase__interface(const kernel::cpp_builder::builder::interface_phase_t* phase) {
     const auto source_output = phase->materialize<kernel::cpp_builder::builder::source_phase_t>();
 
-    for (const auto& interface : source_output.sources) {
-        if (kernel::cpp_builder::filesystem::find_include_predicate_t::h_file(interface) || kernel::cpp_builder::filesystem::find_include_predicate_t::hpp_file(interface)) {
+    for (const auto& interface : source_output.artifacts) {
+        if (kernel::cpp_builder::filesystem::find_include_predicate_t::h_file(interface.path) || kernel::cpp_builder::filesystem::find_include_predicate_t::hpp_file(interface.path)) {
             phase->add_interface(
-                interface,
-                kernel::cpp_builder::filesystem::relative_path_t(std::format("kernel/cpp_builder/{}", phase->source_relative_path(interface)))
+                interface.path,
+                kernel::cpp_builder::filesystem::relative_path_t(std::format("kernel/cpp_builder/{}", phase->source_relative_path(interface.path)))
             );
         }
     }

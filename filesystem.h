@@ -12,6 +12,7 @@ namespace cpp_builder {
 namespace builder {
 
 struct iphase_t;
+struct output_t;
 
 } // namespace builder
 
@@ -256,6 +257,7 @@ struct find_descend_predicate_t {
  */
 std::vector<path_t> find(const path_t& dir, const find_include_predicate_t& include_predicate, const find_descend_predicate_t& descend_predicate);
 std::vector<path_t> find(const builder::iphase_t& phase, const find_include_predicate_t& include_predicate, const find_descend_predicate_t& descend_predicate);
+std::vector<path_t> find(const builder::output_t& output, const find_include_predicate_t& include_predicate);
 
 /**
  * Returns the canonical path, resolving all symbolic links.
