@@ -106,8 +106,7 @@ void binary_phase_t::add_binary(const filesystem::path_t& binary, const filesyst
     });
 }
 
-config_phase_t::config_phase_t(graph::module_t& module, library_type_t library_type):
-    phase_base_t("config", module, library_type),
+configured_module_t::configured_module_t(graph::module_t& module, library_type_t library_type):
     source(module, library_type),
     interface(module, library_type),
     library(module, library_type),

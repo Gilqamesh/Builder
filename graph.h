@@ -17,7 +17,7 @@ namespace cpp_builder {
 namespace builder {
 
 enum class library_type_t : uint8_t;
-struct config_phase_t;
+struct configured_module_t;
 struct output_t;
 
 } // namespace builder
@@ -65,8 +65,8 @@ struct module_t {
     std::unordered_set<module_t*> dependencies;
     std::unordered_set<module_t*> producer_dependencies;
     bool validated;
-    mutable builder::config_phase_t* static_config_phase = nullptr;
-    mutable builder::config_phase_t* shared_config_phase = nullptr;
+    mutable builder::configured_module_t* static_configured_module = nullptr;
+    mutable builder::configured_module_t* shared_configured_module = nullptr;
 
     filesystem::path_t source_dir() const;
     filesystem::path_t builder_path() const;
@@ -79,7 +79,7 @@ struct module_t {
     filesystem::path_t builder_install_path() const;
     filesystem::path_t builder_install_latest_path() const;
     filesystem::path_t materialize_builder_plugin() const;
-    builder::config_phase_t& config_phase(builder::library_type_t library_type) const;
+    builder::configured_module_t& configured_module(builder::library_type_t library_type) const;
 
     template <class phase_t>
     builder::output_t materialize(builder::library_type_t library_type) const;

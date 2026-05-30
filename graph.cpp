@@ -169,20 +169,20 @@ filesystem::path_t module_t::materialize_builder_plugin() const {
     }
 }
 
-builder::config_phase_t& module_t::config_phase(builder::library_type_t library_type) const {
+builder::configured_module_t& module_t::configured_module(builder::library_type_t library_type) const {
     switch (library_type) {
         case builder::library_type_t::STATIC:
-            if (static_config_phase == nullptr) {
-                static_config_phase = new builder::config_phase_t(const_cast<module_t&>(*this), library_type);
+            if (static_configured_module == nullptr) {
+                static_configured_module = new builder::configured_module_t(const_cast<module_t&>(*this), library_type);
             }
-            return *static_config_phase;
+            return *static_configured_module;
         case builder::library_type_t::SHARED:
-            if (shared_config_phase == nullptr) {
-                shared_config_phase = new builder::config_phase_t(const_cast<module_t&>(*this), library_type);
+            if (shared_configured_module == nullptr) {
+                shared_configured_module = new builder::configured_module_t(const_cast<module_t&>(*this), library_type);
             }
-            return *shared_config_phase;
+            return *shared_configured_module;
         default:
-            throw std::runtime_error(std::format("kernel::cpp_builder::graph::module_t::config_phase: unknown library_type {}", static_cast<std::underlying_type_t<builder::library_type_t>>(library_type)));
+            throw std::runtime_error(std::format("kernel::cpp_builder::graph::module_t::configured_module: unknown library_type {}", static_cast<std::underlying_type_t<builder::library_type_t>>(library_type)));
     }
 }
 

@@ -117,8 +117,8 @@ struct binary_phase_t : phase_base_t {
     void add_binary(const filesystem::path_t& binary, const filesystem::relative_path_t& relative_install_path) const;
 };
 
-struct config_phase_t : phase_base_t {
-    config_phase_t(
+struct configured_module_t {
+    configured_module_t(
         graph::module_t& module,
         library_type_t library_type
     );
@@ -127,6 +127,9 @@ struct config_phase_t : phase_base_t {
     interface_phase_t interface;
     library_phase_t library;
     binary_phase_t binary;
+
+    template <class phase_t>
+    output_t materialize() const;
 };
 
 BUILDER_EXTERN void phase__source(const source_phase_t* phase);
@@ -137,26 +140,23 @@ BUILDER_EXTERN void phase__binary(const binary_phase_t* phase);
 template <class phase_t>
 output_t phase_base_t::materialize() const {
     static_assert(
-        std::is_same_v<phase_t, config_phase_t>
-        || std::is_same_v<phase_t, source_phase_t>
+        std::is_same_v<phase_t, source_phase_t>
         || std::is_same_v<phase_t, interface_phase_t>
         || std::is_same_v<phase_t, library_phase_t>
         || std::is_same_v<phase_t, binary_phase_t>,
         "phase_base_t::materialize: unsupported phase type"
     );
 
-    const auto& config_phase = m_module.config_phase(library_type());
+    const auto& configured_module = m_module.configured_module(library_type());
     const phase_t* requested_phase = nullptr;
-    if constexpr (std::is_same_v<phase_t, config_phase_t>) {
-        requested_phase = &config_phase;
-    } else if constexpr (std::is_same_v<phase_t, source_phase_t>) {
-        requested_phase = &config_phase.source;
+    if constexpr (std::is_same_v<phase_t, source_phase_t>) {
+        requested_phase = &configured_module.source;
     } else if constexpr (std::is_same_v<phase_t, interface_phase_t>) {
-        requested_phase = &config_phase.interface;
+        requested_phase = &configured_module.interface;
     } else if constexpr (std::is_same_v<phase_t, library_phase_t>) {
-        requested_phase = &config_phase.library;
+        requested_phase = &configured_module.library;
     } else if constexpr (std::is_same_v<phase_t, binary_phase_t>) {
-        requested_phase = &config_phase.binary;
+        requested_phase = &configured_module.binary;
     }
 
     const auto& phase = *requested_phase;
@@ -251,16 +251,33 @@ output_t phase_base_t::materialize() const {
 }
 
 template <class phase_t>
+output_t configured_module_t::materialize() const {
+    static_assert(
+        std::is_same_v<phase_t, source_phase_t>
+        || std::is_same_v<phase_t, interface_phase_t>
+        || std::is_same_v<phase_t, library_phase_t>
+        || std::is_same_v<phase_t, binary_phase_t>,
+        "configured_module_t::materialize: unsupported phase type"
+    );
+
+    if constexpr (std::is_same_v<phase_t, source_phase_t>) {
+        return source.template materialize<phase_t>();
+    } else if constexpr (std::is_same_v<phase_t, interface_phase_t>) {
+        return interface.template materialize<phase_t>();
+    } else if constexpr (std::is_same_v<phase_t, library_phase_t>) {
+        return library.template materialize<phase_t>();
+    } else if constexpr (std::is_same_v<phase_t, binary_phase_t>) {
+        return binary.template materialize<phase_t>();
+    }
+}
+
+template <class phase_t>
 std::vector<output_t> phase_base_t::materialize_all() const {
     return m_module.materialize_all<phase_t>(library_type());
 }
 
 template <class phase_t>
 void phase_base_t::execute(const phase_t& phase) const {
-    if constexpr (std::is_same_v<phase_t, config_phase_t>) {
-        return ;
-    }
-
     shared_library::loader_t loader(m_module.materialize_builder_plugin(), shared_library::lifetime_t::PROCESS, shared_library::symbol_resolution_t::LAZY, shared_library::symbol_visibility_t::LOCAL);
     using fn_t = void (*)(const phase_t*);
     fn_t fn = loader.resolve(producer_symbol_name().c_str());
@@ -273,7 +290,7 @@ namespace graph {
 
 template <class phase_t>
 builder::output_t module_t::materialize(builder::library_type_t library_type) const {
-    return config_phase(library_type).template materialize<phase_t>();
+    return configured_module(library_type).template materialize<phase_t>();
 }
 
 template <class phase_t>
