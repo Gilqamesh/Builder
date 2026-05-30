@@ -68,7 +68,6 @@ struct module_t {
     bool validated;
     mutable builder::config_phase_t* static_config_phase = nullptr;
     mutable builder::config_phase_t* shared_config_phase = nullptr;
-    mutable builder::config_phase_t* configured_phase = nullptr;
 
     filesystem::path_t source_dir() const;
     filesystem::path_t builder_path() const;
@@ -82,13 +81,12 @@ struct module_t {
     filesystem::path_t builder_install_latest_path() const;
     filesystem::path_t materialize_builder_plugin() const;
     builder::config_phase_t& config_phase(builder::library_type_t library_type) const;
-    void configure(builder::library_type_t library_type) const;
 
     template <class phase_t>
-    builder::output_t materialize() const;
+    builder::output_t materialize(builder::library_type_t library_type) const;
 
     template <class phase_t>
-    std::vector<builder::output_t> materialize_all() const;
+    std::vector<builder::output_t> materialize_all(builder::library_type_t library_type) const;
 
     void validate();
 };

@@ -133,13 +133,11 @@ filesystem::path_t module_t::materialize_builder_plugin() const {
         std::vector<filesystem::path_t> libraries;
 
         for (auto* dependency : module_builder->dependencies) {
-            dependency->configure(builder::library_type_t::SHARED);
-
-            for (const auto& dependency_include_dirs : dependency->materialize_all<builder::interface_phase_t>()) {
+            for (const auto& dependency_include_dirs : dependency->materialize_all<builder::interface_phase_t>(builder::library_type_t::SHARED)) {
                 include_dirs.push_back(dependency_include_dirs.root);
             }
 
-            for (const auto& dependency_libraries : dependency->materialize_all<builder::library_phase_t>()) {
+            for (const auto& dependency_libraries : dependency->materialize_all<builder::library_phase_t>(builder::library_type_t::SHARED)) {
                 for (const auto& library : dependency_libraries.artifacts) {
                     libraries.push_back(library.path);
                 }
@@ -186,10 +184,6 @@ builder::config_phase_t& module_t::config_phase(builder::library_type_t library_
         default:
             throw std::runtime_error(std::format("kernel::cpp_builder::graph::module_t::config_phase: unknown library_type {}", static_cast<std::underlying_type_t<builder::library_type_t>>(library_type)));
     }
-}
-
-void module_t::configure(builder::library_type_t library_type) const {
-    configured_phase = &config_phase(library_type);
 }
 
 version_t derive_version(const std::filesystem::file_time_type& file_time_type) {

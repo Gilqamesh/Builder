@@ -153,18 +153,18 @@ output_t phase_base_t::materialize() const {
         "phase_base_t::materialize: unsupported phase type"
     );
 
-    const auto& configured_phase = m_module.config_phase(library_type());
+    const auto& config_phase = m_module.config_phase(library_type());
     const phase_t* requested_phase = nullptr;
     if constexpr (std::is_same_v<phase_t, config_phase_t>) {
-        requested_phase = &configured_phase;
+        requested_phase = &config_phase;
     } else if constexpr (std::is_same_v<phase_t, source_phase_t>) {
-        requested_phase = &configured_phase.source;
+        requested_phase = &config_phase.source;
     } else if constexpr (std::is_same_v<phase_t, interface_phase_t>) {
-        requested_phase = &configured_phase.interface;
+        requested_phase = &config_phase.interface;
     } else if constexpr (std::is_same_v<phase_t, library_phase_t>) {
-        requested_phase = &configured_phase.library;
+        requested_phase = &config_phase.library;
     } else if constexpr (std::is_same_v<phase_t, binary_phase_t>) {
-        requested_phase = &configured_phase.binary;
+        requested_phase = &config_phase.binary;
     }
 
     const auto& phase = *requested_phase;
@@ -293,8 +293,7 @@ void phase_base_t::materialize_all(
     }
 
     for (auto* module : scc.modules) {
-        module->configure(library_type());
-        outputs.push_back(module->materialize<phase_t>());
+        outputs.push_back(module->materialize<phase_t>(library_type()));
     }
 }
 
@@ -315,21 +314,13 @@ void phase_base_t::execute(const phase_t& phase) const {
 namespace graph {
 
 template <class phase_t>
-builder::output_t module_t::materialize() const {
-    if (configured_phase == nullptr) {
-        throw std::runtime_error("kernel::cpp_builder::graph::module_t::materialize: module has not been configured");
-    }
-
-    return configured_phase->template materialize<phase_t>();
+builder::output_t module_t::materialize(builder::library_type_t library_type) const {
+    return config_phase(library_type).template materialize<phase_t>();
 }
 
 template <class phase_t>
-std::vector<builder::output_t> module_t::materialize_all() const {
-    if (configured_phase == nullptr) {
-        throw std::runtime_error("kernel::cpp_builder::graph::module_t::materialize_all: module has not been configured");
-    }
-
-    return configured_phase->template materialize_all<phase_t>();
+std::vector<builder::output_t> module_t::materialize_all(builder::library_type_t library_type) const {
+    return config_phase(library_type).template materialize_all<phase_t>();
 }
 
 } // namespace graph

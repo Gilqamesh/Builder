@@ -126,12 +126,10 @@ int main(int argc, char** argv) {
 
         target_module->validate();
 
-        workspace_ecosystem->this_module->configure(builder::library_type_t::SHARED);
-
         const auto cli = filesystem::canonical(filesystem::path_t("/proc/self/exe"));
         const auto cli_last_write_time = filesystem::last_write_time(cli);
         const auto cli_version = graph::derive_version(cli_last_write_time);
-        const auto kernel_binary_output = workspace_ecosystem->this_module->materialize<builder::binary_phase_t>();
+        const auto kernel_binary_output = workspace_ecosystem->this_module->materialize<builder::binary_phase_t>(builder::library_type_t::SHARED);
 
         if (cli_version.value < workspace_ecosystem->this_module->version.value) {
             const auto new_cli_path = kernel_binary_output.root / filesystem::relative_path_t("cli");
@@ -150,8 +148,7 @@ int main(int argc, char** argv) {
 
         render_graph_svg(*workspace_ecosystem, workspace_relative_path.string() + module_relative_path.string() + ".svg");
 
-        target_module->configure(builder::library_type_t::SHARED);
-        const auto target_binary_output = target_module->materialize<builder::binary_phase_t>();
+        const auto target_binary_output = target_module->materialize<builder::binary_phase_t>(builder::library_type_t::SHARED);
 
         if (4 < argc) {
             const auto binary = filesystem::relative_path_t(argv[4]);
