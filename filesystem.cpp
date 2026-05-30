@@ -342,10 +342,6 @@ std::vector<path_t> find(const path_t& dir, const find_include_predicate_t& incl
     return find(dir, include_predicate, descend_predicate, 0);
 }
 
-std::vector<path_t> find(const builder::iphase_t& phase, const find_include_predicate_t& include_predicate, const find_descend_predicate_t& descend_predicate) {
-    return find(phase.install_dir(), include_predicate, descend_predicate);
-}
-
 std::vector<path_t> find(const builder::output_t& output, const find_include_predicate_t& include_predicate) {
     std::vector<path_t> result;
 

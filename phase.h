@@ -41,31 +41,18 @@ struct output_t {
     std::vector<output_artifact_t> artifacts;
 };
 
-struct iphase_t {
-    virtual ~iphase_t() = default;
-
-    virtual std::string_view name() const = 0;
-    virtual const iphase_t* predecessor() const = 0;
-
-    virtual filesystem::path_t artifact_dir() const = 0;
-    virtual filesystem::path_t build_dir() const = 0;
-    virtual filesystem::path_t install_dir() const = 0;
-};
-
-class phase_base_t : public iphase_t {
+class phase_base_t {
 public:
     phase_base_t(
         std::string_view name,
         graph::module_t& module,
-        library_type_t library_type,
-        const iphase_t* predecessor
+        library_type_t library_type
     );
 
-    std::string_view name() const override;
-    const iphase_t* predecessor() const override;
-    filesystem::path_t artifact_dir() const override;
-    filesystem::path_t build_dir() const override;
-    filesystem::path_t install_dir() const override;
+    std::string_view name() const;
+    filesystem::path_t artifact_dir() const;
+    filesystem::path_t build_dir() const;
+    filesystem::path_t install_dir() const;
     library_type_t library_type() const;
 
     template <class phase_t>
@@ -82,7 +69,6 @@ protected:
 
 private:
     const library_type_t m_library_type;
-    const iphase_t* m_predecessor;
 
 protected:
     mutable output_t m_output;
@@ -105,8 +91,7 @@ private:
 struct source_phase_t : phase_base_t {
     source_phase_t(
         graph::module_t& module,
-        library_type_t library_type,
-        const iphase_t* predecessor
+        library_type_t library_type
     );
 
     filesystem::path_t source_dir() const;
@@ -116,20 +101,16 @@ struct source_phase_t : phase_base_t {
 struct interface_phase_t : phase_base_t {
     interface_phase_t(
         graph::module_t& module,
-        library_type_t library_type,
-        const iphase_t* predecessor
+        library_type_t library_type
     );
 
-    filesystem::relative_path_t source_relative_path(const filesystem::path_t& source) const;
-    void add_interface(const filesystem::path_t& interface) const;
     void add_interface(const filesystem::path_t& interface, const filesystem::relative_path_t& relative_install_path) const;
 };
 
 struct library_phase_t : phase_base_t {
     library_phase_t(
         graph::module_t& module,
-        library_type_t library_type,
-        const iphase_t* predecessor
+        library_type_t library_type
     );
 
     void add_library(const filesystem::path_t& library, const filesystem::relative_path_t& relative_install_path) const;
@@ -138,8 +119,7 @@ struct library_phase_t : phase_base_t {
 struct binary_phase_t : phase_base_t {
     binary_phase_t(
         graph::module_t& module,
-        library_type_t library_type,
-        const iphase_t* predecessor
+        library_type_t library_type
     );
 
     void add_binary(const filesystem::path_t& binary, const filesystem::relative_path_t& relative_install_path) const;
@@ -164,34 +144,27 @@ BUILDER_EXTERN void phase__binary(const binary_phase_t* phase);
 
 template <class phase_t>
 output_t phase_base_t::materialize() const {
-    const auto* current_phase = this;
-    if (const auto* config_phase = dynamic_cast<const config_phase_t*>(current_phase)) {
-        current_phase = &config_phase->binary;
-    }
+    static_assert(
+        std::is_same_v<phase_t, config_phase_t>
+        || std::is_same_v<phase_t, source_phase_t>
+        || std::is_same_v<phase_t, interface_phase_t>
+        || std::is_same_v<phase_t, library_phase_t>
+        || std::is_same_v<phase_t, binary_phase_t>,
+        "phase_base_t::materialize: unsupported phase type"
+    );
 
+    const auto& configured_phase = m_module.config_phase(library_type());
     const phase_t* requested_phase = nullptr;
-
-    while (requested_phase == nullptr) {
-        requested_phase = dynamic_cast<const phase_t*>(current_phase);
-        if (requested_phase != nullptr) {
-            break ;
-        }
-
-        const auto* previous_phase = current_phase->predecessor();
-        if (previous_phase == nullptr) {
-            throw std::runtime_error(std::format(
-                "phase_base_t::materialize: requested phase is not in the current phase '{}' or its configured predecessor chain",
-                name()
-            ));
-        }
-
-        current_phase = dynamic_cast<const phase_base_t*>(previous_phase);
-        if (current_phase == nullptr) {
-            throw std::runtime_error(std::format(
-                "phase_base_t::materialize: predecessor of phase '{}' is not a phase_base_t",
-                name()
-            ));
-        }
+    if constexpr (std::is_same_v<phase_t, config_phase_t>) {
+        requested_phase = &configured_phase;
+    } else if constexpr (std::is_same_v<phase_t, source_phase_t>) {
+        requested_phase = &configured_phase.source;
+    } else if constexpr (std::is_same_v<phase_t, interface_phase_t>) {
+        requested_phase = &configured_phase.interface;
+    } else if constexpr (std::is_same_v<phase_t, library_phase_t>) {
+        requested_phase = &configured_phase.library;
+    } else if constexpr (std::is_same_v<phase_t, binary_phase_t>) {
+        requested_phase = &configured_phase.binary;
     }
 
     const auto& phase = *requested_phase;

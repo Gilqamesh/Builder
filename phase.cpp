@@ -19,11 +19,10 @@ static filesystem::relative_path_t library_type_relative_dir(library_type_t libr
     }
 }
 
-phase_base_t::phase_base_t(std::string_view name, graph::module_t& module, library_type_t configured_library_type, const iphase_t* predecessor):
+phase_base_t::phase_base_t(std::string_view name, graph::module_t& module, library_type_t configured_library_type):
     m_name(name),
     m_module(module),
     m_library_type(configured_library_type),
-    m_predecessor(predecessor),
     m_output {
         .root = install_dir(),
         .artifacts = {}
@@ -33,10 +32,6 @@ phase_base_t::phase_base_t(std::string_view name, graph::module_t& module, libra
 
 std::string_view phase_base_t::name() const {
     return m_name;
-}
-
-const iphase_t* phase_base_t::predecessor() const {
-    return m_predecessor;
 }
 
 filesystem::path_t phase_base_t::artifact_dir() const {
@@ -59,8 +54,8 @@ std::string phase_base_t::producer_symbol_name() const {
     return std::format("phase__{}", m_name);
 }
 
-source_phase_t::source_phase_t(graph::module_t& module, library_type_t library_type, const iphase_t* predecessor):
-    phase_base_t("source", module, library_type, predecessor)
+source_phase_t::source_phase_t(graph::module_t& module, library_type_t library_type):
+    phase_base_t("source", module, library_type)
 {
 }
 
@@ -75,22 +70,9 @@ void source_phase_t::add_source(const filesystem::path_t& source, const filesyst
     });
 }
 
-interface_phase_t::interface_phase_t(graph::module_t& module, library_type_t library_type, const iphase_t* predecessor):
-    phase_base_t("interface", module, library_type, predecessor)
+interface_phase_t::interface_phase_t(graph::module_t& module, library_type_t library_type):
+    phase_base_t("interface", module, library_type)
 {
-}
-
-filesystem::relative_path_t interface_phase_t::source_relative_path(const filesystem::path_t& source) const {
-    const auto* source_phase = dynamic_cast<const source_phase_t*>(predecessor());
-    if (source_phase == nullptr) {
-        throw std::runtime_error("kernel::cpp_builder::builder::interface_phase_t::source_relative_path: interface phase predecessor is not a source phase");
-    }
-
-    return source_phase->install_dir().relative(source);
-}
-
-void interface_phase_t::add_interface(const filesystem::path_t& interface) const {
-    add_interface(interface, source_relative_path(interface));
 }
 
 void interface_phase_t::add_interface(const filesystem::path_t& interface, const filesystem::relative_path_t& relative_install_path) const {
@@ -100,8 +82,8 @@ void interface_phase_t::add_interface(const filesystem::path_t& interface, const
     });
 }
 
-library_phase_t::library_phase_t(graph::module_t& module, library_type_t library_type, const iphase_t* predecessor):
-    phase_base_t("library", module, library_type, predecessor)
+library_phase_t::library_phase_t(graph::module_t& module, library_type_t library_type):
+    phase_base_t("library", module, library_type)
 {
 }
 
@@ -112,8 +94,8 @@ void library_phase_t::add_library(const filesystem::path_t& library, const files
     });
 }
 
-binary_phase_t::binary_phase_t(graph::module_t& module, library_type_t library_type, const iphase_t* predecessor):
-    phase_base_t("binary", module, library_type, predecessor)
+binary_phase_t::binary_phase_t(graph::module_t& module, library_type_t library_type):
+    phase_base_t("binary", module, library_type)
 {
 }
 
@@ -125,11 +107,11 @@ void binary_phase_t::add_binary(const filesystem::path_t& binary, const filesyst
 }
 
 config_phase_t::config_phase_t(graph::module_t& module, library_type_t library_type):
-    phase_base_t("config", module, library_type, nullptr),
-    source(module, library_type, this),
-    interface(module, library_type, &source),
-    library(module, library_type, &interface),
-    binary(module, library_type, &library)
+    phase_base_t("config", module, library_type),
+    source(module, library_type),
+    interface(module, library_type),
+    library(module, library_type),
+    binary(module, library_type)
 {
 }
 
