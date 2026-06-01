@@ -1,8 +1,6 @@
 #include "graph.h"
 
-#include "compiler.h"
 #include "external/json.hpp"
-#include "phase.h"
 
 #include <fstream>
 #include <format>
@@ -10,47 +8,83 @@
 #include <cassert>
 #include <stdexcept>
 #include <string>
-#include <string_view>
-#include <type_traits>
 #include <utility>
 #include <vector>
 
 namespace kernel {
 
-namespace cpp_builder {
-
 namespace graph {
 
-static std::string quote_define_value(std::string_view value) {
-    std::string result = "\"";
-    for (const char c : value) {
-        if (c == '\\' || c == '"') {
-            result.push_back('\\');
-        }
-        result.push_back(c);
-    }
-    result.push_back('"');
-    return result;
-}
+struct json_workspace_order_manifest_t {
+    std::vector<std::string> workspaces;
+};
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(json_workspace_order_manifest_t, workspaces)
 
-static std::vector<std::pair<std::string, std::string>> tool_path_defines() {
-    return {
-        { "KERNEL_CPP_BUILDER_CXX_COMPILER_PATH", quote_define_value(KERNEL_CPP_BUILDER_CXX_COMPILER_PATH) },
-        { "KERNEL_CPP_BUILDER_CC_COMPILER_PATH", quote_define_value(KERNEL_CPP_BUILDER_CC_COMPILER_PATH) },
-        { "KERNEL_CPP_BUILDER_AR_PATH", quote_define_value(KERNEL_CPP_BUILDER_AR_PATH) }
-    };
+struct json_module_dependency_t {
+    std::string workspace_relative_path;
+    std::string module_relative_path;
+};
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(json_module_dependency_t, workspace_relative_path, module_relative_path)
+
+struct json_module_t {
+    std::vector<json_module_dependency_t> module_dependencies;
+    std::vector<json_module_dependency_t> builder_dependencies;
+};
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(json_module_t, module_dependencies, builder_dependencies)
+
+struct module_info_t {
+    int index;
+    int lowlink;
+    bool on_stack;
+};
+
+static void load_workspace_order(workspace_ecosystem_t& workspace_ecosystem) {
+    if (!workspace_ecosystem.workspace_by_relative_path.empty()) {
+        return ;
+    }
+
+    json_workspace_order_manifest_t json_workspace_order_manifest;
+    const auto workspaces_json_file = workspace_ecosystem.workspace_root / filesystem::relative_path_t(WORKSPACES_JSON);
+    if (!filesystem::exists(workspaces_json_file)) {
+        throw std::runtime_error(std::format("kernel::graph::load_workspace_order: file does not exist: '{}'", workspaces_json_file));
+    }
+
+    std::ifstream ifs(workspaces_json_file.string());
+    if (!ifs) {
+        throw std::runtime_error(std::format("kernel::graph::load_workspace_order: failed to open file '{}'", workspaces_json_file));
+    }
+
+    try {
+        nlohmann::json json = nlohmann::json::parse(ifs);
+        json_workspace_order_manifest = json.get<decltype(json_workspace_order_manifest)>();
+    } catch (const nlohmann::json::parse_error& e) {
+        throw std::runtime_error(std::format("kernel::graph::load_workspace_order: failed to parse JSON file '{}': {}", workspaces_json_file, e.what()));
+    } catch (const nlohmann::json::exception& e) {
+        throw std::runtime_error(std::format("kernel::graph::load_workspace_order: failed to get JSON workspace order manifest from file '{}': {}", workspaces_json_file, e.what()));
+    }
+
+    for (std::size_t i = 0; i < json_workspace_order_manifest.workspaces.size(); ++i) {
+        const auto workspace_relative_path = filesystem::relative_path_t(json_workspace_order_manifest.workspaces[i]);
+        if (workspace_ecosystem.workspace_by_relative_path.find(workspace_relative_path) != workspace_ecosystem.workspace_by_relative_path.end()) {
+            throw std::runtime_error(std::format("kernel::graph::load_workspace_order: duplicate workspace '{}' in '{}'", workspace_relative_path, workspaces_json_file));
+        }
+
+        auto workspace = new workspace_t {
+            .workspace_ecosystem = &workspace_ecosystem,
+            .relative_path = workspace_relative_path,
+            .order_position = static_cast<uint32_t>(i)
+        };
+
+        workspace_ecosystem.workspace_by_relative_path.emplace(workspace_relative_path, workspace);
+    }
 }
 
 filesystem::path_t module_t::source_dir() const {
-    return workspace->workspace_ecosystem->absolute_path_to_workspace_directory / workspace->workspace_relative_path_to_workspace_ecosystem / module_relative_path_to_workspace;
-}
-
-filesystem::path_t module_t::builder_path() const {
-    return source_dir() / filesystem::relative_path_t(BUILDER_CPP);
+    return workspace->workspace_ecosystem->workspace_root / workspace->relative_path / module_relative_path_to_workspace;
 }
 
 filesystem::path_t module_t::artifact_base_dir() const {
-    return workspace->workspace_ecosystem->artifact_dir / workspace->workspace_relative_path_to_workspace_ecosystem / module_relative_path_to_workspace;
+    return workspace->workspace_ecosystem->artifact_dir / workspace->relative_path / module_relative_path_to_workspace;
 }
 
 filesystem::path_t module_t::artifact_dir() const {
@@ -60,200 +94,6 @@ filesystem::path_t module_t::artifact_dir() const {
 
 filesystem::path_t module_t::artifact_latest_dir() const {
     return artifact_base_dir() / filesystem::relative_path_t("latest");
-}
-
-filesystem::path_t module_t::builder_dir() const {
-    return artifact_dir() / filesystem::relative_path_t("builder");
-}
-
-filesystem::path_t module_t::builder_build_dir() const {
-    return builder_dir() / filesystem::relative_path_t("build");
-}
-
-filesystem::path_t module_t::builder_install_dir() const {
-    return builder_dir() / filesystem::relative_path_t("install");
-}
-
-filesystem::path_t module_t::builder_install_path() const {
-    return builder_install_dir() / filesystem::relative_path_t("builder.so");
-}
-
-filesystem::path_t module_t::builder_install_latest_path() const {
-    return artifact_latest_dir() / filesystem::relative_path_t("builder/install/builder.so");
-}
-
-filesystem::path_t module_t::materialize_builder_plugin() const {
-    const auto builder_plugin = builder_install_path();
-    const auto build_dir = builder_build_dir();
-    const auto install_dir = builder_install_dir();
-    const auto marker_path = [&](std::string_view state) {
-        return build_dir / filesystem::relative_path_t(std::format("builder.{}", state));
-    };
-    const auto started_marker = marker_path("started");
-    const auto complete_marker = marker_path("complete");
-
-    if (filesystem::exists(complete_marker)) {
-        if (!filesystem::exists(builder_plugin)) {
-            throw std::runtime_error(std::format("kernel::cpp_builder::graph::module_t::materialize_builder_plugin: completed builder plugin '{}' does not exist", builder_plugin));
-        }
-
-        return builder_plugin;
-    }
-
-    if (filesystem::exists(started_marker)) {
-        throw std::runtime_error(std::format("kernel::cpp_builder::graph::module_t::materialize_builder_plugin: re-entry detected for builder plugin '{}'", builder_plugin));
-    }
-
-    if (this == workspace->workspace_ecosystem->this_module) {
-        const auto latest_builder_plugin = builder_install_latest_path();
-        if (filesystem::exists(latest_builder_plugin)) {
-            return latest_builder_plugin;
-        }
-
-#ifdef KERNEL_CPP_BUILDER_BOOTSTRAP_BUILDER_PLUGIN_PATH
-        const auto bootstrap_builder_plugin = filesystem::path_t(KERNEL_CPP_BUILDER_BOOTSTRAP_BUILDER_PLUGIN_PATH);
-        if (filesystem::exists(bootstrap_builder_plugin)) {
-            return bootstrap_builder_plugin;
-        }
-#endif
-    }
-
-    if (filesystem::exists(build_dir)) {
-        filesystem::remove_all(build_dir);
-    }
-    if (filesystem::exists(install_dir)) {
-        filesystem::remove_all(install_dir);
-    }
-
-    try {
-        filesystem::create_directories(build_dir);
-        filesystem::touch(started_marker);
-
-        std::vector<filesystem::path_t> include_dirs;
-        std::vector<filesystem::path_t> libraries;
-
-        for (auto* dependency : producer_dependencies) {
-            for (const auto& dependency_include_dirs : dependency->materialize_all<builder::interface_phase_t>(builder::library_type_t::SHARED)) {
-                include_dirs.push_back(dependency_include_dirs.root);
-            }
-
-            for (const auto& dependency_libraries : dependency->materialize_all<builder::library_phase_t>(builder::library_type_t::SHARED)) {
-                for (const auto& library : dependency_libraries.artifacts) {
-                    libraries.push_back(library.path);
-                }
-            }
-        }
-
-        compiler::create_builder_shared_library(
-            build_dir,
-            source_dir(),
-            include_dirs,
-            builder_path(),
-            tool_path_defines(),
-            libraries,
-            builder_plugin
-        );
-
-        if (!filesystem::exists(builder_plugin)) {
-            throw std::runtime_error(std::format("kernel::cpp_builder::graph::module_t::materialize_builder_plugin: expected builder plugin '{}' to exist", builder_plugin));
-        }
-
-        filesystem::touch(complete_marker);
-        filesystem::remove(started_marker);
-
-        return builder_plugin;
-    } catch (...) {
-        filesystem::remove_all(build_dir);
-        filesystem::remove_all(install_dir);
-        throw ;
-    }
-}
-
-builder::configured_module_t& module_t::configured_module(builder::library_type_t library_type) const {
-    switch (library_type) {
-        case builder::library_type_t::STATIC:
-            if (static_configured_module == nullptr) {
-                static_configured_module = new builder::configured_module_t(const_cast<module_t&>(*this), library_type);
-            }
-            return *static_configured_module;
-        case builder::library_type_t::SHARED:
-            if (shared_configured_module == nullptr) {
-                shared_configured_module = new builder::configured_module_t(const_cast<module_t&>(*this), library_type);
-            }
-            return *shared_configured_module;
-        default:
-            throw std::runtime_error(std::format("kernel::cpp_builder::graph::module_t::configured_module: unknown library_type {}", static_cast<std::underlying_type_t<builder::library_type_t>>(library_type)));
-    }
-}
-
-builder::link_inputs_t module_t::link_inputs(builder::library_type_t library_type, link_input_scope_t scope) const {
-    bool static_libraries = false;
-    switch (library_type) {
-        case builder::library_type_t::STATIC: static_libraries = true; break ;
-        case builder::library_type_t::SHARED: break ;
-        default: throw std::runtime_error(std::format("kernel::cpp_builder::graph::module_t::link_inputs: unknown library_type {}", static_cast<std::underlying_type_t<builder::library_type_t>>(library_type)));
-    }
-
-    const auto* scc = module_scc;
-    if (scc == nullptr) {
-        throw std::runtime_error(std::format(
-            "kernel::cpp_builder::graph::module_t::link_inputs: module '{}' has no SCC",
-            std::format(
-                "{}/{}",
-                workspace->workspace_relative_path_to_workspace_ecosystem.string(),
-                module_relative_path_to_workspace.string()
-            )
-        ));
-    }
-
-    std::unordered_set<const module_scc_t*> visited_sccs;
-    std::vector<const module_scc_t*> ordered_sccs;
-    const auto collect_scc = [&]<class self_t>(self_t& self, const module_scc_t& current_scc) -> void {
-        if (!visited_sccs.insert(&current_scc).second) {
-            return ;
-        }
-
-        for (const auto* dependency : current_scc.dependencies) {
-            self(self, *dependency);
-        }
-
-        ordered_sccs.push_back(&current_scc);
-    };
-
-    collect_scc(collect_scc, *scc);
-
-    switch (scope) {
-        case link_input_scope_t::DEPENDENCIES:
-            ordered_sccs.pop_back();
-            break ;
-        case link_input_scope_t::DEPENDENCIES_AND_SELF:
-            break ;
-        default:
-            throw std::runtime_error(std::format("kernel::cpp_builder::graph::module_t::link_inputs: unknown link_input_scope {}", static_cast<std::underlying_type_t<link_input_scope_t>>(scope)));
-    }
-
-    builder::link_inputs_t result;
-    for (auto scc_it = ordered_sccs.rbegin(); scc_it != ordered_sccs.rend(); ++scc_it) {
-        const auto& current_scc = **scc_it;
-        builder::link_input_group_t group {
-            .libraries = {},
-            .static_library_group = false
-        };
-
-        for (auto module_it = current_scc.modules.rbegin(); module_it != current_scc.modules.rend(); ++module_it) {
-            const auto library_output = (*module_it)->materialize<builder::library_phase_t>(library_type);
-            for (const auto& library : library_output.artifacts) {
-                group.libraries.push_back(library.path);
-            }
-        }
-
-        if (!group.libraries.empty()) {
-            group.static_library_group = static_libraries && 1 < group.libraries.size();
-            result.groups.push_back(group);
-        }
-    }
-
-    return result;
 }
 
 version_t derive_version(const std::filesystem::file_time_type& file_time_type) {
@@ -272,51 +112,29 @@ version_t derive_version(const filesystem::path_t& directory) {
     return derive_version(latest_module_file);
 }
 
-module_t* workspace_ecosystem_t::discover_module_impl(filesystem::relative_path_t workspace_relative_path_to_workspace_ecosystem, filesystem::relative_path_t module_relative_path_to_workspace) {
-    auto workspace_it = workspace_by_workspace_relative_path_to_workspace_ecosystem.find(workspace_relative_path_to_workspace_ecosystem);
-    if (workspace_it == workspace_by_workspace_relative_path_to_workspace_ecosystem.end()) {
-        json_workspace_t json_workspace;
-        {
-            const auto workspace_json_file = absolute_path_to_workspace_directory / workspace_relative_path_to_workspace_ecosystem / filesystem::relative_path_t(WORKSPACE_JSON);
-            if (!filesystem::exists(workspace_json_file)) {
-                throw std::runtime_error(std::format("kernel::cpp_builder::graph::discover_module_impl: file does not exist: '{}'", workspace_json_file.string()));
-            }
+static module_t* discover_module_impl(
+    workspace_ecosystem_t& workspace_ecosystem,
+    filesystem::relative_path_t workspace_relative_path,
+    filesystem::relative_path_t module_relative_path_to_workspace
+) {
+    load_workspace_order(workspace_ecosystem);
 
-            std::ifstream ifs(workspace_json_file.string());
-            if (!ifs) {
-                throw std::runtime_error(std::format("kernel::cpp_builder::graph::discover_module_impl: failed to open file '{}'", workspace_json_file.string()));
-            }
-
-            try {
-                nlohmann::json json = nlohmann::json::parse(ifs);
-                json_workspace = json.get<decltype(json_workspace)>();
-            } catch (const nlohmann::json::parse_error& e) {
-                throw std::runtime_error(std::format("kernel::cpp_builder::graph::discover_module_impl: failed to parse JSON file '{}': {}", workspace_json_file.string(), e.what()));
-            } catch (const nlohmann::json::exception& e) {
-                throw std::runtime_error(std::format("kernel::cpp_builder::graph::discover_module_impl: failed to get JSON workspace from file '{}': {}", workspace_json_file.string(), e.what()));
-            }
-        }
-
-        auto workspace = new workspace_t {
-            .workspace_ecosystem = this,
-            .workspace_relative_path_to_workspace_ecosystem = workspace_relative_path_to_workspace_ecosystem,
-            .level = json_workspace.level
-        };
-        workspace_it = workspace_by_workspace_relative_path_to_workspace_ecosystem.emplace(workspace_relative_path_to_workspace_ecosystem, workspace).first;
+    auto workspace_it = workspace_ecosystem.workspace_by_relative_path.find(workspace_relative_path);
+    if (workspace_it == workspace_ecosystem.workspace_by_relative_path.end()) {
+        throw std::runtime_error(std::format("kernel::graph::discover_module_impl: workspace '{}' is not listed in workspace order manifest '{}'", workspace_relative_path, WORKSPACES_JSON));
     }
     auto workspace = workspace_it->second;
     auto module_it = workspace->module_by_module_relative_path_to_workspace.find(module_relative_path_to_workspace);
     if (module_it != workspace->module_by_module_relative_path_to_workspace.end()) {
         return module_it->second;
     }
-    const auto module_directory = absolute_path_to_workspace_directory / workspace_relative_path_to_workspace_ecosystem / module_relative_path_to_workspace;
+    const auto module_directory = workspace_ecosystem.workspace_root / workspace_relative_path / module_relative_path_to_workspace;
     const auto module_version = derive_version(module_directory);
     auto module = new module_t {
         .workspace = workspace,
         .module_scc = nullptr,
         .module_relative_path_to_workspace = module_relative_path_to_workspace,
-        .version = module_version,
-        .validated = false
+        .version = module_version
     };
 
     workspace->module_by_module_relative_path_to_workspace.emplace(module_relative_path_to_workspace, module);
@@ -325,39 +143,39 @@ module_t* workspace_ecosystem_t::discover_module_impl(filesystem::relative_path_
     {
         const auto module_json_path = module_directory / filesystem::relative_path_t(MODULE_JSON);
         if (!filesystem::exists(module_json_path)) {
-            throw std::runtime_error(std::format("kernel::cpp_builder::graph::discover_module_impl: file does not exist: '{}'", module_json_path.string()));
+            throw std::runtime_error(std::format("kernel::graph::discover_module_impl: file does not exist: '{}'", module_json_path));
         }
 
         std::ifstream ifs(module_json_path.string());
         if (!ifs) {
-            throw std::runtime_error(std::format("kernel::cpp_builder::graph::discover_module_impl: failed to open file '{}'", module_json_path.string()));
+            throw std::runtime_error(std::format("kernel::graph::discover_module_impl: failed to open file '{}'", module_json_path));
         }
 
         try {
             nlohmann::json json = nlohmann::json::parse(ifs);
             json_module = json.get<decltype(json_module)>();
         } catch (const nlohmann::json::parse_error& e) {
-            throw std::runtime_error(std::format("kernel::cpp_builder::graph::discover_module_impl: failed to parse JSON file '{}': {}", module_json_path.string(), e.what()));
+            throw std::runtime_error(std::format("kernel::graph::discover_module_impl: failed to parse JSON file '{}': {}", module_json_path, e.what()));
         } catch (const nlohmann::json::exception& e) {
-            throw std::runtime_error(std::format("kernel::cpp_builder::graph::discover_module_impl: failed to get JSON module from file '{}': {}", module_json_path.string(), e.what()));
+            throw std::runtime_error(std::format("kernel::graph::discover_module_impl: failed to get JSON module from file '{}': {}", module_json_path, e.what()));
         }
     }
 
     for (const auto& module_dependency : json_module.module_dependencies) {
-        module->dependencies.insert(discover_module_impl(filesystem::relative_path_t(module_dependency.workspace_relative_path), filesystem::relative_path_t(module_dependency.module_relative_path)));
+        module->dependencies.insert(discover_module_impl(workspace_ecosystem, filesystem::relative_path_t(module_dependency.workspace_relative_path), filesystem::relative_path_t(module_dependency.module_relative_path)));
     }
 
-    for (const auto& producer_dependency : json_module.builder_dependencies) {
-        module->producer_dependencies.insert(discover_module_impl(filesystem::relative_path_t(producer_dependency.workspace_relative_path), filesystem::relative_path_t(producer_dependency.module_relative_path)));
+    for (const auto& builder_dependency : json_module.builder_dependencies) {
+        module->builder_dependencies.insert(discover_module_impl(workspace_ecosystem, filesystem::relative_path_t(builder_dependency.workspace_relative_path), filesystem::relative_path_t(builder_dependency.module_relative_path)));
     }
 
     return module;
 }
 
-void workspace_ecosystem_t::strong_connect(module_t* module, uint32_t& index, std::stack<module_t*>& S, std::unordered_map<module_t*, module_info_t>& module_info_by_module) {
+static void strong_connect(module_t* module, uint32_t& index, std::stack<module_t*>& S, std::unordered_map<module_t*, module_info_t>& module_info_by_module) {
     const auto module_info_by_module_it = module_info_by_module.find(module);
     if (module_info_by_module_it == module_info_by_module.end()) {
-        throw std::runtime_error("kernel::cpp_builder::graph::strong_connect: module not found in module_info_by_module");
+        throw std::runtime_error("kernel::graph::strong_connect: module not found in module_info_by_module");
     }
 
     auto& module_info = module_info_by_module_it->second;
@@ -370,7 +188,7 @@ void workspace_ecosystem_t::strong_connect(module_t* module, uint32_t& index, st
     for (const auto& dependency : module->dependencies) {
         const auto dependency_module_info_by_module_it = module_info_by_module.find(dependency);
         if (dependency_module_info_by_module_it == module_info_by_module.end()) {
-            throw std::runtime_error("kernel::cpp_builder::graph::strong_connect: dependency module not found in module_info_by_module");
+            throw std::runtime_error("kernel::graph::strong_connect: dependency module not found in module_info_by_module");
         }
         const auto& dependency_module_info = dependency_module_info_by_module_it->second;
         if (dependency_module_info.index == -1) {
@@ -388,7 +206,7 @@ void workspace_ecosystem_t::strong_connect(module_t* module, uint32_t& index, st
             S.pop();
             const auto neighbor_module_info_by_module_it = module_info_by_module.find(neighbor_module);
             if (neighbor_module_info_by_module_it == module_info_by_module.end()) {
-                throw std::runtime_error("kernel::cpp_builder::graph::strong_connect: neighbor module not found in module_info_by_module");
+                throw std::runtime_error("kernel::graph::strong_connect: neighbor module not found in module_info_by_module");
             }
             auto& neighbor_module_info = neighbor_module_info_by_module_it->second;
             neighbor_module_info.on_stack = false;
@@ -402,7 +220,7 @@ void workspace_ecosystem_t::strong_connect(module_t* module, uint32_t& index, st
     }
 }
 
-version_t workspace_ecosystem_t::version_sccs(module_scc_t* scc, std::unordered_map<module_scc_t*, version_t>& visited, version_t minimum_version) {
+static version_t version_sccs(module_scc_t* scc, std::unordered_map<module_scc_t*, version_t>& visited, version_t minimum_version) {
     if (auto it = visited.find(scc); it != visited.end()) {
         return it->second;
     }
@@ -426,22 +244,52 @@ version_t workspace_ecosystem_t::version_sccs(module_scc_t* scc, std::unordered_
     return result;
 }
 
-module_t* workspace_ecosystem_t::discover_module(filesystem::relative_path_t workspace_relative_path_to_workspace_ecosystem, filesystem::relative_path_t module_relative_path_to_workspace) {
-    auto result = discover_module_impl(workspace_relative_path_to_workspace_ecosystem, module_relative_path_to_workspace);
+static void validate_module(const workspace_ecosystem_t& workspace_ecosystem, module_t* module, std::unordered_set<module_t*>& validated_modules) {
+    if (!validated_modules.insert(module).second) {
+        return ;
+    }
 
-    auto this_workspace_it = workspace_by_workspace_relative_path_to_workspace_ecosystem.find(filesystem::relative_path_t(THIS_WORKSPACE));
-    if (this_workspace_it == workspace_by_workspace_relative_path_to_workspace_ecosystem.end()) {
-        throw std::runtime_error(std::format("kernel::cpp_builder::graph::discover_module: this workspace '{}' not found in workspace ecosystem", THIS_WORKSPACE));
+    if (module == workspace_ecosystem.this_module) {
+        // The active Builder kernel is allowed to bootstrap through an existing builder.
+        return ;
+    }
+
+    const auto order_position = module->workspace->order_position;
+    for (const auto& module_dependency : module->dependencies) {
+        const auto module_dependency_order_position = module_dependency->workspace->order_position;
+        if (!(module_dependency_order_position <= order_position)) {
+            throw std::runtime_error(std::format("kernel::graph::validate_module: module (workspace: {}, module: {}, order position: {}) cannot depend on later workspace module (workspace: {}, module: {}, order position: {})", module->workspace->relative_path, module->module_relative_path_to_workspace, order_position, module_dependency->workspace->relative_path, module_dependency->module_relative_path_to_workspace, module_dependency_order_position));
+        }
+
+        validate_module(workspace_ecosystem, module_dependency, validated_modules);
+    }
+
+    for (const auto builder_dependency : module->builder_dependencies) {
+        const auto builder_dependency_order_position = builder_dependency->workspace->order_position;
+        if (!(builder_dependency_order_position < order_position)) {
+            throw std::runtime_error(std::format("kernel::graph::validate_module: builder (workspace: {}, module: {}, order position: {}) cannot depend on same or later workspace module (workspace: {}, module: {}, order position: {})", module->workspace->relative_path, module->module_relative_path_to_workspace, order_position, builder_dependency->workspace->relative_path, builder_dependency->module_relative_path_to_workspace, builder_dependency_order_position));
+        }
+
+        validate_module(workspace_ecosystem, builder_dependency, validated_modules);
+    }
+}
+
+module_t* workspace_ecosystem_t::discover_module(filesystem::relative_path_t workspace_relative_path, filesystem::relative_path_t module_relative_path_to_workspace) {
+    auto result = discover_module_impl(*this, workspace_relative_path, module_relative_path_to_workspace);
+
+    auto this_workspace_it = workspace_by_relative_path.find(filesystem::relative_path_t(THIS_WORKSPACE));
+    if (this_workspace_it == workspace_by_relative_path.end()) {
+        throw std::runtime_error(std::format("kernel::graph::discover_module: this workspace '{}' not found in workspace ecosystem", THIS_WORKSPACE));
     }
     auto this_module_it = this_workspace_it->second->module_by_module_relative_path_to_workspace.find(filesystem::relative_path_t(THIS_MODULE));
     if (this_module_it == this_workspace_it->second->module_by_module_relative_path_to_workspace.end()) {
-        throw std::runtime_error(std::format("kernel::cpp_builder::graph::discover_module: this module '{}' not found in workspace '{}'", THIS_MODULE, THIS_WORKSPACE));
+        throw std::runtime_error(std::format("kernel::graph::discover_module: this module '{}' not found in workspace '{}'", THIS_MODULE, THIS_WORKSPACE));
     }
     this_workspace = this_workspace_it->second;
     this_module = this_module_it->second;
 
     std::unordered_map<module_t*, module_info_t> module_info_by_module;
-    for (const auto& [_, workspace] : workspace_by_workspace_relative_path_to_workspace_ecosystem) {
+    for (const auto& [_, workspace] : workspace_by_relative_path) {
         for (const auto& [_, module] : workspace->module_by_module_relative_path_to_workspace) {
             module_info_by_module[module] = module_info_t {
                 .index = -1,
@@ -460,7 +308,7 @@ module_t* workspace_ecosystem_t::discover_module(filesystem::relative_path_t wor
     }
 
     std::unordered_map<module_scc_t*, std::unordered_set<module_scc_t*>> module_scc_dependencies_by_module_scc;
-    for (const auto& [_, workspace] : workspace_by_workspace_relative_path_to_workspace_ecosystem) {
+    for (const auto& [_, workspace] : workspace_by_relative_path) {
         for (const auto& [_, module] : workspace->module_by_module_relative_path_to_workspace) {
             for (const auto& dependency : module->dependencies) {
                 assert(dependency->module_scc != nullptr);
@@ -474,7 +322,7 @@ module_t* workspace_ecosystem_t::discover_module(filesystem::relative_path_t wor
     }
 
     std::vector<module_t*> modules;
-    for (const auto& [_, workspace] : workspace_by_workspace_relative_path_to_workspace_ecosystem) {
+    for (const auto& [_, workspace] : workspace_by_relative_path) {
         for (const auto& [_, module] : workspace->module_by_module_relative_path_to_workspace) {
             modules.push_back(module);
         }
@@ -492,13 +340,13 @@ module_t* workspace_ecosystem_t::discover_module(filesystem::relative_path_t wor
 
         bool changed = false;
         for (auto* module : modules) {
-            version_t producer_version = module->version;
-            for (auto* producer_dependency : module->producer_dependencies) {
-                producer_version.value = std::max(producer_version.value, producer_dependency->version.value);
+            version_t builder_version = module->version;
+            for (auto* builder_dependency : module->builder_dependencies) {
+                builder_version.value = std::max(builder_version.value, builder_dependency->version.value);
             }
 
-            if (module->version.value < producer_version.value) {
-                module->version = producer_version;
+            if (module->version.value < builder_version.value) {
+                module->version = builder_version;
                 changed = true;
             }
         }
@@ -508,43 +356,12 @@ module_t* workspace_ecosystem_t::discover_module(filesystem::relative_path_t wor
         }
     }
 
+    std::unordered_set<module_t*> validated_modules;
+    validate_module(*this, result, validated_modules);
+
     return result;
 }
 
-void module_t::validate() {
-    if (validated) {
-        return ;
-    }
-    validated = true;
-
-    if (this == workspace->workspace_ecosystem->this_module) {
-        // assume another producer exists instead of the builder to build this module
-        return ;
-    }
-
-    const auto level = workspace->level;
-    for (const auto& module_dependency : dependencies) {
-        const auto module_dependency_level = module_dependency->workspace->level;
-        if (!(module_dependency_level <= level)) {
-            throw std::runtime_error(std::format("kernel::cpp_builder::graph::validate_module: module (workspace: {}, module: {}, level: {}) cannot depend on higher level module (workspace: {}, module: {}, level: {})", workspace->workspace_relative_path_to_workspace_ecosystem.string(), module_relative_path_to_workspace.string(), level, module_dependency->workspace->workspace_relative_path_to_workspace_ecosystem.string(), module_dependency->module_relative_path_to_workspace.string(), module_dependency_level));
-        }
-
-        module_dependency->validate();
-    }
-
-    const auto producer_level = level;
-    for (const auto producer_dependency : producer_dependencies) {
-        const auto producer_dependency_level = producer_dependency->workspace->level;
-        if (!(producer_dependency_level < producer_level)) {
-            throw std::runtime_error(std::format("kernel::cpp_builder::graph::validate_module: producer (workspace: {}, module: {}, level: {}) cannot depend on same or higher level module (workspace: {}, module: {}, level: {})", workspace->workspace_relative_path_to_workspace_ecosystem.string(), module_relative_path_to_workspace.string(), producer_level, producer_dependency->workspace->workspace_relative_path_to_workspace_ecosystem.string(), producer_dependency->module_relative_path_to_workspace.string(), producer_dependency_level));
-        }
-
-        producer_dependency->validate();
-    }
-}
-
 } // namespace graph
-
-} // namespace cpp_builder
 
 } // namespace kernel

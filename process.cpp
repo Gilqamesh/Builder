@@ -9,8 +9,6 @@
 
 namespace kernel {
 
-namespace cpp_builder {
-
 namespace process {
 
 int create_and_wait(const std::vector<process_arg_t>& args) {
@@ -75,7 +73,5 @@ int create_and_wait(const std::vector<process_arg_t>& args) {
 }
 
 } // namespace process
-
-} // namespace cpp_builder
 
 } // namespace kernel

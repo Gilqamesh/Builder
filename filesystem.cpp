@@ -1,15 +1,11 @@
 #include "filesystem.h"
 
-#include "phase.h"
-
 #include <format>
 #include <algorithm>
 #include <iostream>
 #include <fstream>
 
 namespace kernel {
-
-namespace cpp_builder {
 
 namespace filesystem {
 
@@ -342,18 +338,6 @@ std::vector<path_t> find(const path_t& dir, const find_include_predicate_t& incl
     return find(dir, include_predicate, descend_predicate, 0);
 }
 
-std::vector<path_t> find(const builder::output_t& output, const find_include_predicate_t& include_predicate) {
-    std::vector<path_t> result;
-
-    for (const auto& artifact : output.artifacts) {
-        if (include_predicate(artifact.path)) {
-            result.push_back(artifact.path);
-        }
-    }
-
-    return result;
-}
-
 path_t canonical(const path_t& path) {
     // std::cout << std::format("realpath {}", pretty_path_t(path)) << std::endl;
 
@@ -562,7 +546,5 @@ bool is_directory(const path_t& path) {
 }
 
 } // namespace filesystem
-
-} // namespace cpp_builder
 
 } // namespace kernel

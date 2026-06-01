@@ -1,11 +1,9 @@
-#ifndef KERNEL_CPP_BUILDER_SHARED_LIBRARY_H
-# define KERNEL_CPP_BUILDER_SHARED_LIBRARY_H
+#ifndef KERNEL_SHARED_LIBRARY_H
+# define KERNEL_SHARED_LIBRARY_H
 
 # include "filesystem.h"
 
 namespace kernel {
-
-namespace cpp_builder {
 
 namespace shared_library {
 // TODO: move symbol out of here; introduce better abstractions for loader / binary semantics
@@ -107,8 +105,6 @@ symbol_t::operator F() const {
 
 } // namespace shared_library
 
-} // namespace cpp_builder
-
 } // namespace kernel
 
-#endif // KERNEL_CPP_BUILDER_SHARED_LIBRARY_H
+#endif // KERNEL_SHARED_LIBRARY_H

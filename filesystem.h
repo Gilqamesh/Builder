@@ -1,19 +1,11 @@
-#ifndef KERNEL_CPP_BUILDER_FILESYSTEM_H
-# define KERNEL_CPP_BUILDER_FILESYSTEM_H
+#ifndef KERNEL_FILESYSTEM_H
+# define KERNEL_FILESYSTEM_H
 
 # include <filesystem>
 # include <functional>
 # include <format>
 
 namespace kernel {
-
-namespace cpp_builder {
-
-namespace builder {
-
-struct output_t;
-
-} // namespace builder
 
 /**
  * filesystem
@@ -255,7 +247,6 @@ struct find_descend_predicate_t {
  * The filesystem structure must not be modified during traversal.
  */
 std::vector<path_t> find(const path_t& dir, const find_include_predicate_t& include_predicate, const find_descend_predicate_t& descend_predicate);
-std::vector<path_t> find(const builder::output_t& output, const find_include_predicate_t& include_predicate);
 
 /**
  * Returns the canonical path, resolving all symbolic links.
@@ -350,47 +341,45 @@ bool is_directory(const path_t& path);
 
 } // namespace filesystem
 
-} // namespace cpp_builder
-
 } // namespace kernel
 
 namespace std {
 
 template <>
-struct formatter<kernel::cpp_builder::filesystem::path_t> : formatter<std::string> {
-    auto format(const kernel::cpp_builder::filesystem::path_t& path, auto& ctx) const {
+struct formatter<kernel::filesystem::path_t> : formatter<std::string> {
+    auto format(const kernel::filesystem::path_t& path, auto& ctx) const {
         return formatter<std::string>::format(path.string(), ctx);
     }
 };
 
 template <>
-struct formatter<kernel::cpp_builder::filesystem::relative_path_t> : formatter<std::string> {
-    auto format(const kernel::cpp_builder::filesystem::relative_path_t& relative_path, auto& ctx) const {
+struct formatter<kernel::filesystem::relative_path_t> : formatter<std::string> {
+    auto format(const kernel::filesystem::relative_path_t& relative_path, auto& ctx) const {
         return formatter<std::string>::format(relative_path.string(), ctx);
     }
 };
 
 template <>
-struct formatter<kernel::cpp_builder::filesystem::pretty_path_t> : formatter<std::string> {
-    auto format(const kernel::cpp_builder::filesystem::pretty_path_t& pretty_path, auto& ctx) const {
+struct formatter<kernel::filesystem::pretty_path_t> : formatter<std::string> {
+    auto format(const kernel::filesystem::pretty_path_t& pretty_path, auto& ctx) const {
         return formatter<std::string>::format(pretty_path.string(), ctx);
     }
 };
 
 template <>
-struct hash<kernel::cpp_builder::filesystem::path_t> {
-    std::size_t operator()(const kernel::cpp_builder::filesystem::path_t& path) const noexcept {
+struct hash<kernel::filesystem::path_t> {
+    std::size_t operator()(const kernel::filesystem::path_t& path) const noexcept {
         return std::hash<std::string>()(path.string());
     }
 };
 
 template <>
-struct hash<kernel::cpp_builder::filesystem::relative_path_t> {
-    std::size_t operator()(const kernel::cpp_builder::filesystem::relative_path_t& relative_path) const noexcept {
+struct hash<kernel::filesystem::relative_path_t> {
+    std::size_t operator()(const kernel::filesystem::relative_path_t& relative_path) const noexcept {
         return std::hash<std::string>()(relative_path.string());
     }
 };
 
 } // namespace std
 
-#endif // KERNEL_CPP_BUILDER_FILESYSTEM_H
+#endif // KERNEL_FILESYSTEM_H
