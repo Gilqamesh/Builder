@@ -14,7 +14,7 @@ namespace kernel {
 namespace graph {
 
 inline const constexpr char* THIS_MODULE = "kernel";
-inline const constexpr char* THIS_WORKSPACE = "ws0";
+inline const constexpr char* THIS_WORKSPACE = "foundation";
 
 inline const constexpr char* BUILDER_CPP = "builder.cpp";
 

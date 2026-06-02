@@ -4,32 +4,25 @@
 
 #include <format>
 #include <stdexcept>
+#include <string>
 #include <type_traits>
-#include <utility>
 
 namespace kernel {
 
 namespace compiler {
 
-define_t::define_t(std::string key, std::string value):
-    m_key(std::move(key)),
-    m_replacement("\"")
-{
+static std::string cxx_string_literal_replacement(const std::string& value) {
+    std::string result("\"");
+
     for (const char c : value) {
         if (c == '\\' || c == '"') {
-            m_replacement.push_back('\\');
+            result.push_back('\\');
         }
-        m_replacement.push_back(c);
+        result.push_back(c);
     }
-    m_replacement.push_back('"');
-}
 
-const std::string& define_t::key() const {
-    return m_key;
-}
-
-const std::string& define_t::replacement() const {
-    return m_replacement;
+    result.push_back('"');
+    return result;
 }
 
 static std::vector<filesystem::path_t> create_object_files(
@@ -37,7 +30,7 @@ static std::vector<filesystem::path_t> create_object_files(
     const filesystem::path_t& source_dir,
     const std::vector<filesystem::path_t>& include_dirs,
     const std::vector<filesystem::path_t>& source_files,
-    const std::vector<define_t>& defines,
+    const std::vector<binding::binding_t>& defines,
     bool is_position_independent
 ) {
     std::vector<filesystem::path_t> result;
@@ -51,7 +44,7 @@ static std::vector<filesystem::path_t> create_object_files(
     process_prefix_args.push_back("-g");
 
     for (const auto& define : defines) {
-        process_prefix_args.push_back(std::format("-D{}={}", define.key(), define.replacement()));
+        process_prefix_args.push_back(std::format("-D{}={}", define.key(), cxx_string_literal_replacement(define.value())));
     }
 
     for (const auto& include_dir : include_dirs) {
@@ -115,7 +108,7 @@ static filesystem::path_t create_archive_library_impl(
     const filesystem::path_t& source_dir,
     const std::vector<filesystem::path_t>& include_dirs,
     const std::vector<filesystem::path_t>& source_files,
-    const std::vector<define_t>& defines,
+    const std::vector<binding::binding_t>& defines,
     const filesystem::path_t& static_library
 ) {
     const auto object_files = create_object_files(
@@ -157,7 +150,7 @@ static filesystem::path_t create_dynamic_library_impl(
     const filesystem::path_t& source_dir,
     const std::vector<filesystem::path_t>& include_dirs,
     const std::vector<filesystem::path_t>& source_files,
-    const std::vector<define_t>& defines,
+    const std::vector<binding::binding_t>& defines,
     const link_inputs_t& link_inputs,
     const filesystem::path_t& shared_library
 ) {
@@ -220,7 +213,7 @@ static filesystem::path_t create_binary_impl(
     const filesystem::path_t& source_dir,
     const std::vector<filesystem::path_t>& include_dirs,
     const std::vector<filesystem::path_t>& source_files,
-    const std::vector<define_t>& defines,
+    const std::vector<binding::binding_t>& defines,
     const link_inputs_t& link_inputs,
     const filesystem::path_t& binary
 ) {
@@ -282,7 +275,7 @@ filesystem::path_t create_library(
     const filesystem::path_t& source_dir,
     const std::vector<filesystem::path_t>& include_dirs,
     const std::vector<filesystem::path_t>& source_files,
-    const std::vector<define_t>& defines,
+    const std::vector<binding::binding_t>& defines,
     library_type_t library_type,
     const link_inputs_t& link_inputs,
     const filesystem::path_t& output_path
@@ -321,7 +314,7 @@ filesystem::path_t create_binary(
     const filesystem::path_t& source_dir,
     const std::vector<filesystem::path_t>& include_dirs,
     const std::vector<filesystem::path_t>& source_files,
-    const std::vector<define_t>& defines,
+    const std::vector<binding::binding_t>& defines,
     const link_inputs_t& link_inputs,
     const filesystem::path_t& output_path
 ) {

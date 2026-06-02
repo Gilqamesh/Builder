@@ -7,11 +7,9 @@
 
 namespace kernel {
 
-namespace phase {
-
 template <class phase_t>
-output_t build(graph::module_t& module, module_config::module_config_t module_config) {
-    output_t output {
+typename phase_t::output_t build(graph::module_t& module, module_config::module_config_t module_config) {
+    phase::output_artifacts_t output {
         .root = filesystem::path_t("/"),
         .artifacts = {}
     };
@@ -19,39 +17,49 @@ output_t build(graph::module_t& module, module_config::module_config_t module_co
     return requested_phase.template build<phase_t>();
 }
 
-} // namespace phase
+std::vector<filesystem::path_t> find(
+    const phase::output_artifacts_t& output,
+    const filesystem::find_include_predicate_t& include_predicate
+);
 
-namespace filesystem {
-
-std::vector<path_t> find(
-    const phase::output_t& output,
-    const find_include_predicate_t& include_predicate
+std::vector<filesystem::path_t> find(
+    const phase::binary_phase_t::output_t& output,
+    const filesystem::find_include_predicate_t& include_predicate
 );
 
 phase::output_artifact_t find(
-    const phase::output_t& output,
-    const relative_path_t& relative_path
+    const phase::output_artifacts_t& output,
+    const filesystem::relative_path_t& relative_path
 );
 
-} // namespace filesystem
-
-namespace compiler {
+phase::output_artifact_t find(
+    const phase::binary_phase_t::output_t& output,
+    const filesystem::relative_path_t& relative_path
+);
 
 filesystem::path_t create_library(
     const phase::library_phase_t& phase,
     const std::vector<filesystem::relative_path_t>& relative_source_files,
-    const std::vector<define_t>& defines,
+    const std::vector<binding::binding_t>& defines,
     const filesystem::relative_path_t& relative_output_path
+);
+
+phase::default_library_t default_library(
+    const std::vector<filesystem::relative_path_t>& relative_source_files,
+    const std::vector<binding::binding_t>& defines
 );
 
 filesystem::path_t create_binary(
     const phase::binary_phase_t& phase,
     const std::vector<filesystem::relative_path_t>& relative_source_files,
-    const std::vector<define_t>& defines,
+    const std::vector<binding::binding_t>& defines,
     const filesystem::relative_path_t& relative_output_path
 );
 
-} // namespace compiler
+phase::default_cli_t default_cli(
+    const std::vector<filesystem::relative_path_t>& relative_source_files,
+    const std::vector<binding::binding_t>& defines
+);
 
 } // namespace kernel
 

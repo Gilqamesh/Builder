@@ -9,33 +9,18 @@
 
 namespace kernel {
 
-namespace filesystem {
+namespace phase {
 
-std::vector<path_t> find(
-    const phase::output_t& output,
-    const find_include_predicate_t& include_predicate
+static output_artifact_t find_output_artifact(
+    const source_phase_t::output_t& output,
+    const filesystem::relative_path_t& relative_path
 ) {
-    std::vector<path_t> result;
-
-    for (const auto& artifact : output.artifacts) {
-        if (include_predicate(artifact.path)) {
-            result.push_back(artifact.path);
-        }
-    }
-
-    return result;
-}
-
-phase::output_artifact_t find(
-    const phase::output_t& output,
-    const relative_path_t& relative_path
-) {
-    const phase::output_artifact_t* result = nullptr;
+    const output_artifact_t* result = nullptr;
 
     for (const auto& artifact : output.artifacts) {
         if (artifact.relative_path == relative_path) {
             if (result != nullptr) {
-                throw std::runtime_error(std::format("kernel::filesystem::find: output has more than one artifact at relative path '{}'", relative_path));
+                throw std::runtime_error(std::format("kernel::phase::find_output_artifact: output has more than one artifact at relative path '{}'", relative_path));
             }
 
             result = &artifact;
@@ -43,15 +28,11 @@ phase::output_artifact_t find(
     }
 
     if (result == nullptr) {
-        throw std::runtime_error(std::format("kernel::filesystem::find: output has no artifact at relative path '{}'", relative_path));
+        throw std::runtime_error(std::format("kernel::phase::find_output_artifact: output has no artifact at relative path '{}'", relative_path));
     }
 
     return *result;
 }
-
-} // namespace filesystem
-
-namespace phase {
 
 static filesystem::relative_path_t library_type_relative_dir(module_config::library_type_t library_type) {
     switch (library_type) {
@@ -62,11 +43,11 @@ static filesystem::relative_path_t library_type_relative_dir(module_config::libr
 }
 
 template <class phase_t>
-static std::vector<output_t> build_closure_for_module(
+static std::vector<typename phase_t::output_t> build_closure_for_module(
     graph::module_t& module,
     module_config::module_config_t module_config
 ) {
-    output_t output {
+    output_artifacts_t output {
         .root = filesystem::path_t("/"),
         .artifacts = {}
     };
@@ -74,11 +55,11 @@ static std::vector<output_t> build_closure_for_module(
     return requested_phase.template build_closure<phase_t>();
 }
 
-static std::vector<compiler::define_t> tool_path_defines() {
+static std::vector<binding::binding_t> tool_path_defines() {
     return {
-        compiler::define_t("KERNEL_CXX_COMPILER_PATH", KERNEL_CXX_COMPILER_PATH),
-        compiler::define_t("KERNEL_CC_COMPILER_PATH", KERNEL_CC_COMPILER_PATH),
-        compiler::define_t("KERNEL_AR_PATH", KERNEL_AR_PATH)
+        binding::binding_t("KERNEL_CXX_COMPILER_PATH", KERNEL_CXX_COMPILER_PATH),
+        binding::binding_t("KERNEL_CC_COMPILER_PATH", KERNEL_CC_COMPILER_PATH),
+        binding::binding_t("KERNEL_AR_PATH", KERNEL_AR_PATH)
     };
 }
 
@@ -110,7 +91,7 @@ phase_base_t::phase_base_t(
     std::string_view name,
     graph::module_t& module,
     module_config::module_config_t module_config,
-    output_t& output
+    output_artifacts_t& output
 ):
     m_name(name),
     m_module(module),
@@ -143,7 +124,7 @@ filesystem::path_t phase_base_t::install_dir() const {
     return artifact_dir() / filesystem::relative_path_t("install") / library_type_relative_dir(module_config().library_type);
 }
 
-output_t& phase_base_t::output() const {
+output_artifacts_t& phase_base_t::output() const {
     return m_output;
 }
 
@@ -246,7 +227,7 @@ filesystem::path_t phase_base_t::builder_plugin() const {
 source_phase_t::source_phase_t(
     graph::module_t& module,
     module_config::module_config_t module_config,
-    output_t& output
+    output_artifacts_t& output
 ):
     phase_base_t("source", module, module_config, output)
 {
@@ -274,7 +255,7 @@ void source_phase_t::add_source(const filesystem::path_t& source, const filesyst
 interface_phase_t::interface_phase_t(
     graph::module_t& module,
     module_config::module_config_t module_config,
-    output_t& output
+    output_artifacts_t& output
 ):
     phase_base_t("interface", module, module_config, output)
 {
@@ -291,7 +272,7 @@ void interface_phase_t::add_headers_from_source() const {
 }
 
 void interface_phase_t::add_interface_from_source(const filesystem::relative_path_t& relative_path) const {
-    add_interface(filesystem::find(build<source_phase_t>(), relative_path));
+    add_interface(find_output_artifact(build<source_phase_t>(), relative_path));
 }
 
 void interface_phase_t::add_interface(const filesystem::path_t& interface, const filesystem::relative_path_t& module_relative_install_path) const {
@@ -314,10 +295,14 @@ void interface_phase_t::add_interface(const output_artifact_t& artifact) const {
 library_phase_t::library_phase_t(
     graph::module_t& module,
     module_config::module_config_t module_config,
-    output_t& output
+    output_artifacts_t& output
 ):
     phase_base_t("library", module, module_config, output)
 {
+}
+
+void library_phase_t::add_library(const output_artifact_t& artifact) const {
+    add_library(artifact.path, artifact.relative_path);
 }
 
 void library_phase_t::add_library(const filesystem::path_t& library, const filesystem::relative_path_t& relative_install_path) const {
@@ -330,13 +315,28 @@ void library_phase_t::add_library(const filesystem::path_t& library, const files
 binary_phase_t::binary_phase_t(
     graph::module_t& module,
     module_config::module_config_t module_config,
-    output_t& output
+    output_artifacts_t& output
 ):
     phase_base_t("binary", module, module_config, output)
 {
 }
 
+void binary_phase_t::add_cli(const filesystem::path_t& binary) const {
+    output().artifacts.push_back(output_artifact_t {
+        .path = binary,
+        .relative_path = filesystem::relative_path_t("cli")
+    });
+}
+
+void binary_phase_t::add_binary(const output_artifact_t& artifact) const {
+    add_binary(artifact.path, artifact.relative_path);
+}
+
 void binary_phase_t::add_binary(const filesystem::path_t& binary, const filesystem::relative_path_t& relative_install_path) const {
+    if (relative_install_path == filesystem::relative_path_t("cli")) {
+        throw std::runtime_error("kernel::phase::binary_phase_t::add_binary: use add_cli to publish the default CLI artifact");
+    }
+
     output().artifacts.push_back(output_artifact_t {
         .path = binary,
         .relative_path = relative_install_path

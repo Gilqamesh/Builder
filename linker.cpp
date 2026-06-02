@@ -56,7 +56,7 @@ link_inputs_t binary_link_inputs(const graph::module_t& module, module_config::m
         };
 
         for (auto module_it = current_scc.modules.rbegin(); module_it != current_scc.modules.rend(); ++module_it) {
-            phase::output_t output {
+            phase::output_artifacts_t output {
                 .root = filesystem::path_t("/"),
                 .artifacts = {}
             };

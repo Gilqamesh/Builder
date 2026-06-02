@@ -7,9 +7,83 @@
 #include <type_traits>
 
 namespace kernel {
-    
+
+static std::vector<phase::output_artifact_t> artifacts(const phase::binary_phase_t::output_t& output) {
+    std::vector<phase::output_artifact_t> result;
+    result.reserve(1 + output.artifacts.size());
+    result.push_back(output.cli);
+    result.insert(result.end(), output.artifacts.begin(), output.artifacts.end());
+    return result;
+}
+
+static std::vector<filesystem::path_t> find_artifacts(
+    const std::vector<phase::output_artifact_t>& artifacts,
+    const filesystem::find_include_predicate_t& include_predicate
+) {
+    std::vector<filesystem::path_t> result;
+
+    for (const auto& artifact : artifacts) {
+        if (include_predicate(artifact.path)) {
+            result.push_back(artifact.path);
+        }
+    }
+
+    return result;
+}
+
+static phase::output_artifact_t find_artifact(
+    const std::vector<phase::output_artifact_t>& artifacts,
+    const filesystem::relative_path_t& relative_path
+) {
+    const phase::output_artifact_t* result = nullptr;
+
+    for (const auto& artifact : artifacts) {
+        if (artifact.relative_path == relative_path) {
+            if (result != nullptr) {
+                throw std::runtime_error(std::format("kernel::find: output has more than one artifact at relative path '{}'", relative_path));
+            }
+
+            result = &artifact;
+        }
+    }
+
+    if (result == nullptr) {
+        throw std::runtime_error(std::format("kernel::find: output has no artifact at relative path '{}'", relative_path));
+    }
+
+    return *result;
+}
+
+std::vector<filesystem::path_t> find(
+    const phase::output_artifacts_t& output,
+    const filesystem::find_include_predicate_t& include_predicate
+) {
+    return find_artifacts(output.artifacts, include_predicate);
+}
+
+std::vector<filesystem::path_t> find(
+    const phase::binary_phase_t::output_t& output,
+    const filesystem::find_include_predicate_t& include_predicate
+) {
+    return find_artifacts(artifacts(output), include_predicate);
+}
+
+phase::output_artifact_t find(
+    const phase::output_artifacts_t& output,
+    const filesystem::relative_path_t& relative_path
+) {
+    return find_artifact(output.artifacts, relative_path);
+}
+
+phase::output_artifact_t find(
+    const phase::binary_phase_t::output_t& output,
+    const filesystem::relative_path_t& relative_path
+) {
+    return find_artifact(artifacts(output), relative_path);
+}
+
 static std::vector<filesystem::path_t> resolve_source_files(
-    const phase::output_t& source_output,
+    const phase::source_phase_t::output_t& source_output,
     const std::vector<filesystem::relative_path_t>& relative_source_files
 ) {
     std::vector<filesystem::path_t> source_files;
@@ -37,7 +111,7 @@ static std::vector<filesystem::path_t> resolve_source_files(
 }
 
 static std::vector<filesystem::path_t> include_dirs_from_outputs(
-    const std::vector<phase::output_t>& interface_outputs
+    const std::vector<phase::interface_phase_t::output_t>& interface_outputs
 ) {
     std::vector<filesystem::path_t> include_dirs;
     include_dirs.reserve(interface_outputs.size());
@@ -74,18 +148,16 @@ static compiler::link_inputs_t compiler_link_inputs(
     return result;
 }
 
-namespace compiler {
-
 filesystem::path_t create_library(
     const phase::library_phase_t& library_phase,
     const std::vector<filesystem::relative_path_t>& relative_source_files,
-    const std::vector<define_t>& defines,
+    const std::vector<binding::binding_t>& defines,
     const filesystem::relative_path_t& relative_output_path
 ) {
     const auto source_output = library_phase.build<phase::source_phase_t>();
     const auto interface_outputs = library_phase.build_closure<phase::interface_phase_t>();
 
-    return create_library(
+    return compiler::create_library(
         library_phase.build_dir(),
         source_output.root,
         include_dirs_from_outputs(interface_outputs),
@@ -97,10 +169,42 @@ filesystem::path_t create_library(
     );
 }
 
+static phase::output_artifact_t default_library_artifact(
+    const phase::library_phase_t& library_phase,
+    const std::vector<filesystem::relative_path_t>& relative_source_files,
+    const std::vector<binding::binding_t>& defines
+) {
+    const auto stem = library_phase.module().module_relative_path_to_workspace.stem();
+    if (stem.empty()) {
+        throw std::runtime_error("kernel::default_library: module name stem must not be empty");
+    }
+
+    const auto relative_output_path = [&]() {
+        switch (library_phase.module_config().library_type) {
+            case module_config::library_type_t::STATIC:
+                return filesystem::relative_path_t(std::format("lib{}.a", stem));
+            case module_config::library_type_t::SHARED:
+                return filesystem::relative_path_t(std::format("lib{}.so", stem));
+            default:
+                throw std::runtime_error(std::format("kernel::default_library: unknown library_type {}", static_cast<std::underlying_type_t<module_config::library_type_t>>(library_phase.module_config().library_type)));
+        }
+    }();
+
+    return phase::output_artifact_t {
+        .path = create_library(
+            library_phase,
+            relative_source_files,
+            defines,
+            relative_output_path
+        ),
+        .relative_path = relative_output_path
+    };
+}
+
 filesystem::path_t create_binary(
     const phase::binary_phase_t& binary_phase,
     const std::vector<filesystem::relative_path_t>& relative_source_files,
-    const std::vector<define_t>& defines,
+    const std::vector<binding::binding_t>& defines,
     const filesystem::relative_path_t& relative_output_path
 ) {
     const auto source_output = binary_phase.build<phase::source_phase_t>();
@@ -110,7 +214,7 @@ filesystem::path_t create_binary(
         binary_phase.module_config()
     );
 
-    return create_binary(
+    return compiler::create_binary(
         binary_phase.build_dir(),
         source_output.root,
         include_dirs_from_outputs(interface_outputs),
@@ -121,6 +225,57 @@ filesystem::path_t create_binary(
     );
 }
 
-} // namespace compiler
+static filesystem::path_t default_cli_artifact(
+    const phase::binary_phase_t& binary_phase,
+    const std::vector<filesystem::relative_path_t>& relative_source_files,
+    const std::vector<binding::binding_t>& defines
+) {
+    return create_binary(
+        binary_phase,
+        relative_source_files,
+        defines,
+        filesystem::relative_path_t("cli")
+    );
+}
+
+phase::default_library_t default_library(
+    const std::vector<filesystem::relative_path_t>& relative_source_files,
+    const std::vector<binding::binding_t>& defines
+) {
+    return phase::default_library_t {
+        .relative_source_files = relative_source_files,
+        .defines = defines
+    };
+}
+
+phase::default_cli_t default_cli(
+    const std::vector<filesystem::relative_path_t>& relative_source_files,
+    const std::vector<binding::binding_t>& defines
+) {
+    return phase::default_cli_t {
+        .relative_source_files = relative_source_files,
+        .defines = defines
+    };
+}
+
+namespace phase {
+
+void library_phase_t::add_library(const default_library_t& request) const {
+    add_library(default_library_artifact(
+        *this,
+        request.relative_source_files,
+        request.defines
+    ));
+}
+
+void binary_phase_t::add_cli(const default_cli_t& request) const {
+    add_cli(default_cli_artifact(
+        *this,
+        request.relative_source_files,
+        request.defines
+    ));
+}
+
+} // namespace phase
 
 } // namespace kernel

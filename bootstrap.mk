@@ -11,9 +11,9 @@ CC_COMPILER_PATH = $(CC)
 AR_PATH = $(AR)
 
 WORKSPACE_ROOT_DIR ?= $(abspath $(dir $(lastword $(MAKEFILE_LIST)))/../..)
-KERNEL_DIR := $(WORKSPACE_ROOT_DIR)/ws0/kernel
+KERNEL_DIR := $(WORKSPACE_ROOT_DIR)/foundation/kernel
 CLI ?= $(WORKSPACE_ROOT_DIR)/cli
-KERNEL_ARTIFACT_DIR := $(WORKSPACE_ROOT_DIR)/artifacts/ws0/kernel
+KERNEL_ARTIFACT_DIR := $(WORKSPACE_ROOT_DIR)/artifacts/foundation/kernel
 KERNEL_BOOTSTRAP_DIR := $(KERNEL_ARTIFACT_DIR)/kernel@0
 KERNEL_BUILDER_DIR := $(KERNEL_BOOTSTRAP_DIR)/builder
 KERNEL_BUILDER_SO := $(KERNEL_BUILDER_DIR)/install/builder.so
@@ -46,6 +46,7 @@ DEFINES := \
 SRC := \
 	$(KERNEL_DIR)/filesystem.cpp \
 	$(KERNEL_DIR)/process.cpp \
+	$(KERNEL_DIR)/binding.cpp \
 	$(KERNEL_DIR)/api.cpp \
 	$(KERNEL_DIR)/linker.cpp \
 	$(KERNEL_DIR)/compiler.cpp \
@@ -57,6 +58,7 @@ SRC := \
 KERNEL_BUILDER_SRC := \
 	$(KERNEL_DIR)/filesystem.cpp \
 	$(KERNEL_DIR)/process.cpp \
+	$(KERNEL_DIR)/binding.cpp \
 	$(KERNEL_DIR)/api.cpp \
 	$(KERNEL_DIR)/linker.cpp \
 	$(KERNEL_DIR)/compiler.cpp \

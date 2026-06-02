@@ -1,6 +1,7 @@
 #ifndef KERNEL_PHASE_H
 # define KERNEL_PHASE_H
 
+# include "binding.h"
 # include "graph.h"
 # include "module_config.h"
 # include "shared_library.h"
@@ -27,9 +28,19 @@ struct output_artifact_t {
     filesystem::relative_path_t relative_path;
 };
 
-struct output_t {
+struct output_artifacts_t {
     filesystem::path_t root;
     std::vector<output_artifact_t> artifacts;
+};
+
+struct default_library_t {
+    std::vector<filesystem::relative_path_t> relative_source_files;
+    std::vector<binding::binding_t> defines;
+};
+
+struct default_cli_t {
+    std::vector<filesystem::relative_path_t> relative_source_files;
+    std::vector<binding::binding_t> defines;
 };
 
 class phase_base_t {
@@ -38,7 +49,7 @@ public:
         std::string_view name,
         graph::module_t& module,
         module_config::module_config_t module_config,
-        output_t& output
+        output_artifacts_t& output
     );
 
     std::string_view name() const;
@@ -49,10 +60,10 @@ public:
     filesystem::path_t install_dir() const;
 
     template <class phase_t>
-    output_t build() const;
+    typename phase_t::output_t build() const;
 
     template <class phase_t>
-    std::vector<output_t> build_closure() const;
+    std::vector<typename phase_t::output_t> build_closure() const;
 
 private:
     filesystem::path_t builder_plugin() const;
@@ -61,17 +72,19 @@ private:
     std::string_view m_name;
     graph::module_t& m_module;
     module_config::module_config_t m_module_config;
-    output_t& m_output;
+    output_artifacts_t& m_output;
 
 protected:
-    output_t& output() const;
+    output_artifacts_t& output() const;
 };
 
 struct source_phase_t : phase_base_t {
+    using output_t = output_artifacts_t;
+
     source_phase_t(
         graph::module_t& module,
         module_config::module_config_t module_config,
-        output_t& output
+        output_artifacts_t& output
     );
 
     filesystem::path_t source_dir() const;
@@ -80,10 +93,12 @@ struct source_phase_t : phase_base_t {
 };
 
 struct interface_phase_t : phase_base_t {
+    using output_t = output_artifacts_t;
+
     interface_phase_t(
         graph::module_t& module,
         module_config::module_config_t module_config,
-        output_t& output
+        output_artifacts_t& output
     );
 
     void add_headers_from_source() const;
@@ -93,22 +108,35 @@ struct interface_phase_t : phase_base_t {
 };
 
 struct library_phase_t : phase_base_t {
+    using output_t = output_artifacts_t;
+
     library_phase_t(
         graph::module_t& module,
         module_config::module_config_t module_config,
-        output_t& output
+        output_artifacts_t& output
     );
 
+    void add_library(const default_library_t& request) const;
+    void add_library(const output_artifact_t& artifact) const;
     void add_library(const filesystem::path_t& library, const filesystem::relative_path_t& relative_install_path) const;
 };
 
 struct binary_phase_t : phase_base_t {
+    struct output_t {
+        filesystem::path_t root;
+        output_artifact_t cli;
+        std::vector<output_artifact_t> artifacts;
+    };
+
     binary_phase_t(
         graph::module_t& module,
         module_config::module_config_t module_config,
-        output_t& output
+        output_artifacts_t& output
     );
 
+    void add_cli(const default_cli_t& request) const;
+    void add_cli(const filesystem::path_t& binary) const;
+    void add_binary(const output_artifact_t& artifact) const;
     void add_binary(const filesystem::path_t& binary, const filesystem::relative_path_t& relative_install_path) const;
 };
 
@@ -117,9 +145,48 @@ BUILDER_EXTERN void phase__interface(const interface_phase_t* phase);
 BUILDER_EXTERN void phase__library(const library_phase_t* phase);
 BUILDER_EXTERN void phase__binary(const binary_phase_t* phase);
 
+inline source_phase_t::output_t make_output(const source_phase_t&, const output_artifacts_t& output) {
+    return output;
+}
+
+inline interface_phase_t::output_t make_output(const interface_phase_t&, const output_artifacts_t& output) {
+    return output;
+}
+
+inline library_phase_t::output_t make_output(const library_phase_t&, const output_artifacts_t& output) {
+    return output;
+}
+
+inline binary_phase_t::output_t make_output(const binary_phase_t&, const output_artifacts_t& output) {
+    const output_artifact_t* cli = nullptr;
+    std::vector<output_artifact_t> artifacts;
+    const auto cli_relative_path = filesystem::relative_path_t("cli");
+
+    for (const auto& artifact : output.artifacts) {
+        if (artifact.relative_path == cli_relative_path) {
+            if (cli != nullptr) {
+                throw std::runtime_error("kernel::phase::make_output: binary output published more than one default CLI artifact");
+            }
+            cli = &artifact;
+        } else {
+            artifacts.push_back(artifact);
+        }
+    }
+
+    if (cli == nullptr) {
+        throw std::runtime_error("kernel::phase::make_output: binary output did not publish a default CLI artifact");
+    }
+
+    return binary_phase_t::output_t {
+        .root = output.root,
+        .cli = *cli,
+        .artifacts = artifacts
+    };
+}
+
 template <class phase_t>
-output_t phase_base_t::build() const {
-    output_t output {
+typename phase_t::output_t phase_base_t::build() const {
+    output_artifacts_t output {
         .root = filesystem::path_t("/"),
         .artifacts = {}
     };
@@ -133,7 +200,7 @@ output_t phase_base_t::build() const {
     const auto complete_marker = marker_path("complete");
 
     if (filesystem::exists(complete_marker)) {
-        output_t result {
+        output_artifacts_t result {
             .root = install_dir,
             .artifacts = {}
         };
@@ -145,7 +212,7 @@ output_t phase_base_t::build() const {
             });
         }
 
-        return result;
+        return make_output(requested_phase, result);
     }
 
     if (filesystem::exists(started_marker)) {
@@ -180,7 +247,7 @@ output_t phase_base_t::build() const {
         fn_t fn = loader.resolve(symbol_name.c_str());
         fn(static_cast<const phase_t*>(&requested_phase));
 
-        output_t result {
+        output_artifacts_t result {
             .root = install_dir,
             .artifacts = {}
         };
@@ -213,7 +280,7 @@ output_t phase_base_t::build() const {
         filesystem::touch(complete_marker);
         filesystem::remove(started_marker);
 
-        return result;
+        return make_output(requested_phase, result);
     } catch (...) {
         filesystem::remove_all(build_dir);
         filesystem::remove_all(install_dir);
@@ -222,7 +289,7 @@ output_t phase_base_t::build() const {
 }
 
 template <class phase_t>
-std::vector<output_t> phase_base_t::build_closure() const {
+std::vector<typename phase_t::output_t> phase_base_t::build_closure() const {
     const auto* scc = m_module.module_scc;
     if (scc == nullptr) {
         throw std::runtime_error(std::format(
@@ -236,7 +303,7 @@ std::vector<output_t> phase_base_t::build_closure() const {
     }
 
     std::unordered_set<const graph::module_scc_t*> visited_sccs;
-    std::vector<output_t> outputs;
+    std::vector<typename phase_t::output_t> outputs;
     const auto build_scc = [&]<class self_t>(self_t& self, const graph::module_scc_t& current_scc) -> void {
         if (!visited_sccs.insert(&current_scc).second) {
             return ;
@@ -247,7 +314,7 @@ std::vector<output_t> phase_base_t::build_closure() const {
         }
 
         for (auto* scc_module : current_scc.modules) {
-            output_t output {
+            output_artifacts_t output {
                 .root = filesystem::path_t("/"),
                 .artifacts = {}
             };
