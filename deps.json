@@ -1,14 +1,8 @@
 {
     "module_dependencies": [
-        {
-            "workspace_relative_path": "foundation",
-            "module_relative_path": "kernel"
-        }
+        "kernel"
     ],
     "builder_dependencies": [
-        {
-            "workspace_relative_path": "foundation",
-            "module_relative_path": "kernel"
-        }
+        "kernel"
     ]
 }

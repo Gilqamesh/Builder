@@ -10,7 +10,6 @@
 # include <stdexcept>
 # include <string>
 # include <string_view>
-# include <unordered_set>
 # include <vector>
 
 namespace kernel {
@@ -290,40 +289,19 @@ typename phase_t::output_t phase_base_t::build() const {
 
 template <class phase_t>
 std::vector<typename phase_t::output_t> phase_base_t::build_closure() const {
-    const auto* scc = m_module.module_scc;
-    if (scc == nullptr) {
-        throw std::runtime_error(std::format(
-            "kernel::phase::phase_base_t::build_closure: module '{}' has no SCC",
-            std::format(
-                "{}/{}",
-                m_module.workspace->relative_path,
-                m_module.module_relative_path_to_workspace
-            )
-        ));
-    }
-
-    std::unordered_set<const graph::module_scc_t*> visited_sccs;
     std::vector<typename phase_t::output_t> outputs;
-    const auto build_scc = [&]<class self_t>(self_t& self, const graph::module_scc_t& current_scc) -> void {
-        if (!visited_sccs.insert(&current_scc).second) {
-            return ;
-        }
 
-        for (const auto* dependency : current_scc.dependencies) {
-            self(self, *dependency);
-        }
-
-        for (auto* scc_module : current_scc.modules) {
+    for (const auto& module_group : m_module.closure_groups()) {
+        for (auto* group_module : module_group) {
             output_artifacts_t output {
                 .root = filesystem::path_t("/"),
                 .artifacts = {}
             };
-            const phase_t requested_phase(*scc_module, m_module_config, output);
+            const phase_t requested_phase(*group_module, m_module_config, output);
             outputs.push_back(requested_phase.template build<phase_t>());
         }
-    };
+    }
 
-    build_scc(build_scc, *scc);
     return outputs;
 }
 

@@ -1,7 +1,5 @@
 #include "api.h"
 
-#include "linker.h"
-
 #include <format>
 #include <stdexcept>
 #include <type_traits>
@@ -132,22 +130,6 @@ static compiler::library_type_t compiler_library_type(module_config::library_typ
     }
 }
 
-static compiler::link_inputs_t compiler_link_inputs(
-    const kernel::linker::link_inputs_t& link_inputs
-) {
-    compiler::link_inputs_t result;
-    result.groups.reserve(link_inputs.groups.size());
-
-    for (const auto& group : link_inputs.groups) {
-        result.groups.push_back(compiler::link_input_group_t {
-            .libraries = group.libraries,
-            .static_library_group = group.static_library_group
-        });
-    }
-
-    return result;
-}
-
 filesystem::path_t create_library(
     const phase::library_phase_t& library_phase,
     const std::vector<filesystem::relative_path_t>& relative_source_files,
@@ -174,7 +156,7 @@ static phase::output_artifact_t default_library_artifact(
     const std::vector<filesystem::relative_path_t>& relative_source_files,
     const std::vector<binding::binding_t>& defines
 ) {
-    const auto stem = library_phase.module().module_relative_path_to_workspace.stem();
+    const auto stem = library_phase.module().name().stem();
     if (stem.empty()) {
         throw std::runtime_error("kernel::default_library: module name stem must not be empty");
     }
@@ -201,6 +183,47 @@ static phase::output_artifact_t default_library_artifact(
     };
 }
 
+static compiler::link_inputs_t binary_link_inputs(
+    const graph::module_t& module,
+    module_config::module_config_t module_config
+) {
+    bool static_libraries = false;
+    switch (module_config.library_type) {
+        case module_config::library_type_t::STATIC: static_libraries = true; break ;
+        case module_config::library_type_t::SHARED: break ;
+        default: throw std::runtime_error(std::format("kernel::binary_link_inputs: unknown library_type {}", static_cast<std::underlying_type_t<module_config::library_type_t>>(module_config.library_type)));
+    }
+
+    const auto closure_groups = module.closure_groups();
+
+    compiler::link_inputs_t result;
+    for (auto group_it = closure_groups.rbegin(); group_it != closure_groups.rend(); ++group_it) {
+        compiler::link_input_group_t group {
+            .libraries = {},
+            .static_library_group = false
+        };
+
+        for (auto module_it = group_it->rbegin(); module_it != group_it->rend(); ++module_it) {
+            phase::output_artifacts_t output {
+                .root = filesystem::path_t("/"),
+                .artifacts = {}
+            };
+            const phase::library_phase_t library_phase(**module_it, module_config, output);
+            const auto library_output = library_phase.build<phase::library_phase_t>();
+            for (const auto& library : library_output.artifacts) {
+                group.libraries.push_back(library.path);
+            }
+        }
+
+        if (!group.libraries.empty()) {
+            group.static_library_group = static_libraries && 1 < group.libraries.size();
+            result.groups.push_back(group);
+        }
+    }
+
+    return result;
+}
+
 filesystem::path_t create_binary(
     const phase::binary_phase_t& binary_phase,
     const std::vector<filesystem::relative_path_t>& relative_source_files,
@@ -209,7 +232,7 @@ filesystem::path_t create_binary(
 ) {
     const auto source_output = binary_phase.build<phase::source_phase_t>();
     const auto interface_outputs = binary_phase.build_closure<phase::interface_phase_t>();
-    const auto link_inputs = kernel::linker::binary_link_inputs(
+    const auto link_inputs = binary_link_inputs(
         binary_phase.module(),
         binary_phase.module_config()
     );
@@ -220,7 +243,7 @@ filesystem::path_t create_binary(
         include_dirs_from_outputs(interface_outputs),
         resolve_source_files(source_output, relative_source_files),
         defines,
-        compiler_link_inputs(link_inputs),
+        link_inputs,
         binary_phase.build_dir() / relative_output_path
     );
 }

@@ -17,7 +17,6 @@ static std::vector<filesystem::relative_path_t> kernel_library_source_files() {
         filesystem::relative_path_t("process.cpp"),
         filesystem::relative_path_t("binding.cpp"),
         filesystem::relative_path_t("api.cpp"),
-        filesystem::relative_path_t("linker.cpp"),
         filesystem::relative_path_t("compiler.cpp"),
         filesystem::relative_path_t("shared_library.cpp"),
         filesystem::relative_path_t("graph.cpp"),

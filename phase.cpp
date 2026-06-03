@@ -150,7 +150,7 @@ filesystem::path_t phase_base_t::builder_plugin() const {
         throw std::runtime_error(std::format("kernel::phase::phase_base_t::builder_plugin: re-entry detected for builder plugin '{}'", plugin_path));
     }
 
-    if (&m_module == m_module.workspace->workspace_ecosystem->this_module) {
+    if (&m_module == &m_module.workspace().graph().kernel_module()) {
         const auto latest_builder_plugin = builder_install_latest_path(m_module);
         if (filesystem::exists(latest_builder_plugin)) {
             return latest_builder_plugin;
@@ -178,7 +178,7 @@ filesystem::path_t phase_base_t::builder_plugin() const {
         std::vector<filesystem::path_t> include_dirs;
         std::vector<filesystem::path_t> libraries;
 
-        for (auto* dependency : m_module.builder_dependencies) {
+        for (auto* dependency : m_module.builder_dependencies()) {
             for (const auto& dependency_include_dirs : build_closure_for_module<interface_phase_t>(*dependency, module_config::module_config_t { .library_type = module_config::library_type_t::SHARED })) {
                 include_dirs.push_back(dependency_include_dirs.root);
             }
@@ -278,7 +278,7 @@ void interface_phase_t::add_interface_from_source(const filesystem::relative_pat
 void interface_phase_t::add_interface(const filesystem::path_t& interface, const filesystem::relative_path_t& module_relative_install_path) const {
     const auto relative_install_path = filesystem::relative_path_t(
         filesystem::relative_path_t("builder").to_native_path()
-        / module().module_relative_path_to_workspace.to_native_path()
+        / module().name().to_native_path()
         / module_relative_install_path.to_native_path()
     );
 
