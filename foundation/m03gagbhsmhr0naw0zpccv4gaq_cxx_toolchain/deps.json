@@ -1,0 +1,11 @@
+{
+    "module_dependencies": [
+        "m03gagbhsnusi43zogoacgj2ez_filesystem",
+        "m03gagbhsvr0m5w15urj0o291m_process"
+    ],
+    "builder_dependencies": [
+        "m03gagbhsujjf63n0w3r2w4q6h_build_phases",
+        "m03gagbhsmhr0naw0zpccv4gaq_cxx_toolchain",
+        "m03gagbhsnusi43zogoacgj2ez_filesystem"
+    ]
+}

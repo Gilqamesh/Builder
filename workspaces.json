@@ -1,0 +1,8 @@
+{
+    "workspaces": [
+        "foundation",
+        "tools",
+        "libraries",
+        "applications"
+    ]
+}
