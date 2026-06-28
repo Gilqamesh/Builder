@@ -12,8 +12,8 @@ The usual workflow is:
 ## Prerequisites
 
 Builder currently targets a Linux or Linux-compatible POSIX environment. The
-default bootstrap makefile expects `clang++`, `clang`, `ar`, `ln`, `mkdir`, `mv`,
-and `rm` under `/usr/bin`, a C++23-capable compiler, and `libdl`.
+default bootstrap makefile expects `clang++` (C++23), `clang`, `ar`, `ln`, `mkdir`, `mv`,
+and `rm` under `/usr/bin`.
 
 ## Quick Start
 
@@ -112,7 +112,7 @@ diagnostics, but it is still part of the identity.
 
 Workspaces define which modules may depend on which other modules.
 
-`workspaces.json` lists workspaces from lower-level to higher-level.
+[workspaces.json](workspaces.json) lists workspaces from lower-level to higher-level.
 
 The rules are:
 
@@ -334,3 +334,7 @@ hard-coding artifact paths or inspecting phase install roots directly.
 
 - Support versioned module dependencies.
 - Support composing modules by name through a small LISP-like expression language.
+
+## License
+
+See [LICENSE](LICENSE).
