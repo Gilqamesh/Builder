@@ -13,27 +13,29 @@ The usual workflow is:
 
 Builder currently targets a Linux or Linux-compatible POSIX environment. The
 default bootstrap makefile expects `clang++` (C++23), `clang`, `ar`, `ln`, `mkdir`, `mv`,
-and `rm` under `/usr/bin`.
+and `rm` under `/usr/bin`, and `libdl`.
 
 ## Quick Start
 
 Bootstrap the local Builder CLI:
 
 ```sh
-make bootstrap
+make -f foundation/m03gagbhst621faiop1rztfkqp_builder_cli/bootstrap.mk bootstrap
 ```
 
 This creates the initial Builder CLI and builder plugin used to rebuild the
 modules that implement Builder itself.
 
-Run existing modules:
+Run existing modules from the current workspace graph, couple of examples:
 
 ```sh
-./cli m03gagbhtft23yhjwpp881tfmc_uuidv7 --uuid
-./cli m03gagbht2l61mj6qitacwbmea_base36 0100
+./cli m03gagbhsnusi43zogoacgj2ez_filesystem
+./cli m03gagbhsp2drqq3gkop8pzfrm_workspace_graph
 ```
 
-Create a new application module:
+These modules use Builder's default CLI fallback, which just prints the module name.
+
+Module that generates a new module quickly:
 
 ```sh
 ./cli m03gagbht5685jfnokvj7crv2c_create_module <workspace> hello_module
@@ -47,8 +49,9 @@ The normal command is:
 ./cli <module> [args...]
 ```
 
-`<module>` is a module name, not a path. Builder discovers that module, builds
-its default CLI if needed, then execs that CLI with `[args...]`.
+`<module>` is the globally unique module name. Builder discovers that module from the
+workspace graph, builds its default CLI if needed, then execs that CLI with
+`[args...]`.
 
 ## Environment Variables
 
@@ -62,10 +65,6 @@ Builder uses two environment variables to find source and output locations:
 
 Builder sets these variables before running a module CLI, so the CLI and its
 child processes see the same workspace and artifact locations.
-
-The initial Builder plugin created by `make bootstrap` is recorded in the
-compiled Builder. `BUILDER_ARTIFACT_ROOT` moves outputs for the current run; it
-does not relocate that bootstrap plugin.
 
 ## What is a module?
 
@@ -120,12 +119,13 @@ The rules are:
   workspace;
 - `builder.cpp` may depend only on modules in lower workspaces.
 
-The active Builder bootstrap group is the narrow exception. Modules that
-implement the running Builder can use same-workspace builder dependencies so the
-local bootstrap seed can build Builder itself without a lower bootstrap
-workspace. That exception is not general module authoring semantics, and it does
-not make builder dependency cycles legal outside the active Builder bootstrap
-group.
+The `foundation` workspace is mostly bootstrap-specific. It contains the modules
+needed to seed and rebuild Builder itself. For that active Builder bootstrap
+group, modules that implement the running Builder can use same-workspace builder
+dependencies so the local bootstrap seed can build Builder without a lower
+bootstrap workspace.
+
+That exception is not yet a general module authoring semantic. Higher-level modules should normally live in later workspaces, and builder dependency cycles are not legal outside the active Builder bootstrap group.
 
 ## What is `deps.json`?
 
@@ -138,7 +138,7 @@ Each module declares two dependency lists in `deps.json`:
 }
 ```
 
-`module_dependencies` are used by the module's C++ source.
+`module_dependencies` are used by the module's C++ source and public headers.
 
 `builder_dependencies` are used by `builder.cpp`. Builder exposes those
 dependencies to `builder.cpp` as normal C++ include and link inputs.
@@ -315,7 +315,7 @@ versioning or a module authoring API. Module builders should use phase APIs such
 as `build_dir()`, `build(path)`, `install(path)`, and `install<T>()` instead of
 hard-coding artifact paths or inspecting phase install roots directly.
 
-## Main Builder Modules
+## Some Modules from the foundation Workspace
 
 - `m03gagbhsp2drqq3gkop8pzfrm_workspace_graph`: discovers modules, loads
   `deps.json`, validates workspace order, forms module dependency strongly
@@ -329,11 +329,17 @@ hard-coding artifact paths or inspecting phase install roots directly.
 - `m03gagbhsmhr0naw0zpccv4gaq_cxx_toolchain`: compiles objects, archives static
   libraries, links shared libraries, links binaries, and injects include/link
   inputs.
+- `m03gagbhsnusi43zogoacgj2ez_filesystem`: filesystem path and file operations.
+- `m03gagbhsvr0m5w15urj0o291m_process`: process execution.
+- `m03gagbhsyhlx2pk5sdabbr1sx_signal_handler`: signal-aware cleanup guards.
+- `m03gagbhsx4j5z28bqkac3dhhh_shared_library`: shared library loading.
+- `m03gagbhsqfsqblhwvelrou7nc_json`: vendored JSON support.
 
 ## Long-term goals
 
 - Support versioned module dependencies.
 - Support composing modules by name through a small LISP-like expression language.
+- Support module tests as first-class graph nodes with declared dependencies.
 
 ## License
 

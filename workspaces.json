@@ -1,6 +1,6 @@
 {
     "workspaces": [
         "foundation",
-        "libraries"
+        "tools"
     ]
 }
