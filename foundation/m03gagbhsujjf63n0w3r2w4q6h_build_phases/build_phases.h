@@ -93,10 +93,17 @@ public:
     built_t build(const m03gagbhsnusi43zogoacgj2ez_filesystem::rooted_path_t& rooted_path) const;
 
     /**
+     * Publishes a path into the current phase build_dir() under a different relative path.
+     * Used for external tooling.
+     */
+    built_t build(const m03gagbhsnusi43zogoacgj2ez_filesystem::path_t& external, const m03gagbhsnusi43zogoacgj2ez_filesystem::relative_path_t& as) const;
+
+    /**
      * Publishes a path into the current phase install_dir() under the same relative path.
      */
     void install(const m03gagbhsnusi43zogoacgj2ez_filesystem::path_t& path) const;
     void install(const m03gagbhsnusi43zogoacgj2ez_filesystem::rooted_path_t& rooted_path) const;
+    void install(const built_t& built) const;
 
     /**
      * Installs phase_t for this module and returns its installed result.
@@ -266,6 +273,7 @@ struct library_phase_t : phase_base_t {
      * Publishes a library path from build_dir().
      */
     void install_library(const m03gagbhsnusi43zogoacgj2ez_filesystem::path_t& library) const;
+    void install_library(const phase_base_t::built_t& library) const;
 };
 
 /**

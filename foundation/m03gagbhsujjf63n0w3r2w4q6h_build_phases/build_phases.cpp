@@ -242,6 +242,21 @@ phase_base_t::built_t phase_base_t::build(const m03gagbhsnusi43zogoacgj2ez_files
     ));
 }
 
+phase_base_t::built_t phase_base_t::build(const m03gagbhsnusi43zogoacgj2ez_filesystem::path_t& external, const m03gagbhsnusi43zogoacgj2ez_filesystem::relative_path_t& as) const {
+    if (!m03gagbhsnusi43zogoacgj2ez_filesystem::exists(external)) {
+        throw std::runtime_error(std::format("m03gagbhsujjf63n0w3r2w4q6h_build_phases::phase_base_t::build: external build input '{}' does not exist", external));
+    }
+
+    const auto target_path = build_dir() / as;
+    if (m03gagbhsnusi43zogoacgj2ez_filesystem::exists(target_path)) {
+        throw std::runtime_error(std::format("m03gagbhsujjf63n0w3r2w4q6h_build_phases::phase_base_t::build: target build path '{}' already exists", target_path));
+    }
+
+    m03gagbhsnusi43zogoacgj2ez_filesystem::create_symlink(external, target_path);
+
+    return built_t(m03gagbhsnusi43zogoacgj2ez_filesystem::rooted_path_t(build_dir(), as));
+}
+
 phase_base_t::built_t phase_base_t::build(const m03gagbhsnusi43zogoacgj2ez_filesystem::rooted_path_t& rooted_path) const {
     for (const auto* phase = previous_phase(); phase != nullptr; phase = phase->previous_phase()) {
         if (rooted_path.root() == phase->install_dir()) {
@@ -322,6 +337,10 @@ void phase_base_t::install(const m03gagbhsnusi43zogoacgj2ez_filesystem::rooted_p
         rooted_path.root(),
         name()
     ));
+}
+
+void phase_base_t::install(const built_t& built) const {
+    install(built.rooted_path());
 }
 
 m03gagbhsnusi43zogoacgj2ez_filesystem::path_t phase_base_t::builder_plugin() const {
@@ -558,6 +577,10 @@ m03gagbhsnusi43zogoacgj2ez_filesystem::path_t library_phase_t::build_library(
 }
 
 void library_phase_t::install_library(const m03gagbhsnusi43zogoacgj2ez_filesystem::path_t& library) const {
+    install(library);
+}
+
+void library_phase_t::install_library(const phase_base_t::built_t& library) const {
     install(library);
 }
 
