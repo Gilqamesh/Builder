@@ -29,13 +29,11 @@ modules that implement Builder itself.
 Run existing modules from the current workspace graph, couple of examples:
 
 ```sh
-./cli m03gagbhsnusi43zogoacgj2ez_filesystem
-./cli m03gagbhsp2drqq3gkop8pzfrm_workspace_graph
+./cli m03gagbht2l61mj6qitacwbmea_byte_stream
+./cli m03gagbhtft23yhjwpp881tfmc_uuid
 ```
 
-These modules use Builder's default CLI fallback, which just prints the module name.
-
-Module that generates a new module quickly:
+Module that generates a new module with minimal boilerplate:
 
 ```sh
 ./cli m03gagbht5685jfnokvj7crv2c_create_module <workspace> hello_module
@@ -321,8 +319,8 @@ hard-coding artifact paths or inspecting phase install roots directly.
   `deps.json`, validates workspace order, forms module dependency strongly
   connected component groups, and propagates versions.
 - `m03gagbhsujjf63n0w3r2w4q6h_build_phases`: defines phase APIs, lazy
-  installation, phase roots, interface publication, library builds, binary
-  builds, and default CLI fallback.
+  installation, phase roots, interface publication, library builds, and binary
+  builds.
 - `m03gagbhst621faiop1rztfkqp_builder_cli`: implements
   `./cli <module> [args...]`, CLI self-update, target binary installation, and
   process execution.

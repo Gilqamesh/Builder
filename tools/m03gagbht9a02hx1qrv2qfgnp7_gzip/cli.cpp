@@ -1,4 +1,4 @@
-#include <m03gagbht9a02hx1qrv2qfgnp7_gzip/gzip.h>
+#include "gzip.h"
 
 #include <m03gagbhsnusi43zogoacgj2ez_filesystem/filesystem.h>
 

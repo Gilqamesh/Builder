@@ -2,6 +2,7 @@
 # define M03GAGBHSP2DRQQ3GKOP8PZFRM_WORKSPACE_GRAPH_H
 
 # include <m03gagbhsnusi43zogoacgj2ez_filesystem/filesystem.h>
+# include <m03gagbhtft23yhjwpp881tfmc_uuid/uuid.h>
 
 # include <cstdint>
 # include <functional>
@@ -55,16 +56,38 @@ struct invocation_context_t {
 class module_name_t {
 public:
     /**
-     * Throws if name is empty.
+     * Must be formatted as m<25-character-base36-converted-uuidv7>_<friendly-name>, where friendly_name is a non-empty string of alphanumeric characters and underscores.
      */
-    explicit module_name_t(std::string_view name);
+    explicit module_name_t(std::string_view unique_name);
 
-    const std::string& string() const;
-    const char* c_str() const;
+    /**
+     * Creates a module name from a friendly name, generating a new UUIDv7.
+     */
+    static module_name_t from_friendly_name(std::string_view friendly_name);
+
+    const std::string& unique_name() const;
+    std::string friendly_name() const;
+    m03gagbhtft23yhjwpp881tfmc_uuid::uuid uuid() const;
+
     bool operator==(const module_name_t& other) const;
 
 private:
-    std::string m_name;
+    struct validated_name_t {
+        std::string name;
+    };
+
+private:
+    explicit module_name_t(validated_name_t validated_name) noexcept;
+    std::array<std::byte, 16> base36_uuidv7_bytes(std::string_view view) const;
+
+private:
+    static constexpr std::size_t m_pos = 0;
+    static constexpr std::size_t base36_decoded_uuidv7_start = m_pos + 1;
+    static constexpr std::size_t base36_converted_uuidv7_size = 25;
+    static constexpr std::size_t underscore_pos = base36_converted_uuidv7_size + 1;
+    static constexpr std::size_t first_friendly_name_char_pos = underscore_pos + 1;
+
+    std::string m_unique_name;
 };
 
 /**
@@ -72,7 +95,7 @@ private:
  */
 struct module_name_hash_t {
     std::size_t operator()(const module_name_t& module_name) const noexcept {
-        return std::hash<std::string>()(module_name.string());
+        return std::hash<std::string>()(module_name.unique_name());
     }
 };
 
@@ -253,13 +276,14 @@ public:
      */
     std::vector<const module_t*> modules() const;
 
+    std::vector<module_name_t> module_names() const;
+
     /**
      * Module dependency closure as strongly connected component groups in dependency-to-dependent topological order.
      */
     module_t::groups_t closure_groups(const module_t& module) const;
 
 private:
-    void load_module_index();
     module_t* discover_module_impl(module_name_t module_name);
 
 private:
@@ -282,9 +306,23 @@ invocation_context_t invocation_context();
 namespace std {
 
 template <>
-struct formatter<m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::module_name_t> : formatter<std::string> {
+struct formatter<m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::module_name_t> {
+    constexpr auto parse(std::format_parse_context& ctx) {
+        auto it = ctx.begin();
+
+        if (it != ctx.end() && *it != '}') {
+            throw std::format_error("invalid module_name_t format specifier");
+        }
+
+        return it;
+    }
+
     auto format(const m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::module_name_t& module_name, auto& ctx) const {
-        return formatter<std::string>::format(module_name.string(), ctx);
+        auto out = ctx.out();
+
+        out = std::format_to(out, "{}", module_name.unique_name());
+
+        return out;
     }
 };
 

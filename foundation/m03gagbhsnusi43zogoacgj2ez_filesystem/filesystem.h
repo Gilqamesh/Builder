@@ -45,7 +45,7 @@ public:
     /**
      * Sets a new file extension.
      */
-    void extension(std::string_view new_extension);
+    const relative_path_t& extension(std::string_view new_extension);
 
     /**
      * Lexical equality comparison.
@@ -126,7 +126,7 @@ public:
     /**
      * Sets a new file extension.
      */
-    void extension(std::string_view new_extension);
+    const path_t& extension(std::string_view new_extension);
 
     /**
      * Lexical equality comparison.
@@ -350,23 +350,62 @@ bool is_directory(const path_t& path);
 } // namespace m03gagbhsnusi43zogoacgj2ez_filesystem
 
 template <>
-struct std::formatter<m03gagbhsnusi43zogoacgj2ez_filesystem::path_t> : std::formatter<std::string> {
+struct std::formatter<m03gagbhsnusi43zogoacgj2ez_filesystem::path_t> {
+    constexpr auto parse(std::format_parse_context& ctx) {
+        auto it = ctx.begin();
+        if (it != ctx.end() && *it != '}') {
+            throw std::format_error("invalid path_t format specifier");
+        }
+
+        return it;
+    }
+
     auto format(const m03gagbhsnusi43zogoacgj2ez_filesystem::path_t& path, auto& ctx) const {
-        return std::formatter<std::string>::format(path.string(), ctx);
+        auto out = ctx.out();
+
+        out = std::format_to(out, "{}", path.string());
+
+        return out;
     }
 };
 
 template <>
-struct std::formatter<m03gagbhsnusi43zogoacgj2ez_filesystem::relative_path_t> : std::formatter<std::string> {
+struct std::formatter<m03gagbhsnusi43zogoacgj2ez_filesystem::relative_path_t> {
+    constexpr auto parse(std::format_parse_context& ctx) {
+        auto it = ctx.begin();
+        if (it != ctx.end() && *it != '}') {
+            throw std::format_error("invalid relative_path_t format specifier");
+        }
+
+        return it;
+    }
+
     auto format(const m03gagbhsnusi43zogoacgj2ez_filesystem::relative_path_t& relative_path, auto& ctx) const {
-        return std::formatter<std::string>::format(relative_path.string(), ctx);
+        auto out = ctx.out();
+
+        out = std::format_to(out, "{}", relative_path.string());
+
+        return out;
     }
 };
 
 template <>
-struct std::formatter<m03gagbhsnusi43zogoacgj2ez_filesystem::pretty_path_t> : std::formatter<std::string> {
+struct std::formatter<m03gagbhsnusi43zogoacgj2ez_filesystem::pretty_path_t> {
+    constexpr auto parse(std::format_parse_context& ctx) {
+        auto it = ctx.begin();
+        if (it != ctx.end() && *it != '}') {
+            throw std::format_error("invalid pretty_path_t format specifier");
+        }
+
+        return it;
+    }
+
     auto format(const m03gagbhsnusi43zogoacgj2ez_filesystem::pretty_path_t& pretty_path, auto& ctx) const {
-        return std::formatter<std::string>::format(pretty_path.string(), ctx);
+        auto out = ctx.out();
+
+        out = std::format_to(out, "{}", pretty_path.string());
+
+        return out;
     }
 };
 

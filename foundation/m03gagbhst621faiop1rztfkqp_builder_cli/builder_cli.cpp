@@ -44,7 +44,7 @@ static bool current_cli_is_older_than_bootstrap_seed(m03gagbhsp2drqq3gkop8pzfrm_
 
         std::vector<m03gagbhsvr0m5w15urj0o291m_process::process_arg_t> process_args;
         process_args.push_back(bootstrap_seed_binary.cli());
-        process_args.push_back(module.string());
+        process_args.push_back(module.unique_name());
         process_args.insert(process_args.end(), args.begin(), args.end());
         m03gagbhsvr0m5w15urj0o291m_process::exec(m03gagbhsvr0m5w15urj0o291m_process::command_t { .args = process_args });
     }

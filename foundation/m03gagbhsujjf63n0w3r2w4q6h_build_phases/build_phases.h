@@ -131,7 +131,6 @@ protected:
 
     void install_as(const m03gagbhsnusi43zogoacgj2ez_filesystem::path_t& path, const m03gagbhsnusi43zogoacgj2ez_filesystem::relative_path_t& relative_path) const;
     m03gagbhsnusi43zogoacgj2ez_filesystem::relative_path_t installed_relative_path(const m03gagbhsnusi43zogoacgj2ez_filesystem::path_t& path) const;
-    virtual void finalize_install() const;
 
 private:
     m03gagbhsnusi43zogoacgj2ez_filesystem::path_t artifact_dir() const;
@@ -322,9 +321,6 @@ struct binary_phase_t : phase_base_t {
      * Publishes a non-default binary under the same relative path.
      */
     void install_binary(const m03gagbhsnusi43zogoacgj2ez_filesystem::path_t& binary) const;
-
-protected:
-    void finalize_install() const override;
 };
 
 } // namespace m03gagbhsujjf63n0w3r2w4q6h_build_phases

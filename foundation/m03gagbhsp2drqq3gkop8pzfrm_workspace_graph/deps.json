@@ -1,7 +1,9 @@
 {
     "module_dependencies": [
         "m03gagbhsnusi43zogoacgj2ez_filesystem",
-        "m03gagbhsqfsqblhwvelrou7nc_json"
+        "m03gagbhsqfsqblhwvelrou7nc_json",
+        "m03gagbhtft23yhjwpp881tfmc_uuid",
+        "m03gagbht2l61mj6qitacwbmea_byte_stream"
     ],
     "builder_dependencies": [
         "m03gagbhsujjf63n0w3r2w4q6h_build_phases",

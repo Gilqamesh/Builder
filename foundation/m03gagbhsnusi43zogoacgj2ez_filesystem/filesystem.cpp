@@ -41,8 +41,9 @@ std::string relative_path_t::extension() const {
     return m_relative_path.extension().string();
 }
 
-void relative_path_t::extension(std::string_view new_extension) {
+const relative_path_t& relative_path_t::extension(std::string_view new_extension) {
     m_relative_path.replace_extension(new_extension);
+    return *this;
 }
 
 bool relative_path_t::operator==(const relative_path_t& other) const {
@@ -110,8 +111,9 @@ std::string path_t::extension() const {
     return m_path.extension().string();
 }
 
-void path_t::extension(std::string_view new_extension) {
+const path_t& path_t::extension(std::string_view new_extension) {
     m_path.replace_extension(new_extension);
+    return *this;
 }
 
 bool path_t::operator==(const path_t& other) const {

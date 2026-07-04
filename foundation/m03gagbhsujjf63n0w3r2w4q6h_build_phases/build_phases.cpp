@@ -312,9 +312,6 @@ m03gagbhsnusi43zogoacgj2ez_filesystem::relative_path_t phase_base_t::installed_r
     ));
 }
 
-void phase_base_t::finalize_install() const {
-}
-
 void phase_base_t::install(const m03gagbhsnusi43zogoacgj2ez_filesystem::path_t& path) const {
     install_as(path, installed_relative_path(path));
 }
@@ -519,7 +516,7 @@ void interface_phase_t::install_headers_from_source() const {
 void interface_phase_t::install_interface(const m03gagbhsnusi43zogoacgj2ez_filesystem::path_t& interface) const {
     const auto relative_path = installed_relative_path(interface);
     const auto canonical_path = install_dir()
-        / m03gagbhsnusi43zogoacgj2ez_filesystem::relative_path_t(module().name().string())
+        / m03gagbhsnusi43zogoacgj2ez_filesystem::relative_path_t(module().name().unique_name())
         / relative_path;
     install_as(interface, install_dir().relative(canonical_path));
 }
@@ -595,10 +592,10 @@ binary_phase_t::binary_phase_t(
 
 binary_phase_t::installed_t::installed_t(const m03gagbhsnusi43zogoacgj2ez_filesystem::path_t& root):
     m_root(root),
-    m_cli(root / m03gagbhsnusi43zogoacgj2ez_filesystem::relative_path_t("cli"))
+    m_cli(root / m03gagbhsnusi43zogoacgj2ez_filesystem::relative_path_t(m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::CLI_CPP).extension(""))
 {
     if (!m03gagbhsnusi43zogoacgj2ez_filesystem::exists(m_cli)) {
-        throw std::runtime_error("m03gagbhsujjf63n0w3r2w4q6h_build_phases::binary_phase_t::installed_t: binary phase did not publish a default CLI artifact");
+        throw std::runtime_error(std::format("m03gagbhsujjf63n0w3r2w4q6h_build_phases::binary_phase_t::installed_t: binary phase did not publish {} artifact", m_cli));
     }
 }
 
@@ -626,7 +623,7 @@ m03gagbhsnusi43zogoacgj2ez_filesystem::path_t binary_phase_t::build_cli(
         compiler_source_files(source_files),
         defines,
         link_inputs,
-        build_dir() / m03gagbhsnusi43zogoacgj2ez_filesystem::relative_path_t("cli")
+        build_dir() / m03gagbhsnusi43zogoacgj2ez_filesystem::relative_path_t(m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::CLI_CPP).extension("")
     );
 }
 
@@ -637,53 +634,16 @@ void binary_phase_t::install_cli(const m03gagbhsnusi43zogoacgj2ez_filesystem::pa
         throw std::runtime_error(std::format("m03gagbhsujjf63n0w3r2w4q6h_build_phases::binary_phase_t::install_cli: CLI artifact '{}' is not under binary phase build_dir '{}'", binary, binary_build_dir));
     }
 
-    install_as(binary, m03gagbhsnusi43zogoacgj2ez_filesystem::relative_path_t("cli"));
+    install_as(binary, m03gagbhsnusi43zogoacgj2ez_filesystem::relative_path_t(m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::CLI_CPP).extension(""));
 }
 
 void binary_phase_t::install_binary(const m03gagbhsnusi43zogoacgj2ez_filesystem::path_t& binary) const {
     const auto relative_install_path = installed_relative_path(binary);
-    if (relative_install_path == m03gagbhsnusi43zogoacgj2ez_filesystem::relative_path_t("cli")) {
+    if (relative_install_path == m03gagbhsnusi43zogoacgj2ez_filesystem::relative_path_t(m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::CLI_CPP).extension("")) {
         throw std::runtime_error("m03gagbhsujjf63n0w3r2w4q6h_build_phases::binary_phase_t::install_binary: use install_cli to publish the default CLI artifact");
     }
 
     install_as(binary, relative_install_path);
-}
-
-void binary_phase_t::finalize_install() const {
-    const auto installed_cli = install_dir() / m03gagbhsnusi43zogoacgj2ez_filesystem::relative_path_t("cli");
-    if (m03gagbhsnusi43zogoacgj2ez_filesystem::exists(installed_cli)) {
-        return ;
-    }
-
-    const auto source_relative_path = m03gagbhsnusi43zogoacgj2ez_filesystem::relative_path_t("default_cli.cpp");
-    const auto source_path = build_dir() / source_relative_path;
-    {
-        std::ofstream ofs(source_path.string(), std::ios::binary | std::ios::trunc);
-        if (!ofs) {
-            throw std::runtime_error(std::format("m03gagbhsujjf63n0w3r2w4q6h_build_phases::binary_phase_t::finalize_install: failed to write default CLI source '{}'", source_path));
-        }
-
-        ofs
-            << "#include <iostream>\n"
-            << "\n"
-            << "int main() {\n"
-            << "    std::cout << " << cxx_string_literal(module().name().string()) << " << std::endl;\n"
-            << "    return 0;\n"
-            << "}\n";
-        if (!ofs) {
-            throw std::runtime_error(std::format("m03gagbhsujjf63n0w3r2w4q6h_build_phases::binary_phase_t::finalize_install: failed to write default CLI source '{}'", source_path));
-        }
-    }
-
-    const auto binary = m03gagbhsmhr0naw0zpccv4gaq_cxx_toolchain::build_binary(
-        build_dir(),
-        {},
-        { m03gagbhsnusi43zogoacgj2ez_filesystem::rooted_path_t(build_dir(), source_relative_path) },
-        {},
-        m03gagbhsmhr0naw0zpccv4gaq_cxx_toolchain::link_inputs_t {},
-        build_dir() / m03gagbhsnusi43zogoacgj2ez_filesystem::relative_path_t("default_cli")
-    );
-    install_cli(binary);
 }
 
 template <class phase_t>
@@ -731,7 +691,6 @@ typename phase_t::installed_t phase_base_t::install(const phase_t& requested_pha
             using fn_t = void (*)(const phase_t*);
             fn_t fn = loader.resolve(symbol_name.c_str());
             fn(&requested_phase);
-            static_cast<const phase_base_t&>(requested_phase).finalize_install();
         }
 
         typename phase_t::installed_t installed_result(requested_phase.install_dir());

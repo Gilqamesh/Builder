@@ -58,7 +58,9 @@ BOOTSTRAP_MODULES := \
 	m03gagbhsujjf63n0w3r2w4q6h_build_phases \
 	m03gagbhsvr0m5w15urj0o291m_process \
 	m03gagbhsyhlx2pk5sdabbr1sx_signal_handler \
-	m03gagbhsx4j5z28bqkac3dhhh_shared_library
+	m03gagbhsx4j5z28bqkac3dhhh_shared_library \
+	m03gagbht2l61mj6qitacwbmea_byte_stream \
+	m03gagbhtft23yhjwpp881tfmc_uuid
 
 BOOTSTRAP_INCLUDE_LINKS := $(addprefix $(BOOTSTRAP_INCLUDE_DIR)/,$(BOOTSTRAP_MODULES))
 
@@ -70,6 +72,8 @@ SRC := \
 	$(FOUNDATION_DIR)/m03gagbhsx4j5z28bqkac3dhhh_shared_library/shared_library.cpp \
 	$(FOUNDATION_DIR)/m03gagbhsp2drqq3gkop8pzfrm_workspace_graph/workspace_graph.cpp \
 	$(FOUNDATION_DIR)/m03gagbhsujjf63n0w3r2w4q6h_build_phases/build_phases.cpp \
+	$(FOUNDATION_DIR)/m03gagbht2l61mj6qitacwbmea_byte_stream/byte_stream.cpp \
+	$(FOUNDATION_DIR)/m03gagbhtft23yhjwpp881tfmc_uuid/uuid.cpp \
 	$(FOUNDATION_DIR)/m03gagbhst621faiop1rztfkqp_builder_cli/builder_cli.cpp \
 	$(BOOTSTRAP_SEED_DIR)/cli.cpp
 
@@ -81,6 +85,8 @@ BOOTSTRAP_SEED_BUILDER_SRC := \
 	$(FOUNDATION_DIR)/m03gagbhsx4j5z28bqkac3dhhh_shared_library/shared_library.cpp \
 	$(FOUNDATION_DIR)/m03gagbhsp2drqq3gkop8pzfrm_workspace_graph/workspace_graph.cpp \
 	$(FOUNDATION_DIR)/m03gagbhsujjf63n0w3r2w4q6h_build_phases/build_phases.cpp \
+	$(FOUNDATION_DIR)/m03gagbht2l61mj6qitacwbmea_byte_stream/byte_stream.cpp \
+	$(FOUNDATION_DIR)/m03gagbhtft23yhjwpp881tfmc_uuid/uuid.cpp \
 	$(FOUNDATION_DIR)/m03gagbhst621faiop1rztfkqp_builder_cli/builder_cli.cpp \
 	$(BOOTSTRAP_SEED_DIR)/builder.cpp
 

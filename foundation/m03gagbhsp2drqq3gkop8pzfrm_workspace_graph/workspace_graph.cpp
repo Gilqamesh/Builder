@@ -2,6 +2,7 @@
 
 #include <m03gagbhsnusi43zogoacgj2ez_filesystem/filesystem.h>
 #include <m03gagbhsqfsqblhwvelrou7nc_json/external/json.hpp>
+#include <m03gagbht2l61mj6qitacwbmea_byte_stream/byte_stream.h>
 
 #include <algorithm>
 #include <cerrno>
@@ -68,24 +69,98 @@ static void path_env(const char* name, const m03gagbhsnusi43zogoacgj2ez_filesyst
     }
 }
 
-module_name_t::module_name_t(std::string_view name):
-    m_name(name)
+module_name_t::module_name_t(std::string_view unique_name):
+    m_unique_name(unique_name)
 {
-    if (m_name.empty()) {
-        throw std::runtime_error("m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::module_name_t: module name must not be empty");
+    if (unique_name.size() <= first_friendly_name_char_pos) {
+        throw std::invalid_argument(std::format("m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::module_name_t: module name must be at least {} characters long", first_friendly_name_char_pos));
+    }
+
+    if (unique_name[m_pos] != 'm') {
+        throw std::invalid_argument(std::format("m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::module_name_t: module name '{}' must contain 'm' at position {}", unique_name, m_pos));
+    }
+
+    if (unique_name[underscore_pos] != '_') {
+        throw std::invalid_argument(std::format("m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::module_name_t: module name '{}' must contain '_' at position {}", unique_name, underscore_pos));
+    }
+
+    const auto base36_decoded_uuidv7 = base36_uuidv7_bytes(std::string_view(unique_name).substr(base36_decoded_uuidv7_start, base36_converted_uuidv7_size));
+    const auto uuidv7 = m03gagbhtft23yhjwpp881tfmc_uuid::uuid(std::span<const std::byte>(base36_decoded_uuidv7));
+    const auto got_version = uuidv7.version();
+    const auto expected_version = 7;
+    if (got_version != expected_version) {
+        throw std::invalid_argument(std::format("m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::module_name_t: module name '{}' contains UUIDv7 with version {}, expected {}", unique_name, got_version, expected_version));
+    }
+
+    for (const char c : std::string_view(unique_name).substr(first_friendly_name_char_pos)) {
+        if (c != '_' && !std::isalnum(static_cast<unsigned char>(c))) {
+            throw std::invalid_argument(std::format("m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::module_name_t: module name '{}' contains invalid character '{}'", unique_name, c));
+        }
     }
 }
 
-const std::string& module_name_t::string() const {
-    return m_name;
+module_name_t module_name_t::from_friendly_name(std::string_view friendly_name) {
+    if (friendly_name.empty()) {
+        throw std::invalid_argument("m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::module_name_t::from_friendly_name: friendly name must not be empty");
+    }
+
+    for (const char c : friendly_name) {
+        if (c != '_' && !std::isalnum(static_cast<unsigned char>(c))) {
+            throw std::invalid_argument(std::format("m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::module_name_t::from_friendly_name: friendly name '{}' contains invalid character '{}'", friendly_name, c));
+        }
+    }
+
+    const auto uuidv7 = m03gagbhtft23yhjwpp881tfmc_uuid::uuid::generate(7);
+    auto base36_encoded_uuidv7 = m03gagbht2l61mj6qitacwbmea_byte_stream::byte_stream_t(uuidv7.bytes()).to_radix(36);
+    if (base36_encoded_uuidv7.size() < base36_converted_uuidv7_size) {
+        base36_encoded_uuidv7 = std::string(base36_converted_uuidv7_size - base36_encoded_uuidv7.size(), '0') + base36_encoded_uuidv7;
+    }
+    if (base36_encoded_uuidv7.size() != base36_converted_uuidv7_size) {
+        throw std::logic_error(std::format("m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::module_name_t::from_friendly_name: base36-encoded UUIDv7 '{}' is not {} characters long", base36_encoded_uuidv7, base36_converted_uuidv7_size));
+    }
+
+    const auto validated_name = module_name_t::validated_name_t{std::format("m{}_{}", base36_encoded_uuidv7, friendly_name)};
+    return module_name_t(validated_name);
 }
 
-const char* module_name_t::c_str() const {
-    return m_name.c_str();
+const std::string& module_name_t::unique_name() const {
+    return m_unique_name;
+}
+
+std::string module_name_t::friendly_name() const {
+    return m_unique_name.substr(first_friendly_name_char_pos);
+}
+
+m03gagbhtft23yhjwpp881tfmc_uuid::uuid module_name_t::uuid() const {
+    const auto base36_decoded_uuidv7 = base36_uuidv7_bytes(std::string_view(m_unique_name).substr(base36_decoded_uuidv7_start, base36_converted_uuidv7_size));
+    return m03gagbhtft23yhjwpp881tfmc_uuid::uuid(std::span<const std::byte>(base36_decoded_uuidv7));
 }
 
 bool module_name_t::operator==(const module_name_t& other) const {
-    return m_name == other.m_name;
+    return m_unique_name == other.m_unique_name;
+}
+
+module_name_t::module_name_t(module_name_t::validated_name_t validated_name) noexcept:
+    m_unique_name(std::move(validated_name.name))
+{
+}
+
+std::array<std::byte, 16> module_name_t::base36_uuidv7_bytes(std::string_view view) const {
+    const auto base36_decoded_uuidv7 = m03gagbht2l61mj6qitacwbmea_byte_stream::byte_stream_t::from_radix(view, 36);
+
+    std::array<std::byte, 16> result{};
+
+    if (result.size() < base36_decoded_uuidv7.size()) {
+        throw std::invalid_argument(std::format("m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::module_name_t::base36_uuidv7_bytes: base36-decoded UUIDv7 '{}' is wider than {} bytes", base36_decoded_uuidv7, result.size()));
+    }
+
+    std::copy(
+        base36_decoded_uuidv7.bytes().begin(),
+        base36_decoded_uuidv7.bytes().end(),
+        result.begin() + static_cast<std::ptrdiff_t>(result.size() - base36_decoded_uuidv7.size())
+    );
+
+    return result;
 }
 
 static m03gagbhsnusi43zogoacgj2ez_filesystem::path_t workspace_root() {
@@ -134,6 +209,61 @@ workspace_graph_t::workspace_graph_t(m03gagbhsnusi43zogoacgj2ez_filesystem::path
     m_bootstrap_seed_module(nullptr),
     m_storage(new workspace_graph_storage_t)
 {
+    json_workspace_order_manifest_t json_workspace_order_manifest;
+    const auto workspaces_json_file = root() / m03gagbhsnusi43zogoacgj2ez_filesystem::relative_path_t(WORKSPACES_JSON);
+    if (!m03gagbhsnusi43zogoacgj2ez_filesystem::exists(workspaces_json_file)) {
+        throw std::runtime_error(std::format("m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::workspace_graph_t::load_module_index: file does not exist: '{}'", workspaces_json_file));
+    }
+
+    std::ifstream ifs(workspaces_json_file.string());
+    if (!ifs) {
+        throw std::runtime_error(std::format("m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::workspace_graph_t::load_module_index: failed to open file '{}'", workspaces_json_file));
+    }
+
+    try {
+        nlohmann::json json = nlohmann::json::parse(ifs);
+        json_workspace_order_manifest = json.get<decltype(json_workspace_order_manifest)>();
+    } catch (const nlohmann::json::parse_error& e) {
+        throw std::runtime_error(std::format("m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::workspace_graph_t::load_module_index: failed to parse JSON file '{}': {}", workspaces_json_file, e.what()));
+    } catch (const nlohmann::json::exception& e) {
+        throw std::runtime_error(std::format("m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::workspace_graph_t::load_module_index: failed to get JSON workspace order manifest from file '{}': {}", workspaces_json_file, e.what()));
+    }
+
+    for (std::size_t i = 0; i < json_workspace_order_manifest.workspaces.size(); ++i) {
+        const auto workspace_relative_path = m03gagbhsnusi43zogoacgj2ez_filesystem::relative_path_t(json_workspace_order_manifest.workspaces[i]);
+        if (m_workspace_by_relative_path.find(workspace_relative_path) != m_workspace_by_relative_path.end()) {
+            throw std::runtime_error(std::format("m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::workspace_graph_t::load_module_index: duplicate workspace '{}' in '{}'", workspace_relative_path, workspaces_json_file));
+        }
+
+        auto workspace = new workspace_t(*this, workspace_relative_path, static_cast<uint32_t>(i));
+
+        m_workspace_by_relative_path.emplace(workspace_relative_path, workspace);
+    }
+
+    for (const auto* workspace : workspaces()) {
+        const auto workspace_dir = root() / workspace->relative_path();
+        if (!m03gagbhsnusi43zogoacgj2ez_filesystem::exists(workspace_dir)) {
+            continue ;
+        }
+
+        for (const auto& module_dir : m03gagbhsnusi43zogoacgj2ez_filesystem::find(workspace_dir, m03gagbhsnusi43zogoacgj2ez_filesystem::find_include_predicate_t::is_dir, m03gagbhsnusi43zogoacgj2ez_filesystem::find_descend_predicate_t::descend_none)) {
+            const auto module_name = module_name_t(module_dir.relative_path().string());
+            const auto module_json_path = module_dir.path() / m03gagbhsnusi43zogoacgj2ez_filesystem::relative_path_t(MODULE_JSON);
+            if (!m03gagbhsnusi43zogoacgj2ez_filesystem::exists(module_json_path)) {
+                continue ;
+            }
+
+            const auto [it, inserted] = m_workspace_by_module_name.emplace(module_name, workspace);
+            if (!inserted) {
+                throw std::runtime_error(std::format(
+                    "m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::workspace_graph_t::load_module_index: duplicate module name '{}' found in workspaces '{}' and '{}'; module names are globally unique",
+                    module_name,
+                    it->second->relative_path(),
+                    workspace->relative_path()
+                ));
+            }
+        }
+    }
 }
 
 const m03gagbhsnusi43zogoacgj2ez_filesystem::path_t& workspace_graph_t::root() const {
@@ -298,68 +428,6 @@ module_t::groups_t workspace_graph_t::closure_groups(const module_t& module) con
     return result;
 }
 
-void workspace_graph_t::load_module_index() {
-    if (!m_workspace_by_relative_path.empty()) {
-        return ;
-    }
-
-    json_workspace_order_manifest_t json_workspace_order_manifest;
-    const auto workspaces_json_file = root() / m03gagbhsnusi43zogoacgj2ez_filesystem::relative_path_t(WORKSPACES_JSON);
-    if (!m03gagbhsnusi43zogoacgj2ez_filesystem::exists(workspaces_json_file)) {
-        throw std::runtime_error(std::format("m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::workspace_graph_t::load_module_index: file does not exist: '{}'", workspaces_json_file));
-    }
-
-    std::ifstream ifs(workspaces_json_file.string());
-    if (!ifs) {
-        throw std::runtime_error(std::format("m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::workspace_graph_t::load_module_index: failed to open file '{}'", workspaces_json_file));
-    }
-
-    try {
-        nlohmann::json json = nlohmann::json::parse(ifs);
-        json_workspace_order_manifest = json.get<decltype(json_workspace_order_manifest)>();
-    } catch (const nlohmann::json::parse_error& e) {
-        throw std::runtime_error(std::format("m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::workspace_graph_t::load_module_index: failed to parse JSON file '{}': {}", workspaces_json_file, e.what()));
-    } catch (const nlohmann::json::exception& e) {
-        throw std::runtime_error(std::format("m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::workspace_graph_t::load_module_index: failed to get JSON workspace order manifest from file '{}': {}", workspaces_json_file, e.what()));
-    }
-
-    for (std::size_t i = 0; i < json_workspace_order_manifest.workspaces.size(); ++i) {
-        const auto workspace_relative_path = m03gagbhsnusi43zogoacgj2ez_filesystem::relative_path_t(json_workspace_order_manifest.workspaces[i]);
-        if (m_workspace_by_relative_path.find(workspace_relative_path) != m_workspace_by_relative_path.end()) {
-            throw std::runtime_error(std::format("m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::workspace_graph_t::load_module_index: duplicate workspace '{}' in '{}'", workspace_relative_path, workspaces_json_file));
-        }
-
-        auto workspace = new workspace_t(*this, workspace_relative_path, static_cast<uint32_t>(i));
-
-        m_workspace_by_relative_path.emplace(workspace_relative_path, workspace);
-    }
-
-    for (const auto* workspace : workspaces()) {
-        const auto workspace_dir = root() / workspace->relative_path();
-        if (!m03gagbhsnusi43zogoacgj2ez_filesystem::exists(workspace_dir)) {
-            continue ;
-        }
-
-        for (const auto& module_dir : m03gagbhsnusi43zogoacgj2ez_filesystem::find(workspace_dir, m03gagbhsnusi43zogoacgj2ez_filesystem::find_include_predicate_t::is_dir, m03gagbhsnusi43zogoacgj2ez_filesystem::find_descend_predicate_t::descend_none)) {
-            const auto module_name = module_name_t(module_dir.relative_path().string());
-            const auto module_json_path = module_dir.path() / m03gagbhsnusi43zogoacgj2ez_filesystem::relative_path_t(MODULE_JSON);
-            if (!m03gagbhsnusi43zogoacgj2ez_filesystem::exists(module_json_path)) {
-                continue ;
-            }
-
-            const auto [it, inserted] = m_workspace_by_module_name.emplace(module_name, workspace);
-            if (!inserted) {
-                throw std::runtime_error(std::format(
-                    "m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::workspace_graph_t::load_module_index: duplicate module name '{}' found in workspaces '{}' and '{}'; module names are globally unique",
-                    module_name,
-                    it->second->relative_path(),
-                    workspace->relative_path()
-                ));
-            }
-        }
-    }
-}
-
 static std::filesystem::file_time_type latest_write_time(const m03gagbhsnusi43zogoacgj2ez_filesystem::path_t& directory) {
     auto latest_module_file = m03gagbhsnusi43zogoacgj2ez_filesystem::last_write_time(directory);
 
@@ -390,11 +458,11 @@ const module_name_t& module_t::name() const {
 }
 
 m03gagbhsnusi43zogoacgj2ez_filesystem::path_t module_t::source_dir() const {
-    return m_workspace->graph().root() / m_workspace->relative_path() / m03gagbhsnusi43zogoacgj2ez_filesystem::relative_path_t(m_name.string());
+    return m_workspace->graph().root() / m_workspace->relative_path() / m03gagbhsnusi43zogoacgj2ez_filesystem::relative_path_t(m_name.unique_name());
 }
 
 m03gagbhsnusi43zogoacgj2ez_filesystem::path_t module_t::artifact_base_dir() const {
-    return m_workspace->graph().artifact_root() / m03gagbhsnusi43zogoacgj2ez_filesystem::relative_path_t(m_name.string());
+    return m_workspace->graph().artifact_root() / m03gagbhsnusi43zogoacgj2ez_filesystem::relative_path_t(m_name.unique_name());
 }
 
 m03gagbhsnusi43zogoacgj2ez_filesystem::path_t module_t::artifact_dir() const {
@@ -424,7 +492,7 @@ static bool module_less(const module_t* lhs, const module_t* rhs) {
         return lhs->workspace().order_position() < rhs->workspace().order_position();
     }
 
-    return lhs->name().string() < rhs->name().string();
+    return lhs->name().unique_name() < rhs->name().unique_name();
 }
 
 std::vector<module_t*> workspace_t::modules() const {
@@ -525,6 +593,22 @@ std::vector<const module_t*> workspace_graph_t::modules() const {
     return result;
 }
 
+std::vector<module_name_t> workspace_graph_t::module_names() const {
+    std::vector<module_name_t> result;
+    
+    result.reserve(m_workspace_by_module_name.size());
+
+    for (const auto& [module_name, _] : m_workspace_by_module_name) {
+        result.push_back(module_name);
+    }
+
+    std::sort(result.begin(), result.end(), [](const auto& lhs, const auto& rhs) {
+        return lhs.unique_name() < rhs.unique_name();
+    });
+
+    return result;
+}
+
 module_t* workspace_graph_t::discover_module_impl(module_name_t module_name) {
     const auto it = m_workspace_by_module_name.find(module_name);
     if (it == m_workspace_by_module_name.end()) {
@@ -544,7 +628,7 @@ module_t* workspace_graph_t::discover_module_impl(module_name_t module_name) {
         return discovered_module;
     }
 
-    const auto module_directory = root() / workspace_relative_path / m03gagbhsnusi43zogoacgj2ez_filesystem::relative_path_t(module_name.string());
+    const auto module_directory = root() / workspace_relative_path / m03gagbhsnusi43zogoacgj2ez_filesystem::relative_path_t(module_name.unique_name());
     const auto module_version = version_t(module_directory);
     auto module = new module_t(*workspace, module_name, module_version);
 
@@ -694,7 +778,6 @@ static void validate_module(
 }
 
 module_t* workspace_graph_t::discover_module(module_name_t module_name) {
-    load_module_index();
     auto* result = discover_module_impl(module_name);
 
     auto bootstrap_seed_workspace_it = m_workspace_by_relative_path.find(m03gagbhsnusi43zogoacgj2ez_filesystem::relative_path_t(BOOTSTRAP_SEED_WORKSPACE));

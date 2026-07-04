@@ -1,8 +1,6 @@
 #include <m03gagbhsujjf63n0w3r2w4q6h_build_phases/build_phases.h>
 #include <m03gagbhsnusi43zogoacgj2ez_filesystem/filesystem.h>
 
-namespace m03gagbhsyhlx2pk5sdabbr1sx_signal_handler {
-
 extern "C" void phase__source(const m03gagbhsujjf63n0w3r2w4q6h_build_phases::source_phase_t* phase) {
     phase->install_source_tree();
 }
@@ -22,5 +20,3 @@ extern "C" void phase__library(const m03gagbhsujjf63n0w3r2w4q6h_build_phases::li
 
 extern "C" void phase__binary(const m03gagbhsujjf63n0w3r2w4q6h_build_phases::binary_phase_t* phase) {
 }
-
-} // namespace m03gagbhsyhlx2pk5sdabbr1sx_signal_handler

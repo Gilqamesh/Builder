@@ -1,4 +1,4 @@
-#include <m03gagbhth67irf210vi3byvhk_wget/wget.h>
+#include "wget.h"
 
 #include <m03gagbhsnusi43zogoacgj2ez_filesystem/filesystem.h>
 

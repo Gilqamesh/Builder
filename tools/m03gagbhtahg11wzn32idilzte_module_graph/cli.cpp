@@ -1,4 +1,4 @@
-#include <m03gagbhtahg11wzn32idilzte_module_graph/module_graph.h>
+#include "module_graph.h"
 
 #include <m03gagbhsnusi43zogoacgj2ez_filesystem/filesystem.h>
 #include <m03gagbhsp2drqq3gkop8pzfrm_workspace_graph/workspace_graph.h>

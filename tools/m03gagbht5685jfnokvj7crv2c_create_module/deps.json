@@ -1,9 +1,9 @@
 {
     "module_dependencies": [
-        "m03gagbht2l61mj6qitacwbmea_base36",
+        "m03gagbht2l61mj6qitacwbmea_byte_stream",
         "m03gagbhsnusi43zogoacgj2ez_filesystem",
         "m03gagbhsp2drqq3gkop8pzfrm_workspace_graph",
-        "m03gagbhtft23yhjwpp881tfmc_uuidv7"
+        "m03gagbhtft23yhjwpp881tfmc_uuid"
     ],
     "builder_dependencies": [
         "m03gagbhsujjf63n0w3r2w4q6h_build_phases",

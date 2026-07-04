@@ -1,4 +1,4 @@
-#include <m03gagbht6ja46uikb1ltan0x8_dot/dot.h>
+#include "dot.h"
 
 #include <m03gagbhsnusi43zogoacgj2ez_filesystem/filesystem.h>
 
