@@ -10,7 +10,7 @@
 # error M03GAGBHTH67IRF210VI3BYVHK_WGET_WGET_PATH must be defined by the owning builder
 #endif
 
-namespace wget {
+namespace m03gagbhth67irf210vi3byvhk_wget {
 
 static m03gagbhsnusi43zogoacgj2ez_filesystem::path_t wget_path() {
     const auto result = m03gagbhsnusi43zogoacgj2ez_filesystem::path_t(M03GAGBHTH67IRF210VI3BYVHK_WGET_WGET_PATH);
@@ -59,4 +59,4 @@ m03gagbhsnusi43zogoacgj2ez_filesystem::path_t download(
     return install_path;
 }
 
-} // namespace wget
+} // namespace m03gagbhth67irf210vi3byvhk_wget

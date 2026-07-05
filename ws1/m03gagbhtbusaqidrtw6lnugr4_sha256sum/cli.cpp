@@ -13,7 +13,7 @@ int main(int argc, char** argv) {
     }
 
     try {
-        sha256sum::verify(m03gagbhsnusi43zogoacgj2ez_filesystem::path_t(argv[1]), argv[2]);
+        m03gagbhtbusaqidrtw6lnugr4_sha256sum::verify(m03gagbhsnusi43zogoacgj2ez_filesystem::path_t(argv[1]), argv[2]);
     } catch (const std::exception& e) {
         std::cerr << std::format("{}: {}", argv[0], e.what()) << std::endl;
         return 1;

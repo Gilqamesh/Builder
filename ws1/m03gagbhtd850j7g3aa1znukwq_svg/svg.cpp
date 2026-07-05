@@ -10,7 +10,7 @@
 # error M03GAGBHTD850J7G3AA1ZNUKWQ_SVG_RSVG_CONVERT_PATH must be defined by the owning builder
 #endif
 
-namespace svg {
+namespace m03gagbhtd850j7g3aa1znukwq_svg {
 
 static m03gagbhsnusi43zogoacgj2ez_filesystem::path_t rsvg_convert_path() {
     const auto result = m03gagbhsnusi43zogoacgj2ez_filesystem::path_t(M03GAGBHTD850J7G3AA1ZNUKWQ_SVG_RSVG_CONVERT_PATH);
@@ -67,4 +67,4 @@ m03gagbhsnusi43zogoacgj2ez_filesystem::path_t render_png(
     return output_png_path;
 }
 
-} // namespace svg
+} // namespace m03gagbhtd850j7g3aa1znukwq_svg

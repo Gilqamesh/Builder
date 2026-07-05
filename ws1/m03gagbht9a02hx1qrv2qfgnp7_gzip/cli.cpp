@@ -16,9 +16,9 @@ int main(int argc, char** argv) {
         const auto input_file = m03gagbhsnusi43zogoacgj2ez_filesystem::path_t(argv[1]);
         const auto install_path = m03gagbhsnusi43zogoacgj2ez_filesystem::path_t(argv[2]);
         if (input_file.extension() == ".gz") {
-            gzip::ungzip(input_file, install_path);
+            m03gagbht9a02hx1qrv2qfgnp7_gzip::ungzip(input_file, install_path);
         } else {
-            gzip::gzip(input_file, install_path);
+            m03gagbht9a02hx1qrv2qfgnp7_gzip::gzip(input_file, install_path);
         }
     } catch (const std::exception& e) {
         std::cerr << std::format("{}: '{}'", argv[0], e.what()) << std::endl;

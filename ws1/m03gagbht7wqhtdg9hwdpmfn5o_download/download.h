@@ -5,7 +5,7 @@
 
 # include <string>
 
-namespace download {
+namespace m03gagbht7wqhtdg9hwdpmfn5o_download {
 
 /**
  * Download URL and expected lowercase SHA-256 checksum.
@@ -20,6 +20,6 @@ struct source_lock_t {
  */
 m03gagbhsnusi43zogoacgj2ez_filesystem::path_t fetch(const source_lock_t& source_lock, const m03gagbhsnusi43zogoacgj2ez_filesystem::path_t& output_path);
 
-} // namespace download
+} // namespace m03gagbht7wqhtdg9hwdpmfn5o_download
 
 #endif // M03GAGBHT7WQHTDG9HWDPMFN5O_DOWNLOAD_DOWNLOAD_H

@@ -11,7 +11,7 @@
 # error M03GAGBHT9A02HX1QRV2QFGNP7_GZIP_GZIP_PATH must be defined by the owning builder
 #endif
 
-namespace gzip {
+namespace m03gagbht9a02hx1qrv2qfgnp7_gzip {
 
 static m03gagbhsnusi43zogoacgj2ez_filesystem::path_t host_gzip_path() {
     const auto result = m03gagbhsnusi43zogoacgj2ez_filesystem::path_t(M03GAGBHT9A02HX1QRV2QFGNP7_GZIP_GZIP_PATH);
@@ -134,4 +134,4 @@ m03gagbhsnusi43zogoacgj2ez_filesystem::path_t ungzip(
     return install_file;
 }
 
-} // namespace gzip
+} // namespace m03gagbht9a02hx1qrv2qfgnp7_gzip

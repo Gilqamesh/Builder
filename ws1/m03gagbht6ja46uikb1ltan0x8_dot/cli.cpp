@@ -13,7 +13,7 @@ int main(int argc, char** argv) {
     }
 
     try {
-        const auto output = dot::render_svg(
+        const auto output = m03gagbht6ja46uikb1ltan0x8_dot::render_svg(
             m03gagbhsnusi43zogoacgj2ez_filesystem::path_t(argv[1]),
             m03gagbhsnusi43zogoacgj2ez_filesystem::path_t(argv[2])
         );

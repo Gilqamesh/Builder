@@ -10,7 +10,7 @@
 #include <string>
 #include <unordered_map>
 
-namespace module_graph {
+namespace m03gagbhtahg11wzn32idilzte_module_graph {
 
 static std::string dot_string(std::string_view value) {
     std::string result = "\"";
@@ -142,7 +142,7 @@ m03gagbhsnusi43zogoacgj2ez_filesystem::path_t render_svg(
 
     try {
         write_dot(workspace_graph, target_module, dot_path);
-        const auto result = dot::render_svg(dot_path, output_svg_path);
+        const auto result = m03gagbht6ja46uikb1ltan0x8_dot::render_svg(dot_path, output_svg_path);
         m03gagbhsnusi43zogoacgj2ez_filesystem::remove(dot_path);
         return result;
     } catch (...) {
@@ -151,4 +151,4 @@ m03gagbhsnusi43zogoacgj2ez_filesystem::path_t render_svg(
     }
 }
 
-} // namespace module_graph
+} // namespace m03gagbhtahg11wzn32idilzte_module_graph

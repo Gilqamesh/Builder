@@ -11,7 +11,7 @@
 # error M03GAGBHTBUSAQIDRTW6LNUGR4_SHA256SUM_SHA256SUM_PATH must be defined by the owning builder
 #endif
 
-namespace sha256sum {
+namespace m03gagbhtbusaqidrtw6lnugr4_sha256sum {
 
 static m03gagbhsnusi43zogoacgj2ez_filesystem::path_t sha256sum_path() {
     const auto result = m03gagbhsnusi43zogoacgj2ez_filesystem::path_t(M03GAGBHTBUSAQIDRTW6LNUGR4_SHA256SUM_SHA256SUM_PATH);
@@ -85,4 +85,4 @@ void verify(const m03gagbhsnusi43zogoacgj2ez_filesystem::path_t& path, const std
     }
 }
 
-} // namespace sha256sum
+} // namespace m03gagbhtbusaqidrtw6lnugr4_sha256sum

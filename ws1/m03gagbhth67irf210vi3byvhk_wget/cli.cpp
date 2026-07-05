@@ -13,7 +13,7 @@ int main(int argc, char** argv) {
     }
 
     try {
-        const auto output = wget::download(argv[1], m03gagbhsnusi43zogoacgj2ez_filesystem::path_t(argv[2]));
+        const auto output = m03gagbhth67irf210vi3byvhk_wget::download(argv[1], m03gagbhsnusi43zogoacgj2ez_filesystem::path_t(argv[2]));
         std::cout << std::format("{}", output) << std::endl;
     } catch (const std::exception& e) {
         std::cerr << std::format("{}: {}", argv[0], e.what()) << std::endl;

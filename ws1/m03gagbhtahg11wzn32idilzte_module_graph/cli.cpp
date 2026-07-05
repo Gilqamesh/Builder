@@ -21,7 +21,7 @@ int main(int argc, char** argv) {
         );
         auto* target_module = workspace_graph.discover_module(m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::module_name_t(argv[1]));
 
-        const auto output_svg = module_graph::render_svg(
+        const auto output_svg = m03gagbhtahg11wzn32idilzte_module_graph::render_svg(
             workspace_graph,
             *target_module,
             m03gagbhsnusi43zogoacgj2ez_filesystem::path_t(argv[2])

@@ -10,7 +10,7 @@
 # error M03GAGBHT3SVCX3IGN454LFUP3_CMAKE_CMAKE_PATH must be defined by the owning builder
 #endif
 
-namespace cmake {
+namespace m03gagbht3svcx3ign454lfup3_cmake {
 
 void configure(
     const m03gagbhsnusi43zogoacgj2ez_filesystem::path_t& source_dir,
@@ -72,4 +72,4 @@ void install(const m03gagbhsnusi43zogoacgj2ez_filesystem::path_t& build_dir) {
     });
 }
 
-} // namespace cmake
+} // namespace m03gagbht3svcx3ign454lfup3_cmake

@@ -10,7 +10,7 @@
 # error M03GAGBHTELDYU7PTBGNVOOTMB_TAR_TAR_PATH must be defined by the owning builder
 #endif
 
-namespace tar {
+namespace m03gagbhteldyu7ptbgnvootmb_tar {
 
 static m03gagbhsnusi43zogoacgj2ez_filesystem::path_t host_tar_path() {
     const auto result = m03gagbhsnusi43zogoacgj2ez_filesystem::path_t(M03GAGBHTELDYU7PTBGNVOOTMB_TAR_TAR_PATH);
@@ -108,4 +108,4 @@ m03gagbhsnusi43zogoacgj2ez_filesystem::path_t untar(
     return install_dir;
 }
 
-} // namespace tar
+} // namespace m03gagbhteldyu7ptbgnvootmb_tar

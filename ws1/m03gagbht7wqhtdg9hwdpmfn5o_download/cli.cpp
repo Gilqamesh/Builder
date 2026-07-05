@@ -13,8 +13,8 @@ int main(int argc, char** argv) {
     }
 
     try {
-        const auto output = download::fetch(
-            download::source_lock_t {
+        const auto output = m03gagbht7wqhtdg9hwdpmfn5o_download::fetch(
+            m03gagbht7wqhtdg9hwdpmfn5o_download::source_lock_t {
                 .url = argv[1],
                 .sha256 = argv[2]
             },

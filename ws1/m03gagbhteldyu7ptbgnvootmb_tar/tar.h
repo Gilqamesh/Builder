@@ -3,7 +3,7 @@
 
 # include <m03gagbhsnusi43zogoacgj2ez_filesystem/filesystem.h>
 
-namespace tar {
+namespace m03gagbhteldyu7ptbgnvootmb_tar {
 
 /**
  * Archives dir into a new .tar file and returns install_tar_path.
@@ -21,7 +21,7 @@ m03gagbhsnusi43zogoacgj2ez_filesystem::path_t untar(
     const m03gagbhsnusi43zogoacgj2ez_filesystem::path_t& install_dir
 );
 
-} // namespace tar
+} // namespace m03gagbhteldyu7ptbgnvootmb_tar
 
 
 #endif // M03GAGBHTELDYU7PTBGNVOOTMB_TAR_TAR_H

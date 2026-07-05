@@ -16,9 +16,9 @@ int main(int argc, char** argv) {
         const auto input_file = m03gagbhsnusi43zogoacgj2ez_filesystem::path_t(argv[1]);
         const auto install_path = m03gagbhsnusi43zogoacgj2ez_filesystem::path_t(argv[2]);
         if (input_file.extension() == ".tar") {
-            tar::untar(input_file, install_path);
+            m03gagbhteldyu7ptbgnvootmb_tar::untar(input_file, install_path);
         } else {
-            tar::tar(input_file, install_path);
+            m03gagbhteldyu7ptbgnvootmb_tar::tar(input_file, install_path);
         }
     } catch (const std::exception& e) {
         std::cerr << std::format("{}: '{}'", argv[0], e.what()) << std::endl;
