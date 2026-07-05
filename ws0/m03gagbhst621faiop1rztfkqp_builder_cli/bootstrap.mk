@@ -53,7 +53,6 @@ BOOTSTRAP_MODULES := \
 	m03gagbhsmhr0naw0zpccv4gaq_cxx_toolchain \
 	m03gagbhsnusi43zogoacgj2ez_filesystem \
 	m03gagbhsp2drqq3gkop8pzfrm_workspace_graph \
-	m03gagbhsqfsqblhwvelrou7nc_json \
 	m03gagbhst621faiop1rztfkqp_builder_cli \
 	m03gagbhsujjf63n0w3r2w4q6h_build_phases \
 	m03gagbhsvr0m5w15urj0o291m_process \

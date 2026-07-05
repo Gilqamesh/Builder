@@ -7,6 +7,7 @@
 # include <cstdint>
 # include <functional>
 # include <map>
+# include <set>
 # include <string>
 # include <string_view>
 # include <utility>
@@ -302,7 +303,7 @@ public:
      */
     std::vector<const module_t*> modules() const;
 
-    std::vector<module_name_t> module_names() const;
+    std::set<module_name_t> module_names() const;
 
     /**
      * Module dependency closure as strongly connected component groups in dependency-to-dependent topological order.

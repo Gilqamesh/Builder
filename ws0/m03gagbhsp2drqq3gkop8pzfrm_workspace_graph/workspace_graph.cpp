@@ -625,18 +625,12 @@ std::vector<const module_t*> workspace_graph_t::modules() const {
     return result;
 }
 
-std::vector<module_name_t> workspace_graph_t::module_names() const {
-    std::vector<module_name_t> result;
+std::set<module_name_t> workspace_graph_t::module_names() const {
+    std::set<module_name_t> result;
     
-    result.reserve(m_workspace_by_module_name.size());
-
     for (const auto& [module_name, _] : m_workspace_by_module_name) {
-        result.push_back(module_name);
+        result.insert(module_name);
     }
-
-    std::sort(result.begin(), result.end(), [](const auto& lhs, const auto& rhs) {
-        return lhs.unique_name() < rhs.unique_name();
-    });
 
     return result;
 }

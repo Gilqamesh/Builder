@@ -315,7 +315,6 @@ hard-coding artifact paths or inspecting phase install roots directly.
 - `m03gagbhsvr0m5w15urj0o291m_process`: process execution.
 - `m03gagbhsyhlx2pk5sdabbr1sx_signal_handler`: signal-aware cleanup guards.
 - `m03gagbhsx4j5z28bqkac3dhhh_shared_library`: shared library loading.
-- `m03gagbhsqfsqblhwvelrou7nc_json`: vendored JSON support.
 
 ## Long-term goals
 

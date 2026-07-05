@@ -22,7 +22,7 @@ int main(int argc, char** argv) {
             args.push_back(argv[i]);
         }
 
-        m03gagbhst621faiop1rztfkqp_builder_cli::run(module, args);
+        m03gagbhst621faiop1rztfkqp_builder_cli::exec(module, args);
     } catch (const std::exception& e) {
         std::cout << std::format("{}: {}", argv[0], e.what()) << std::endl;
         return 1;
