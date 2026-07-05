@@ -323,6 +323,7 @@ hard-coding artifact paths or inspecting phase install roots directly.
 - Support versioned module dependencies.
 - Support composing modules by name through a small LISP-like expression language.
 - Support module tests as first-class graph nodes with declared dependencies.
+- Add finer-grained incremental invalidation so cyclic SCCs are not treated as the rebuild boundary for implementation-only changes.
 
 ## License
 
