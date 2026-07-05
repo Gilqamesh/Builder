@@ -305,17 +305,9 @@ struct binary_phase_t : phase_base_t {
     );
 
     /**
-     * Builds the module's default CLI and returns its output path.
+     * Builds cli.cpp and publishes it as the default CLI path named cli.
      */
-    m03gagbhsnusi43zogoacgj2ez_filesystem::path_t build_cli(
-        const std::vector<phase_base_t::built_t>& source_files,
-        const std::vector<m03gagbhsmhr0naw0zpccv4gaq_cxx_toolchain::define_t>& defines
-    ) const;
-
-    /**
-     * Publishes binary as the default CLI path named cli.
-     */
-    void install_cli(const m03gagbhsnusi43zogoacgj2ez_filesystem::path_t& binary) const;
+    void install_cli(const std::vector<m03gagbhsmhr0naw0zpccv4gaq_cxx_toolchain::define_t>& defines) const;
 
     /**
      * Publishes a non-default binary under the same relative path.

@@ -68,8 +68,8 @@ m03gagbhsnusi43zogoacgj2ez_filesystem::path_t write_dot(
     ofs << "  edge [color=\"#333333\", arrowsize=0.8];\n\n";
 
     for (const auto* workspace : workspace_graph.workspaces()) {
-        ofs << std::format("  subgraph cluster_workspace_{} {{\n", workspace->order_position());
-        ofs << std::format("    label={};\n", dot_string(workspace->relative_path().string()));
+        ofs << std::format("  subgraph cluster_workspace_{} {{\n", workspace->name().order_position());
+        ofs << std::format("    label={};\n", dot_string(workspace->name().relative_path().string()));
         ofs << "    labelloc=\"t\";\n";
         ofs << "    fontsize=12;\n";
         ofs << "    color=\"#BBBBBB\";\n";
@@ -82,7 +82,7 @@ m03gagbhsnusi43zogoacgj2ez_filesystem::path_t write_dot(
 
             const auto builder_node = builder_node_by_module.at(module);
             const auto module_node = module_node_by_module.at(module);
-            const auto label = module->name().string();
+            const auto label = module->name().unique_name();
             const auto target_style = module == &target_module ? ", penwidth=2.2, color=\"#111111\"" : "";
 
             ofs << std::format(

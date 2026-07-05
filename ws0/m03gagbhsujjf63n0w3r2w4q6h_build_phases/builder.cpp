@@ -19,5 +19,6 @@ extern "C" void phase__library(const m03gagbhsujjf63n0w3r2w4q6h_build_phases::li
     phase->install_library(library);
 }
 
-extern "C" void phase__binary(const m03gagbhsujjf63n0w3r2w4q6h_build_phases::binary_phase_t*) {
+extern "C" void phase__binary(const m03gagbhsujjf63n0w3r2w4q6h_build_phases::binary_phase_t* phase) {
+    phase->install_cli({});
 }

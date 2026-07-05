@@ -187,6 +187,7 @@ extern "C" void phase__library(const m03gagbhsujjf63n0w3r2w4q6h_build_phases::li
 }
 
 extern "C" void phase__binary(const m03gagbhsujjf63n0w3r2w4q6h_build_phases::binary_phase_t* phase) {
+    phase->install_cli({});
 }
 ```
 
@@ -211,8 +212,9 @@ Important phase APIs:
   path is an error.
 - `install<T>()`: ensures phase `T` is installed and returns its result.
 
-`build_library(...)` and `build_cli(...)` accept compile defines for the sources
-being compiled. Compile define keys are validated by
+`build_library(...)` and `install_cli(...)` accept compile defines for the sources
+being compiled. `install_cli(...)` always builds the module's `cli.cpp` and
+publishes it as the default `cli` artifact. Compile define keys are validated by
 `m03gagbhsmhr0naw0zpccv4gaq_cxx_toolchain::define_t` and should use a
 macro-safe module identity prefix when they are module-owned. Compile defines
 are private compile inputs; public module headers should not expose private

@@ -80,6 +80,12 @@ static m03gagbhsnusi43zogoacgj2ez_filesystem::relative_path_t module_library_rel
     }
 }
 
+static m03gagbhsnusi43zogoacgj2ez_filesystem::relative_path_t cli_relative_output_path() {
+    auto path = m03gagbhsnusi43zogoacgj2ez_filesystem::relative_path_t(m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::CLI_CPP);
+    path.extension("");
+    return path;
+}
+
 static m03gagbhsmhr0naw0zpccv4gaq_cxx_toolchain::link_inputs_t binary_link_inputs(
     const m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::module_t& module,
     build_config_t build_config
@@ -592,7 +598,7 @@ binary_phase_t::binary_phase_t(
 
 binary_phase_t::installed_t::installed_t(const m03gagbhsnusi43zogoacgj2ez_filesystem::path_t& root):
     m_root(root),
-    m_cli(root / m03gagbhsnusi43zogoacgj2ez_filesystem::relative_path_t(m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::CLI_CPP).extension(""))
+    m_cli(root / cli_relative_output_path())
 {
     if (!m03gagbhsnusi43zogoacgj2ez_filesystem::exists(m_cli)) {
         throw std::runtime_error(std::format("m03gagbhsujjf63n0w3r2w4q6h_build_phases::binary_phase_t::installed_t: binary phase did not publish {} artifact", m_cli));
@@ -607,39 +613,37 @@ const m03gagbhsnusi43zogoacgj2ez_filesystem::path_t& binary_phase_t::installed_t
     return m_cli;
 }
 
-m03gagbhsnusi43zogoacgj2ez_filesystem::path_t binary_phase_t::build_cli(
-    const std::vector<phase_base_t::built_t>& source_files,
+void binary_phase_t::install_cli(
     const std::vector<m03gagbhsmhr0naw0zpccv4gaq_cxx_toolchain::define_t>& defines
 ) const {
+    const auto sources = install<source_phase_t>();
+    const std::vector<phase_base_t::built_t> source_files {
+        build(m03gagbhsnusi43zogoacgj2ez_filesystem::rooted_path_t(
+            sources.root(),
+            m03gagbhsnusi43zogoacgj2ez_filesystem::relative_path_t(m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::CLI_CPP)
+        ))
+    };
     const auto interfaces = install_closure<interface_phase_t>();
     const auto link_inputs = binary_link_inputs(
         module(),
         build_config()
     );
 
-    return m03gagbhsmhr0naw0zpccv4gaq_cxx_toolchain::build_binary(
+    const auto binary = m03gagbhsmhr0naw0zpccv4gaq_cxx_toolchain::build_binary(
         build_dir(),
         include_dirs_from_outputs(interfaces),
         compiler_source_files(source_files),
         defines,
         link_inputs,
-        build_dir() / m03gagbhsnusi43zogoacgj2ez_filesystem::relative_path_t(m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::CLI_CPP).extension("")
+        build_dir() / cli_relative_output_path()
     );
-}
 
-void binary_phase_t::install_cli(const m03gagbhsnusi43zogoacgj2ez_filesystem::path_t& binary) const {
-    const auto binary_build_dir = build_dir();
-
-    if (!binary_build_dir.is_child(binary)) {
-        throw std::runtime_error(std::format("m03gagbhsujjf63n0w3r2w4q6h_build_phases::binary_phase_t::install_cli: CLI artifact '{}' is not under binary phase build_dir '{}'", binary, binary_build_dir));
-    }
-
-    install_as(binary, m03gagbhsnusi43zogoacgj2ez_filesystem::relative_path_t(m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::CLI_CPP).extension(""));
+    install_as(binary, cli_relative_output_path());
 }
 
 void binary_phase_t::install_binary(const m03gagbhsnusi43zogoacgj2ez_filesystem::path_t& binary) const {
     const auto relative_install_path = installed_relative_path(binary);
-    if (relative_install_path == m03gagbhsnusi43zogoacgj2ez_filesystem::relative_path_t(m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::CLI_CPP).extension("")) {
+    if (relative_install_path == cli_relative_output_path()) {
         throw std::runtime_error("m03gagbhsujjf63n0w3r2w4q6h_build_phases::binary_phase_t::install_binary: use install_cli to publish the default CLI artifact");
     }
 
