@@ -29,7 +29,7 @@ static bool current_cli_is_older_than_bootstrap_seed(m03gagbhsp2drqq3gkop8pzfrm_
 
 static m03gagbhsvr0m5w15urj0o291m_process::command_t build_cli_command(
     const m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::module_name_t& module,
-    std::span<const std::string_view> args
+    const std::vector<std::string>& additional_module_args
 ) {
     const auto invocation_context = m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::invocation_context();
     m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::workspace_graph_t workspace_graph(
@@ -45,7 +45,7 @@ static m03gagbhsvr0m5w15urj0o291m_process::command_t build_cli_command(
         std::vector<std::string> process_args;
         process_args.push_back(bootstrap_seed_binary.cli().string());
         process_args.push_back(module.unique_name());
-        process_args.insert(process_args.end(), args.begin(), args.end());
+        process_args.insert(process_args.end(), additional_module_args.begin(), additional_module_args.end());
 
         return m03gagbhsvr0m5w15urj0o291m_process::command_t(process_args);
     }
@@ -55,16 +55,24 @@ static m03gagbhsvr0m5w15urj0o291m_process::command_t build_cli_command(
 
     std::vector<std::string> process_args;
     process_args.push_back(target_binary.cli().string());
-    process_args.insert(process_args.end(), args.begin(), args.end());
+    process_args.insert(process_args.end(), additional_module_args.begin(), additional_module_args.end());
 
     return m03gagbhsvr0m5w15urj0o291m_process::command_t(process_args, target_binary.root());
 }
 
-[[noreturn]] void exec(m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::module_name_t module, std::span<const std::string_view> args) {
+[[noreturn]] void exec(m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::module_name_t module, int argc, const char* const* argv) {
+    m03gagbhsvr0m5w15urj0o291m_process::exec(build_cli_command(module, std::vector<std::string>(argv, argv + argc)));
+}
+
+[[noreturn]] void exec(m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::module_name_t module, std::vector<std::string> args) {
     m03gagbhsvr0m5w15urj0o291m_process::exec(build_cli_command(module, args));
 }
 
-void create_and_wait_checked(m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::module_name_t module, std::span<const std::string_view> args) {
+void create_and_wait_checked(m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::module_name_t module, int argc, const char* const* argv) {
+    m03gagbhsvr0m5w15urj0o291m_process::create_and_wait_checked(build_cli_command(module, std::vector<std::string>(argv, argv + argc)));
+}
+
+void create_and_wait_checked(m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::module_name_t module, std::vector<std::string> args) {
     m03gagbhsvr0m5w15urj0o291m_process::create_and_wait_checked(build_cli_command(module, args));
 }
 
