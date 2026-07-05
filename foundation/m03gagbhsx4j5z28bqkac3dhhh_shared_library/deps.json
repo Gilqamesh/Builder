@@ -1,9 +1,0 @@
-{
-    "module_dependencies": [
-        "m03gagbhsnusi43zogoacgj2ez_filesystem"
-    ],
-    "builder_dependencies": [
-        "m03gagbhsujjf63n0w3r2w4q6h_build_phases",
-        "m03gagbhsnusi43zogoacgj2ez_filesystem"
-    ]
-}

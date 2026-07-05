@@ -6,8 +6,7 @@ The usual workflow is:
 
 1. Write a C++ module.
 2. Write the module's `builder.cpp`.
-3. Declare dependencies in `deps.json`.
-4. Run the module with `./cli <module> [args...]`.
+3. Run the module with `./cli <module> [args...]`.
 
 ## Prerequisites
 
@@ -20,7 +19,7 @@ and `rm` under `/usr/bin`, and `libdl`.
 Bootstrap the local Builder CLI:
 
 ```sh
-make -f foundation/m03gagbhst621faiop1rztfkqp_builder_cli/bootstrap.mk bootstrap
+make -f ws0/m03gagbhst621faiop1rztfkqp_builder_cli/bootstrap.mk bootstrap
 ```
 
 This creates the initial Builder CLI and builder plugin used to rebuild the
@@ -55,8 +54,8 @@ workspace graph, builds its default CLI if needed, then execs that CLI with
 
 Builder uses two environment variables to find source and output locations:
 
-- `BUILDER_WORKSPACE_ROOT`: directory containing `workspaces.json`; defaults to
-  the current directory.
+- `BUILDER_WORKSPACE_ROOT`: directory containing the workspace directories;
+  defaults to the current directory.
 - `BUILDER_ARTIFACT_ROOT`: directory where Builder writes generated files;
   defaults to
   `<BUILDER_WORKSPACE_ROOT>/artifacts`.
@@ -69,7 +68,6 @@ child processes see the same workspace and artifact locations.
 A module is the unit Builder builds and runs. It owns:
 
 - source files;
-- `deps.json`;
 - `builder.cpp`;
 - build output;
 - public headers;
@@ -82,8 +80,8 @@ A module directory is:
 <workspace>/<module_name>/
 ```
 
-Module names must be globally unique because `deps.json` and `./cli <module>`
-refer to modules by name.
+Module names must be globally unique because includes and `./cli <module>` refer
+to modules by name.
 
 ### Module Naming
 
@@ -107,9 +105,17 @@ diagnostics, but it is still part of the identity.
 
 ## What are workspaces?
 
-Workspaces define which modules may depend on which other modules.
+Workspaces define which modules may depend on which other modules. Workspaces are
+directories named `wsN` under the workspace root:
 
-[workspaces.json](workspaces.json) lists workspaces from lower-level to higher-level.
+```text
+ws0/
+ws1/
+ws2/
+...
+```
+
+The numeric suffix is the workspace order from lower-level to higher-level.
 
 The rules are:
 
@@ -117,35 +123,28 @@ The rules are:
   workspace;
 - `builder.cpp` may depend only on modules in lower workspaces.
 
-The `foundation` workspace is mostly bootstrap-specific. It contains the modules
-needed to seed and rebuild Builder itself. For that active Builder bootstrap
-group, modules that implement the running Builder can use same-workspace builder
-dependencies so the local bootstrap seed can build Builder without a lower
-bootstrap workspace.
+Workspace `ws0` is bootstrap-specific. It contains the modules needed to
+seed and rebuild Builder itself. For that active Builder bootstrap group, modules
+that implement the running Builder can use same-workspace builder dependencies so
+the local bootstrap seed can build Builder without a lower bootstrap workspace.
 
 That exception is not yet a general module authoring semantic. Higher-level modules should normally live in later workspaces, and builder dependency cycles are not legal outside the active Builder bootstrap group.
 
-## What is `deps.json`?
+## How are dependencies found?
 
-Each module declares two dependency lists in `deps.json`:
+Builder derives dependencies from module-qualified includes:
 
-```json
-{
-    "module_dependencies": [],
-    "builder_dependencies": []
-}
+```cpp
+#include <module_name/header.h>
 ```
 
-`module_dependencies` are used by the module's C++ source and public headers.
-
-`builder_dependencies` are used by `builder.cpp`. Builder exposes those
+Includes in source files and public headers become module dependencies. Includes
+in `builder.cpp` become builder dependencies. Builder exposes builder
 dependencies to `builder.cpp` as normal C++ include and link inputs.
 
-Declare and include the modules you reference directly. If source code, a public
-header, or `builder.cpp` names a module API, that file includes the module's
-public header and the module appears in the relevant dependency list. Do not
-rely on transitive includes, transitive dependency declarations, or forward
-declarations of another module's API to make your code compile.
+Include the public header for each module API you reference directly. Do not rely
+on transitive includes or forward declarations of another module's API to make
+your code compile.
 
 Dependencies outside these rules fail before build output is produced.
 
@@ -153,21 +152,6 @@ Same-workspace module dependency cycles are handled as strongly connected
 component groups. The group graph is ordered topologically from dependency to
 dependent, and every module in a group can publish interfaces before library
 compilation. Builder dependency cycles are not modeled as module groups.
-
-For example, a tool module that uses the build phase API and filesystem path API
-in `builder.cpp`, and uses `base36` in its own source, would declare:
-
-```json
-{
-    "module_dependencies": [
-        "m03gagbht2l61mj6qitacwbmea_base36"
-    ],
-    "builder_dependencies": [
-        "m03gagbhsujjf63n0w3r2w4q6h_build_phases",
-        "m03gagbhsnusi43zogoacgj2ez_filesystem"
-    ]
-}
-```
 
 ## What are build phases?
 
@@ -266,7 +250,7 @@ own outputs: published headers, libraries, generated files, imported files, and
 binaries.
 
 It is regular C++ code. If `builder.cpp` needs helper code, tools, or libraries,
-the module lists them in `builder_dependencies`. Builder then makes those
+it includes their module-qualified public headers. Builder then makes those
 dependencies available to `builder.cpp` through normal C++ includes and linking.
 
 Each phase function in `builder.cpp` describes only the local work for that
@@ -313,11 +297,11 @@ versioning or a module authoring API. Module builders should use phase APIs such
 as `build_dir()`, `build(path)`, `install(path)`, and `install<T>()` instead of
 hard-coding artifact paths or inspecting phase install roots directly.
 
-## Some Modules from the foundation Workspace
+## Some Modules from Workspace `ws0`
 
-- `m03gagbhsp2drqq3gkop8pzfrm_workspace_graph`: discovers modules, loads
-  `deps.json`, validates workspace order, forms module dependency strongly
-  connected component groups, and propagates versions.
+- `m03gagbhsp2drqq3gkop8pzfrm_workspace_graph`: discovers modules, derives
+  dependency edges from includes, validates workspace order, forms module
+  dependency strongly connected component groups, and propagates versions.
 - `m03gagbhsujjf63n0w3r2w4q6h_build_phases`: defines phase APIs, lazy
   installation, phase roots, interface publication, library builds, and binary
   builds.

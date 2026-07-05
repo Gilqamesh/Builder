@@ -1,0 +1,420 @@
+#ifndef M03GAGBHSP2DRQQ3GKOP8PZFRM_WORKSPACE_GRAPH_H
+# define M03GAGBHSP2DRQQ3GKOP8PZFRM_WORKSPACE_GRAPH_H
+
+# include <m03gagbhsnusi43zogoacgj2ez_filesystem/filesystem.h>
+# include <m03gagbhtft23yhjwpp881tfmc_uuid/uuid.h>
+
+# include <cstdint>
+# include <functional>
+# include <map>
+# include <string>
+# include <string_view>
+# include <utility>
+# include <unordered_set>
+# include <vector>
+
+namespace m03gagbhsp2drqq3gkop8pzfrm_workspace_graph {
+
+inline const constexpr char* BUILDER_CPP = "builder.cpp";
+inline const constexpr char* CLI_CPP = "cli.cpp";
+
+/**
+ * Artifact version number.
+ */
+struct version_t {
+    /**
+     * Uses value directly.
+     */
+    explicit version_t(uint64_t value);
+
+    /**
+     * Converts a file timestamp to a version number.
+     */
+    explicit version_t(const std::filesystem::file_time_type& file_time_type);
+
+    /**
+     * Uses the latest timestamp under directory.
+     */
+    explicit version_t(const m03gagbhsnusi43zogoacgj2ez_filesystem::path_t& directory);
+
+    uint64_t value;
+};
+
+/**
+ * Workspace and artifact roots for the current process.
+ */
+struct invocation_context_t {
+    m03gagbhsnusi43zogoacgj2ez_filesystem::path_t workspace_root;
+    m03gagbhsnusi43zogoacgj2ez_filesystem::path_t artifact_root;
+};
+
+/**
+ * Non-empty module name.
+ */
+class module_name_t {
+public:
+    /**
+     * Must be formatted as m<25-character-base36-converted-uuidv7>_<friendly-name>, where friendly_name is a non-empty string of alphanumeric characters and underscores.
+     */
+    explicit module_name_t(std::string_view unique_name);
+
+    /**
+     * Creates a module name from a friendly name, generating a new UUIDv7.
+     */
+    static module_name_t from_friendly_name(std::string_view friendly_name);
+
+    const std::string& unique_name() const;
+    std::string friendly_name() const;
+    m03gagbhtft23yhjwpp881tfmc_uuid::uuid uuid() const;
+
+    bool operator==(const module_name_t& other) const;
+    bool operator<(const module_name_t& other) const;
+    bool operator<=(const module_name_t& other) const;
+
+private:
+    struct validated_name_t {
+        std::string name;
+    };
+
+private:
+    explicit module_name_t(validated_name_t validated_name) noexcept;
+    std::array<std::byte, 16> base36_uuidv7_bytes(std::string_view view) const;
+
+private:
+    static constexpr std::size_t m_pos = 0;
+    static constexpr std::size_t base36_decoded_uuidv7_start = m_pos + 1;
+    static constexpr std::size_t base36_converted_uuidv7_size = 25;
+    static constexpr std::size_t underscore_pos = base36_converted_uuidv7_size + 1;
+    static constexpr std::size_t first_friendly_name_char_pos = underscore_pos + 1;
+
+    std::string m_unique_name;
+};
+
+/**
+ * Hashes module_name_t by its string value.
+ */
+struct module_name_hash_t {
+    std::size_t operator()(const module_name_t& module_name) const noexcept {
+        return std::hash<std::string>()(module_name.unique_name());
+    }
+};
+
+class workspace_t;
+
+/**
+ * Discovered module.
+ */
+class module_t {
+public:
+    using group_t = std::vector<module_t*>;
+    using groups_t = std::vector<group_t>;
+
+    module_t(const workspace_t* workspace, module_name_t name, version_t version);
+
+    /**
+     * Workspace containing this module.
+     */
+    const workspace_t& workspace() const;
+
+    /**
+     * Module name.
+     */
+    const module_name_t& name() const;
+
+    /**
+     * Current artifact version for this module.
+     */
+    version_t version() const;
+
+    /**
+     * Sets the artifact version for this module.
+     */
+    void version(version_t version);
+
+    /**
+     * Adds a module dependency.
+     */
+    void add_dependency(module_t& dependency);
+
+    /**
+     * Adds a builder dependency.
+     */
+    void add_builder_dependency(module_t& dependency);
+
+    /**
+     * Module dependencies sorted by workspace order and name.
+     */
+    std::vector<module_t*> dependencies();
+    std::vector<const module_t*> dependencies() const;
+
+    /**
+     * Builder dependencies sorted by workspace order and name.
+     */
+    std::vector<module_t*> builder_dependencies();
+    std::vector<const module_t*> builder_dependencies() const;
+
+    /**
+     * Module dependency closure as strongly connected component groups in dependency-to-dependent topological order.
+     */
+    groups_t closure_groups() const;
+
+    /**
+     * Source directory: <workspace_root>/<workspace>/<module>.
+     */
+    m03gagbhsnusi43zogoacgj2ez_filesystem::path_t source_dir() const;
+
+    /**
+     * Artifact base directory: <artifact_root>/<module>.
+     */
+    m03gagbhsnusi43zogoacgj2ez_filesystem::path_t artifact_base_dir() const;
+
+    /**
+     * Versioned artifact directory: <artifact_root>/<module>/<module>@<version>.
+     */
+    m03gagbhsnusi43zogoacgj2ez_filesystem::path_t artifact_dir() const;
+
+    /**
+     * Latest artifact directory: <artifact_root>/<module>/latest.
+     */
+    m03gagbhsnusi43zogoacgj2ez_filesystem::path_t artifact_latest_dir() const;
+
+private:
+    const workspace_t* m_workspace;
+    version_t m_version;
+    module_name_t m_name;
+    std::unordered_set<module_t*> m_dependencies;
+    std::unordered_set<module_t*> m_builder_dependencies;
+};
+
+class workspace_graph_t;
+
+/**
+ * Workspace name formatted as ws<order-position>.
+ */
+class workspace_name_t {
+public:
+    explicit workspace_name_t(std::string_view name);
+
+    const m03gagbhsnusi43zogoacgj2ez_filesystem::relative_path_t& relative_path() const;
+    uint32_t order_position() const;
+
+    bool operator==(const workspace_name_t& other) const;
+    bool operator<(const workspace_name_t& other) const;
+    bool operator<=(const workspace_name_t& other) const;
+
+private:
+    m03gagbhsnusi43zogoacgj2ez_filesystem::relative_path_t m_relative_path;
+    uint32_t m_order_position;
+};
+
+/**
+ * Hashes workspace_name_t by its string value.
+ */
+struct workspace_name_hash_t {
+    std::size_t operator()(const workspace_name_t& workspace_name) const noexcept {
+        return std::hash<m03gagbhsnusi43zogoacgj2ez_filesystem::relative_path_t>()(workspace_name.relative_path());
+    }
+};
+
+/**
+ * Workspace.
+ */
+class workspace_t {
+public:
+    workspace_t(workspace_graph_t& workspace_graph, workspace_name_t name);
+
+    bool operator==(const workspace_t& other) const;
+    bool operator<(const workspace_t& other) const;
+    bool operator<=(const workspace_t& other) const;
+
+    /**
+     * Graph containing this workspace.
+     */
+    workspace_graph_t& graph() const;
+
+    /**
+     * Workspace name.
+     */
+    const workspace_name_t& name() const;
+ 
+    /**
+     * Returns a discovered module by name, or nullptr.
+     */
+    module_t* find_module(const module_name_t& module_name) const;
+
+    /**
+     * Adds a discovered module to this workspace.
+     */
+    void add_module(module_t* module);
+
+    /**
+     * Discovered modules sorted by workspace order and name.
+     */
+    std::vector<module_t*> modules() const;
+
+private:
+    workspace_graph_t* m_workspace_graph;
+    workspace_name_t m_name;
+    std::map<module_name_t, module_t*> m_module_by_name;
+};
+
+class workspace_graph_storage_t;
+
+/**
+ * Module graph for one workspace root and artifact root.
+ */
+class workspace_graph_t {
+public:
+    workspace_graph_t(m03gagbhsnusi43zogoacgj2ez_filesystem::path_t workspace_root, m03gagbhsnusi43zogoacgj2ez_filesystem::path_t artifact_dir);
+
+    /**
+     * Workspace root directory.
+     */
+    const m03gagbhsnusi43zogoacgj2ez_filesystem::path_t& root() const;
+
+    /**
+     * Artifact root directory.
+     */
+    const m03gagbhsnusi43zogoacgj2ez_filesystem::path_t& artifact_root() const;
+
+    /**
+     * Module used as the active Builder bootstrap seed.
+     */
+    module_t& bootstrap_seed_module() const;
+
+    /**
+     * True for modules participating in the active Builder bootstrap group.
+     */
+    bool is_active_builder_bootstrap_module(const module_t& module) const;
+
+    /**
+     * Discovers module_name, its reachable dependencies, and validates them.
+     */
+    module_t* discover_module(module_name_t module_name);
+
+    /**
+     * Sorted workspaces.
+     */
+    std::vector<const workspace_t*> workspaces() const;
+
+    /**
+     * Discovered modules sorted by workspace order and name.
+     */
+    std::vector<const module_t*> modules() const;
+
+    std::vector<module_name_t> module_names() const;
+
+    /**
+     * Module dependency closure as strongly connected component groups in dependency-to-dependent topological order.
+     */
+    module_t::groups_t closure_groups(const module_t& module) const;
+
+private:
+    module_t* discover_module_impl(module_name_t module_name);
+
+private:
+    std::map<workspace_name_t, workspace_t*> m_workspace_by_workspace_name;
+    std::map<module_name_t, workspace_t*> m_workspace_by_module_name;
+    m03gagbhsnusi43zogoacgj2ez_filesystem::path_t m_root;
+    m03gagbhsnusi43zogoacgj2ez_filesystem::path_t m_artifact_root;
+    workspace_t* m_bootstrap_seed_workspace;
+    module_t* m_bootstrap_seed_module;
+    workspace_graph_storage_t* m_storage;
+};
+
+/**
+ * Reads BUILDER_WORKSPACE_ROOT and BUILDER_ARTIFACT_ROOT, applies defaults, and exports the selected values.
+ */
+invocation_context_t invocation_context();
+
+} // namespace m03gagbhsp2drqq3gkop8pzfrm_workspace_graph
+
+namespace std {
+
+template <>
+struct formatter<m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::module_name_t> {
+    constexpr auto parse(std::format_parse_context& ctx) {
+        auto it = ctx.begin();
+
+        if (it != ctx.end() && *it != '}') {
+            throw std::format_error("invalid module_name_t format specifier");
+        }
+
+        return it;
+    }
+
+    auto format(const m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::module_name_t& module_name, auto& ctx) const {
+        auto out = ctx.out();
+
+        out = std::format_to(out, "{}", module_name.unique_name());
+
+        return out;
+    }
+};
+
+template <>
+struct formatter<m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::workspace_name_t> {
+    constexpr auto parse(std::format_parse_context& ctx) {
+        auto it = ctx.begin();
+
+        if (it != ctx.end() && *it != '}') {
+            throw std::format_error("invalid workspace_name_t format specifier");
+        }
+
+        return it;
+    }
+
+    auto format(const m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::workspace_name_t& workspace_name, auto& ctx) const {
+        auto out = ctx.out();
+
+        out = std::format_to(out, "{}", workspace_name.relative_path());
+
+        return out;
+    }
+};
+
+template <>
+struct formatter<m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::module_t> {
+    constexpr auto parse(std::format_parse_context& ctx) {
+        auto it = ctx.begin();
+
+        if (it != ctx.end() && *it != '}') {
+            throw std::format_error("invalid module_t format specifier");
+        }
+
+        return it;
+    }
+
+    auto format(const m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::module_t& module, auto& ctx) const {
+        auto out = ctx.out();
+
+        out = std::format_to(out, "{}", module.name());
+
+        return out;
+    }
+};
+
+template <>
+struct formatter<m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::workspace_t> {
+    constexpr auto parse(std::format_parse_context& ctx) {
+        auto it = ctx.begin();
+
+        if (it != ctx.end() && *it != '}') {
+            throw std::format_error("invalid workspace_t format specifier");
+        }
+
+        return it;
+    }
+
+    auto format(const m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::workspace_t& workspace, auto& ctx) const {
+        auto out = ctx.out();
+
+        out = std::format_to(out, "{}", workspace.name());
+
+        return out;
+    }
+};
+
+} // namespace std
+
+#endif // M03GAGBHSP2DRQQ3GKOP8PZFRM_WORKSPACE_GRAPH_H
