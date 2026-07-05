@@ -16,12 +16,7 @@ int main(int argc, char** argv) {
 
     try {
         const auto module = m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::module_name_t(argv[1]);
-
-        std::vector<m03gagbhsvr0m5w15urj0o291m_process::process_arg_t> args;
-        for (int i = 2; i < argc; ++i) {
-            args.push_back(argv[i]);
-        }
-
+        std::vector<std::string_view> args(argv + 2, argv + argc);
         m03gagbhst621faiop1rztfkqp_builder_cli::exec(module, args);
     } catch (const std::exception& e) {
         std::cout << std::format("{}: {}", argv[0], e.what()) << std::endl;

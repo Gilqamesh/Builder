@@ -13,13 +13,13 @@
 
 namespace m03gagbht9a02hx1qrv2qfgnp7_gzip {
 
-static m03gagbhsnusi43zogoacgj2ez_filesystem::path_t host_gzip_path() {
+static std::string host_gzip_string() {
     const auto result = m03gagbhsnusi43zogoacgj2ez_filesystem::path_t(M03GAGBHT9A02HX1QRV2QFGNP7_GZIP_GZIP_PATH);
     if (!m03gagbhsnusi43zogoacgj2ez_filesystem::exists(result) || !m03gagbhsnusi43zogoacgj2ez_filesystem::is_regular_file(result)) {
         throw std::runtime_error(std::format("gzip: host tool '{}' does not exist or is not a regular file", result));
     }
 
-    return result;
+    return result.string();
 }
 
 m03gagbhsnusi43zogoacgj2ez_filesystem::path_t gzip(
@@ -56,13 +56,11 @@ m03gagbhsnusi43zogoacgj2ez_filesystem::path_t gzip(
     try {
         m03gagbhsnusi43zogoacgj2ez_filesystem::copy(file, temporary_input);
 
-        m03gagbhsvr0m5w15urj0o291m_process::create_and_wait_checked(m03gagbhsvr0m5w15urj0o291m_process::command_t {
-            .args = {
-                host_gzip_path(),
-                "-n",
-                temporary_input
-            }
-        });
+        m03gagbhsvr0m5w15urj0o291m_process::create_and_wait_checked(m03gagbhsvr0m5w15urj0o291m_process::command_t({
+            host_gzip_string(),
+            "-n",
+            temporary_input.string()
+        }));
 
         if (!m03gagbhsnusi43zogoacgj2ez_filesystem::exists(temporary_output)) {
             throw std::runtime_error(std::format("gzip::gzip: expected temporary output '{}' to exist but it does not", temporary_output));
@@ -112,13 +110,11 @@ m03gagbhsnusi43zogoacgj2ez_filesystem::path_t ungzip(
     try {
         m03gagbhsnusi43zogoacgj2ez_filesystem::copy(gzip_path, temporary_input);
 
-        m03gagbhsvr0m5w15urj0o291m_process::create_and_wait_checked(m03gagbhsvr0m5w15urj0o291m_process::command_t {
-            .args = {
-                host_gzip_path(),
-                "-d",
-                temporary_input
-            }
-        });
+        m03gagbhsvr0m5w15urj0o291m_process::create_and_wait_checked(m03gagbhsvr0m5w15urj0o291m_process::command_t({
+            host_gzip_string(),
+            "-d",
+            temporary_input.string()
+        }));
 
         if (!m03gagbhsnusi43zogoacgj2ez_filesystem::exists(temporary_output)) {
             throw std::runtime_error(std::format("gzip::ungzip: expected temporary output '{}' to exist but it does not", temporary_output));

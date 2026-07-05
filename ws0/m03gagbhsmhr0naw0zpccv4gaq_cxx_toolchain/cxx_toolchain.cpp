@@ -24,31 +24,25 @@
 
 namespace m03gagbhsmhr0naw0zpccv4gaq_cxx_toolchain {
 
-static bool is_valid_define_key(std::string_view key) {
-    if (key.empty()) {
-        return false;
+static std::string host_tool_string(std::string_view path, std::string_view context) {
+    const auto result = m03gagbhsnusi43zogoacgj2ez_filesystem::path_t(std::string(path));
+    if (!m03gagbhsnusi43zogoacgj2ez_filesystem::exists(result) || !m03gagbhsnusi43zogoacgj2ez_filesystem::is_regular_file(result)) {
+        throw std::runtime_error(std::format("{}: host tool '{}' does not exist or is not a regular file", context, result));
     }
 
-    const auto is_initial_char = [](char c) {
-        return ('A' <= c && c <= 'Z')
-            || ('a' <= c && c <= 'z')
-            || c == '_';
-    };
-    const auto is_key_char = [&](char c) {
-        return is_initial_char(c) || ('0' <= c && c <= '9');
-    };
+    return result.string();
+}
 
-    if (!is_initial_char(key.front())) {
-        return false;
-    }
+static std::string cxx_compiler_string() {
+    return host_tool_string(M03GAGBHSMHR0NAW0ZPCCV4GAQ_CXX_TOOLCHAIN_CXX_COMPILER_PATH, "m03gagbhsmhr0naw0zpccv4gaq_cxx_toolchain::cxx_compiler_string");
+}
 
-    for (const char c : key.substr(1)) {
-        if (!is_key_char(c)) {
-            return false;
-        }
-    }
+static std::string cc_compiler_string() {
+    return host_tool_string(M03GAGBHSMHR0NAW0ZPCCV4GAQ_CXX_TOOLCHAIN_CC_COMPILER_PATH, "m03gagbhsmhr0naw0zpccv4gaq_cxx_toolchain::cc_compiler_string");
+}
 
-    return true;
+static std::string ar_string() {
+    return host_tool_string(M03GAGBHSMHR0NAW0ZPCCV4GAQ_CXX_TOOLCHAIN_AR_PATH, "m03gagbhsmhr0naw0zpccv4gaq_cxx_toolchain::ar_string");
 }
 
 static std::string cxx_string_literal_replacement(const std::string& value) {
@@ -79,7 +73,7 @@ static std::vector<m03gagbhsnusi43zogoacgj2ez_filesystem::path_t> build_object_f
         m03gagbhsnusi43zogoacgj2ez_filesystem::create_directories(build_dir);
     }
 
-    std::vector<m03gagbhsvr0m5w15urj0o291m_process::process_arg_t> process_prefix_args;
+    std::vector<std::string> process_prefix_args;
     process_prefix_args.push_back("-g");
 
     for (const auto& define : defines) {
@@ -105,11 +99,11 @@ static std::vector<m03gagbhsnusi43zogoacgj2ez_filesystem::path_t> build_object_f
             m03gagbhsnusi43zogoacgj2ez_filesystem::create_directories(object_file_dir);
         }
 
-        std::vector<m03gagbhsvr0m5w15urj0o291m_process::process_arg_t> process_args;
+        std::vector<std::string> process_args;
         if (source_path.extension() == ".c") {
-            process_args.push_back(M03GAGBHSMHR0NAW0ZPCCV4GAQ_CXX_TOOLCHAIN_CC_COMPILER_PATH);
+            process_args.push_back(cc_compiler_string());
         } else {
-            process_args.push_back(M03GAGBHSMHR0NAW0ZPCCV4GAQ_CXX_TOOLCHAIN_CXX_COMPILER_PATH);
+            process_args.push_back(cxx_compiler_string());
             process_args.push_back("-std=c++23");
         }
         process_args.insert(process_args.end(), process_prefix_args.begin(), process_prefix_args.end());
@@ -117,11 +111,11 @@ static std::vector<m03gagbhsnusi43zogoacgj2ez_filesystem::path_t> build_object_f
             process_args.push_back("-fPIC");
         }
         process_args.push_back("-c");
-        process_args.push_back(source_path);
+        process_args.push_back(source_path.string());
         process_args.push_back("-o");
-        process_args.push_back(object_file);
+        process_args.push_back(object_file.string());
 
-        m03gagbhsvr0m5w15urj0o291m_process::create_and_wait_checked(m03gagbhsvr0m5w15urj0o291m_process::command_t { .args = process_args });
+        m03gagbhsvr0m5w15urj0o291m_process::create_and_wait_checked(m03gagbhsvr0m5w15urj0o291m_process::command_t(std::move(process_args)));
 
         result.push_back(object_file);
     }
@@ -130,7 +124,7 @@ static std::vector<m03gagbhsnusi43zogoacgj2ez_filesystem::path_t> build_object_f
 }
 
 static void append_runtime_library_paths(
-    std::vector<m03gagbhsvr0m5w15urj0o291m_process::process_arg_t>& process_args,
+    std::vector<std::string>& process_args,
     const link_inputs_t& link_inputs
 ) {
     for (const auto& group : link_inputs.groups) {
@@ -160,15 +154,15 @@ static m03gagbhsnusi43zogoacgj2ez_filesystem::path_t build_archive_library_impl(
         m03gagbhsnusi43zogoacgj2ez_filesystem::create_directories(static_library_dir);
     }
 
-    std::vector<m03gagbhsvr0m5w15urj0o291m_process::process_arg_t> process_args;
-    process_args.push_back(M03GAGBHSMHR0NAW0ZPCCV4GAQ_CXX_TOOLCHAIN_AR_PATH);
+    std::vector<std::string> process_args;
+    process_args.push_back(ar_string());
     process_args.push_back("rcs");
-    process_args.push_back(static_library);
+    process_args.push_back(static_library.string());
     for (const auto& object_file : object_files) {
-        process_args.push_back(object_file);
+        process_args.push_back(object_file.string());
     }
 
-    m03gagbhsvr0m5w15urj0o291m_process::create_and_wait_checked(m03gagbhsvr0m5w15urj0o291m_process::command_t { .args = process_args });
+    m03gagbhsvr0m5w15urj0o291m_process::create_and_wait_checked(m03gagbhsvr0m5w15urj0o291m_process::command_t(process_args));
 
     if (!m03gagbhsnusi43zogoacgj2ez_filesystem::exists(static_library)) {
         throw std::runtime_error(std::format("m03gagbhsmhr0naw0zpccv4gaq_cxx_toolchain::build_library: expected output static library '{}' to exist but it does not", static_library));
@@ -198,14 +192,14 @@ static m03gagbhsnusi43zogoacgj2ez_filesystem::path_t build_dynamic_library_impl(
         m03gagbhsnusi43zogoacgj2ez_filesystem::create_directories(shared_library_dir);
     }
 
-    std::vector<m03gagbhsvr0m5w15urj0o291m_process::process_arg_t> process_args;
-    process_args.push_back(M03GAGBHSMHR0NAW0ZPCCV4GAQ_CXX_TOOLCHAIN_CXX_COMPILER_PATH);
+    std::vector<std::string> process_args;
+    process_args.push_back(cxx_compiler_string());
     process_args.push_back("-g");
     process_args.push_back("-shared");
     process_args.push_back("-o");
-    process_args.push_back(shared_library);
+    process_args.push_back(shared_library.string());
     for (const auto& object_file : object_files) {
-        process_args.push_back(object_file);
+        process_args.push_back(object_file.string());
     }
 
     for (const auto& group : link_inputs.groups) {
@@ -217,7 +211,7 @@ static m03gagbhsnusi43zogoacgj2ez_filesystem::path_t build_dynamic_library_impl(
                 throw std::runtime_error(std::format("m03gagbhsmhr0naw0zpccv4gaq_cxx_toolchain::build_library: library does not exist '{}'", library));
             }
 
-            process_args.push_back(library);
+            process_args.push_back(library.string());
         }
         if (group.static_library_group) {
             process_args.push_back("-Wl,--end-group");
@@ -226,7 +220,7 @@ static m03gagbhsnusi43zogoacgj2ez_filesystem::path_t build_dynamic_library_impl(
 
     append_runtime_library_paths(process_args, link_inputs);
 
-    m03gagbhsvr0m5w15urj0o291m_process::create_and_wait_checked(m03gagbhsvr0m5w15urj0o291m_process::command_t { .args = process_args });
+    m03gagbhsvr0m5w15urj0o291m_process::create_and_wait_checked(m03gagbhsvr0m5w15urj0o291m_process::command_t(process_args));
 
     if (!m03gagbhsnusi43zogoacgj2ez_filesystem::exists(shared_library)) {
         throw std::runtime_error(std::format("m03gagbhsmhr0naw0zpccv4gaq_cxx_toolchain::build_library: expected output shared library '{}' to exist but it does not", shared_library));
@@ -256,14 +250,14 @@ static m03gagbhsnusi43zogoacgj2ez_filesystem::path_t build_binary_impl(
         m03gagbhsnusi43zogoacgj2ez_filesystem::create_directories(binary_dir);
     }
 
-    std::vector<m03gagbhsvr0m5w15urj0o291m_process::process_arg_t> process_args;
-    process_args.push_back(M03GAGBHSMHR0NAW0ZPCCV4GAQ_CXX_TOOLCHAIN_CXX_COMPILER_PATH);
+    std::vector<std::string> process_args;
+    process_args.push_back(cxx_compiler_string());
     process_args.push_back("-g");
     process_args.push_back("-std=c++23");
     process_args.push_back("-o");
-    process_args.push_back(binary);
+    process_args.push_back(binary.string());
     for (const auto& object_file : object_files) {
-        process_args.push_back(object_file);
+        process_args.push_back(object_file.string());
     }
 
     for (const auto& group : link_inputs.groups) {
@@ -274,7 +268,7 @@ static m03gagbhsnusi43zogoacgj2ez_filesystem::path_t build_binary_impl(
             if (!m03gagbhsnusi43zogoacgj2ez_filesystem::exists(library)) {
                 throw std::runtime_error(std::format("m03gagbhsmhr0naw0zpccv4gaq_cxx_toolchain::build_binary: library does not exist '{}'", library));
             }
-            process_args.push_back(library);
+            process_args.push_back(library.string());
         }
         if (group.static_library_group) {
             process_args.push_back("-Wl,--end-group");
@@ -283,7 +277,7 @@ static m03gagbhsnusi43zogoacgj2ez_filesystem::path_t build_binary_impl(
 
     append_runtime_library_paths(process_args, link_inputs);
 
-    m03gagbhsvr0m5w15urj0o291m_process::create_and_wait_checked(m03gagbhsvr0m5w15urj0o291m_process::command_t { .args = process_args });
+    m03gagbhsvr0m5w15urj0o291m_process::create_and_wait_checked(m03gagbhsvr0m5w15urj0o291m_process::command_t(process_args));
 
     if (!m03gagbhsnusi43zogoacgj2ez_filesystem::exists(binary)) {
         throw std::runtime_error(std::format("m03gagbhsmhr0naw0zpccv4gaq_cxx_toolchain::build_binary: expected output binary '{}' to exist but it does not", binary));
@@ -296,8 +290,20 @@ define_t::define_t(std::string key, std::string value):
     m_key(std::move(key)),
     m_value(std::move(value))
 {
-    if (!is_valid_define_key(m_key)) {
-        throw std::runtime_error(std::format("m03gagbhsmhr0naw0zpccv4gaq_cxx_toolchain::define_t::define_t: invalid compile define key '{}'", m_key));
+    if (m_key.empty()) {
+        throw std::runtime_error("m03gagbhsmhr0naw0zpccv4gaq_cxx_toolchain::define_t: key cannot be empty");
+    }
+
+
+    const auto first_char = m_key.front();
+    if (!('A' <= first_char && first_char <= 'Z') && !('a' <= first_char && first_char <= 'z') && first_char != '_') {
+        throw std::runtime_error(std::format("m03gagbhsmhr0naw0zpccv4gaq_cxx_toolchain::define_t: invalid compile define key '{}'", m_key));
+    }
+
+    for (const char c : std::string_view(m_key).substr(1)) {
+        if (!('A' <= c && c <= 'Z') && !('a' <= c && c <= 'z') && !('0' <= c && c <= '9') && c != '_') {
+            throw std::runtime_error(std::format("m03gagbhsmhr0naw0zpccv4gaq_cxx_toolchain::define_t: invalid compile define key '{}'", m_key));
+        }
     }
 }
 

@@ -16,54 +16,48 @@
 
 namespace m03gagbhsvr0m5w15urj0o291m_process {
 
-static void apply_environment(const std::vector<environment_binding_t>& environment) {
-    for (const auto& binding : environment) {
-        if (binding.name.empty()) {
-            throw std::runtime_error("m03gagbhsvr0m5w15urj0o291m_process::exec: environment binding name must not be empty");
-        }
-        if (binding.name.find('=') != std::string::npos) {
-            throw std::runtime_error(std::format("m03gagbhsvr0m5w15urj0o291m_process::exec: environment binding name '{}' must not contain '='", binding.name));
-        }
-        if (setenv(binding.name.c_str(), binding.value.c_str(), 1) == -1) {
-            throw std::runtime_error(std::format("m03gagbhsvr0m5w15urj0o291m_process::exec: failed to set environment binding '{}': {}", binding.name, std::strerror(errno)));
-        }
+environment_variable_t::environment_variable_t(std::string name, std::string value):
+    m_name(std::move(name)),
+    m_value(std::move(value))
+{
+    if (m_name.empty()) {
+        throw std::invalid_argument("m03gagbhsvr0m5w15urj0o291m_process::environment_variable_t: name must not be empty");
+    }
+
+    if (m_name.find('=') != std::string::npos) {
+        throw std::invalid_argument(std::format("m03gagbhsvr0m5w15urj0o291m_process::environment_variable_t: name '{}' must not contain '='", m_name));
     }
 }
 
-static void apply_working_dir(const std::optional<m03gagbhsnusi43zogoacgj2ez_filesystem::path_t>& working_dir) {
-    if (working_dir && chdir(working_dir->c_str()) == -1) {
-        throw std::runtime_error(std::format("m03gagbhsvr0m5w15urj0o291m_process::exec: chdir failed for '{}': {}", *working_dir, std::strerror(errno)));
-    }
+const std::string& environment_variable_t::name() const {
+    return m_name;
 }
 
-static std::vector<char*> cargs(const std::vector<process_arg_t>& args, std::string& pretty_print) {
-    if (args.empty()) {
-        throw std::runtime_error("m03gagbhsvr0m5w15urj0o291m_process::exec: command args must not be empty");
-    }
+const std::string& environment_variable_t::value() const {
+    return m_value;
+}
 
-    std::vector<char*> result;
-    for (const auto& arg : args) {
-        if (!pretty_print.empty()) {
-            pretty_print += " ";
-        }
-        pretty_print += std::visit(
-            [&](auto&& v) {
-                using T = std::decay_t<decltype(v)>;
-                if constexpr (std::is_same_v<T, std::string>) {
-                    result.push_back(const_cast<char*>(v.c_str()));
-                    return v;
-                } else if constexpr (std::is_same_v<T, m03gagbhsnusi43zogoacgj2ez_filesystem::path_t>) {
-                    result.push_back(const_cast<char*>(v.c_str()));
-                    return m03gagbhsnusi43zogoacgj2ez_filesystem::pretty_path_t(v).string();
-                } else {
-                    static_assert(false, "non-exhaustive visitor!");
-                }
-            },
-            arg
-        );
-    }
-    result.push_back(nullptr);
-    return result;
+command_t::command_t(
+    std::vector<std::string> args,
+    std::optional<m03gagbhsnusi43zogoacgj2ez_filesystem::path_t> working_dir,
+    std::vector<environment_variable_t> environment_variables
+):
+    m_args(std::move(args)),
+    m_working_dir(std::move(working_dir)),
+    m_environment_variables(std::move(environment_variables))
+{
+}
+
+const std::vector<std::string>& command_t::args() const {
+    return m_args;
+}
+
+const std::optional<m03gagbhsnusi43zogoacgj2ez_filesystem::path_t>& command_t::working_dir() const {
+    return m_working_dir;
+}
+
+const std::vector<environment_variable_t>& command_t::environment_variables() const {
+    return m_environment_variables;
 }
 
 int create_and_wait(const command_t& command) {
@@ -111,14 +105,29 @@ void create_and_wait_checked(const command_t& command) {
 }
 
 [[noreturn]] void exec(const command_t& command) {
-    apply_environment(command.environment);
-    apply_working_dir(command.working_dir);
+    for (const auto& environment_variable : command.environment_variables()) {
+        if (setenv(environment_variable.name().c_str(), environment_variable.value().c_str(), 1) == -1) {
+            throw std::runtime_error(std::format("m03gagbhsvr0m5w15urj0o291m_process::exec: failed to set environment binding '{}': {}", environment_variable.name(), std::strerror(errno)));
+        }
+    }
 
-    std::string pretty_print;
-    auto exec_args = cargs(command.args, pretty_print);
+    const auto& working_dir = command.working_dir();
+    if (working_dir && chdir(working_dir->c_str()) == -1) {
+        throw std::runtime_error(std::format("m03gagbhsvr0m5w15urj0o291m_process::exec: chdir failed for '{}': {}", *working_dir, std::strerror(errno)));
+    }
 
-    std::cout << pretty_print << std::endl;
-    if (execv(exec_args[0], exec_args.data()) == -1) {
+    const auto& args = command.args();
+    if (args.empty()) {
+        throw std::runtime_error("m03gagbhsvr0m5w15urj0o291m_process::exec: command args must not be empty");
+    }
+
+    std::vector<char*> cargs;
+    for (const auto& arg : args) {
+        cargs.push_back(const_cast<char*>(arg.c_str()));
+    }
+    cargs.push_back(nullptr);
+
+    if (execv(cargs[0], cargs.data()) == -1) {
         throw std::runtime_error(std::format("m03gagbhsvr0m5w15urj0o291m_process::exec: execv failed: {}", std::strerror(errno)));
     }
     throw std::runtime_error("m03gagbhsvr0m5w15urj0o291m_process::exec: unreachable state reached after execv");

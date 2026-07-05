@@ -11,25 +11,35 @@
 namespace m03gagbhsvr0m5w15urj0o291m_process {
 
 /**
- * Command argument passed as either a string or filesystem path.
+ * Environment variable name and value for a child process.
  */
-using process_arg_t = std::variant<std::string, m03gagbhsnusi43zogoacgj2ez_filesystem::path_t>;
+class environment_variable_t {
+public:
+    environment_variable_t(std::string name, std::string value);
 
-/**
- * Environment variable value for a child process.
- */
-struct environment_binding_t {
-    std::string name;
-    std::string value;
+    const std::string& name() const;
+    const std::string& value() const;
+
+private:
+    std::string m_name;
+    std::string m_value;
 };
 
 /**
  * Process command line, optional working directory, and environment additions.
  */
-struct command_t {
-    std::vector<process_arg_t> args;
-    std::optional<m03gagbhsnusi43zogoacgj2ez_filesystem::path_t> working_dir;
-    std::vector<environment_binding_t> environment;
+class command_t {
+public:
+    command_t(std::vector<std::string> args, std::optional<m03gagbhsnusi43zogoacgj2ez_filesystem::path_t> working_dir = std::nullopt, std::vector<environment_variable_t> environment_variables = {});
+
+    const std::vector<std::string>& args() const;
+    const std::optional<m03gagbhsnusi43zogoacgj2ez_filesystem::path_t>& working_dir() const;
+    const std::vector<environment_variable_t>& environment_variables() const;
+
+private:
+    std::vector<std::string> m_args;
+    std::optional<m03gagbhsnusi43zogoacgj2ez_filesystem::path_t> m_working_dir;
+    std::vector<environment_variable_t> m_environment_variables;
 };
 
 /**

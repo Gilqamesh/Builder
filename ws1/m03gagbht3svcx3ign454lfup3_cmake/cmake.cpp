@@ -5,12 +5,22 @@
 
 #include <format>
 #include <stdexcept>
+#include <string>
 
 #ifndef M03GAGBHT3SVCX3IGN454LFUP3_CMAKE_CMAKE_PATH
 # error M03GAGBHT3SVCX3IGN454LFUP3_CMAKE_CMAKE_PATH must be defined by the owning builder
 #endif
 
 namespace m03gagbht3svcx3ign454lfup3_cmake {
+
+static std::string cmake_string() {
+    const auto result = m03gagbhsnusi43zogoacgj2ez_filesystem::path_t(M03GAGBHT3SVCX3IGN454LFUP3_CMAKE_CMAKE_PATH);
+    if (!m03gagbhsnusi43zogoacgj2ez_filesystem::exists(result) || !m03gagbhsnusi43zogoacgj2ez_filesystem::is_regular_file(result)) {
+        throw std::runtime_error(std::format("cmake: host tool '{}' does not exist or is not a regular file", result));
+    }
+
+    return result.string();
+}
 
 void configure(
     const m03gagbhsnusi43zogoacgj2ez_filesystem::path_t& source_dir,
@@ -25,18 +35,18 @@ void configure(
         m03gagbhsnusi43zogoacgj2ez_filesystem::create_directories(build_dir);
     }
 
-    std::vector<m03gagbhsvr0m5w15urj0o291m_process::process_arg_t> process_args;
-    process_args.push_back(M03GAGBHT3SVCX3IGN454LFUP3_CMAKE_CMAKE_PATH);
+    std::vector<std::string> process_args;
+    process_args.push_back(cmake_string());
     process_args.push_back("-S");
-    process_args.push_back(source_dir);
+    process_args.push_back(source_dir.string());
     process_args.push_back("-B");
-    process_args.push_back(build_dir);
+    process_args.push_back(build_dir.string());
 
     for (const auto& define_key_value : define_key_values) {
         process_args.push_back(std::format("-D{}={}", define_key_value.first, define_key_value.second));
     }
 
-    m03gagbhsvr0m5w15urj0o291m_process::create_and_wait_checked(m03gagbhsvr0m5w15urj0o291m_process::command_t { .args = process_args });
+    m03gagbhsvr0m5w15urj0o291m_process::create_and_wait_checked(m03gagbhsvr0m5w15urj0o291m_process::command_t(process_args));
 }
 
 void build(const m03gagbhsnusi43zogoacgj2ez_filesystem::path_t& build_dir, std::optional<std::size_t> n_jobs) {
@@ -44,10 +54,10 @@ void build(const m03gagbhsnusi43zogoacgj2ez_filesystem::path_t& build_dir, std::
         throw std::runtime_error(std::format("cmake::build: build_dir '{}' does not exist", build_dir));
     }
 
-    std::vector<m03gagbhsvr0m5w15urj0o291m_process::process_arg_t> process_args;
-    process_args.push_back(M03GAGBHT3SVCX3IGN454LFUP3_CMAKE_CMAKE_PATH);
+    std::vector<std::string> process_args;
+    process_args.push_back(cmake_string());
     process_args.push_back("--build");
-    process_args.push_back(build_dir);
+    process_args.push_back(build_dir.string());
 
     if (n_jobs.has_value()) {
         process_args.push_back(std::format("-j{}", n_jobs.value()));
@@ -55,7 +65,7 @@ void build(const m03gagbhsnusi43zogoacgj2ez_filesystem::path_t& build_dir, std::
         process_args.push_back("-j");
     }
 
-    m03gagbhsvr0m5w15urj0o291m_process::create_and_wait_checked(m03gagbhsvr0m5w15urj0o291m_process::command_t { .args = process_args });
+    m03gagbhsvr0m5w15urj0o291m_process::create_and_wait_checked(m03gagbhsvr0m5w15urj0o291m_process::command_t(process_args));
 }
 
 void install(const m03gagbhsnusi43zogoacgj2ez_filesystem::path_t& build_dir) {
@@ -63,13 +73,11 @@ void install(const m03gagbhsnusi43zogoacgj2ez_filesystem::path_t& build_dir) {
         throw std::runtime_error(std::format("cmake::install: build_dir '{}' does not exist", build_dir));
     }
 
-    m03gagbhsvr0m5w15urj0o291m_process::create_and_wait_checked(m03gagbhsvr0m5w15urj0o291m_process::command_t {
-        .args = {
-            M03GAGBHT3SVCX3IGN454LFUP3_CMAKE_CMAKE_PATH,
-            "--install",
-            build_dir
-        }
-    });
+    m03gagbhsvr0m5w15urj0o291m_process::create_and_wait_checked(m03gagbhsvr0m5w15urj0o291m_process::command_t({
+        cmake_string(),
+        "--install",
+        build_dir.string()
+    }));
 }
 
 } // namespace m03gagbht3svcx3ign454lfup3_cmake

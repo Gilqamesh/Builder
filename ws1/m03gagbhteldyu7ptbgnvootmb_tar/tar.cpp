@@ -5,6 +5,7 @@
 
 #include <format>
 #include <stdexcept>
+#include <string>
 
 #ifndef M03GAGBHTELDYU7PTBGNVOOTMB_TAR_TAR_PATH
 # error M03GAGBHTELDYU7PTBGNVOOTMB_TAR_TAR_PATH must be defined by the owning builder
@@ -12,13 +13,13 @@
 
 namespace m03gagbhteldyu7ptbgnvootmb_tar {
 
-static m03gagbhsnusi43zogoacgj2ez_filesystem::path_t host_tar_path() {
+static std::string host_tar_string() {
     const auto result = m03gagbhsnusi43zogoacgj2ez_filesystem::path_t(M03GAGBHTELDYU7PTBGNVOOTMB_TAR_TAR_PATH);
     if (!m03gagbhsnusi43zogoacgj2ez_filesystem::exists(result) || !m03gagbhsnusi43zogoacgj2ez_filesystem::is_regular_file(result)) {
         throw std::runtime_error(std::format("tar: host tool '{}' does not exist or is not a regular file", result));
     }
 
-    return result;
+    return result.string();
 }
 
 m03gagbhsnusi43zogoacgj2ez_filesystem::path_t tar(
@@ -42,19 +43,19 @@ m03gagbhsnusi43zogoacgj2ez_filesystem::path_t tar(
         m03gagbhsnusi43zogoacgj2ez_filesystem::create_directories(parent_install_tar_path);
     }
 
-    std::vector<m03gagbhsvr0m5w15urj0o291m_process::process_arg_t> process_args;
-    process_args.push_back(host_tar_path());
+    std::vector<std::string> process_args;
+    process_args.push_back(host_tar_string());
     process_args.push_back("-cf");
-    process_args.push_back(install_tar_path);
+    process_args.push_back(install_tar_path.string());
     if (dir.is_child(install_tar_path)) {
-        process_args.push_back(std::format("--exclude={}", dir.relative(install_tar_path)));
+        process_args.push_back(std::format("--exclude={}", dir.relative(install_tar_path).string()));
     }
     process_args.push_back("-C");
-    process_args.push_back(dir);
+    process_args.push_back(dir.string());
     process_args.push_back(".");
 
     try {
-        m03gagbhsvr0m5w15urj0o291m_process::create_and_wait_checked(m03gagbhsvr0m5w15urj0o291m_process::command_t { .args = process_args });
+        m03gagbhsvr0m5w15urj0o291m_process::create_and_wait_checked(m03gagbhsvr0m5w15urj0o291m_process::command_t(std::move(process_args)));
 
         if (!m03gagbhsnusi43zogoacgj2ez_filesystem::exists(install_tar_path) || !m03gagbhsnusi43zogoacgj2ez_filesystem::is_regular_file(install_tar_path)) {
             throw std::runtime_error(std::format("tar::tar: expected output '{}' to exist as a regular file", install_tar_path));
@@ -89,15 +90,13 @@ m03gagbhsnusi43zogoacgj2ez_filesystem::path_t untar(
     }
 
     try {
-        m03gagbhsvr0m5w15urj0o291m_process::create_and_wait_checked(m03gagbhsvr0m5w15urj0o291m_process::command_t {
-            .args = {
-                host_tar_path(),
-                "-xf",
-                tar_path,
-                "-C",
-                install_dir
-            }
-        });
+        m03gagbhsvr0m5w15urj0o291m_process::create_and_wait_checked(m03gagbhsvr0m5w15urj0o291m_process::command_t({
+            host_tar_string(),
+            "-xf",
+            tar_path.string(),
+            "-C",
+            install_dir.string()
+        }));
     } catch (...) {
         if (created_install_dir) {
             m03gagbhsnusi43zogoacgj2ez_filesystem::remove_all(install_dir);

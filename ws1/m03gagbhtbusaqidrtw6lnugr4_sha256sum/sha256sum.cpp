@@ -6,6 +6,7 @@
 #include <fstream>
 #include <format>
 #include <stdexcept>
+#include <string>
 
 #ifndef M03GAGBHTBUSAQIDRTW6LNUGR4_SHA256SUM_SHA256SUM_PATH
 # error M03GAGBHTBUSAQIDRTW6LNUGR4_SHA256SUM_SHA256SUM_PATH must be defined by the owning builder
@@ -13,13 +14,13 @@
 
 namespace m03gagbhtbusaqidrtw6lnugr4_sha256sum {
 
-static m03gagbhsnusi43zogoacgj2ez_filesystem::path_t sha256sum_path() {
+static std::string sha256sum_string() {
     const auto result = m03gagbhsnusi43zogoacgj2ez_filesystem::path_t(M03GAGBHTBUSAQIDRTW6LNUGR4_SHA256SUM_SHA256SUM_PATH);
     if (!m03gagbhsnusi43zogoacgj2ez_filesystem::exists(result) || !m03gagbhsnusi43zogoacgj2ez_filesystem::is_regular_file(result)) {
         throw std::runtime_error(std::format("sha256sum::verify: host tool '{}' does not exist or is not a regular file", result));
     }
 
-    return result;
+    return result.string();
 }
 
 static void validate_expected_sha256(const std::string& expected_sha256) {
@@ -70,14 +71,12 @@ void verify(const m03gagbhsnusi43zogoacgj2ez_filesystem::path_t& path, const std
 
     try {
         write_checksum_file(path, expected_sha256, checksum_path);
-        m03gagbhsvr0m5w15urj0o291m_process::create_and_wait_checked(m03gagbhsvr0m5w15urj0o291m_process::command_t {
-            .args = {
-                sha256sum_path(),
-                "--status",
-                "--check",
-                checksum_path
-            }
-        });
+        m03gagbhsvr0m5w15urj0o291m_process::create_and_wait_checked(m03gagbhsvr0m5w15urj0o291m_process::command_t({
+            sha256sum_string(),
+            "--status",
+            "--check",
+            checksum_path.string()
+        }));
         m03gagbhsnusi43zogoacgj2ez_filesystem::remove(checksum_path);
     } catch (...) {
         m03gagbhsnusi43zogoacgj2ez_filesystem::remove(checksum_path);
