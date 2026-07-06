@@ -1,7 +1,7 @@
 #ifndef M03GAGBHTH67IRF210VI3BYVHK_WGET_API_H
 # define M03GAGBHTH67IRF210VI3BYVHK_WGET_API_H
 
-# include <m03gagbhsnusi43zogoacgj2ez_filesystem/api.h>
+# include <m03gagbhsnusi43zogoacgj2ez_filesystem>
 
 # include <string>
 

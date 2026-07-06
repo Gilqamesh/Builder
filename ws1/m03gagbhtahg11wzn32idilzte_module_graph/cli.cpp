@@ -1,7 +1,7 @@
 #include "api.h"
 
-#include <m03gagbhsnusi43zogoacgj2ez_filesystem/api.h>
-#include <m03gagbhsp2drqq3gkop8pzfrm_workspace_graph/api.h>
+#include <m03gagbhsnusi43zogoacgj2ez_filesystem>
+#include <m03gagbhsp2drqq3gkop8pzfrm_workspace_graph>
 
 #include <exception>
 #include <format>

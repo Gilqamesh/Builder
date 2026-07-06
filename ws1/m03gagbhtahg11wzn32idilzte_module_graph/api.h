@@ -1,8 +1,8 @@
 #ifndef M03GAGBHTAHG11WZN32IDILZTE_MODULE_GRAPH_API_H
 # define M03GAGBHTAHG11WZN32IDILZTE_MODULE_GRAPH_API_H
 
-# include <m03gagbhsnusi43zogoacgj2ez_filesystem/api.h>
-# include <m03gagbhsp2drqq3gkop8pzfrm_workspace_graph/api.h>
+# include <m03gagbhsnusi43zogoacgj2ez_filesystem>
+# include <m03gagbhsp2drqq3gkop8pzfrm_workspace_graph>
 
 namespace m03gagbhtahg11wzn32idilzte_module_graph {
 

@@ -1,9 +1,10 @@
 #include "api.h"
 
-#include <m03gagbhsnusi43zogoacgj2ez_filesystem/api.h>
-#include <m03gagbht2l61mj6qitacwbmea_byte_stream/api.h>
+#include <m03gagbhsnusi43zogoacgj2ez_filesystem>
+#include <m03gagbht2l61mj6qitacwbmea_byte_stream>
 
 #include <algorithm>
+#include <charconv>
 #include <cerrno>
 #include <cstdlib>
 #include <cstring>
@@ -79,6 +80,67 @@ static void validate_module_layout(const m03gagbhsnusi43zogoacgj2ez_filesystem::
     validate_module_layout_file(module_dir, BUILDER_CPP);
     validate_module_layout_file(module_dir, CLI_CPP);
     validate_module_layout_file(module_dir, API_H);
+}
+
+static version_t parse_decimal_version(std::string_view value, const m03gagbhsnusi43zogoacgj2ez_filesystem::path_t& source) {
+    uint64_t parsed = 0;
+    const auto* begin = value.data();
+    const auto* end = value.data() + value.size();
+    const auto [ptr, ec] = std::from_chars(begin, end, parsed);
+    if (ec != std::errc() || ptr != end) {
+        throw std::runtime_error(std::format(
+            "m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::parse_decimal_version: source file '{}' contains invalid module artifact version '{}'",
+            source,
+            value
+        ));
+    }
+
+    return version_t(parsed);
+}
+
+static std::optional<module_ref_t> parse_public_module_include(
+    const m03gagbhsnusi43zogoacgj2ez_filesystem::path_t& source,
+    const std::string& line
+) {
+    static const auto include_pattern = std::regex(R"(^\s*#\s*include\s*<([^@>/\s]+)(?:@([0-9]+))?>\s*$)");
+    static const auto legacy_module_include_pattern = std::regex(R"(^\s*#\s*include\s*<([^@>/\s]+)/([^>\s]+)>\s*$)");
+
+    std::smatch legacy_match;
+    if (std::regex_match(line, legacy_match, legacy_module_include_pattern)) {
+        try {
+            const auto legacy_module_name = module_name_t(legacy_match[1].str());
+            throw std::runtime_error(std::format(
+                "m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::parse_public_module_include: source file '{}' uses legacy public include '#include <{}/{}>'; use '#include <{}>'",
+                source,
+                legacy_module_name,
+                legacy_match[2].str(),
+                legacy_module_name
+            ));
+        } catch (const std::invalid_argument&) {
+        }
+    }
+
+    std::smatch match;
+    if (!std::regex_match(line, match, include_pattern)) {
+        return std::nullopt;
+    }
+
+    std::optional<module_name_t> maybe_module_name;
+    try {
+        maybe_module_name = module_name_t(match[1].str());
+    } catch (const std::invalid_argument&) {
+        return std::nullopt;
+    }
+
+    std::optional<version_t> maybe_version;
+    if (match[2].matched) {
+        maybe_version = parse_decimal_version(match[2].str(), source);
+    }
+
+    return module_ref_t {
+        .name = *maybe_module_name,
+        .version = maybe_version
+    };
 }
 
 module_name_t::module_name_t(std::string_view unique_name):
@@ -435,8 +497,16 @@ void module_t::add_dependency(module_t& dependency) {
     m_dependencies.insert(&dependency);
 }
 
+void module_t::add_dependency_ref(module_ref_t dependency) {
+    m_dependency_refs.insert(std::move(dependency));
+}
+
 void module_t::add_builder_dependency(module_t& dependency) {
     m_builder_dependencies.insert(&dependency);
+}
+
+void module_t::add_builder_dependency_ref(module_ref_t dependency) {
+    m_builder_dependency_refs.insert(std::move(dependency));
 }
 
 void module_scc_t::add_module(module_t& module) {
@@ -527,8 +597,40 @@ version_t::version_t(const m03gagbhsnusi43zogoacgj2ez_filesystem::path_t& direct
 {
 }
 
+bool version_t::operator==(const version_t& other) const {
+    return value == other.value;
+}
+
+bool version_t::operator<(const version_t& other) const {
+    return value < other.value;
+}
+
 const module_name_t& module_t::name() const {
     return m_name;
+}
+
+bool module_ref_t::operator==(const module_ref_t& other) const {
+    return name == other.name && version == other.version;
+}
+
+bool module_ref_t::operator<(const module_ref_t& other) const {
+    if (!(name == other.name)) {
+        return name < other.name;
+    }
+
+    return version < other.version;
+}
+
+bool module_artifact_ref_t::operator==(const module_artifact_ref_t& other) const {
+    return name == other.name && version == other.version;
+}
+
+bool module_artifact_ref_t::operator<(const module_artifact_ref_t& other) const {
+    if (!(name == other.name)) {
+        return name < other.name;
+    }
+
+    return version < other.version;
 }
 
 m03gagbhsnusi43zogoacgj2ez_filesystem::path_t module_t::source_dir() const {
@@ -608,6 +710,10 @@ std::vector<const module_t*> module_t::dependencies() const {
     return result;
 }
 
+std::vector<module_ref_t> module_t::dependency_refs() const {
+    return std::vector<module_ref_t>(m_dependency_refs.begin(), m_dependency_refs.end());
+}
+
 std::vector<module_t*> module_t::builder_dependencies() {
     std::vector<module_t*> result;
     result.reserve(m_builder_dependencies.size());
@@ -632,6 +738,10 @@ std::vector<const module_t*> module_t::builder_dependencies() const {
     std::sort(result.begin(), result.end(), module_less);
 
     return result;
+}
+
+std::vector<module_ref_t> module_t::builder_dependency_refs() const {
+    return std::vector<module_ref_t>(m_builder_dependency_refs.begin(), m_builder_dependency_refs.end());
 }
 
 std::vector<const workspace_t*> workspace_graph_t::workspaces() const {
@@ -690,8 +800,8 @@ module_t* workspace_graph_t::discover_module_impl(module_name_t module_name) {
 
     workspace->add_module(module);
 
-    const auto dependency_names_from_source = [&](const m03gagbhsnusi43zogoacgj2ez_filesystem::find_include_predicate_t& source_filter) {
-        std::set<module_name_t> dependency_module_names;
+    const auto dependency_refs_from_source = [&](const m03gagbhsnusi43zogoacgj2ez_filesystem::find_include_predicate_t& source_filter) {
+        std::set<module_ref_t> dependency_refs;
 
         for (const auto& source : m03gagbhsnusi43zogoacgj2ez_filesystem::find(module_directory, source_filter, m03gagbhsnusi43zogoacgj2ez_filesystem::find_descend_predicate_t::descend_all)) {
             std::ifstream ifs(source.path().string());
@@ -699,33 +809,30 @@ module_t* workspace_graph_t::discover_module_impl(module_name_t module_name) {
                 throw std::runtime_error(std::format("m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::discover_module_impl: failed to open source file '{}'", source.path()));
             }
 
-            const auto include_pattern = std::regex(R"(^\s*#\s*include\s*<(m[a-z0-9]{25}_[a-zA-Z0-9_]+)/([^>\s]+)>\s*$)");
             std::string line;
             while (std::getline(ifs, line)) {
-                std::smatch match;
-                if (!std::regex_match(line, match, include_pattern)) {
-                    continue ;
-                }
-                const auto dependency_name = match[1].str();
-                const auto included_file = match[2].str();
-                if (included_file != API_H) {
-                    throw std::runtime_error(std::format("m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::discover_module_impl: source file '{}' includes file '{}' from module '{}', but only '{}' is allowed to be included from other modules", source.path(), included_file, dependency_name, API_H));
-                }
-
-                const auto dependency_module_name = module_name_t(dependency_name);
-                if (dependency_module_name == module_name) {
+                const auto maybe_dependency_ref = parse_public_module_include(source.path(), line);
+                if (!maybe_dependency_ref) {
                     continue ;
                 }
 
-                if (!m_workspace_by_module_name.contains(dependency_module_name)) {
-                    throw std::runtime_error(std::format("m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::discover_module_impl: source file '{}' includes unknown module '{}'", source.path(), dependency_module_name));
+                if (maybe_dependency_ref->name == module_name) {
+                    continue ;
                 }
 
-                dependency_module_names.insert(dependency_module_name);
+                if (!maybe_dependency_ref->version && !m_workspace_by_module_name.contains(maybe_dependency_ref->name)) {
+                    throw std::runtime_error(std::format(
+                        "m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::discover_module_impl: source file '{}' includes valid Builder module '{}', but it is not present in the workspace module index",
+                        source.path(),
+                        maybe_dependency_ref->name
+                    ));
+                }
+
+                dependency_refs.insert(*maybe_dependency_ref);
             }
         }
 
-        return dependency_module_names;
+        return dependency_refs;
     };
 
     const auto module_dependency_source_filter =
@@ -737,16 +844,22 @@ module_t* workspace_graph_t::discover_module_impl(module_name_t module_name) {
             const auto extension = path.extension();
             return extension == ".cpp" || extension == ".c" || extension == ".h" || extension == ".hpp";
         });
-    for (const auto& module_dependency : dependency_names_from_source(module_dependency_source_filter)) {
-        module->add_dependency(*discover_module_impl(module_dependency));
+    for (const auto& module_dependency : dependency_refs_from_source(module_dependency_source_filter)) {
+        module->add_dependency_ref(module_dependency);
+        if (!module_dependency.version) {
+            module->add_dependency(*discover_module_impl(module_dependency.name));
+        }
     }
 
     const auto builder_dependency_source_filter =
         m03gagbhsnusi43zogoacgj2ez_filesystem::find_include_predicate_t([](const m03gagbhsnusi43zogoacgj2ez_filesystem::path_t& path) {
             return m03gagbhsnusi43zogoacgj2ez_filesystem::is_regular_file(path) && path.filename() == BUILDER_CPP;
         });
-    for (const auto& builder_dependency : dependency_names_from_source(builder_dependency_source_filter)) {
-        module->add_builder_dependency(*discover_module_impl(builder_dependency));
+    for (const auto& builder_dependency : dependency_refs_from_source(builder_dependency_source_filter)) {
+        module->add_builder_dependency_ref(builder_dependency);
+        if (!builder_dependency.version) {
+            module->add_builder_dependency(*discover_module_impl(builder_dependency.name));
+        }
     }
 
     return module;

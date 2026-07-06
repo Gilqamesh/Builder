@@ -1,7 +1,7 @@
 #ifndef M03GAGBHT6JA46UIKB1LTAN0X8_DOT_API_H
 # define M03GAGBHT6JA46UIKB1LTAN0X8_DOT_API_H
 
-# include <m03gagbhsnusi43zogoacgj2ez_filesystem/api.h>
+# include <m03gagbhsnusi43zogoacgj2ez_filesystem>
 
 namespace m03gagbht6ja46uikb1ltan0x8_dot {
 

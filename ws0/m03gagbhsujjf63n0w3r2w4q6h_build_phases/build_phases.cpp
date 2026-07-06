@@ -1,20 +1,25 @@
 #include "api.h"
 
-#include <m03gagbhsmhr0naw0zpccv4gaq_cxx_toolchain/api.h>
-#include <m03gagbhsnusi43zogoacgj2ez_filesystem/api.h>
-#include <m03gagbhsp2drqq3gkop8pzfrm_workspace_graph/api.h>
-#include <m03gagbhsyhlx2pk5sdabbr1sx_signal_handler/api.h>
-#include <m03gagbhsx4j5z28bqkac3dhhh_shared_library/api.h>
+#include <m03gagbhsmhr0naw0zpccv4gaq_cxx_toolchain>
+#include <m03gagbhsnusi43zogoacgj2ez_filesystem>
+#include <m03gagbhsp2drqq3gkop8pzfrm_workspace_graph>
+#include <m03gagbhsyhlx2pk5sdabbr1sx_signal_handler>
+#include <m03gagbhsx4j5z28bqkac3dhhh_shared_library>
 
+#include <algorithm>
+#include <chrono>
 #include <filesystem>
 #include <format>
-#include <fstream>
+#include <map>
 #include <memory>
+#include <set>
 #include <stdexcept>
 #include <string>
 #include <string_view>
 #include <unordered_set>
 #include <utility>
+
+#include <unistd.h>
 
 #ifndef M03GAGBHSUJJF63N0W3R2W4Q6H_BUILD_PHASES_BOOTSTRAP_BUILDER_PLUGIN_PATH
 # error M03GAGBHSUJJF63N0W3R2W4Q6H_BUILD_PHASES_BOOTSTRAP_BUILDER_PLUGIN_PATH must be defined by bootstrap
@@ -28,17 +33,6 @@ static m03gagbhsnusi43zogoacgj2ez_filesystem::relative_path_t library_type_relat
         case m03gagbhsmhr0naw0zpccv4gaq_cxx_toolchain::library_type_t::SHARED: return m03gagbhsnusi43zogoacgj2ez_filesystem::relative_path_t("shared");
         default: throw std::runtime_error(std::format("m03gagbhsujjf63n0w3r2w4q6h_build_phases::library_type_relative_dir: unknown library_type {}", static_cast<std::underlying_type_t<m03gagbhsmhr0naw0zpccv4gaq_cxx_toolchain::library_type_t>>(library_type)));
     }
-}
-
-static std::vector<m03gagbhsnusi43zogoacgj2ez_filesystem::path_t> include_dirs_from_outputs(const std::vector<interface_phase_t::installed_t>& interfaces) {
-    std::vector<m03gagbhsnusi43zogoacgj2ez_filesystem::path_t> include_dirs;
-    include_dirs.reserve(interfaces.size());
-
-    for (const auto& interface_output : interfaces) {
-        include_dirs.push_back(interface_output.root());
-    }
-
-    return include_dirs;
 }
 
 static std::vector<m03gagbhsnusi43zogoacgj2ez_filesystem::rooted_path_t> compiler_source_files(const std::vector<phase_base_t::built_t>& source_files) {
@@ -88,6 +82,410 @@ static m03gagbhsnusi43zogoacgj2ez_filesystem::relative_path_t cli_relative_outpu
 
 static m03gagbhsnusi43zogoacgj2ez_filesystem::relative_path_t api_relative_path() {
     return m03gagbhsnusi43zogoacgj2ez_filesystem::relative_path_t(m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::API_H);
+}
+
+struct artifact_view_t {
+    m03gagbhsnusi43zogoacgj2ez_filesystem::path_t root;
+    m03gagbhsnusi43zogoacgj2ez_filesystem::path_t source_root;
+    m03gagbhsnusi43zogoacgj2ez_filesystem::path_t interface_root;
+    m03gagbhsnusi43zogoacgj2ez_filesystem::path_t library_root;
+    m03gagbhsnusi43zogoacgj2ez_filesystem::path_t binary_root;
+};
+
+struct selected_artifact_t {
+    m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::module_artifact_ref_t ref;
+    const m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::module_t* current_module;
+};
+
+static std::string config_name(build_config_t build_config) {
+    return library_type_relative_dir(build_config.library_type).string();
+}
+
+static m03gagbhsnusi43zogoacgj2ez_filesystem::relative_path_t module_artifact_relative_dir(
+    const m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::module_artifact_ref_t& artifact
+) {
+    return m03gagbhsnusi43zogoacgj2ez_filesystem::relative_path_t(
+        std::filesystem::path(artifact.name.unique_name()) / std::format("{}@{}", artifact.name, artifact.version.value)
+    );
+}
+
+static m03gagbhsnusi43zogoacgj2ez_filesystem::path_t module_artifact_dir(
+    const m03gagbhsnusi43zogoacgj2ez_filesystem::path_t& artifact_root,
+    const m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::module_artifact_ref_t& artifact
+) {
+    return artifact_root / module_artifact_relative_dir(artifact);
+}
+
+static m03gagbhsnusi43zogoacgj2ez_filesystem::path_t phase_install_root(
+    const m03gagbhsnusi43zogoacgj2ez_filesystem::path_t& artifact_root,
+    const m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::module_artifact_ref_t& artifact,
+    std::string_view phase,
+    build_config_t build_config
+) {
+    return module_artifact_dir(artifact_root, artifact)
+        / m03gagbhsnusi43zogoacgj2ez_filesystem::relative_path_t(std::string(phase))
+        / m03gagbhsnusi43zogoacgj2ez_filesystem::relative_path_t("install")
+        / library_type_relative_dir(build_config.library_type);
+}
+
+static m03gagbhsnusi43zogoacgj2ez_filesystem::path_t installed_interface_path(
+    const m03gagbhsnusi43zogoacgj2ez_filesystem::path_t& artifact_root,
+    const m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::module_artifact_ref_t& artifact,
+    build_config_t build_config
+) {
+    return phase_install_root(artifact_root, artifact, "interface", build_config)
+        / m03gagbhsnusi43zogoacgj2ez_filesystem::relative_path_t(artifact.name.unique_name());
+}
+
+static void add_selected_artifact(
+    std::map<m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::module_name_t, selected_artifact_t>& selected_artifacts,
+    const m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::module_artifact_ref_t& artifact,
+    const m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::module_t* current_module
+) {
+    const auto [it, inserted] = selected_artifacts.emplace(artifact.name, selected_artifact_t {
+        .ref = artifact,
+        .current_module = current_module
+    });
+    if (!inserted) {
+        if (!(it->second.ref.version == artifact.version)) {
+            throw std::runtime_error(std::format(
+                "m03gagbhsujjf63n0w3r2w4q6h_build_phases::materialize_target_view: dependency resolution selected both {}@{} and {}@{}; Builder currently allows only one version of a module per compile view",
+                artifact.name,
+                it->second.ref.version.value,
+                artifact.name,
+                artifact.version.value
+            ));
+        }
+        if (it->second.current_module == nullptr && current_module != nullptr) {
+            it->second.current_module = current_module;
+        }
+    }
+}
+
+static m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::module_artifact_ref_t exact_ref(
+    const m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::module_t& module
+) {
+    return m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::module_artifact_ref_t {
+        .name = module.name(),
+        .version = module.version()
+    };
+}
+
+static std::vector<const m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::module_t*> normal_closure_modules(
+    const m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::module_t& target
+) {
+    std::vector<const m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::module_t*> result;
+    for (const auto& group : target.closure_groups()) {
+        for (const auto* module : group) {
+            result.push_back(module);
+        }
+    }
+    return result;
+}
+
+static std::vector<const m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::module_t*> builder_dependency_closure_modules(
+    const m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::module_t& target
+) {
+    std::vector<const m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::module_t*> result;
+    std::unordered_set<const m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::module_t*> seen;
+
+    for (const auto* dependency : target.builder_dependencies()) {
+        for (const auto& group : dependency->closure_groups()) {
+            for (const auto* module : group) {
+                if (seen.insert(module).second) {
+                    result.push_back(module);
+                }
+            }
+        }
+    }
+
+    return result;
+}
+
+static std::map<m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::module_name_t, selected_artifact_t> resolve_view_artifacts(
+    const std::vector<const m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::module_t*>& current_modules,
+    const std::vector<m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::module_ref_t>& pinned_roots
+) {
+    std::map<m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::module_name_t, selected_artifact_t> selected_artifacts;
+
+    for (const auto* module : current_modules) {
+        add_selected_artifact(selected_artifacts, exact_ref(*module), module);
+    }
+
+    for (const auto* module : current_modules) {
+        for (const auto& dependency_ref : module->dependency_refs()) {
+            if (dependency_ref.version) {
+                add_selected_artifact(
+                    selected_artifacts,
+                    m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::module_artifact_ref_t {
+                        .name = dependency_ref.name,
+                        .version = *dependency_ref.version
+                    },
+                    nullptr
+                );
+            }
+        }
+    }
+
+    for (const auto& pinned_root : pinned_roots) {
+        if (!pinned_root.version) {
+            continue ;
+        }
+        add_selected_artifact(
+            selected_artifacts,
+            m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::module_artifact_ref_t {
+                .name = pinned_root.name,
+                .version = *pinned_root.version
+            },
+            nullptr
+        );
+    }
+
+    return selected_artifacts;
+}
+
+static void create_relative_symlink(
+    const m03gagbhsnusi43zogoacgj2ez_filesystem::path_t& src,
+    const m03gagbhsnusi43zogoacgj2ez_filesystem::path_t& dst,
+    bool directory
+) {
+    const auto parent = dst.parent();
+    if (!m03gagbhsnusi43zogoacgj2ez_filesystem::exists(parent)) {
+        m03gagbhsnusi43zogoacgj2ez_filesystem::create_directories(parent);
+    }
+
+    auto target = src.to_native_path().lexically_relative(parent.to_native_path());
+    if (target.empty()) {
+        target = src.to_native_path();
+    }
+
+    std::error_code ec;
+    if (directory) {
+        std::filesystem::create_directory_symlink(target, dst.to_native_path(), ec);
+    } else {
+        std::filesystem::create_symlink(target, dst.to_native_path(), ec);
+    }
+    if (ec) {
+        throw std::runtime_error(std::format(
+            "m03gagbhsujjf63n0w3r2w4q6h_build_phases::create_relative_symlink: failed to create symlink '{}' -> '{}': {}",
+            dst,
+            target.string(),
+            ec.message()
+        ));
+    }
+}
+
+static void require_pinned_phase_output(
+    const selected_artifact_t& artifact,
+    const m03gagbhsnusi43zogoacgj2ez_filesystem::path_t& output,
+    std::string_view phase
+) {
+    if (artifact.current_module != nullptr) {
+        return ;
+    }
+
+    if (!m03gagbhsnusi43zogoacgj2ez_filesystem::exists(output)) {
+        throw std::runtime_error(std::format(
+            "m03gagbhsujjf63n0w3r2w4q6h_build_phases::materialize_target_view: source includes <{}>, but {} output for {}/{} does not exist at '{}'",
+            artifact.ref,
+            phase,
+            artifact.ref,
+            phase,
+            output
+        ));
+    }
+}
+
+static std::string tmp_view_postfix() {
+    const auto now = std::chrono::system_clock::now().time_since_epoch().count();
+    return std::format(".tmp.{}.{}", static_cast<long long>(::getpid()), now);
+}
+
+static artifact_view_t make_artifact_view(const m03gagbhsnusi43zogoacgj2ez_filesystem::path_t& root) {
+    return artifact_view_t {
+        .root = root,
+        .source_root = root / m03gagbhsnusi43zogoacgj2ez_filesystem::relative_path_t("source"),
+        .interface_root = root / m03gagbhsnusi43zogoacgj2ez_filesystem::relative_path_t("interface"),
+        .library_root = root / m03gagbhsnusi43zogoacgj2ez_filesystem::relative_path_t("library"),
+        .binary_root = root / m03gagbhsnusi43zogoacgj2ez_filesystem::relative_path_t("binary")
+    };
+}
+
+static artifact_view_t materialize_view(
+    const m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::module_t& target,
+    build_config_t build_config,
+    const m03gagbhsnusi43zogoacgj2ez_filesystem::path_t& final_root,
+    const m03gagbhsnusi43zogoacgj2ez_filesystem::path_t& tmp_root,
+    const std::vector<const m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::module_t*>& current_modules,
+    const std::vector<m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::module_ref_t>& pinned_roots
+) {
+    const auto complete_marker = final_root / m03gagbhsnusi43zogoacgj2ez_filesystem::relative_path_t("view.complete");
+    if (m03gagbhsnusi43zogoacgj2ez_filesystem::exists(complete_marker)) {
+        return make_artifact_view(final_root);
+    }
+
+    const auto selected_artifacts = resolve_view_artifacts(current_modules, pinned_roots);
+    const auto tmp_view = make_artifact_view(tmp_root);
+    const auto artifact_root = target.workspace().graph().artifact_root();
+
+    if (m03gagbhsnusi43zogoacgj2ez_filesystem::exists(tmp_root)) {
+        m03gagbhsnusi43zogoacgj2ez_filesystem::remove_all(tmp_root);
+    }
+
+    m03gagbhsnusi43zogoacgj2ez_filesystem::create_directories(tmp_view.source_root);
+    m03gagbhsnusi43zogoacgj2ez_filesystem::create_directories(tmp_view.interface_root);
+    m03gagbhsnusi43zogoacgj2ez_filesystem::create_directories(tmp_view.library_root);
+    m03gagbhsnusi43zogoacgj2ez_filesystem::create_directories(tmp_view.binary_root);
+
+    bool complete = true;
+    for (const auto& [_, selected] : selected_artifacts) {
+        const auto source_root = phase_install_root(artifact_root, selected.ref, "source", build_config);
+        const auto interface_file = installed_interface_path(artifact_root, selected.ref, build_config);
+        const auto library_root = phase_install_root(artifact_root, selected.ref, "library", build_config);
+        const auto binary_root = phase_install_root(artifact_root, selected.ref, "binary", build_config);
+
+        require_pinned_phase_output(selected, source_root, "source");
+        require_pinned_phase_output(selected, interface_file, "interface");
+        require_pinned_phase_output(selected, library_root, "library");
+        require_pinned_phase_output(selected, binary_root, "binary");
+        if (selected.current_module == nullptr && !m03gagbhsnusi43zogoacgj2ez_filesystem::is_regular_file(interface_file)) {
+            throw std::runtime_error(std::format(
+                "m03gagbhsujjf63n0w3r2w4q6h_build_phases::materialize_target_view: source includes <{}>, but interface output for {}/interface does not exist at '{}'",
+                selected.ref,
+                selected.ref,
+                interface_file
+            ));
+        }
+
+        if (m03gagbhsnusi43zogoacgj2ez_filesystem::exists(source_root)) {
+            create_relative_symlink(
+                source_root,
+                tmp_view.source_root / m03gagbhsnusi43zogoacgj2ez_filesystem::relative_path_t(selected.ref.name.unique_name()),
+                true
+            );
+        } else {
+            complete = false;
+        }
+
+        if (m03gagbhsnusi43zogoacgj2ez_filesystem::is_regular_file(interface_file)) {
+            create_relative_symlink(
+                interface_file,
+                tmp_view.interface_root / m03gagbhsnusi43zogoacgj2ez_filesystem::relative_path_t(selected.ref.name.unique_name()),
+                false
+            );
+            create_relative_symlink(
+                interface_file,
+                tmp_view.interface_root / m03gagbhsnusi43zogoacgj2ez_filesystem::relative_path_t(std::format("{}@{}", selected.ref.name, selected.ref.version.value)),
+                false
+            );
+        } else {
+            complete = false;
+        }
+
+        if (m03gagbhsnusi43zogoacgj2ez_filesystem::exists(library_root)) {
+            bool has_library_output = false;
+            for (const auto& library : m03gagbhsnusi43zogoacgj2ez_filesystem::find(library_root, !m03gagbhsnusi43zogoacgj2ez_filesystem::find_include_predicate_t::is_dir, m03gagbhsnusi43zogoacgj2ez_filesystem::find_descend_predicate_t::descend_all)) {
+                has_library_output = true;
+                create_relative_symlink(library.path(), tmp_view.library_root / library.relative_path(), false);
+            }
+            if (!has_library_output) {
+                complete = false;
+            }
+        } else {
+            complete = false;
+        }
+
+        if (m03gagbhsnusi43zogoacgj2ez_filesystem::exists(binary_root)) {
+            const auto binary_outputs = m03gagbhsnusi43zogoacgj2ez_filesystem::find(binary_root, !m03gagbhsnusi43zogoacgj2ez_filesystem::find_include_predicate_t::is_dir, m03gagbhsnusi43zogoacgj2ez_filesystem::find_descend_predicate_t::descend_all);
+            if (binary_outputs.empty()) {
+                complete = false;
+            }
+            create_relative_symlink(
+                binary_root,
+                tmp_view.binary_root / m03gagbhsnusi43zogoacgj2ez_filesystem::relative_path_t(selected.ref.name.unique_name()),
+                true
+            );
+        } else {
+            complete = false;
+        }
+    }
+
+    if (complete) {
+        m03gagbhsnusi43zogoacgj2ez_filesystem::touch(tmp_view.root / m03gagbhsnusi43zogoacgj2ez_filesystem::relative_path_t("view.complete"));
+    }
+
+    if (m03gagbhsnusi43zogoacgj2ez_filesystem::exists(final_root)) {
+        m03gagbhsnusi43zogoacgj2ez_filesystem::remove_all(final_root);
+    }
+    if (!m03gagbhsnusi43zogoacgj2ez_filesystem::exists(final_root.parent())) {
+        m03gagbhsnusi43zogoacgj2ez_filesystem::create_directories(final_root.parent());
+    }
+    m03gagbhsnusi43zogoacgj2ez_filesystem::rename_strict(tmp_root, final_root);
+
+    return make_artifact_view(final_root);
+}
+
+static m03gagbhsnusi43zogoacgj2ez_filesystem::relative_path_t tmp_view_config_dir(build_config_t build_config) {
+    return m03gagbhsnusi43zogoacgj2ez_filesystem::relative_path_t(config_name(build_config) + tmp_view_postfix());
+}
+
+static m03gagbhsnusi43zogoacgj2ez_filesystem::path_t target_view_install_root(
+    const m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::module_t& target,
+    build_config_t build_config
+) {
+    return target.artifact_dir()
+        / m03gagbhsnusi43zogoacgj2ez_filesystem::relative_path_t("view")
+        / m03gagbhsnusi43zogoacgj2ez_filesystem::relative_path_t("install")
+        / library_type_relative_dir(build_config.library_type);
+}
+
+static m03gagbhsnusi43zogoacgj2ez_filesystem::path_t target_view_build_root(
+    const m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::module_t& target,
+    build_config_t build_config
+) {
+    return target.artifact_dir()
+        / m03gagbhsnusi43zogoacgj2ez_filesystem::relative_path_t("view")
+        / m03gagbhsnusi43zogoacgj2ez_filesystem::relative_path_t("build")
+        / tmp_view_config_dir(build_config);
+}
+
+static artifact_view_t materialize_target_view(
+    const m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::module_t& target,
+    build_config_t build_config
+) {
+    return materialize_view(
+        target,
+        build_config,
+        target_view_install_root(target, build_config),
+        target_view_build_root(target, build_config),
+        normal_closure_modules(target),
+        {}
+    );
+}
+
+static artifact_view_t materialize_builder_dependency_view(
+    const m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::module_t& target,
+    build_config_t build_config
+) {
+    const auto root = target.artifact_dir()
+        / m03gagbhsnusi43zogoacgj2ez_filesystem::relative_path_t("builder")
+        / m03gagbhsnusi43zogoacgj2ez_filesystem::relative_path_t("view")
+        / m03gagbhsnusi43zogoacgj2ez_filesystem::relative_path_t("install")
+        / library_type_relative_dir(build_config.library_type);
+    const auto tmp_root = target.artifact_dir()
+        / m03gagbhsnusi43zogoacgj2ez_filesystem::relative_path_t("builder")
+        / m03gagbhsnusi43zogoacgj2ez_filesystem::relative_path_t("view")
+        / m03gagbhsnusi43zogoacgj2ez_filesystem::relative_path_t("build")
+        / tmp_view_config_dir(build_config);
+
+    return materialize_view(
+        target,
+        build_config,
+        root,
+        tmp_root,
+        builder_dependency_closure_modules(target),
+        target.builder_dependency_refs()
+    );
 }
 
 static m03gagbhsmhr0naw0zpccv4gaq_cxx_toolchain::link_inputs_t binary_link_inputs(
@@ -390,7 +788,6 @@ m03gagbhsnusi43zogoacgj2ez_filesystem::path_t phase_base_t::builder_plugin() con
             m03gagbhsnusi43zogoacgj2ez_filesystem::create_directories(build_dir);
             m03gagbhsnusi43zogoacgj2ez_filesystem::touch(started_marker);
 
-            std::vector<m03gagbhsnusi43zogoacgj2ez_filesystem::path_t> include_dirs;
             std::vector<m03gagbhsnusi43zogoacgj2ez_filesystem::path_t> libraries;
 
             for (auto* dependency : m_module.builder_dependencies()) {
@@ -399,9 +796,7 @@ m03gagbhsnusi43zogoacgj2ez_filesystem::path_t phase_base_t::builder_plugin() con
                     build_config_t { .library_type = m03gagbhsmhr0naw0zpccv4gaq_cxx_toolchain::library_type_t::SHARED }
                 );
 
-                for (const auto& dependency_include_dirs : dependency_phase->install_closure<interface_phase_t>()) {
-                    include_dirs.push_back(dependency_include_dirs.root());
-                }
+                dependency_phase->install_closure<interface_phase_t>();
 
                 for (const auto& dependency_libraries : dependency_phase->install_closure<library_phase_t>()) {
                     for (const auto& library : m03gagbhsnusi43zogoacgj2ez_filesystem::find(dependency_libraries.root(), !m03gagbhsnusi43zogoacgj2ez_filesystem::find_include_predicate_t::is_dir, m03gagbhsnusi43zogoacgj2ez_filesystem::find_descend_predicate_t::descend_all)) {
@@ -418,9 +813,14 @@ m03gagbhsnusi43zogoacgj2ez_filesystem::path_t phase_base_t::builder_plugin() con
                 });
             }
 
+            const auto view = materialize_builder_dependency_view(
+                m_module,
+                build_config_t { .library_type = m03gagbhsmhr0naw0zpccv4gaq_cxx_toolchain::library_type_t::SHARED }
+            );
+
             m03gagbhsmhr0naw0zpccv4gaq_cxx_toolchain::build_library(
                 build_dir,
-                include_dirs,
+                { view.interface_root },
                 {
                     m03gagbhsnusi43zogoacgj2ez_filesystem::rooted_path_t(
                         m_module.source_dir(),
@@ -494,13 +894,11 @@ interface_phase_t::interface_phase_t(
 
 interface_phase_t::installed_t::installed_t(const interface_phase_t& phase):
     m_root(phase.install_dir()),
-    m_api(m_root / m03gagbhsnusi43zogoacgj2ez_filesystem::relative_path_t(
-        std::filesystem::path(phase.module().name().unique_name()) / api_relative_path().to_native_path()
-    ))
+    m_api(m_root / m03gagbhsnusi43zogoacgj2ez_filesystem::relative_path_t(phase.module().name().unique_name()))
 {
     if (!m03gagbhsnusi43zogoacgj2ez_filesystem::is_regular_file(m_api)) {
         throw std::runtime_error(std::format(
-            "m03gagbhsujjf63n0w3r2w4q6h_build_phases::interface_phase_t::installed_t: interface phase for module '{}' did not publish {} artifact",
+            "m03gagbhsujjf63n0w3r2w4q6h_build_phases::interface_phase_t::installed_t: interface phase for module '{}' did not publish extensionless API artifact '{}'",
             phase.module().name(),
             m_api
         ));
@@ -526,23 +924,26 @@ m03gagbhsnusi43zogoacgj2ez_filesystem::path_t interface_phase_t::build_interface
 }
 
 void interface_phase_t::install_headers_from_source() const {
-    const auto sources = install<source_phase_t>();
+    install_api_from_source();
+}
 
-    for (const auto& artifact : m03gagbhsnusi43zogoacgj2ez_filesystem::find(
-        sources.root(),
-        m03gagbhsnusi43zogoacgj2ez_filesystem::find_include_predicate_t::h_file || m03gagbhsnusi43zogoacgj2ez_filesystem::find_include_predicate_t::hpp_file,
-        m03gagbhsnusi43zogoacgj2ez_filesystem::find_descend_predicate_t::descend_all
-    )) {
-        install_interface(artifact);
+void interface_phase_t::install_api_from_source() const {
+    const auto sources = install<source_phase_t>();
+    const auto source_api = sources.root() / api_relative_path();
+    if (!m03gagbhsnusi43zogoacgj2ez_filesystem::is_regular_file(source_api)) {
+        throw std::runtime_error(std::format(
+            "m03gagbhsujjf63n0w3r2w4q6h_build_phases::interface_phase_t::install_api_from_source: module '{}' has no api.h; standard-like interface publishing requires api.h",
+            module().name()
+        ));
     }
+
+    const auto staged_api = build_dir() / m03gagbhsnusi43zogoacgj2ez_filesystem::relative_path_t(module().name().unique_name());
+    m03gagbhsnusi43zogoacgj2ez_filesystem::copy(source_api, staged_api);
+    install_as(staged_api, m03gagbhsnusi43zogoacgj2ez_filesystem::relative_path_t(module().name().unique_name()));
 }
 
 void interface_phase_t::install_api() const {
-    const auto sources = install<source_phase_t>();
-    install_interface(m03gagbhsnusi43zogoacgj2ez_filesystem::rooted_path_t(
-        sources.root(),
-        api_relative_path()
-    ));
+    install_api_from_source();
 }
 
 void interface_phase_t::install_interface(const m03gagbhsnusi43zogoacgj2ez_filesystem::path_t& interface) const {
@@ -591,12 +992,13 @@ m03gagbhsnusi43zogoacgj2ez_filesystem::path_t library_phase_t::build_library(
     const std::vector<phase_base_t::built_t>& source_files,
     const std::vector<m03gagbhsmhr0naw0zpccv4gaq_cxx_toolchain::define_t>& defines
 ) const {
-    const auto interfaces = install_closure<interface_phase_t>();
+    install_closure<interface_phase_t>();
+    const auto view = materialize_target_view(module(), build_config());
     const auto relative_output_path = module_library_relative_output_path(module().name(), library_type());
 
     return m03gagbhsmhr0naw0zpccv4gaq_cxx_toolchain::build_library(
         build_dir(),
-        include_dirs_from_outputs(interfaces),
+        { view.interface_root },
         compiler_source_files(source_files),
         defines,
         library_type(),
@@ -649,15 +1051,16 @@ void binary_phase_t::install_cli(
             m03gagbhsnusi43zogoacgj2ez_filesystem::relative_path_t(m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::CLI_CPP)
         ))
     };
-    const auto interfaces = install_closure<interface_phase_t>();
+    install_closure<interface_phase_t>();
     const auto link_inputs = binary_link_inputs(
         module(),
         build_config()
     );
+    const auto view = materialize_target_view(module(), build_config());
 
     const auto binary = m03gagbhsmhr0naw0zpccv4gaq_cxx_toolchain::build_binary(
         build_dir(),
-        include_dirs_from_outputs(interfaces),
+        { view.interface_root },
         compiler_source_files(source_files),
         defines,
         link_inputs,
@@ -665,6 +1068,7 @@ void binary_phase_t::install_cli(
     );
 
     install_as(binary, cli_relative_output_path());
+    materialize_target_view(module(), build_config());
 }
 
 void binary_phase_t::install_binary(const m03gagbhsnusi43zogoacgj2ez_filesystem::path_t& binary) const {

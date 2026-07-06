@@ -1,7 +1,7 @@
 #ifndef M03GAGBHT3SVCX3IGN454LFUP3_CMAKE_API_H
 # define M03GAGBHT3SVCX3IGN454LFUP3_CMAKE_API_H
 
-# include <m03gagbhsnusi43zogoacgj2ez_filesystem/api.h>
+# include <m03gagbhsnusi43zogoacgj2ez_filesystem>
 
 # include <cstddef>
 # include <optional>

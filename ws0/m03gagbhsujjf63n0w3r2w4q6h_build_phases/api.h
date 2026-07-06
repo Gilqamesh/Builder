@@ -1,9 +1,9 @@
 #ifndef M03GAGBHSUJJF63N0W3R2W4Q6H_BUILD_PHASES_API_H
 # define M03GAGBHSUJJF63N0W3R2W4Q6H_BUILD_PHASES_API_H
 
-# include <m03gagbhsmhr0naw0zpccv4gaq_cxx_toolchain/api.h>
-# include <m03gagbhsnusi43zogoacgj2ez_filesystem/api.h>
-# include <m03gagbhsp2drqq3gkop8pzfrm_workspace_graph/api.h>
+# include <m03gagbhsmhr0naw0zpccv4gaq_cxx_toolchain>
+# include <m03gagbhsnusi43zogoacgj2ez_filesystem>
+# include <m03gagbhsp2drqq3gkop8pzfrm_workspace_graph>
 
 # include <cstdint>
 # include <memory>
@@ -200,7 +200,7 @@ struct interface_phase_t : phase_base_t {
         const m03gagbhsnusi43zogoacgj2ez_filesystem::path_t& root() const;
 
         /**
-         * Published stable API header path.
+         * Published stable extensionless API path.
          */
         const m03gagbhsnusi43zogoacgj2ez_filesystem::path_t& api() const;
 
@@ -225,12 +225,17 @@ struct interface_phase_t : phase_base_t {
     m03gagbhsnusi43zogoacgj2ez_filesystem::path_t build_interface_as(const m03gagbhsnusi43zogoacgj2ez_filesystem::path_t& source, const m03gagbhsnusi43zogoacgj2ez_filesystem::relative_path_t& relative_path) const;
 
     /**
-     * Publishes all .h and .hpp files from the source phase.
+     * Publishes api.h from the source phase as an extensionless module API file.
      */
     void install_headers_from_source() const;
 
     /**
-     * Publishes api.h under <module_name>/api.h.
+     * Publishes api.h from the source phase as an extensionless module API file.
+     */
+    void install_api_from_source() const;
+
+    /**
+     * Publishes api.h from the source phase as an extensionless module API file.
      */
     void install_api() const;
 

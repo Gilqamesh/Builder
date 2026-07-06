@@ -1,7 +1,7 @@
-#include <m03gagbht6ja46uikb1ltan0x8_dot/api.h>
+#include <m03gagbht6ja46uikb1ltan0x8_dot>
 
-#include <m03gagbhsnusi43zogoacgj2ez_filesystem/api.h>
-#include <m03gagbhsvr0m5w15urj0o291m_process/api.h>
+#include <m03gagbhsnusi43zogoacgj2ez_filesystem>
+#include <m03gagbhsvr0m5w15urj0o291m_process>
 
 #include <format>
 #include <stdexcept>

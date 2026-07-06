@@ -1,7 +1,7 @@
 #include "api.h"
 
-#include <m03gagbhsnusi43zogoacgj2ez_filesystem/api.h>
-#include <m03gagbhsp2drqq3gkop8pzfrm_workspace_graph/api.h>
+#include <m03gagbhsnusi43zogoacgj2ez_filesystem>
+#include <m03gagbhsp2drqq3gkop8pzfrm_workspace_graph>
 
 #include <cstddef>
 #include <fstream>
@@ -92,8 +92,8 @@ static std::string cli_source(std::string_view module_name) {
 
 static std::string builder_source(std::string_view module_name) {
     return std::format(
-        "#include <m03gagbhsujjf63n0w3r2w4q6h_build_phases/api.h>\n"
-        "#include <m03gagbhsnusi43zogoacgj2ez_filesystem/api.h>\n"
+        "#include <m03gagbhsujjf63n0w3r2w4q6h_build_phases>\n"
+        "#include <m03gagbhsnusi43zogoacgj2ez_filesystem>\n"
         "\n"
         "extern \"C\" void phase__source(const m03gagbhsujjf63n0w3r2w4q6h_build_phases::source_phase_t* phase) {{\n"
         "    phase->install_source_tree();\n"

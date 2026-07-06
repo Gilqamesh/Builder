@@ -1,7 +1,7 @@
 #ifndef M03GAGBHSX4J5Z28BQKAC3DHHH_SHARED_LIBRARY_API_H
 # define M03GAGBHSX4J5Z28BQKAC3DHHH_SHARED_LIBRARY_API_H
 
-# include <m03gagbhsnusi43zogoacgj2ez_filesystem/api.h>
+# include <m03gagbhsnusi43zogoacgj2ez_filesystem>
 
 namespace m03gagbhsx4j5z28bqkac3dhhh_shared_library {
 

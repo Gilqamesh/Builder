@@ -1,7 +1,7 @@
 #include "api.h"
 
-#include <m03gagbhsnusi43zogoacgj2ez_filesystem/api.h>
-#include <m03gagbhsyhlx2pk5sdabbr1sx_signal_handler/api.h>
+#include <m03gagbhsnusi43zogoacgj2ez_filesystem>
+#include <m03gagbhsyhlx2pk5sdabbr1sx_signal_handler>
 
 #include <iostream>
 #include <cerrno>
@@ -121,12 +121,18 @@ void create_and_wait_checked(const command_t& command) {
         throw std::runtime_error("m03gagbhsvr0m5w15urj0o291m_process::exec: command args must not be empty");
     }
 
+    std::string command_line;
     std::vector<char*> cargs;
     for (const auto& arg : args) {
         cargs.push_back(const_cast<char*>(arg.c_str()));
+        if (!command_line.empty()) {
+            command_line += ' ';
+        }
+        command_line += arg;
     }
     cargs.push_back(nullptr);
 
+    std::cout << command_line << std::endl;
     if (execv(cargs[0], cargs.data()) == -1) {
         throw std::runtime_error(std::format("m03gagbhsvr0m5w15urj0o291m_process::exec: execv failed: {}", std::strerror(errno)));
     }

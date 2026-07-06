@@ -1,12 +1,13 @@
 #ifndef M03GAGBHSP2DRQQ3GKOP8PZFRM_WORKSPACE_GRAPH_API_H
 # define M03GAGBHSP2DRQQ3GKOP8PZFRM_WORKSPACE_GRAPH_API_H
 
-# include <m03gagbhsnusi43zogoacgj2ez_filesystem/api.h>
-# include <m03gagbhtft23yhjwpp881tfmc_uuid/api.h>
+# include <m03gagbhsnusi43zogoacgj2ez_filesystem>
+# include <m03gagbhtft23yhjwpp881tfmc_uuid>
 
 # include <cstdint>
 # include <functional>
 # include <map>
+# include <optional>
 # include <set>
 # include <string>
 # include <string_view>
@@ -40,6 +41,9 @@ struct version_t {
     explicit version_t(const m03gagbhsnusi43zogoacgj2ez_filesystem::path_t& directory);
 
     uint64_t value;
+
+    bool operator==(const version_t& other) const;
+    bool operator<(const version_t& other) const;
 };
 
 /**
@@ -101,6 +105,31 @@ struct module_name_hash_t {
     }
 };
 
+/**
+ * Public module include reference.
+ *
+ * <module> leaves version selection to the current target view.
+ * <module@version> requires that exact artifact version.
+ */
+struct module_ref_t {
+    module_name_t name;
+    std::optional<version_t> version;
+
+    bool operator==(const module_ref_t& other) const;
+    bool operator<(const module_ref_t& other) const;
+};
+
+/**
+ * Resolved artifact reference with an exact version.
+ */
+struct module_artifact_ref_t {
+    module_name_t name;
+    version_t version;
+
+    bool operator==(const module_artifact_ref_t& other) const;
+    bool operator<(const module_artifact_ref_t& other) const;
+};
+
 class workspace_t;
 
 /**
@@ -139,21 +168,33 @@ public:
     void add_dependency(module_t& dependency);
 
     /**
+     * Adds a parsed module dependency reference.
+     */
+    void add_dependency_ref(module_ref_t dependency);
+
+    /**
      * Adds a builder dependency.
      */
     void add_builder_dependency(module_t& dependency);
+
+    /**
+     * Adds a parsed builder dependency reference.
+     */
+    void add_builder_dependency_ref(module_ref_t dependency);
 
     /**
      * Module dependencies sorted by workspace order and name.
      */
     std::vector<module_t*> dependencies();
     std::vector<const module_t*> dependencies() const;
+    std::vector<module_ref_t> dependency_refs() const;
 
     /**
      * Builder dependencies sorted by workspace order and name.
      */
     std::vector<module_t*> builder_dependencies();
     std::vector<const module_t*> builder_dependencies() const;
+    std::vector<module_ref_t> builder_dependency_refs() const;
 
     /**
      * Module dependency closure as strongly connected component groups in dependency-to-dependent topological order.
@@ -186,6 +227,8 @@ private:
     module_name_t m_name;
     std::unordered_set<module_t*> m_dependencies;
     std::unordered_set<module_t*> m_builder_dependencies;
+    std::set<module_ref_t> m_dependency_refs;
+    std::set<module_ref_t> m_builder_dependency_refs;
 };
 
 class workspace_graph_t;
@@ -349,6 +392,52 @@ struct formatter<m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::module_name_t> {
         auto out = ctx.out();
 
         out = std::format_to(out, "{}", module_name.unique_name());
+
+        return out;
+    }
+};
+
+template <>
+struct formatter<m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::module_ref_t> {
+    constexpr auto parse(std::format_parse_context& ctx) {
+        auto it = ctx.begin();
+
+        if (it != ctx.end() && *it != '}') {
+            throw std::format_error("invalid module_ref_t format specifier");
+        }
+
+        return it;
+    }
+
+    auto format(const m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::module_ref_t& module_ref, auto& ctx) const {
+        auto out = ctx.out();
+
+        if (module_ref.version) {
+            out = std::format_to(out, "{}@{}", module_ref.name, module_ref.version->value);
+        } else {
+            out = std::format_to(out, "{}", module_ref.name);
+        }
+
+        return out;
+    }
+};
+
+template <>
+struct formatter<m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::module_artifact_ref_t> {
+    constexpr auto parse(std::format_parse_context& ctx) {
+        auto it = ctx.begin();
+
+        if (it != ctx.end() && *it != '}') {
+            throw std::format_error("invalid module_artifact_ref_t format specifier");
+        }
+
+        return it;
+    }
+
+    auto format(const m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::module_artifact_ref_t& module_artifact_ref, auto& ctx) const {
+        auto out = ctx.out();
+
+        out = std::format_to(out, "{}@{}", module_artifact_ref.name, module_artifact_ref.version.value);
 
         return out;
     }

@@ -92,10 +92,10 @@ BOOTSTRAP_SEED_BUILDER_SRC := \
 .PHONY: bootstrap
 bootstrap: $(CLI) $(BOOTSTRAP_SEED_LATEST_BUILDER_SO)
 
-$(BOOTSTRAP_INCLUDE_DIR)/%:
+$(BOOTSTRAP_INCLUDE_DIR)/%: $(lastword $(MAKEFILE_LIST))
 	@$(MKDIR) -p $(dir $@)
 	@$(RM) -rf "$@"
-	$(LN) -s "$(FOUNDATION_DIR)/$*" "$@"
+	$(LN) -s "$(FOUNDATION_DIR)/$*/api.h" "$@"
 
 $(CLI): $(SRC) $(BOOTSTRAP_INCLUDE_LINKS)
 	@$(MKDIR) -p $(dir $@)

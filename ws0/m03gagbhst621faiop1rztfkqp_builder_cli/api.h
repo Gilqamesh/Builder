@@ -1,7 +1,7 @@
 #ifndef M03GAGBHST621FAIOP1RZTFKQP_BUILDER_CLI_API_H
 # define M03GAGBHST621FAIOP1RZTFKQP_BUILDER_CLI_API_H
 
-# include <m03gagbhsp2drqq3gkop8pzfrm_workspace_graph/api.h>
+# include <m03gagbhsp2drqq3gkop8pzfrm_workspace_graph>
 
 # include <vector>
 # include <string>

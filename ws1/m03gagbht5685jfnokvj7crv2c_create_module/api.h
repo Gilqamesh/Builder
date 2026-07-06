@@ -1,7 +1,7 @@
 #ifndef M03GAGBHT5685JFNOKVJ7CRV2C_CREATE_MODULE_API_H
 # define M03GAGBHT5685JFNOKVJ7CRV2C_CREATE_MODULE_API_H
 
-# include <m03gagbhsnusi43zogoacgj2ez_filesystem/api.h>
+# include <m03gagbhsnusi43zogoacgj2ez_filesystem>
 
 # include <string>
 # include <string_view>

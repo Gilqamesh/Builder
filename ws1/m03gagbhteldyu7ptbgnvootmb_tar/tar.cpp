@@ -1,7 +1,7 @@
-#include <m03gagbhteldyu7ptbgnvootmb_tar/api.h>
+#include <m03gagbhteldyu7ptbgnvootmb_tar>
 
-#include <m03gagbhsnusi43zogoacgj2ez_filesystem/api.h>
-#include <m03gagbhsvr0m5w15urj0o291m_process/api.h>
+#include <m03gagbhsnusi43zogoacgj2ez_filesystem>
+#include <m03gagbhsvr0m5w15urj0o291m_process>
 
 #include <format>
 #include <stdexcept>

@@ -1,7 +1,7 @@
 #ifndef M03GAGBHT9A02HX1QRV2QFGNP7_GZIP_API_H
 # define M03GAGBHT9A02HX1QRV2QFGNP7_GZIP_API_H
 
-# include <m03gagbhsnusi43zogoacgj2ez_filesystem/api.h>
+# include <m03gagbhsnusi43zogoacgj2ez_filesystem>
 
 namespace m03gagbht9a02hx1qrv2qfgnp7_gzip {
 

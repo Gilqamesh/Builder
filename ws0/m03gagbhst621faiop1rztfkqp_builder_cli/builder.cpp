@@ -1,7 +1,7 @@
-#include <m03gagbhsujjf63n0w3r2w4q6h_build_phases/api.h>
-#include <m03gagbhsmhr0naw0zpccv4gaq_cxx_toolchain/api.h>
-#include <m03gagbhsp2drqq3gkop8pzfrm_workspace_graph/api.h>
-#include <m03gagbhsnusi43zogoacgj2ez_filesystem/api.h>
+#include <m03gagbhsujjf63n0w3r2w4q6h_build_phases>
+#include <m03gagbhsmhr0naw0zpccv4gaq_cxx_toolchain>
+#include <m03gagbhsp2drqq3gkop8pzfrm_workspace_graph>
+#include <m03gagbhsnusi43zogoacgj2ez_filesystem>
 
 #include <vector>
 
@@ -33,7 +33,7 @@ extern "C" void phase__source(const m03gagbhsujjf63n0w3r2w4q6h_build_phases::sou
 }
 
 extern "C" void phase__interface(const m03gagbhsujjf63n0w3r2w4q6h_build_phases::interface_phase_t* phase) {
-    phase->install_headers_from_source();
+    phase->install_api();
 }
 
 extern "C" void phase__library(const m03gagbhsujjf63n0w3r2w4q6h_build_phases::library_phase_t* phase) {

@@ -1,6 +1,6 @@
 #include "api.h"
 
-#include <m03gagbhsnusi43zogoacgj2ez_filesystem/api.h>
+#include <m03gagbhsnusi43zogoacgj2ez_filesystem>
 
 #include <dlfcn.h>
 

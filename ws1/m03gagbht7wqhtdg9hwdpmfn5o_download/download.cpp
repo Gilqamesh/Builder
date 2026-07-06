@@ -1,8 +1,8 @@
-#include <m03gagbht7wqhtdg9hwdpmfn5o_download/api.h>
+#include <m03gagbht7wqhtdg9hwdpmfn5o_download>
 
-#include <m03gagbhsnusi43zogoacgj2ez_filesystem/api.h>
-#include <m03gagbhtbusaqidrtw6lnugr4_sha256sum/api.h>
-#include <m03gagbhth67irf210vi3byvhk_wget/api.h>
+#include <m03gagbhsnusi43zogoacgj2ez_filesystem>
+#include <m03gagbhtbusaqidrtw6lnugr4_sha256sum>
+#include <m03gagbhth67irf210vi3byvhk_wget>
 
 #include <stdexcept>
 

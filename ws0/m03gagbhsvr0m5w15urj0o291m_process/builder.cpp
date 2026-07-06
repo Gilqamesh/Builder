@@ -1,12 +1,12 @@
-#include <m03gagbhsujjf63n0w3r2w4q6h_build_phases/api.h>
-#include <m03gagbhsnusi43zogoacgj2ez_filesystem/api.h>
+#include <m03gagbhsujjf63n0w3r2w4q6h_build_phases>
+#include <m03gagbhsnusi43zogoacgj2ez_filesystem>
 
 extern "C" void phase__source(const m03gagbhsujjf63n0w3r2w4q6h_build_phases::source_phase_t* phase) {
     phase->install_source_tree();
 }
 
 extern "C" void phase__interface(const m03gagbhsujjf63n0w3r2w4q6h_build_phases::interface_phase_t* phase) {
-    phase->install_headers_from_source();
+    phase->install_api();
 }
 
 extern "C" void phase__library(const m03gagbhsujjf63n0w3r2w4q6h_build_phases::library_phase_t* phase) {

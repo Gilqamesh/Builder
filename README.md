@@ -139,16 +139,18 @@ That exception is not yet a general module authoring semantic. Higher-level modu
 Builder derives dependencies from module-qualified includes:
 
 ```cpp
-#include <module_name/api.h>
+#include <module_name>
+#include <module_name@version>
 ```
 
 Includes in source files and public headers become module dependencies. Includes
 in `builder.cpp` become builder dependencies. Builder exposes builder
 dependencies to `builder.cpp` as normal C++ include and link inputs.
 
-Include `api.h` for each module API you reference directly. Do not rely
-on transitive includes or forward declarations of another module's API to make
-your code compile.
+Include the module name for each module API you reference directly. Use
+`<module_name@version>` only when you need an exact historical artifact. Do not
+rely on transitive includes or forward declarations of another module's API to
+make your code compile.
 
 Dependencies outside these rules fail before build output is produced.
 
@@ -177,7 +179,7 @@ The phases are:
 phase.
 
 ```cpp
-#include <m03gagbhsujjf63n0w3r2w4q6h_build_phases/api.h>
+#include <m03gagbhsujjf63n0w3r2w4q6h_build_phases>
 
 extern "C" void phase__source(const m03gagbhsujjf63n0w3r2w4q6h_build_phases::source_phase_t* phase) {
     phase->install_source_tree();
@@ -231,14 +233,15 @@ installing unrelated phases.
 Public includes are module-qualified:
 
 ```cpp
-#include <module_name/api.h>
+#include <module_name>
+#include <module_name@version>
 ```
 
 For a module named `m03gagbht2l61mj6qitacwbmea_byte_stream`,
 `install_api()` publishes this include:
 
 ```cpp
-#include <m03gagbht2l61mj6qitacwbmea_byte_stream/api.h>
+#include <m03gagbht2l61mj6qitacwbmea_byte_stream>
 ```
 
 Imported upstream packages sometimes include their own headers without Builder's
@@ -248,7 +251,7 @@ through the module name.
 
 Every module must provide `api.h` as the stable public entry point. Additional
 public headers can be installed when needed, but tooling and module users should
-treat `<module_name>/api.h` as the durable include path. Public headers that use
+treat `<module_name>` as the durable include path. Public headers that use
 include guards should derive the guard from the module name and the
 module-relative installed header path.
 
@@ -272,8 +275,8 @@ that compiles a source file from the source phase `install_dir()` and publishes
 the library:
 
 ```cpp
-#include <m03gagbhsujjf63n0w3r2w4q6h_build_phases/api.h>
-#include <m03gagbhsnusi43zogoacgj2ez_filesystem/api.h>
+#include <m03gagbhsujjf63n0w3r2w4q6h_build_phases>
+#include <m03gagbhsnusi43zogoacgj2ez_filesystem>
 
 extern "C" void phase__library(const m03gagbhsujjf63n0w3r2w4q6h_build_phases::library_phase_t* phase) {
     const auto sources = phase->install<m03gagbhsujjf63n0w3r2w4q6h_build_phases::source_phase_t>();
