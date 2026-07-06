@@ -1,8 +1,8 @@
-#ifndef M03GAGBHSP2DRQQ3GKOP8PZFRM_WORKSPACE_GRAPH_H
-# define M03GAGBHSP2DRQQ3GKOP8PZFRM_WORKSPACE_GRAPH_H
+#ifndef M03GAGBHSP2DRQQ3GKOP8PZFRM_WORKSPACE_GRAPH_API_H
+# define M03GAGBHSP2DRQQ3GKOP8PZFRM_WORKSPACE_GRAPH_API_H
 
-# include <m03gagbhsnusi43zogoacgj2ez_filesystem/filesystem.h>
-# include <m03gagbhtft23yhjwpp881tfmc_uuid/uuid.h>
+# include <m03gagbhsnusi43zogoacgj2ez_filesystem/api.h>
+# include <m03gagbhtft23yhjwpp881tfmc_uuid/api.h>
 
 # include <cstdint>
 # include <functional>
@@ -18,6 +18,7 @@ namespace m03gagbhsp2drqq3gkop8pzfrm_workspace_graph {
 
 inline const constexpr char* BUILDER_CPP = "builder.cpp";
 inline const constexpr char* CLI_CPP = "cli.cpp";
+inline const constexpr char* API_H = "api.h";
 
 /**
  * Artifact version number.
@@ -418,4 +419,4 @@ struct formatter<m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::workspace_t> {
 
 } // namespace std
 
-#endif // M03GAGBHSP2DRQQ3GKOP8PZFRM_WORKSPACE_GRAPH_H
+#endif // M03GAGBHSP2DRQQ3GKOP8PZFRM_WORKSPACE_GRAPH_API_H

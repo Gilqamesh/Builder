@@ -1,7 +1,7 @@
-#ifndef M03GAGBHSX4J5Z28BQKAC3DHHH_SHARED_LIBRARY_SHARED_LIBRARY_H
-# define M03GAGBHSX4J5Z28BQKAC3DHHH_SHARED_LIBRARY_SHARED_LIBRARY_H
+#ifndef M03GAGBHSX4J5Z28BQKAC3DHHH_SHARED_LIBRARY_API_H
+# define M03GAGBHSX4J5Z28BQKAC3DHHH_SHARED_LIBRARY_API_H
 
-# include <m03gagbhsnusi43zogoacgj2ez_filesystem/filesystem.h>
+# include <m03gagbhsnusi43zogoacgj2ez_filesystem/api.h>
 
 namespace m03gagbhsx4j5z28bqkac3dhhh_shared_library {
 
@@ -83,4 +83,4 @@ symbol_t::operator F() const {
 
 } // namespace m03gagbhsx4j5z28bqkac3dhhh_shared_library
 
-#endif // M03GAGBHSX4J5Z28BQKAC3DHHH_SHARED_LIBRARY_SHARED_LIBRARY_H
+#endif // M03GAGBHSX4J5Z28BQKAC3DHHH_SHARED_LIBRARY_API_H

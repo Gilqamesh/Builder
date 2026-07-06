@@ -1,7 +1,7 @@
-#ifndef M03GAGBHT3SVCX3IGN454LFUP3_CMAKE_CMAKE_H
-# define M03GAGBHT3SVCX3IGN454LFUP3_CMAKE_CMAKE_H
+#ifndef M03GAGBHT3SVCX3IGN454LFUP3_CMAKE_API_H
+# define M03GAGBHT3SVCX3IGN454LFUP3_CMAKE_API_H
 
-# include <m03gagbhsnusi43zogoacgj2ez_filesystem/filesystem.h>
+# include <m03gagbhsnusi43zogoacgj2ez_filesystem/api.h>
 
 # include <cstddef>
 # include <optional>
@@ -35,4 +35,4 @@ void install(const m03gagbhsnusi43zogoacgj2ez_filesystem::path_t& build_dir);
 } // namespace m03gagbht3svcx3ign454lfup3_cmake
 
 
-#endif // M03GAGBHT3SVCX3IGN454LFUP3_CMAKE_CMAKE_H
+#endif // M03GAGBHT3SVCX3IGN454LFUP3_CMAKE_API_H

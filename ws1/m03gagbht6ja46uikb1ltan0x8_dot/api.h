@@ -1,7 +1,7 @@
-#ifndef M03GAGBHT6JA46UIKB1LTAN0X8_DOT_DOT_H
-# define M03GAGBHT6JA46UIKB1LTAN0X8_DOT_DOT_H
+#ifndef M03GAGBHT6JA46UIKB1LTAN0X8_DOT_API_H
+# define M03GAGBHT6JA46UIKB1LTAN0X8_DOT_API_H
 
-# include <m03gagbhsnusi43zogoacgj2ez_filesystem/filesystem.h>
+# include <m03gagbhsnusi43zogoacgj2ez_filesystem/api.h>
 
 namespace m03gagbht6ja46uikb1ltan0x8_dot {
 
@@ -15,4 +15,4 @@ m03gagbhsnusi43zogoacgj2ez_filesystem::path_t render_svg(
 
 } // namespace m03gagbht6ja46uikb1ltan0x8_dot
 
-#endif // M03GAGBHT6JA46UIKB1LTAN0X8_DOT_DOT_H
+#endif // M03GAGBHT6JA46UIKB1LTAN0X8_DOT_API_H

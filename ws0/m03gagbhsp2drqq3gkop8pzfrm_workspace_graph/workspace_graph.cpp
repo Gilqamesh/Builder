@@ -1,7 +1,7 @@
-#include "workspace_graph.h"
+#include "api.h"
 
-#include <m03gagbhsnusi43zogoacgj2ez_filesystem/filesystem.h>
-#include <m03gagbht2l61mj6qitacwbmea_byte_stream/byte_stream.h>
+#include <m03gagbhsnusi43zogoacgj2ez_filesystem/api.h>
+#include <m03gagbht2l61mj6qitacwbmea_byte_stream/api.h>
 
 #include <algorithm>
 #include <cerrno>
@@ -62,6 +62,23 @@ static void path_env(const char* name, const m03gagbhsnusi43zogoacgj2ez_filesyst
     if (setenv(name, path.c_str(), 1) == -1) {
         throw std::runtime_error(std::format("m03gagbhsp2drqq3gkop8pzfrm_workspace_graph: failed to set {}: {}", name, std::strerror(errno)));
     }
+}
+
+static void validate_module_layout_file(const m03gagbhsnusi43zogoacgj2ez_filesystem::path_t& module_dir, std::string_view file_name) {
+    const auto file_path = module_dir / m03gagbhsnusi43zogoacgj2ez_filesystem::relative_path_t(std::string(file_name));
+    if (!m03gagbhsnusi43zogoacgj2ez_filesystem::is_regular_file(file_path)) {
+        throw std::invalid_argument(std::format(
+            "m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::validate_module_layout_file: module directory '{}' must contain regular file '{}'",
+            module_dir,
+            file_name
+        ));
+    }
+}
+
+static void validate_module_layout(const m03gagbhsnusi43zogoacgj2ez_filesystem::path_t& module_dir) {
+    validate_module_layout_file(module_dir, BUILDER_CPP);
+    validate_module_layout_file(module_dir, CLI_CPP);
+    validate_module_layout_file(module_dir, API_H);
 }
 
 module_name_t::module_name_t(std::string_view unique_name):
@@ -281,12 +298,33 @@ workspace_graph_t::workspace_graph_t(m03gagbhsnusi43zogoacgj2ez_filesystem::path
     for (const auto& [workspace_name, workspace] : m_workspace_by_workspace_name) {
         const auto workspace_dir = root() / workspace_name.relative_path();
         for (const auto& module_dir : m03gagbhsnusi43zogoacgj2ez_filesystem::find(workspace_dir, m03gagbhsnusi43zogoacgj2ez_filesystem::find_include_predicate_t::is_dir, m03gagbhsnusi43zogoacgj2ez_filesystem::find_descend_predicate_t::descend_none)) {
-            const auto module_name = module_name_t(module_dir.relative_path().string());
-            const auto [it, inserted] = m_workspace_by_module_name.emplace(module_name, workspace);
+            try {
+                validate_module_layout(module_dir.path());
+            } catch (const std::invalid_argument& e) {
+                std::cerr << std::format("m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::workspace_graph_t: skipping module directory '{}' because it is not a valid module layout: {}", module_dir, e.what()) << std::endl;
+                continue ;
+            }
+
+            std::optional<module_name_t> maybe_module_name;
+            try {
+                maybe_module_name = module_name_t(module_dir.relative_path().string());
+            } catch (const std::invalid_argument& e) {
+                std::cerr << std::format("m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::workspace_graph_t: skipping module directory '{}' because it is not a valid module name: {}", module_dir, e.what()) << std::endl;
+                continue ;
+            } catch (...) {
+                continue ;
+            }
+
+            assert(maybe_module_name.has_value());
+            if (!maybe_module_name) {
+                throw std::logic_error(std::format("m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::workspace_graph_t: module name is empty after validation for directory '{}'", module_dir));
+            }
+
+            const auto [it, inserted] = m_workspace_by_module_name.emplace(*maybe_module_name, workspace);
             if (!inserted) {
                 throw std::runtime_error(std::format(
                     "m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::workspace_graph_t::load_module_index: duplicate module name '{}' found in workspaces '{}' and '{}'; module names must be globally unique",
-                    module_name,
+                    *maybe_module_name,
                     it->second->name(),
                     workspace_name
                 ));
@@ -653,7 +691,7 @@ module_t* workspace_graph_t::discover_module_impl(module_name_t module_name) {
     workspace->add_module(module);
 
     const auto dependency_names_from_source = [&](const m03gagbhsnusi43zogoacgj2ez_filesystem::find_include_predicate_t& source_filter) {
-        std::set<module_name_t> dependency_names;
+        std::set<module_name_t> dependency_module_names;
 
         for (const auto& source : m03gagbhsnusi43zogoacgj2ez_filesystem::find(module_directory, source_filter, m03gagbhsnusi43zogoacgj2ez_filesystem::find_descend_predicate_t::descend_all)) {
             std::ifstream ifs(source.path().string());
@@ -661,30 +699,33 @@ module_t* workspace_graph_t::discover_module_impl(module_name_t module_name) {
                 throw std::runtime_error(std::format("m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::discover_module_impl: failed to open source file '{}'", source.path()));
             }
 
-            const auto include_pattern = std::regex(R"(^\s*#\s*include\s*<([^>/\s]+)/[^>]+>)");
+            const auto include_pattern = std::regex(R"(^\s*#\s*include\s*<(m[a-z0-9]{25}_[a-zA-Z0-9_]+)/([^>\s]+)>\s*$)");
             std::string line;
             while (std::getline(ifs, line)) {
                 std::smatch match;
                 if (!std::regex_match(line, match, include_pattern)) {
                     continue ;
                 }
-                const auto include_prefix = match[1].str();
+                const auto dependency_name = match[1].str();
+                const auto included_file = match[2].str();
+                if (included_file != API_H) {
+                    throw std::runtime_error(std::format("m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::discover_module_impl: source file '{}' includes file '{}' from module '{}', but only '{}' is allowed to be included from other modules", source.path(), included_file, dependency_name, API_H));
+                }
 
-                try {
-                    const auto dependency_name = module_name_t(include_prefix);
-                    if (dependency_name == module_name) {
-                        continue ;
-                    }
-                    if (m_workspace_by_module_name.find(dependency_name) != m_workspace_by_module_name.end()) {
-                        dependency_names.insert(dependency_name);
-                    }
-                } catch (const std::invalid_argument&) {
+                const auto dependency_module_name = module_name_t(dependency_name);
+                if (dependency_module_name == module_name) {
                     continue ;
                 }
+
+                if (!m_workspace_by_module_name.contains(dependency_module_name)) {
+                    throw std::runtime_error(std::format("m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::discover_module_impl: source file '{}' includes unknown module '{}'", source.path(), dependency_module_name));
+                }
+
+                dependency_module_names.insert(dependency_module_name);
             }
         }
 
-        return dependency_names;
+        return dependency_module_names;
     };
 
     const auto module_dependency_source_filter =

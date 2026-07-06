@@ -1,7 +1,7 @@
-#ifndef M03GAGBHTH67IRF210VI3BYVHK_WGET_WGET_H
-# define M03GAGBHTH67IRF210VI3BYVHK_WGET_WGET_H
+#ifndef M03GAGBHTH67IRF210VI3BYVHK_WGET_API_H
+# define M03GAGBHTH67IRF210VI3BYVHK_WGET_API_H
 
-# include <m03gagbhsnusi43zogoacgj2ez_filesystem/filesystem.h>
+# include <m03gagbhsnusi43zogoacgj2ez_filesystem/api.h>
 
 # include <string>
 
@@ -17,4 +17,4 @@ m03gagbhsnusi43zogoacgj2ez_filesystem::path_t download(
 
 } // namespace m03gagbhth67irf210vi3byvhk_wget
 
-#endif // M03GAGBHTH67IRF210VI3BYVHK_WGET_WGET_H
+#endif // M03GAGBHTH67IRF210VI3BYVHK_WGET_API_H

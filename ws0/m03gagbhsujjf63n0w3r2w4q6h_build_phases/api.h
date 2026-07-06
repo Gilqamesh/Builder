@@ -1,9 +1,9 @@
-#ifndef M03GAGBHSUJJF63N0W3R2W4Q6H_BUILD_PHASES_H
-# define M03GAGBHSUJJF63N0W3R2W4Q6H_BUILD_PHASES_H
+#ifndef M03GAGBHSUJJF63N0W3R2W4Q6H_BUILD_PHASES_API_H
+# define M03GAGBHSUJJF63N0W3R2W4Q6H_BUILD_PHASES_API_H
 
-# include <m03gagbhsmhr0naw0zpccv4gaq_cxx_toolchain/cxx_toolchain.h>
-# include <m03gagbhsnusi43zogoacgj2ez_filesystem/filesystem.h>
-# include <m03gagbhsp2drqq3gkop8pzfrm_workspace_graph/workspace_graph.h>
+# include <m03gagbhsmhr0naw0zpccv4gaq_cxx_toolchain/api.h>
+# include <m03gagbhsnusi43zogoacgj2ez_filesystem/api.h>
+# include <m03gagbhsp2drqq3gkop8pzfrm_workspace_graph/api.h>
 
 # include <cstdint>
 # include <memory>
@@ -153,14 +153,16 @@ private:
 struct source_phase_t : phase_base_t {
     class installed_t {
     public:
-        explicit installed_t(const m03gagbhsnusi43zogoacgj2ez_filesystem::path_t& root);
-
         /**
          * Source phase install root.
          */
         const m03gagbhsnusi43zogoacgj2ez_filesystem::path_t& root() const;
 
     private:
+        friend phase_base_t;
+
+        explicit installed_t(const source_phase_t& phase);
+
         m03gagbhsnusi43zogoacgj2ez_filesystem::path_t m_root;
     };
 
@@ -192,15 +194,23 @@ struct source_phase_t : phase_base_t {
 struct interface_phase_t : phase_base_t {
     class installed_t {
     public:
-        explicit installed_t(const m03gagbhsnusi43zogoacgj2ez_filesystem::path_t& root);
-
         /**
          * Interface phase install root.
          */
         const m03gagbhsnusi43zogoacgj2ez_filesystem::path_t& root() const;
 
+        /**
+         * Published stable API header path.
+         */
+        const m03gagbhsnusi43zogoacgj2ez_filesystem::path_t& api() const;
+
     private:
+        friend phase_base_t;
+
+        explicit installed_t(const interface_phase_t& phase);
+
         m03gagbhsnusi43zogoacgj2ez_filesystem::path_t m_root;
+        m03gagbhsnusi43zogoacgj2ez_filesystem::path_t m_api;
     };
 
     interface_phase_t(
@@ -218,6 +228,11 @@ struct interface_phase_t : phase_base_t {
      * Publishes all .h and .hpp files from the source phase.
      */
     void install_headers_from_source() const;
+
+    /**
+     * Publishes api.h under <module_name>/api.h.
+     */
+    void install_api() const;
 
     /**
      * Publishes an include path under <module_name>/<relative path>.
@@ -238,14 +253,16 @@ struct interface_phase_t : phase_base_t {
 struct library_phase_t : phase_base_t {
     class installed_t {
     public:
-        explicit installed_t(const m03gagbhsnusi43zogoacgj2ez_filesystem::path_t& root);
-
         /**
          * Library phase install root.
          */
         const m03gagbhsnusi43zogoacgj2ez_filesystem::path_t& root() const;
 
     private:
+        friend phase_base_t;
+
+        explicit installed_t(const library_phase_t& phase);
+
         m03gagbhsnusi43zogoacgj2ez_filesystem::path_t m_root;
     };
 
@@ -281,8 +298,6 @@ struct library_phase_t : phase_base_t {
 struct binary_phase_t : phase_base_t {
     class installed_t {
     public:
-        explicit installed_t(const m03gagbhsnusi43zogoacgj2ez_filesystem::path_t& root);
-
         /**
          * Binary phase install root.
          */
@@ -294,6 +309,10 @@ struct binary_phase_t : phase_base_t {
         const m03gagbhsnusi43zogoacgj2ez_filesystem::path_t& cli() const;
 
     private:
+        friend phase_base_t;
+
+        explicit installed_t(const binary_phase_t& phase);
+
         m03gagbhsnusi43zogoacgj2ez_filesystem::path_t m_root;
         m03gagbhsnusi43zogoacgj2ez_filesystem::path_t m_cli;
     };
@@ -317,4 +336,4 @@ struct binary_phase_t : phase_base_t {
 
 } // namespace m03gagbhsujjf63n0w3r2w4q6h_build_phases
 
-#endif // M03GAGBHSUJJF63N0W3R2W4Q6H_BUILD_PHASES_H
+#endif // M03GAGBHSUJJF63N0W3R2W4Q6H_BUILD_PHASES_API_H

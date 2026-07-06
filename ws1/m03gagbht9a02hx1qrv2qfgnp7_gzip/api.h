@@ -1,7 +1,7 @@
-#ifndef M03GAGBHT9A02HX1QRV2QFGNP7_GZIP_GZIP_H
-# define M03GAGBHT9A02HX1QRV2QFGNP7_GZIP_GZIP_H
+#ifndef M03GAGBHT9A02HX1QRV2QFGNP7_GZIP_API_H
+# define M03GAGBHT9A02HX1QRV2QFGNP7_GZIP_API_H
 
-# include <m03gagbhsnusi43zogoacgj2ez_filesystem/filesystem.h>
+# include <m03gagbhsnusi43zogoacgj2ez_filesystem/api.h>
 
 namespace m03gagbht9a02hx1qrv2qfgnp7_gzip {
 
@@ -24,4 +24,4 @@ m03gagbhsnusi43zogoacgj2ez_filesystem::path_t ungzip(
 } // namespace m03gagbht9a02hx1qrv2qfgnp7_gzip
 
 
-#endif // M03GAGBHT9A02HX1QRV2QFGNP7_GZIP_GZIP_H
+#endif // M03GAGBHT9A02HX1QRV2QFGNP7_GZIP_API_H

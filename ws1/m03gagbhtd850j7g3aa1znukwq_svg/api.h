@@ -1,7 +1,7 @@
-#ifndef M03GAGBHTD850J7G3AA1ZNUKWQ_SVG_SVG_H
-# define M03GAGBHTD850J7G3AA1ZNUKWQ_SVG_SVG_H
+#ifndef M03GAGBHTD850J7G3AA1ZNUKWQ_SVG_API_H
+# define M03GAGBHTD850J7G3AA1ZNUKWQ_SVG_API_H
 
-# include <m03gagbhsnusi43zogoacgj2ez_filesystem/filesystem.h>
+# include <m03gagbhsnusi43zogoacgj2ez_filesystem/api.h>
 
 namespace m03gagbhtd850j7g3aa1znukwq_svg {
 
@@ -15,4 +15,4 @@ m03gagbhsnusi43zogoacgj2ez_filesystem::path_t render_png(
 
 } // namespace m03gagbhtd850j7g3aa1znukwq_svg
 
-#endif // M03GAGBHTD850J7G3AA1ZNUKWQ_SVG_SVG_H
+#endif // M03GAGBHTD850J7G3AA1ZNUKWQ_SVG_API_H

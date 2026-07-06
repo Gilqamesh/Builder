@@ -1,7 +1,7 @@
-#ifndef M03GAGBHTBUSAQIDRTW6LNUGR4_SHA256SUM_SHA256SUM_H
-# define M03GAGBHTBUSAQIDRTW6LNUGR4_SHA256SUM_SHA256SUM_H
+#ifndef M03GAGBHTBUSAQIDRTW6LNUGR4_SHA256SUM_API_H
+# define M03GAGBHTBUSAQIDRTW6LNUGR4_SHA256SUM_API_H
 
-# include <m03gagbhsnusi43zogoacgj2ez_filesystem/filesystem.h>
+# include <m03gagbhsnusi43zogoacgj2ez_filesystem/api.h>
 
 # include <string>
 
@@ -14,4 +14,4 @@ void verify(const m03gagbhsnusi43zogoacgj2ez_filesystem::path_t& path, const std
 
 } // namespace m03gagbhtbusaqidrtw6lnugr4_sha256sum
 
-#endif // M03GAGBHTBUSAQIDRTW6LNUGR4_SHA256SUM_SHA256SUM_H
+#endif // M03GAGBHTBUSAQIDRTW6LNUGR4_SHA256SUM_API_H

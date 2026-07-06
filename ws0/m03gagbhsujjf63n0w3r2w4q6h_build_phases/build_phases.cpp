@@ -1,18 +1,18 @@
-#include "build_phases.h"
+#include "api.h"
 
-#include <m03gagbhsmhr0naw0zpccv4gaq_cxx_toolchain/cxx_toolchain.h>
-#include <m03gagbhsnusi43zogoacgj2ez_filesystem/filesystem.h>
-#include <m03gagbhsp2drqq3gkop8pzfrm_workspace_graph/workspace_graph.h>
-#include <m03gagbhsyhlx2pk5sdabbr1sx_signal_handler/signal_handler.h>
-#include <m03gagbhsx4j5z28bqkac3dhhh_shared_library/shared_library.h>
+#include <m03gagbhsmhr0naw0zpccv4gaq_cxx_toolchain/api.h>
+#include <m03gagbhsnusi43zogoacgj2ez_filesystem/api.h>
+#include <m03gagbhsp2drqq3gkop8pzfrm_workspace_graph/api.h>
+#include <m03gagbhsyhlx2pk5sdabbr1sx_signal_handler/api.h>
+#include <m03gagbhsx4j5z28bqkac3dhhh_shared_library/api.h>
 
+#include <filesystem>
 #include <format>
 #include <fstream>
 #include <memory>
 #include <stdexcept>
 #include <string>
 #include <string_view>
-#include <type_traits>
 #include <unordered_set>
 #include <utility>
 
@@ -84,6 +84,10 @@ static m03gagbhsnusi43zogoacgj2ez_filesystem::relative_path_t cli_relative_outpu
     auto path = m03gagbhsnusi43zogoacgj2ez_filesystem::relative_path_t(m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::CLI_CPP);
     path.extension("");
     return path;
+}
+
+static m03gagbhsnusi43zogoacgj2ez_filesystem::relative_path_t api_relative_path() {
+    return m03gagbhsnusi43zogoacgj2ez_filesystem::relative_path_t(m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::API_H);
 }
 
 static m03gagbhsmhr0naw0zpccv4gaq_cxx_toolchain::link_inputs_t binary_link_inputs(
@@ -458,8 +462,8 @@ m03gagbhsnusi43zogoacgj2ez_filesystem::path_t source_phase_t::source_dir() const
     return module().source_dir();
 }
 
-source_phase_t::installed_t::installed_t(const m03gagbhsnusi43zogoacgj2ez_filesystem::path_t& root):
-    m_root(root)
+source_phase_t::installed_t::installed_t(const source_phase_t& phase):
+    m_root(phase.install_dir())
 {
 }
 
@@ -488,13 +492,27 @@ interface_phase_t::interface_phase_t(
 {
 }
 
-interface_phase_t::installed_t::installed_t(const m03gagbhsnusi43zogoacgj2ez_filesystem::path_t& root):
-    m_root(root)
+interface_phase_t::installed_t::installed_t(const interface_phase_t& phase):
+    m_root(phase.install_dir()),
+    m_api(m_root / m03gagbhsnusi43zogoacgj2ez_filesystem::relative_path_t(
+        std::filesystem::path(phase.module().name().unique_name()) / api_relative_path().to_native_path()
+    ))
 {
+    if (!m03gagbhsnusi43zogoacgj2ez_filesystem::is_regular_file(m_api)) {
+        throw std::runtime_error(std::format(
+            "m03gagbhsujjf63n0w3r2w4q6h_build_phases::interface_phase_t::installed_t: interface phase for module '{}' did not publish {} artifact",
+            phase.module().name(),
+            m_api
+        ));
+    }
 }
 
 const m03gagbhsnusi43zogoacgj2ez_filesystem::path_t& interface_phase_t::installed_t::root() const {
     return m_root;
+}
+
+const m03gagbhsnusi43zogoacgj2ez_filesystem::path_t& interface_phase_t::installed_t::api() const {
+    return m_api;
 }
 
 m03gagbhsnusi43zogoacgj2ez_filesystem::path_t interface_phase_t::build_interface_as(
@@ -517,6 +535,14 @@ void interface_phase_t::install_headers_from_source() const {
     )) {
         install_interface(artifact);
     }
+}
+
+void interface_phase_t::install_api() const {
+    const auto sources = install<source_phase_t>();
+    install_interface(m03gagbhsnusi43zogoacgj2ez_filesystem::rooted_path_t(
+        sources.root(),
+        api_relative_path()
+    ));
 }
 
 void interface_phase_t::install_interface(const m03gagbhsnusi43zogoacgj2ez_filesystem::path_t& interface) const {
@@ -548,8 +574,8 @@ library_phase_t::library_phase_t(
 {
 }
 
-library_phase_t::installed_t::installed_t(const m03gagbhsnusi43zogoacgj2ez_filesystem::path_t& root):
-    m_root(root)
+library_phase_t::installed_t::installed_t(const library_phase_t& phase):
+    m_root(phase.install_dir())
 {
 }
 
@@ -596,9 +622,9 @@ binary_phase_t::binary_phase_t(
 {
 }
 
-binary_phase_t::installed_t::installed_t(const m03gagbhsnusi43zogoacgj2ez_filesystem::path_t& root):
-    m_root(root),
-    m_cli(root / cli_relative_output_path())
+binary_phase_t::installed_t::installed_t(const binary_phase_t& phase):
+    m_root(phase.install_dir()),
+    m_cli(m_root / cli_relative_output_path())
 {
     if (!m03gagbhsnusi43zogoacgj2ez_filesystem::exists(m_cli)) {
         throw std::runtime_error(std::format("m03gagbhsujjf63n0w3r2w4q6h_build_phases::binary_phase_t::installed_t: binary phase did not publish {} artifact", m_cli));
@@ -661,7 +687,7 @@ typename phase_t::installed_t phase_base_t::install(const phase_t& requested_pha
     const auto complete_marker = marker_path("complete");
 
     if (m03gagbhsnusi43zogoacgj2ez_filesystem::exists(complete_marker)) {
-        return typename phase_t::installed_t(requested_phase.install_dir());
+        return typename phase_t::installed_t(requested_phase);
     }
 
     if (m03gagbhsnusi43zogoacgj2ez_filesystem::exists(started_marker)) {
@@ -697,7 +723,7 @@ typename phase_t::installed_t phase_base_t::install(const phase_t& requested_pha
             fn(&requested_phase);
         }
 
-        typename phase_t::installed_t installed_result(requested_phase.install_dir());
+        typename phase_t::installed_t installed_result(requested_phase);
 
         const auto phase_artifact_dir = requested_phase.artifact_dir();
         const auto latest_dir = m_module.artifact_latest_dir();

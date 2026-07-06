@@ -1,7 +1,7 @@
-#include <m03gagbhst621faiop1rztfkqp_builder_cli/builder_cli.h>
+#include <m03gagbhst621faiop1rztfkqp_builder_cli/api.h>
 
-#include <m03gagbhsp2drqq3gkop8pzfrm_workspace_graph/workspace_graph.h>
-#include <m03gagbhsvr0m5w15urj0o291m_process/process.h>
+#include <m03gagbhsp2drqq3gkop8pzfrm_workspace_graph/api.h>
+#include <m03gagbhsvr0m5w15urj0o291m_process/api.h>
 
 #include <iostream>
 #include <exception>

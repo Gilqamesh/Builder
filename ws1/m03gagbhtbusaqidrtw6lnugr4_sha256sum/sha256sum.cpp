@@ -1,7 +1,7 @@
-#include <m03gagbhtbusaqidrtw6lnugr4_sha256sum/sha256sum.h>
+#include <m03gagbhtbusaqidrtw6lnugr4_sha256sum/api.h>
 
-#include <m03gagbhsnusi43zogoacgj2ez_filesystem/filesystem.h>
-#include <m03gagbhsvr0m5w15urj0o291m_process/process.h>
+#include <m03gagbhsnusi43zogoacgj2ez_filesystem/api.h>
+#include <m03gagbhsvr0m5w15urj0o291m_process/api.h>
 
 #include <fstream>
 #include <format>

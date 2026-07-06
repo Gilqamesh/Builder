@@ -1,7 +1,7 @@
-#include <m03gagbhsujjf63n0w3r2w4q6h_build_phases/build_phases.h>
-#include <m03gagbhsmhr0naw0zpccv4gaq_cxx_toolchain/cxx_toolchain.h>
-#include <m03gagbhsp2drqq3gkop8pzfrm_workspace_graph/workspace_graph.h>
-#include <m03gagbhsnusi43zogoacgj2ez_filesystem/filesystem.h>
+#include <m03gagbhsujjf63n0w3r2w4q6h_build_phases/api.h>
+#include <m03gagbhsmhr0naw0zpccv4gaq_cxx_toolchain/api.h>
+#include <m03gagbhsp2drqq3gkop8pzfrm_workspace_graph/api.h>
+#include <m03gagbhsnusi43zogoacgj2ez_filesystem/api.h>
 
 #include <vector>
 

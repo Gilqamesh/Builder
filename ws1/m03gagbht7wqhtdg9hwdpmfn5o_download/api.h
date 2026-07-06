@@ -1,7 +1,7 @@
-#ifndef M03GAGBHT7WQHTDG9HWDPMFN5O_DOWNLOAD_DOWNLOAD_H
-# define M03GAGBHT7WQHTDG9HWDPMFN5O_DOWNLOAD_DOWNLOAD_H
+#ifndef M03GAGBHT7WQHTDG9HWDPMFN5O_DOWNLOAD_API_H
+# define M03GAGBHT7WQHTDG9HWDPMFN5O_DOWNLOAD_API_H
 
-# include <m03gagbhsnusi43zogoacgj2ez_filesystem/filesystem.h>
+# include <m03gagbhsnusi43zogoacgj2ez_filesystem/api.h>
 
 # include <string>
 
@@ -22,4 +22,4 @@ m03gagbhsnusi43zogoacgj2ez_filesystem::path_t fetch(const source_lock_t& source_
 
 } // namespace m03gagbht7wqhtdg9hwdpmfn5o_download
 
-#endif // M03GAGBHT7WQHTDG9HWDPMFN5O_DOWNLOAD_DOWNLOAD_H
+#endif // M03GAGBHT7WQHTDG9HWDPMFN5O_DOWNLOAD_API_H

@@ -1,8 +1,8 @@
-#ifndef M03GAGBHTAHG11WZN32IDILZTE_MODULE_GRAPH_MODULE_GRAPH_H
-# define M03GAGBHTAHG11WZN32IDILZTE_MODULE_GRAPH_MODULE_GRAPH_H
+#ifndef M03GAGBHTAHG11WZN32IDILZTE_MODULE_GRAPH_API_H
+# define M03GAGBHTAHG11WZN32IDILZTE_MODULE_GRAPH_API_H
 
-# include <m03gagbhsnusi43zogoacgj2ez_filesystem/filesystem.h>
-# include <m03gagbhsp2drqq3gkop8pzfrm_workspace_graph/workspace_graph.h>
+# include <m03gagbhsnusi43zogoacgj2ez_filesystem/api.h>
+# include <m03gagbhsp2drqq3gkop8pzfrm_workspace_graph/api.h>
 
 namespace m03gagbhtahg11wzn32idilzte_module_graph {
 
@@ -30,4 +30,4 @@ m03gagbhsnusi43zogoacgj2ez_filesystem::path_t render_svg(
 
 } // namespace m03gagbhtahg11wzn32idilzte_module_graph
 
-#endif // M03GAGBHTAHG11WZN32IDILZTE_MODULE_GRAPH_MODULE_GRAPH_H
+#endif // M03GAGBHTAHG11WZN32IDILZTE_MODULE_GRAPH_API_H

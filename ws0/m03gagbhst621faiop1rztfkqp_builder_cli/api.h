@@ -1,7 +1,7 @@
-#ifndef M03GAGBHST621FAIOP1RZTFKQP_BUILDER_CLI_H
-# define M03GAGBHST621FAIOP1RZTFKQP_BUILDER_CLI_H
+#ifndef M03GAGBHST621FAIOP1RZTFKQP_BUILDER_CLI_API_H
+# define M03GAGBHST621FAIOP1RZTFKQP_BUILDER_CLI_API_H
 
-# include <m03gagbhsp2drqq3gkop8pzfrm_workspace_graph/workspace_graph.h>
+# include <m03gagbhsp2drqq3gkop8pzfrm_workspace_graph/api.h>
 
 # include <vector>
 # include <string>
@@ -54,4 +54,4 @@ void create_and_wait_checked(m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::module_
 
 } // namespace m03gagbhst621faiop1rztfkqp_builder_cli
 
-#endif // M03GAGBHST621FAIOP1RZTFKQP_BUILDER_CLI_H
+#endif // M03GAGBHST621FAIOP1RZTFKQP_BUILDER_CLI_API_H

@@ -1,8 +1,8 @@
-#include <m03gagbhtahg11wzn32idilzte_module_graph/module_graph.h>
+#include <m03gagbhtahg11wzn32idilzte_module_graph/api.h>
 
-#include <m03gagbhsnusi43zogoacgj2ez_filesystem/filesystem.h>
-#include <m03gagbhsp2drqq3gkop8pzfrm_workspace_graph/workspace_graph.h>
-#include <m03gagbht6ja46uikb1ltan0x8_dot/dot.h>
+#include <m03gagbhsnusi43zogoacgj2ez_filesystem/api.h>
+#include <m03gagbhsp2drqq3gkop8pzfrm_workspace_graph/api.h>
+#include <m03gagbht6ja46uikb1ltan0x8_dot/api.h>
 
 #include <fstream>
 #include <format>
