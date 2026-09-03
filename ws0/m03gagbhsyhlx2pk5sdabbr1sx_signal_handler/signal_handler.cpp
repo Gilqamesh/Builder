@@ -19,11 +19,9 @@ static constexpr std::array<int, 3> TERMINATION_SIGNALS = {
 static volatile sig_atomic_t g_termination_signal = 0;
 static volatile sig_atomic_t g_child_pid = 0;
 static volatile sig_atomic_t g_child_signal = 0;
+static volatile sig_atomic_t g_child_signal_target_is_process_group = 0;
 static volatile sig_atomic_t g_child_guard_active = 0;
 
-// Signal handlers can only do minimal async-signal-safe work. These handlers
-// record process-global state for the owning guard to observe later; they are
-// not a general thread synchronization mechanism.
 static void request_termination(int signal_number) {
     if (g_termination_signal == 0) {
         g_termination_signal = signal_number;
@@ -40,7 +38,8 @@ static void forward_termination_to_child(int signal_number) {
 
     g_child_signal = signal_number;
     if (g_child_pid > 0) {
-        kill(g_child_pid, signal_number);
+        const pid_t pid = g_child_signal_target_is_process_group != 0 ? -g_child_pid : g_child_pid;
+        kill(pid, signal_number);
     }
 }
 
@@ -65,7 +64,7 @@ static void restore_handler(int signal_number, const struct sigaction& previous_
     }
 }
 
-static void block_termination_signals(sigset_t& previous_mask) {
+static bool block_termination_signals_noexcept(sigset_t& previous_mask) noexcept {
     sigset_t blocked_signals;
     sigemptyset(&blocked_signals);
 
@@ -73,7 +72,11 @@ static void block_termination_signals(sigset_t& previous_mask) {
         sigaddset(&blocked_signals, signal_number);
     }
 
-    if (sigprocmask(SIG_BLOCK, &blocked_signals, &previous_mask) == -1) {
+    return sigprocmask(SIG_BLOCK, &blocked_signals, &previous_mask) != -1;
+}
+
+static void block_termination_signals(sigset_t& previous_mask) {
+    if (!block_termination_signals_noexcept(previous_mask)) {
         throw std::runtime_error(std::format(
             "m03gagbhsyhlx2pk5sdabbr1sx_signal_handler::scoped_child_termination_guard_t: failed to block termination signals: {}",
             std::strerror(errno)
@@ -82,20 +85,17 @@ static void block_termination_signals(sigset_t& previous_mask) {
 }
 
 static void block_termination_signals_or_exit(sigset_t& previous_mask) {
-    sigset_t blocked_signals;
-    sigemptyset(&blocked_signals);
-
-    for (const auto signal_number : TERMINATION_SIGNALS) {
-        sigaddset(&blocked_signals, signal_number);
-    }
-
-    if (sigprocmask(SIG_BLOCK, &blocked_signals, &previous_mask) == -1) {
+    if (!block_termination_signals_noexcept(previous_mask)) {
         _exit(128 + SIGTERM);
     }
 }
 
+static bool restore_signal_mask_noexcept(const sigset_t& previous_mask) noexcept {
+    return sigprocmask(SIG_SETMASK, &previous_mask, nullptr) != -1;
+}
+
 static void restore_signal_mask(const sigset_t& previous_mask) {
-    if (sigprocmask(SIG_SETMASK, &previous_mask, nullptr) == -1) {
+    if (!restore_signal_mask_noexcept(previous_mask)) {
         throw std::runtime_error(std::format(
             "m03gagbhsyhlx2pk5sdabbr1sx_signal_handler::scoped_child_termination_guard_t: failed to restore signal mask: {}",
             std::strerror(errno)
@@ -104,7 +104,7 @@ static void restore_signal_mask(const sigset_t& previous_mask) {
 }
 
 static void restore_signal_mask_or_exit(const sigset_t& previous_mask) {
-    if (sigprocmask(SIG_SETMASK, &previous_mask, nullptr) == -1) {
+    if (!restore_signal_mask_noexcept(previous_mask)) {
         _exit(128 + SIGTERM);
     }
 }
@@ -119,7 +119,10 @@ int termination_request_t::signal_number() const {
     return m_signal_number;
 }
 
-scoped_termination_guard_t::scoped_termination_guard_t() {
+scoped_termination_guard_t::scoped_termination_guard_t():
+    m_previous_actions(),
+    m_active()
+{
     if (g_termination_signal != 0) {
         throw termination_request_t(g_termination_signal);
     }
@@ -152,18 +155,32 @@ scoped_termination_guard_t::~scoped_termination_guard_t() noexcept(false) {
     }
 }
 
-void scoped_child_termination_guard_t::prepare() {
+scoped_child_termination_guard_t::scoped_child_termination_guard_t(child_signal_target_t child_signal_target):
+    m_pid(-1),
+    m_previous_actions(),
+    m_handler_active(),
+    m_previous_mask(),
+    m_mask_active(false),
+    m_registered(false)
+{
+    prepare(child_signal_target);
+}
+
+void scoped_child_termination_guard_t::prepare(child_signal_target_t child_signal_target) {
     block_termination_signals(m_previous_mask);
     m_mask_active = true;
 
     try {
         if (g_child_guard_active != 0) {
-            throw std::runtime_error("m03gagbhsyhlx2pk5sdabbr1sx_signal_handler::scoped_child_termination_guard_t: nested child termination guards are not supported");
+            throw std::runtime_error(
+                "m03gagbhsyhlx2pk5sdabbr1sx_signal_handler::scoped_child_termination_guard_t: nested child termination guards are not supported"
+            );
         }
 
         g_child_guard_active = 1;
         g_child_pid = 0;
         g_child_signal = 0;
+        g_child_signal_target_is_process_group = child_signal_target == child_signal_target_t::process_group ? 1 : 0;
         m_registered = true;
 
         for (std::size_t i = 0; i < TERMINATION_SIGNALS.size(); ++i) {
@@ -229,6 +246,7 @@ void scoped_child_termination_guard_t::cleanup_or_exit() noexcept {
     if (m_registered) {
         g_child_pid = 0;
         g_child_signal = 0;
+        g_child_signal_target_is_process_group = 0;
         g_child_guard_active = 0;
         m_registered = false;
     }

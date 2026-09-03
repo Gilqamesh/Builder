@@ -1,18 +1,20 @@
 #include "process.h"
 
-#include <m03gagbhsnusi43zogoacgj2ez_filesystem/filesystem.h>
+#include "foreground_job.h"
+
 #include <m03gagbhsyhlx2pk5sdabbr1sx_signal_handler/signal_handler.h>
 
-#include <iostream>
 #include <cerrno>
 #include <cstdlib>
+#include <cstring>
+#include <exception>
 #include <format>
 #include <stdexcept>
-#include <type_traits>
+#include <utility>
+#include <iostream>
 
-#include <unistd.h>
 #include <sys/wait.h>
-#include <cstring>
+#include <unistd.h>
 
 namespace m03gagbhsvr0m5w15urj0o291m_process {
 
@@ -95,12 +97,20 @@ int create_and_wait(const command_t& command) {
 }
 
 void create_and_wait_checked(const command_t& command) {
-    const int process_result = create_and_wait(command);
-
+    const auto process_result = create_and_wait(command);
     if (0 < process_result) {
         throw std::runtime_error(std::format("m03gagbhsvr0m5w15urj0o291m_process::create_and_wait_checked: process exited with non-zero exit code: {}", process_result));
     } else if (process_result < 0) {
         throw std::runtime_error(std::format("m03gagbhsvr0m5w15urj0o291m_process::create_and_wait_checked: process terminated by signal: {}", -process_result));
+    }
+}
+
+void create_and_wait_foreground_checked(const command_t& command) {
+    const auto process_result = foreground_job_t::create_and_wait(command);
+    if (0 < process_result) {
+        throw std::runtime_error(std::format("m03gagbhsvr0m5w15urj0o291m_process::create_and_wait_foreground_checked: process exited with non-zero exit code: {}", process_result));
+    } else if (process_result < 0) {
+        throw std::runtime_error(std::format("m03gagbhsvr0m5w15urj0o291m_process::create_and_wait_foreground_checked: process terminated by signal: {}", -process_result));
     }
 }
 
@@ -126,6 +136,15 @@ void create_and_wait_checked(const command_t& command) {
         cargs.push_back(const_cast<char*>(arg.c_str()));
     }
     cargs.push_back(nullptr);
+
+    // print out the command being executed for debugging purposes
+    for (size_t i = 0; i < args.size(); ++i) {
+        std::cerr << args[i];
+        if (i + 1 < args.size()) {
+            std::cerr << " ";
+        }
+    }
+    std::cerr << std::endl;
 
     if (execv(cargs[0], cargs.data()) == -1) {
         throw std::runtime_error(std::format("m03gagbhsvr0m5w15urj0o291m_process::exec: execv failed: {}", std::strerror(errno)));

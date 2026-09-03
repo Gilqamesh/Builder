@@ -23,7 +23,7 @@ extern "C" void phase__library(const m03gagbhsujjf63n0w3r2w4q6h_build_phases::li
 }
 
 extern "C" void phase__binary(const m03gagbhsujjf63n0w3r2w4q6h_build_phases::binary_phase_t* phase) {
-    phase->install_cli({
+    phase->install_binary("cli", { phase->source("cli.cpp") }, {
         m03gagbhsmhr0naw0zpccv4gaq_cxx_toolchain::define_t("M03GAGBHT3SVCX3IGN454LFUP3_CMAKE_CMAKE_PATH", "/usr/bin/cmake")
     });
 }

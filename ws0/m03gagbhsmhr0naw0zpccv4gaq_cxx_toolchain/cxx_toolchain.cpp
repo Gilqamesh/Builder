@@ -7,7 +7,6 @@
 #include <stdexcept>
 #include <string>
 #include <string_view>
-#include <type_traits>
 #include <utility>
 
 #ifndef M03GAGBHSMHR0NAW0ZPCCV4GAQ_CXX_TOOLCHAIN_CXX_COMPILER_PATH
@@ -16,10 +15,6 @@
 
 #ifndef M03GAGBHSMHR0NAW0ZPCCV4GAQ_CXX_TOOLCHAIN_CC_COMPILER_PATH
 # error M03GAGBHSMHR0NAW0ZPCCV4GAQ_CXX_TOOLCHAIN_CC_COMPILER_PATH must be defined by bootstrap
-#endif
-
-#ifndef M03GAGBHSMHR0NAW0ZPCCV4GAQ_CXX_TOOLCHAIN_AR_PATH
-# error M03GAGBHSMHR0NAW0ZPCCV4GAQ_CXX_TOOLCHAIN_AR_PATH must be defined by bootstrap
 #endif
 
 namespace m03gagbhsmhr0naw0zpccv4gaq_cxx_toolchain {
@@ -39,10 +34,6 @@ static std::string cxx_compiler_string() {
 
 static std::string cc_compiler_string() {
     return host_tool_string(M03GAGBHSMHR0NAW0ZPCCV4GAQ_CXX_TOOLCHAIN_CC_COMPILER_PATH, "m03gagbhsmhr0naw0zpccv4gaq_cxx_toolchain::cc_compiler_string");
-}
-
-static std::string ar_string() {
-    return host_tool_string(M03GAGBHSMHR0NAW0ZPCCV4GAQ_CXX_TOOLCHAIN_AR_PATH, "m03gagbhsmhr0naw0zpccv4gaq_cxx_toolchain::ar_string");
 }
 
 static std::string cxx_string_literal_replacement(const std::string& value) {
@@ -127,48 +118,9 @@ static void append_runtime_library_paths(
     std::vector<std::string>& process_args,
     const link_inputs_t& link_inputs
 ) {
-    for (const auto& group : link_inputs.groups) {
-        for (const auto& library : group.libraries) {
-            process_args.push_back(std::format("-Wl,-rpath,{}", library.parent()));
-        }
+    for (const auto& library : link_inputs.libraries) {
+        process_args.push_back(std::format("-Wl,-rpath,{}", library.parent()));
     }
-}
-
-static m03gagbhsnusi43zogoacgj2ez_filesystem::path_t build_archive_library_impl(
-    const m03gagbhsnusi43zogoacgj2ez_filesystem::path_t& build_dir,
-    const std::vector<m03gagbhsnusi43zogoacgj2ez_filesystem::path_t>& include_dirs,
-    const std::vector<m03gagbhsnusi43zogoacgj2ez_filesystem::rooted_path_t>& source_files,
-    const std::vector<define_t>& defines,
-    const m03gagbhsnusi43zogoacgj2ez_filesystem::path_t& static_library
-) {
-    const auto object_files = build_object_files(
-        build_dir,
-        include_dirs,
-        source_files,
-        defines,
-        false
-    );
-
-    const auto static_library_dir = static_library.parent();
-    if (!m03gagbhsnusi43zogoacgj2ez_filesystem::exists(static_library_dir)) {
-        m03gagbhsnusi43zogoacgj2ez_filesystem::create_directories(static_library_dir);
-    }
-
-    std::vector<std::string> process_args;
-    process_args.push_back(ar_string());
-    process_args.push_back("rcs");
-    process_args.push_back(static_library.string());
-    for (const auto& object_file : object_files) {
-        process_args.push_back(object_file.string());
-    }
-
-    m03gagbhsvr0m5w15urj0o291m_process::create_and_wait_checked(m03gagbhsvr0m5w15urj0o291m_process::command_t(process_args));
-
-    if (!m03gagbhsnusi43zogoacgj2ez_filesystem::exists(static_library)) {
-        throw std::runtime_error(std::format("m03gagbhsmhr0naw0zpccv4gaq_cxx_toolchain::build_library: expected output static library '{}' to exist but it does not", static_library));
-    }
-
-    return static_library;
 }
 
 static m03gagbhsnusi43zogoacgj2ez_filesystem::path_t build_dynamic_library_impl(
@@ -202,20 +154,12 @@ static m03gagbhsnusi43zogoacgj2ez_filesystem::path_t build_dynamic_library_impl(
         process_args.push_back(object_file.string());
     }
 
-    for (const auto& group : link_inputs.groups) {
-        if (group.static_library_group) {
-            process_args.push_back("-Wl,--start-group");
+    for (const auto& library : link_inputs.libraries) {
+        if (!m03gagbhsnusi43zogoacgj2ez_filesystem::exists(library)) {
+            throw std::runtime_error(std::format("m03gagbhsmhr0naw0zpccv4gaq_cxx_toolchain::build_library: library does not exist '{}'", library));
         }
-        for (const auto& library : group.libraries) {
-            if (!m03gagbhsnusi43zogoacgj2ez_filesystem::exists(library)) {
-                throw std::runtime_error(std::format("m03gagbhsmhr0naw0zpccv4gaq_cxx_toolchain::build_library: library does not exist '{}'", library));
-            }
 
-            process_args.push_back(library.string());
-        }
-        if (group.static_library_group) {
-            process_args.push_back("-Wl,--end-group");
-        }
+        process_args.push_back(library.string());
     }
 
     append_runtime_library_paths(process_args, link_inputs);
@@ -260,19 +204,11 @@ static m03gagbhsnusi43zogoacgj2ez_filesystem::path_t build_binary_impl(
         process_args.push_back(object_file.string());
     }
 
-    for (const auto& group : link_inputs.groups) {
-        if (group.static_library_group) {
-            process_args.push_back("-Wl,--start-group");
+    for (const auto& library : link_inputs.libraries) {
+        if (!m03gagbhsnusi43zogoacgj2ez_filesystem::exists(library)) {
+            throw std::runtime_error(std::format("m03gagbhsmhr0naw0zpccv4gaq_cxx_toolchain::build_binary: library does not exist '{}'", library));
         }
-        for (const auto& library : group.libraries) {
-            if (!m03gagbhsnusi43zogoacgj2ez_filesystem::exists(library)) {
-                throw std::runtime_error(std::format("m03gagbhsmhr0naw0zpccv4gaq_cxx_toolchain::build_binary: library does not exist '{}'", library));
-            }
-            process_args.push_back(library.string());
-        }
-        if (group.static_library_group) {
-            process_args.push_back("-Wl,--end-group");
-        }
+        process_args.push_back(library.string());
     }
 
     append_runtime_library_paths(process_args, link_inputs);
@@ -320,35 +256,17 @@ m03gagbhsnusi43zogoacgj2ez_filesystem::path_t build_library(
     const std::vector<m03gagbhsnusi43zogoacgj2ez_filesystem::path_t>& include_dirs,
     const std::vector<m03gagbhsnusi43zogoacgj2ez_filesystem::rooted_path_t>& source_files,
     const std::vector<define_t>& defines,
-    library_type_t library_type,
     const link_inputs_t& link_inputs,
     const m03gagbhsnusi43zogoacgj2ez_filesystem::path_t& output_path
 ) {
-    switch (library_type) {
-        case library_type_t::STATIC:
-            if (!link_inputs.groups.empty()) {
-                throw std::runtime_error("m03gagbhsmhr0naw0zpccv4gaq_cxx_toolchain::build_library: static libraries do not support link inputs");
-            }
-
-            return build_archive_library_impl(
-                build_dir,
-                include_dirs,
-                source_files,
-                defines,
-                output_path
-            );
-        case library_type_t::SHARED:
-            return build_dynamic_library_impl(
-                build_dir,
-                include_dirs,
-                source_files,
-                defines,
-                link_inputs,
-                output_path
-            );
-        default:
-            throw std::runtime_error(std::format("m03gagbhsmhr0naw0zpccv4gaq_cxx_toolchain::build_library: unknown library_type {}", static_cast<std::underlying_type_t<library_type_t>>(library_type)));
-    }
+    return build_dynamic_library_impl(
+        build_dir,
+        include_dirs,
+        source_files,
+        defines,
+        link_inputs,
+        output_path
+    );
 }
 
 m03gagbhsnusi43zogoacgj2ez_filesystem::path_t build_binary(

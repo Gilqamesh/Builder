@@ -3,6 +3,8 @@
 
 # include <m03gagbhsnusi43zogoacgj2ez_filesystem/filesystem.h>
 
+# include <optional>
+
 namespace m03gagbhsx4j5z28bqkac3dhhh_shared_library {
 
 enum class lifetime_t {
@@ -64,6 +66,7 @@ public:
      * fn_t fn = loader.resolve("entry");
      */
     symbol_t resolve(const char* symbol) const;
+    std::optional<symbol_t> resolve_optional(const char* symbol) const;
 
 private:
     loader_t();

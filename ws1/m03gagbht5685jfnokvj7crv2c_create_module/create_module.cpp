@@ -3,7 +3,6 @@
 #include <m03gagbhsnusi43zogoacgj2ez_filesystem/filesystem.h>
 #include <m03gagbhsp2drqq3gkop8pzfrm_workspace_graph/workspace_graph.h>
 
-#include <cstddef>
 #include <fstream>
 #include <format>
 #include <stdexcept>
@@ -48,8 +47,8 @@ static std::string uppercase_identifier(std::string_view name) {
     return result;
 }
 
-static std::string header_source(std::string_view module_name) {
-    const auto guard = std::format("{}_MODULE_H", uppercase_identifier(module_name));
+static std::string api_header_source(std::string_view module_name) {
+    const auto guard = std::format("{}_API_H", uppercase_identifier(module_name));
 
     return std::format(
         "#ifndef {0}\n"
@@ -65,20 +64,9 @@ static std::string header_source(std::string_view module_name) {
     );
 }
 
-static std::string module_source(std::string_view module_name) {
-    return std::format(
-        "#include \"module.h\"\n"
-        "\n"
-        "namespace {0} {{\n"
-        "\n"
-        "}} // namespace {0}\n",
-        module_name
-    );
-}
-
 static std::string cli_source(std::string_view module_name) {
     return std::format(
-        "#include \"module.h\"\n"
+        "#include \"api.h\"\n"
         "\n"
         "#include <iostream>\n"
         "\n"
@@ -90,34 +78,8 @@ static std::string cli_source(std::string_view module_name) {
     );
 }
 
-static std::string builder_source(std::string_view module_name) {
-    return std::format(
-        "#include <m03gagbhsujjf63n0w3r2w4q6h_build_phases/build_phases.h>\n"
-        "#include <m03gagbhsnusi43zogoacgj2ez_filesystem/filesystem.h>\n"
-        "\n"
-        "extern \"C\" void phase__source(const m03gagbhsujjf63n0w3r2w4q6h_build_phases::source_phase_t* phase) {{\n"
-        "    phase->install_source_tree();\n"
-        "}}\n"
-        "\n"
-        "extern \"C\" void phase__interface(const m03gagbhsujjf63n0w3r2w4q6h_build_phases::interface_phase_t* phase) {{\n"
-        "    const auto sources = phase->install<m03gagbhsujjf63n0w3r2w4q6h_build_phases::source_phase_t>();\n"
-        "    phase->install_interface(m03gagbhsnusi43zogoacgj2ez_filesystem::rooted_path_t(sources.root(), m03gagbhsnusi43zogoacgj2ez_filesystem::relative_path_t(\"module.h\")));\n"
-        "}}\n"
-        "\n"
-        "extern \"C\" void phase__library(const m03gagbhsujjf63n0w3r2w4q6h_build_phases::library_phase_t* phase) {{\n"
-        "    const auto sources = phase->install<m03gagbhsujjf63n0w3r2w4q6h_build_phases::source_phase_t>();\n"
-        "    const auto library = phase->build_library(\n"
-        "        {{ phase->build(sources.root() / m03gagbhsnusi43zogoacgj2ez_filesystem::relative_path_t(\"module.cpp\")) }},\n"
-        "        {{}}\n"
-        "    );\n"
-        "    phase->install_library(library);\n"
-        "}}\n"
-        "\n"
-        "extern \"C\" void phase__binary(const m03gagbhsujjf63n0w3r2w4q6h_build_phases::binary_phase_t* phase) {{\n"
-        "    phase->install_cli({{}});\n"
-        "}}\n",
-        module_name
-    );
+static std::string builder_source() {
+    return "";
 }
 
 m03gagbhsnusi43zogoacgj2ez_filesystem::path_t create(std::string_view workspace, std::string_view friendly_name) {
@@ -142,9 +104,8 @@ m03gagbhsnusi43zogoacgj2ez_filesystem::path_t create(std::string_view workspace,
     m03gagbhsnusi43zogoacgj2ez_filesystem::create_directories(module_dir);
 
     write_file(module_dir / m03gagbhsnusi43zogoacgj2ez_filesystem::relative_path_t(m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::CLI_CPP), cli_source(module_name.unique_name()));
-    write_file(module_dir / m03gagbhsnusi43zogoacgj2ez_filesystem::relative_path_t(m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::BUILDER_CPP), builder_source(module_name.unique_name()));
-    write_file(module_dir / m03gagbhsnusi43zogoacgj2ez_filesystem::relative_path_t("module.h"), header_source(module_name.unique_name()));
-    write_file(module_dir / m03gagbhsnusi43zogoacgj2ez_filesystem::relative_path_t("module.cpp"), module_source(module_name.unique_name()));
+    write_file(module_dir / m03gagbhsnusi43zogoacgj2ez_filesystem::relative_path_t(m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::BUILDER_CPP), builder_source());
+    write_file(module_dir / m03gagbhsnusi43zogoacgj2ez_filesystem::relative_path_t("api.h"), api_header_source(module_name.unique_name()));
 
     return module_dir;
 }

@@ -58,6 +58,11 @@ public:
     relative_path_t operator+(std::string_view postfix) const;
 
     /**
+     * Joins two relative paths.
+     */
+    relative_path_t operator/(const relative_path_t& other) const;
+
+    /**
      * Returns the wrapped std::filesystem path.
      */
     const std::filesystem::path& to_native_path() const;

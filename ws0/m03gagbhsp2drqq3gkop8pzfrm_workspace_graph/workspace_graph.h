@@ -7,11 +7,11 @@
 # include <cstdint>
 # include <functional>
 # include <map>
+# include <memory>
 # include <set>
 # include <string>
 # include <string_view>
 # include <utility>
-# include <unordered_set>
 # include <vector>
 
 namespace m03gagbhsp2drqq3gkop8pzfrm_workspace_graph {
@@ -107,9 +107,6 @@ class workspace_t;
  */
 class module_t {
 public:
-    using group_t = std::vector<module_t*>;
-    using groups_t = std::vector<group_t>;
-
     module_t(const workspace_t* workspace, module_name_t name, version_t version);
 
     /**
@@ -133,33 +130,6 @@ public:
     void version(version_t version);
 
     /**
-     * Adds a module dependency.
-     */
-    void add_dependency(module_t& dependency);
-
-    /**
-     * Adds a builder dependency.
-     */
-    void add_builder_dependency(module_t& dependency);
-
-    /**
-     * Module dependencies sorted by workspace order and name.
-     */
-    std::vector<module_t*> dependencies();
-    std::vector<const module_t*> dependencies() const;
-
-    /**
-     * Builder dependencies sorted by workspace order and name.
-     */
-    std::vector<module_t*> builder_dependencies();
-    std::vector<const module_t*> builder_dependencies() const;
-
-    /**
-     * Module dependency closure as strongly connected component groups in dependency-to-dependent topological order.
-     */
-    groups_t closure_groups() const;
-
-    /**
      * Source directory: <workspace_root>/<workspace>/<module>.
      */
     m03gagbhsnusi43zogoacgj2ez_filesystem::path_t source_dir() const;
@@ -170,11 +140,6 @@ public:
     m03gagbhsnusi43zogoacgj2ez_filesystem::path_t artifact_base_dir() const;
 
     /**
-     * Versioned artifact directory: <artifact_root>/<module>/<module>@<version>.
-     */
-    m03gagbhsnusi43zogoacgj2ez_filesystem::path_t artifact_dir() const;
-
-    /**
      * Latest artifact directory: <artifact_root>/<module>/latest.
      */
     m03gagbhsnusi43zogoacgj2ez_filesystem::path_t artifact_latest_dir() const;
@@ -183,8 +148,6 @@ private:
     const workspace_t* m_workspace;
     version_t m_version;
     module_name_t m_name;
-    std::unordered_set<module_t*> m_dependencies;
-    std::unordered_set<module_t*> m_builder_dependencies;
 };
 
 class workspace_graph_t;
@@ -246,7 +209,7 @@ public:
     /**
      * Adds a discovered module to this workspace.
      */
-    void add_module(module_t* module);
+    module_t* add_module(std::unique_ptr<module_t> module);
 
     /**
      * Discovered modules sorted by workspace order and name.
@@ -256,10 +219,8 @@ public:
 private:
     workspace_graph_t* m_workspace_graph;
     workspace_name_t m_name;
-    std::map<module_name_t, module_t*> m_module_by_name;
+    std::map<module_name_t, std::unique_ptr<module_t>> m_module_by_name;
 };
-
-class workspace_graph_storage_t;
 
 /**
  * Module graph for one workspace root and artifact root.
@@ -279,17 +240,7 @@ public:
     const m03gagbhsnusi43zogoacgj2ez_filesystem::path_t& artifact_root() const;
 
     /**
-     * Module used as the active Builder bootstrap seed.
-     */
-    module_t& bootstrap_seed_module() const;
-
-    /**
-     * True for modules participating in the active Builder bootstrap group.
-     */
-    bool is_active_builder_bootstrap_module(const module_t& module) const;
-
-    /**
-     * Discovers module_name, its reachable dependencies, and validates them.
+     * Discovers module_name.
      */
     module_t* discover_module(module_name_t module_name);
 
@@ -305,22 +256,14 @@ public:
 
     std::set<module_name_t> module_names() const;
 
-    /**
-     * Module dependency closure as strongly connected component groups in dependency-to-dependent topological order.
-     */
-    module_t::groups_t closure_groups(const module_t& module) const;
-
 private:
     module_t* discover_module_impl(module_name_t module_name);
 
 private:
-    std::map<workspace_name_t, workspace_t*> m_workspace_by_workspace_name;
+    std::map<workspace_name_t, std::unique_ptr<workspace_t>> m_workspace_by_workspace_name;
     std::map<module_name_t, workspace_t*> m_workspace_by_module_name;
     m03gagbhsnusi43zogoacgj2ez_filesystem::path_t m_root;
     m03gagbhsnusi43zogoacgj2ez_filesystem::path_t m_artifact_root;
-    workspace_t* m_bootstrap_seed_workspace;
-    module_t* m_bootstrap_seed_module;
-    workspace_graph_storage_t* m_storage;
 };
 
 /**

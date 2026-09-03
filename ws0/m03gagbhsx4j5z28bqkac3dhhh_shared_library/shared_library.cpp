@@ -92,6 +92,16 @@ symbol_t loader_t::resolve(const char* symbol) const {
     return symbol_t(result);
 }
 
+std::optional<symbol_t> loader_t::resolve_optional(const char* symbol) const {
+    dlerror();
+    void* result = dlsym(m_handle, symbol);
+    if (result == nullptr) {
+        return std::nullopt;
+    }
+
+    return symbol_t(result);
+}
+
 loader_t::loader_t():
     m_shared_library_lifetime(lifetime_t::DTOR),
     m_handle(nullptr)

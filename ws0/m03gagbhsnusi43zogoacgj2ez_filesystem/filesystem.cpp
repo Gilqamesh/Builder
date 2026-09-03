@@ -5,9 +5,9 @@
 #include <iostream>
 #include <fstream>
 
-namespace m03gagbhsnusi43zogoacgj2ez_filesystem {
+namespace {
 
-static std::filesystem::path append_postfix(const std::filesystem::path& path, std::string_view postfix) {
+std::filesystem::path append_postfix(const std::filesystem::path& path, std::string_view postfix) {
     if (postfix.find_first_of("/\\") != std::string_view::npos) {
         throw std::runtime_error(std::format("append_postfix: postfix '{}' contains path separator", postfix));
     }
@@ -17,8 +17,32 @@ static std::filesystem::path append_postfix(const std::filesystem::path& path, s
     return new_path;
 }
 
+std::filesystem::path normalize_relative_path(const std::filesystem::path& path) {
+    auto normalized = path.lexically_normal();
+
+    while (normalized.has_relative_path() && normalized.filename().empty()) {
+        normalized = normalized.parent_path();
+    }
+
+    return normalized;
+}
+
+std::filesystem::path normalize_absolute_path(const std::filesystem::path& path) {
+    auto normalized = std::filesystem::absolute(path).lexically_normal();
+
+    while (normalized.has_relative_path() && normalized.filename().empty()) {
+        normalized = normalized.parent_path();
+    }
+
+    return normalized;
+}
+
+} // namespace
+
+namespace m03gagbhsnusi43zogoacgj2ez_filesystem {
+
 relative_path_t::relative_path_t(const std::filesystem::path& relative_path):
-    m_relative_path(relative_path.lexically_normal())
+    m_relative_path(normalize_relative_path(relative_path))
 {
     if (m_relative_path.is_absolute()) {
         throw std::runtime_error(std::format("relative_path_t::relative_path_t: path '{}' is absolute", m_relative_path.string()));
@@ -50,6 +74,12 @@ bool relative_path_t::operator==(const relative_path_t& other) const {
     return m_relative_path == other.m_relative_path;
 }
 
+relative_path_t relative_path_t::operator/(const relative_path_t& other) const {
+    relative_path_t result(to_native_path() / other.to_native_path());
+
+    return result;
+}
+
 relative_path_t relative_path_t::operator+(std::string_view postfix) const {
     relative_path_t result(append_postfix(m_relative_path, postfix));
 
@@ -61,7 +91,7 @@ const std::filesystem::path& relative_path_t::to_native_path() const {
 }
 
 path_t::path_t(const std::filesystem::path& path):
-    m_path(std::filesystem::absolute(path).lexically_normal())
+    m_path(normalize_absolute_path(path))
 {
 }
 
@@ -379,7 +409,7 @@ path_t canonical(const path_t& path) {
 }
 
 void copy(const path_t& src, const path_t& dst) {
-    std::cout << std::format("cp -r {} {}", pretty_path_t(src), pretty_path_t(dst)) << std::endl;
+    // std::cout << std::format("cp -r {} {}", pretty_path_t(src), pretty_path_t(dst)) << std::endl;
 
     const auto parent = dst.parent();
     if (!exists(parent)) {
@@ -463,7 +493,7 @@ path_t current_path() {
 }
 
 void current_path(const path_t& path) {
-    std::cout << std::format("cd {}", pretty_path_t(path)) << std::endl;
+    // std::cout << std::format("cd {}", pretty_path_t(path)) << std::endl;
 
     std::error_code ec;
     std::filesystem::current_path(path.to_native_path(), ec);

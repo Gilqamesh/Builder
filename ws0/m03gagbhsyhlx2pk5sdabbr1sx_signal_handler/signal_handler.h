@@ -10,6 +10,11 @@
 
 namespace m03gagbhsyhlx2pk5sdabbr1sx_signal_handler {
 
+enum class child_signal_target_t {
+    process,
+    process_group
+};
+
 /**
  * Exception raised for SIGINT, SIGTERM, or SIGHUP.
  */
@@ -39,7 +44,7 @@ public:
 
 private:
     std::array<struct sigaction, 3> m_previous_actions;
-    std::array<bool, 3> m_active {};
+    std::array<bool, 3> m_active;
 };
 
 /**
@@ -49,8 +54,11 @@ private:
  */
 class scoped_child_termination_guard_t {
 public:
+    explicit scoped_child_termination_guard_t(child_signal_target_t child_signal_target);
+
     template <class child_fn_t>
     explicit scoped_child_termination_guard_t(child_fn_t&& child_fn);
+
     ~scoped_child_termination_guard_t() noexcept(false);
 
     scoped_child_termination_guard_t(const scoped_child_termination_guard_t&) = delete;
@@ -59,26 +67,31 @@ public:
     /** Returns the forked child pid in the parent process. */
     pid_t pid() const;
 
-private:
-    void prepare();
-    pid_t fork_child();
     void enter_child();
     void enter_parent(pid_t pid);
+
+private:
+    void prepare(child_signal_target_t child_signal_target);
+    pid_t fork_child();
     void cleanup_or_exit() noexcept;
 
 private:
-    pid_t m_pid = -1;
-    std::array<struct sigaction, 3> m_previous_actions {};
-    std::array<bool, 3> m_handler_active {};
-    sigset_t m_previous_mask {};
-    bool m_mask_active = false;
-    bool m_registered = false;
+    pid_t m_pid;
+    std::array<struct sigaction, 3> m_previous_actions;
+    std::array<bool, 3> m_handler_active;
+    sigset_t m_previous_mask;
+    bool m_mask_active;
+    bool m_registered;
 };
 
-template <class child_fn_t>
-scoped_child_termination_guard_t::scoped_child_termination_guard_t(child_fn_t&& child_fn) {
-    prepare();
+} // namespace m03gagbhsyhlx2pk5sdabbr1sx_signal_handler
 
+namespace m03gagbhsyhlx2pk5sdabbr1sx_signal_handler {
+
+template <class child_fn_t>
+scoped_child_termination_guard_t::scoped_child_termination_guard_t(child_fn_t&& child_fn):
+    scoped_child_termination_guard_t(child_signal_target_t::process)
+{
     const auto child_pid = fork_child();
     if (child_pid == 0) {
         try {

@@ -1,6 +1,7 @@
 #include <m03gagbhtahg11wzn32idilzte_module_graph/module_graph.h>
 
 #include <m03gagbhsnusi43zogoacgj2ez_filesystem/filesystem.h>
+#include <m03gagbhsujjf63n0w3r2w4q6h_build_phases/build_phases.h>
 #include <m03gagbhsp2drqq3gkop8pzfrm_workspace_graph/workspace_graph.h>
 #include <m03gagbht6ja46uikb1ltan0x8_dot/dot.h>
 
@@ -49,10 +50,12 @@ m03gagbhsnusi43zogoacgj2ez_filesystem::path_t write_dot(
     }
 
     const auto modules = workspace_graph.modules();
+    std::unordered_map<std::string, const m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::module_t*> module_by_name;
     std::unordered_map<const m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::module_t*, std::string> builder_node_by_module;
     std::unordered_map<const m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::module_t*, std::string> module_node_by_module;
 
     for (std::size_t i = 0; i < modules.size(); ++i) {
+        module_by_name.emplace(modules[i]->name().unique_name(), modules[i]);
         builder_node_by_module.emplace(modules[i], std::format("p{}", i));
         module_node_by_module.emplace(modules[i], std::format("m{}", i));
     }
@@ -106,15 +109,21 @@ m03gagbhsnusi43zogoacgj2ez_filesystem::path_t write_dot(
         const auto module_node = module_node_by_module.at(module);
         const auto builder_node = builder_node_by_module.at(module);
 
-        for (const auto* dependency : module->dependencies()) {
-            ofs << std::format("  {} -> {} [label=\"module\"];\n", module_node_by_module.at(dependency), module_node);
-        }
-
-        for (const auto* dependency : module->builder_dependencies()) {
-            ofs << std::format("  {} -> {} [label=\"builder\"];\n", module_node_by_module.at(dependency), builder_node);
-        }
-
         ofs << std::format("  {} -> {} [label=\"builds\"];\n", builder_node, module_node);
+
+        const auto dependencies = m03gagbhsujjf63n0w3r2w4q6h_build_phases::discover_module_dependencies(*module);
+        for (const auto& dependency : dependencies.module_dependencies) {
+            const auto dependency_it = module_by_name.find(dependency.unique_name());
+            if (dependency_it != module_by_name.end()) {
+                ofs << std::format("  {} -> {} [label=\"module\"];\n", module_node, module_node_by_module.at(dependency_it->second));
+            }
+        }
+        for (const auto& dependency : dependencies.builder_dependencies) {
+            const auto dependency_it = module_by_name.find(dependency.unique_name());
+            if (dependency_it != module_by_name.end()) {
+                ofs << std::format("  {} -> {} [label=\"builder\"];\n", builder_node, module_node_by_module.at(dependency_it->second));
+            }
+        }
     }
 
     ofs << "}\n";
