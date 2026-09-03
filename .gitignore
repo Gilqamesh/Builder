@@ -1,2 +1,5 @@
-artifacts
-cli
+/artifacts/
+/cli
+/imgui.ini
+/.github/
+

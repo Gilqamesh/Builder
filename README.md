@@ -1,6 +1,8 @@
 # Builder
 
-Builder is a C++ build framework organized around modules.
+Builder is a C++ build framework organized around modules. This repository
+contains the framework and its foundational modules. It can run as a standalone
+workspace or provide the base layer of a combined workspace.
 
 The usual workflow is:
 
@@ -38,6 +40,37 @@ Module that generates a new module with minimal boilerplate:
 ./cli m03gagbht5685jfnokvj7crv2c_create_module <workspace> hello_module
 ```
 
+## Combining Module Repositories
+
+Builder discovers modules from the directory tree rooted at
+`BUILDER_WORKSPACE_ROOT`. A separate runtime and development layout can combine
+modules owned by multiple repositories by linking each module directory into
+its original workspace:
+
+```text
+Builder-Layout/
+├── ws0/
+│   └── <base-module> -> ../../Builder/ws0/<base-module>
+├── ws1/
+│   ├── <base-module> -> ../../Builder/ws1/<base-module>
+│   └── <additional-module> -> ../../Builder-Modules/ws1/<additional-module>
+├── ws2/
+│   └── <additional-module> -> ../../Builder-Modules/ws2/<additional-module>
+└── artifacts/
+```
+
+The combined layout is the workspace graph presented to Builder. Each `wsN`
+directory may collect module links from multiple source repositories, and
+Builder applies dependency rules according to each link's position in that
+layout. The link target determines where the module's source is maintained; it
+does not create another workspace or dependency boundary.
+
+Build and run from the combined layout so its root is the workspace root and
+its `artifacts` directory contains all generated output. Source files may be
+edited through the links, but changes must be committed in the repository that
+owns each module. Create new modules in their intended owning repository, then
+add the corresponding link to the combined layout.
+
 ## Module Command
 
 The normal command is:
@@ -49,6 +82,10 @@ The normal command is:
 `<module>` is the globally unique module name. Builder discovers that module from the
 workspace graph, builds its default CLI if needed, then execs that CLI with
 `[args...]`.
+
+Targets run with their executable's install directory as the working directory
+so packaged runtime artifacts are available by relative path. Pass absolute
+paths for inputs and outputs in the invoking directory.
 
 ## Environment Variables
 
