@@ -1,0 +1,207 @@
+---
+applyTo: "**/*.h"
+---
+
+# C++ Header Instructions
+
+## Required file order
+
+A header must contain sections in this order:
+
+1. Include guard opening.
+2. Includes.
+3. Module namespace containing project declarations.
+4. `std` namespace containing `std::formatter` declarations, when required.
+5. Reopened module namespace containing template definitions, when required.
+6. Reopened `std` namespace containing `std::formatter` definitions, when required.
+7. Include guard closing.
+
+Omit a section when it would be empty.
+Do not interleave declaration and definition sections.
+Do not leave placeholder comments for omitted sections.
+
+## Include guards
+
+Every `.h` file must begin with a conventional include guard.
+Do not place comments, includes, declarations, or other content before it.
+Do not use `#pragma once`.
+
+Construct the guard as:
+
+```text
+UPPERCASE_MODULE_NAME_UPPERCASE_FILE_BASENAME_H
+```
+
+Procedure:
+
+1. Take the complete module directory name.
+2. Convert it to uppercase.
+3. Append `_`.
+4. Append the header base name without `.h`, converted to uppercase.
+5. Append `_H`.
+6. Replace any non-alphanumeric character with `_`.
+
+For module `m03gl8a1hl8xe3ynm8s2wwfy4u_software_renderer` and file `abcd.h`:
+
+```cpp
+#ifndef M03GL8A1HL8XE3YNM8S2WWFY4U_SOFTWARE_RENDERER_ABCD_H
+# define M03GL8A1HL8XE3YNM8S2WWFY4U_SOFTWARE_RENDERER_ABCD_H
+
+// Header contents
+
+#endif // M03GL8A1HL8XE3YNM8S2WWFY4U_SOFTWARE_RENDERER_ABCD_H
+```
+
+Additional rules:
+
+- Preserve intentional repetition between the module name and file name.
+- Use the file base name, not its filesystem path.
+- Keep `#ifndef` and `#endif` flush with `#`.
+- Place one space between `#` and `define`.
+- End `#endif` with a comment containing the complete guard.
+- End the file with exactly one newline.
+
+## Includes
+
+A header must not include itself.
+
+Organize includes into these groups:
+
+1. Headers from the same source directory.
+2. Headers exposed by other repository modules.
+
+Separate adjacent non-empty groups with exactly one blank line.
+Do not insert blank lines within a group.
+Do not create separate groups for modules that wrap C, C++, system, platform, or third-party headers.
+
+```cpp
+# include "mesh.h"
+# include "material.h"
+
+# include <m03gagbhsp2drqq3gkop8pzfrm_workspace_graph/workspace_graph.h>
+# include <m03ginwy24ng8o487c4beoms6l_vector/api.h>
+```
+
+## Project declarations
+
+- Open the namespace whose name exactly matches the complete module name after the include section.
+- Place project declarations in that namespace.
+- Do not define ordinary non-template project functions in the header.
+- Do not define non-template member functions inside a class or struct declaration.
+- Do not use `friend` declarations.
+- Do not replace friendship with passkeys, privileged access shims, or equivalent hidden-access mechanisms solely to bypass ordinary interfaces. Reorganize collaborators around interfaces appropriate to their ownership boundary.
+- Close every named namespace with a comment containing its complete name.
+
+```cpp
+namespace m03gl8a1hl8xe3ynm8s2wwfy4u_software_renderer {
+
+// Project declarations
+
+} // namespace m03gl8a1hl8xe3ynm8s2wwfy4u_software_renderer
+```
+
+## Definitions permitted in headers
+
+Only the following project definitions are permitted in a header:
+
+- Template definitions that must be visible at the point of instantiation.
+- `std::formatter` specialization definitions.
+- Definitions explicitly required in the header by the current task or by a language constraint.
+
+Do not mark a function `inline` merely to move its implementation into a header.
+Place ordinary non-template definitions in the corresponding source file.
+
+## Template organization
+
+For every project-defined template:
+
+1. Declare the complete template type and all members in the initial module-namespace section.
+2. Do not define member functions inside the type declaration.
+3. Close the module namespace after all project declarations.
+4. Declare the corresponding `std::formatter` specialization in `namespace std`.
+5. Reopen the module namespace.
+6. Define template members in exactly the same order as their declarations.
+7. Close the module namespace.
+8. Reopen `namespace std`.
+9. Define the formatter specialization.
+
+Do not interleave template member declarations with definitions.
+Preserve the relative order of multiple template types and their formatter specializations.
+
+## `std::formatter` specializations
+
+Provide a `std::formatter` specialization for every project-defined class, struct, or enum whose primary definition is introduced by the header.
+
+Do not create a separate formatter specialization for:
+
+- A type that is only referenced or forward-declared.
+- A type defined by another module.
+- A type alias, because an alias does not introduce a distinct type.
+
+Formatter rules:
+
+- Place formatter declarations and definitions in `namespace std`.
+- Refer to the project type by its fully qualified module name.
+- Declare formatter specializations after all project declarations.
+- Define formatter specializations after all project template definitions.
+- Keep formatter declarations and definitions in the same relative order as their corresponding project types.
+- Do not add anything else to `namespace std` except permitted standard-library specializations.
+
+## Canonical template header layout
+
+```cpp
+#ifndef COMPLETE_MODULE_NAME_VALUE_H
+# define COMPLETE_MODULE_NAME_VALUE_H
+
+# include "local_dependency.h"
+
+# include <complete_dependency_module/header.h>
+
+namespace complete_module_name {
+
+template <typename T>
+class value_t {
+public:
+    value_t();
+
+    const T& value() const;
+
+private:
+    T m_value;
+};
+
+} // namespace complete_module_name
+
+namespace std {
+
+template <typename T>
+struct formatter<complete_module_name::value_t<T>>;
+
+} // namespace std
+
+namespace complete_module_name {
+
+template <typename T>
+value_t<T>::value_t():
+    m_value()
+{
+}
+
+template <typename T>
+const T& value_t<T>::value() const {
+    return m_value;
+}
+
+} // namespace complete_module_name
+
+namespace std {
+
+template <typename T>
+struct formatter<complete_module_name::value_t<T>> {
+    // Formatter definition
+};
+
+} // namespace std
+
+#endif // COMPLETE_MODULE_NAME_VALUE_H
+```
