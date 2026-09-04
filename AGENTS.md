@@ -11,7 +11,7 @@ Use this file to acquire the smallest context that fully determines a task. Buil
 - Public headers own the public contract.
 - Tests provide executable evidence and case coverage.
 
-Record each durable fact in the source that owns it, at the narrowest scope shared by everything it governs. Elsewhere, route readers to that source instead of restating its contract. Repeat information only when correct local use requires it, and do not let a summary become a competing source of truth.
+Record each durable fact at the narrowest scope shared by everything it governs. The contract of the component named as owner is authoritative for an ownership assertion; shared architecture documentation is authoritative for relationships spanning components. Elsewhere, route readers to the authoritative source, repeating information only when correct local use requires it.
 
 ## Instruction precedence
 

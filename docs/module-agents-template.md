@@ -14,7 +14,7 @@ After the module-name heading, include only sections selected by this catalogue:
 
 | Section | Include only when it records |
 |---|---|
-| `Purpose` | A meaningful current responsibility or boundary, including adjacent responsibility owned elsewhere. |
+| `Purpose` | The capability the module provides and the observable contract that delimits it. |
 | `Public model` | Relationships among public concepts that future work must preserve and that are not already authoritative in public headers. |
 | `Invariants` | Durable module-specific observable or safety properties that are not already authoritative in the public contract. |
 | `Validation` | A non-obvious module-specific entry point, environment, or manual requirement needed to prove the contract. |
@@ -26,7 +26,7 @@ Do not record API summaries, dependency lists, shared coding or style rules, rou
 
 Use a question only when the task, module, or a current dependency raises it and the answer is not already authoritative elsewhere:
 
-1. What current responsibility does the module own, and which modules own adjacent current responsibilities?
+1. What capability does the module provide, and which inputs, outputs, or invariants delimit it?
 2. Which terminology or relationships among concepts require durable direction?
 3. Does ownership, lifetime, or mutability affect public use?
 4. Which valid, invalid, disconnected, empty, or incomplete states require a durable decision?

@@ -33,11 +33,11 @@ For a new or materially changing public abstraction:
 2. Inspect the current implementation and existing dependency interfaces.
 3. Write or inspect the smallest representative user-facing use.
 4. Settle terminology, ownership, mutability, invariants, and observable behavior.
-5. State the boundary and adjacent responsibilities owned elsewhere.
+5. Express the boundary through the abstraction's capabilities, inputs, outputs, and invariants.
 6. Decide whether an existing module owns part of the problem.
 7. Decide whether a new module or abstraction is warranted under `docs/repository-model.md`.
 8. Make the public model coherent before choosing private implementation mechanics.
-9. Implement the smallest coherent milestone.
+9. When implementation is requested and the necessary contract decisions are settled, implement the smallest coherent milestone.
 10. Validate the contract and stop at that milestone.
 
 Apply the relevant language instructions for concrete API and coding rules. Keep private implementation mechanics out of the public model unless they impose observable behavior.
@@ -54,6 +54,8 @@ Boundary:
 Validation:
 ```
 
+When useful, supplement this task-local contract with non-goals, ordered priorities, or whether a material choice is fixed, open, or explicitly delegated. These are not mandatory fields or a persistent decision ledger.
+
 Consider only dimensions raised by the task, an authoritative existing contract, or a current dependency. Ask only questions whose answers materially change durable behavior:
 
 - the exact public abstraction and terminology;
@@ -63,9 +65,11 @@ Consider only dimensions raised by the task, an authoritative existing contract,
 - established compatibility requirements;
 - what evidence proves the implementation correct.
 
-Use choices already authoritative in public contracts, module contracts, repository instructions, or explicit task decisions. Make mechanically reversible implementation choices as needed without presenting them as durable semantics.
+Treat choices established by authoritative public contracts, module contracts, repository instructions, or explicit task direction as fixed. An unresolved material contract choice requires direction. The agent may make a material contract choice only when explicitly delegated; needing the choice to proceed does not constitute delegation.
 
-When an interactive answer is unavailable, state the semantic assumption and keep irreversible public API or architecture choices open.
+Make mechanically reversible implementation choices as needed without presenting them as durable semantics. Do not make production changes that resolve or depend on a materially unresolved contract choice; independent work may continue.
+
+Before production implementation, surface assumptions that would select among materially different contract outcomes. When direction is unavailable, keep the choice open and report it.
 
 ## Create a new module
 
