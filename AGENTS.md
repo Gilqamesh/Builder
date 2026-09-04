@@ -40,7 +40,7 @@ Load `docs/repository-model.md` only when module boundaries or repository/build 
 
 1. Resolve the exact workspace and complete module directory name.
 2. Read the applicable language instructions.
-3. Read the target module's public headers, then its `AGENTS.md` when present.
+3. Read the target module's `AGENTS.md` when present, then its public headers.
 4. Read only implementation and validation files relevant to the requested behavior.
 5. Read direct dependency interfaces when needed; inspect their implementations only when their internals are part of the task.
 6. Inspect dependents when a public contract changes or validation exposes an incompatibility.

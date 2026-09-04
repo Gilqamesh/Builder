@@ -9,7 +9,7 @@ Classify the task before acquiring context:
 - **Investigate or review:** inspect and report within the requested scope.
 - **Local implementation:** preserve the existing module contract and implement the requested behavior.
 - **Semantic or public API change:** settle the contract decisions being changed before implementation.
-- **New module:** define the module contract before defining its public interface.
+- **New module:** establish a module contract before defining its public interface when durable, non-obvious semantics warrant one.
 
 Keep a local implementation within its established semantic boundary.
 
@@ -18,7 +18,7 @@ Keep a local implementation within its established semantic boundary.
 1. Resolve the exact target module from its path or complete module name.
 2. Follow the dispatch rules in the root `AGENTS.md`.
 3. Read the applicable language instructions.
-4. Read the target module's public headers, then its `AGENTS.md` when present.
+4. Read the target module's `AGENTS.md` when present, then its public headers.
 5. Read only the implementation and validation paths relevant to the task.
 6. Read direct dependency interfaces only when the target code uses them.
 7. Stop acquiring context once the requested behavior and constraints are understood.
@@ -56,8 +56,7 @@ When a prompt leaves durable behavior ambiguous, reduce it to this compact contr
 Goal:
 Observable semantics:
 Invariants:
-Allowed scope:
-Non-goals:
+Boundary:
 Validation:
 ```
 
@@ -77,13 +76,9 @@ When an interactive answer is unavailable, state the semantic assumption and kee
 
 ## Create a new module
 
-For a new module, the first authored semantic file is `<module>/AGENTS.md`.
+When a new module has durable, non-obvious semantics that warrant a module contract, draft `<module>/AGENTS.md` before designing its public API. Build the contract from `docs/module-agents-template.md`, fill only facts established by the task, existing architecture, or explicit user decisions, and put unresolved semantic choices under `Open decisions`.
 
-1. Draft it from `docs/module-agents-template.md`.
-2. Fill only facts established by the task, existing architecture, or explicit user decisions.
-3. Put unresolved semantic choices under `Open decisions`.
-4. Establish the public model before implementing the API.
-5. Implement the smallest end-to-end behavior that validates the model.
+For a simple wrapper, adapter, generated module, or otherwise self-explanatory module, proceed directly to public-model design. In either case, establish the public model before implementing the API, then implement the smallest end-to-end behavior that validates the model.
 
 The module generator creates neutral boilerplate. Purpose, invariants, ownership, and architecture come from the task and explicit design decisions.
 
