@@ -40,17 +40,11 @@ For a new or materially changing public abstraction:
 9. Implement the smallest coherent milestone.
 10. Validate the contract and stop at that milestone.
 
-The public API must be concise, technically precise, and understandable from representative user-authored code. Additional complexity in normal use requires a concrete semantic need.
-
-Implementation mechanics such as storage layout, bytecode, PIMPL, register allocation, caching, backend translation, and container choice remain private unless they impose an observable constraint.
-
-Ownership, borrowing, lifetime, mutability, error behavior, and successful-construction invariants must be explicit and intentional. Immutable descriptions or programs remain separate from mutable per-use state when they are different concepts. Backend-neutral interfaces express backend-neutral semantics, with backend mechanics handled in backend-private translation. Generic or shared abstractions require a concrete shared semantic need.
-
-Collaborating types communicate through ordinary interfaces aligned with ownership boundaries. Structure the API so friendship, passkeys, and privileged access shims are unnecessary.
+Apply the relevant language instructions for concrete API and coding rules. Keep private implementation mechanics out of the public model unless they impose observable behavior.
 
 ## Optimize an ambiguous prompt
 
-When a prompt leaves durable behavior ambiguous, reduce it to this compact contract:
+When a prompt leaves durable behavior ambiguous, use only the applicable fields from this compact contract and omit the rest:
 
 ```text
 Goal:
@@ -60,27 +54,26 @@ Boundary:
 Validation:
 ```
 
-Ask only questions whose answers materially change durable behavior. High-leverage questions concern:
+Consider only dimensions raised by the task, an authoritative existing contract, or a current dependency. Ask only questions whose answers materially change durable behavior:
 
 - the exact public abstraction and terminology;
-- ownership, sharing, borrowing, and lifetime;
-- mutability, thread confinement, and synchronization;
+- ownership, sharing, borrowing, lifetime, or mutability when they affect public use;
 - error reporting, recovery, and exceptional states;
 - ordering, units, coordinate systems, representations, or serialization;
-- compatibility requirements and intentionally unsupported cases;
+- established compatibility requirements;
 - what evidence proves the implementation correct.
 
-Infer choices already encoded in the target module, settled by repository instructions, or mechanically reversible without changing public semantics.
+Use choices already authoritative in public contracts, module contracts, repository instructions, or explicit task decisions. Make mechanically reversible implementation choices as needed without presenting them as durable semantics.
 
 When an interactive answer is unavailable, state the semantic assumption and keep irreversible public API or architecture choices open.
 
 ## Create a new module
 
-When a new module has durable, non-obvious semantics that warrant a module contract, draft `<module>/AGENTS.md` before designing its public API. Build the contract from `docs/module-agents-template.md`, fill only facts established by the task, existing architecture, or explicit user decisions, and put unresolved semantic choices under `Open decisions`.
+When a new module has durable, non-obvious semantics that warrant a module contract, draft `<module>/AGENTS.md` before designing its public API. Apply `docs/module-agents-template.md` as a filter, record only direction established by the task or authoritative architecture, and put unresolved semantic choices under `Open decisions`.
 
 For a simple wrapper, adapter, generated module, or otherwise self-explanatory module, proceed directly to public-model design. In either case, establish the public model before implementing the API, then implement the smallest end-to-end behavior that validates the model.
 
-The module generator creates neutral boilerplate. Purpose, invariants, ownership, and architecture come from the task and explicit design decisions.
+The module generator creates neutral boilerplate; it does not establish module semantics.
 
 ## Work in an existing module
 
@@ -108,12 +101,7 @@ Keep cross-module architectural decisions with the coordinating agent. Reconcile
 
 ## Choose the smallest coherent design
 
-- Every public concept, extension point, and generic parameter must serve a concrete current use.
-- Future implementation possibilities remain private or undecided until they impose a real semantic requirement.
-- One direct implementation is preferable when the current contract has one concrete behavior.
-- Comments explain non-obvious intent; module contracts record only durable semantics.
-- Demonstrations and test matrices remain proportional to the acceptance criteria.
-- Unaffected code retains its established style and terminology.
+Implement the smallest coherent milestone supported by the current contract. Keep future possibilities undecided until they impose a current semantic requirement, and preserve unaffected style and terminology.
 
 ## Validate
 
@@ -130,6 +118,6 @@ Report the exact commands run, their results, and untested cases. Only obtained 
 
 ## Record durable knowledge
 
-- Put enduring module-specific knowledge in the module's single `AGENTS.md`.
+- Apply the filter in `docs/module-agents-template.md` before recording module-specific direction.
 - Put repository-wide module, workspace, dependency, phase, artifact, and bootstrap semantics in `docs/repository-model.md`.
 - Keep temporary task material outside permanent instruction files.

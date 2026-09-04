@@ -1,43 +1,34 @@
 # Module `AGENTS.md` template
 
-A module may contain at most one agent-specific document: `AGENTS.md` at the module root.
+A module may contain at most one agent-specific document: `AGENTS.md` at the module root. Create one only when the filter below identifies direction to record.
 
-Create it when durable, non-obvious module semantics must guide future work. Public headers, shared coding rules, dependency lists, and task-local details remain in their existing sources of truth.
+Treat module-contract sections and questions as filters, not a checklist. Record only durable, non-obvious, module-specific direction that is not already authoritative in a more appropriate source. Public headers, shared coding rules, dependency lists, and task-local details remain in their existing sources of truth. Tests retain executable evidence and case coverage.
 
-For a new semantic module, draft this file before the public API. Record only established decisions and keep unresolved semantics explicit.
+For a new semantic module, apply this filter before drafting the public API and keep unresolved semantics explicit.
 
-Keep the final file short enough to read whenever the module is touched. Omit empty sections.
+Keep the final file short enough to read whenever the module is touched. Omit every heading that adds no useful information.
 
 ```markdown
 # <complete_module_name>
 
 ## Purpose
 
-State the one responsibility this module owns and which adjacent responsibilities belong elsewhere.
+State the module's current responsibility and positively assign current adjacent responsibilities to their owning modules.
 
 ## Public model
 
-Define the user's terminology and the relationships among the public concepts. Describe ownership, lifetime, mutability, ordering, units, or representation only when they are important and not obvious from the types.
-
-## Intended usage
-
-Show the smallest representative public use when it materially clarifies the API or relationships among its concepts. Treat it as an API regression check: additional complexity in normal use requires a concrete semantic need.
+Record only relationships among public concepts that future work must preserve and that are not already authoritative in the public contract.
 
 ## Invariants
 
-- List properties that must remain true across implementations.
+- Record durable module-specific properties that must remain true across implementations and are not already authoritative in the public contract.
 - Prefer observable semantics and safety properties.
-- Keep formatting rules and temporary implementation choices in their existing sources of truth.
-
-## Boundary
-
-- State the semantic responsibilities this module owns.
-- Identify tempting adjacent responsibilities that belong to another module or remain undecided.
+- Keep private storage maintenance, formatting rules, and temporary implementation choices in their existing sources of truth.
 
 ## Validation
 
-- Name the narrow build, test, CLI, smoke test, or manual procedure that proves the contract.
-- Distinguish automated and environment-dependent validation.
+- Identify the narrow build, test, CLI, smoke test, or manual entry point that proves the contract.
+- Add environmental or manual requirements only when they are durable and materially relevant. Detailed case coverage belongs in tests.
 
 ## Open decisions
 
@@ -45,26 +36,23 @@ Show the smallest representative public use when it materially clarifies the API
 - Identify the direction required to resolve them.
 ```
 
-## Questions for the first draft
+## Optional questions for the first draft
 
-Ask only questions that determine stable semantics:
+Use a question only when the task, module, or a current dependency raises it and the answer is not already authoritative elsewhere:
 
-1. What exact abstraction does the module represent?
-2. What is intentionally outside the module?
-3. Who owns each resource, and what must outlive what?
-4. What states are valid, invalid, disconnected, empty, or incomplete?
-5. What ordering, units, coordinate system, representation, or identity is observable?
-6. How are failures reported and recovered from?
-7. Is the module thread-safe, thread-confined, or single-threaded?
-8. Which variations are concrete current requirements?
-9. What executable evidence proves correctness?
-
-Ask only the questions whose answers are not already established and would change durable semantics.
+1. What current responsibility does the module own, and which modules own adjacent current responsibilities?
+2. Which terminology or relationships among concepts require durable direction?
+3. Does ownership, lifetime, or mutability affect public use?
+4. Which valid, invalid, disconnected, empty, or incomplete states require a durable decision?
+5. Which observable ordering, units, coordinate system, representation, or identity is not clear from the public contract?
+6. Which current failures require defined reporting or recovery?
+7. Which variations are concrete current requirements?
+8. What executable evidence proves correctness?
 
 ## Maintenance rules
 
-- Update the contract when public semantics or durable invariants change.
+- Update the contract when its durable module-specific direction changes.
 - Let local refactors that preserve behavior leave the contract unchanged.
 - Keep task plans, implementation journals, transcripts, and historical alternatives outside this file.
 - Move an item out of `Open decisions` after an explicit decision is reflected in the task or code.
-- Encode invariants in types and validation where practical; shrink the document when the code becomes self-explanatory.
+- Shrink the document when another authoritative source makes its direction redundant.

@@ -13,7 +13,7 @@ applyTo: "**/*.h,**/*.cpp"
 - Preserve existing public interfaces unless the task explicitly requires changing them.
 - Prefer self-validating values. Successful construction must establish public invariants where practical.
 - Mark a single-parameter constructor `explicit` unless implicit conversion is intentionally part of the interface.
-- Make ownership, borrowing, lifetime, mutability, and thread access explicit and intentional.
+- Make ownership, borrowing, lifetime, and mutability explicit when they affect public use.
 - Keep immutable descriptions or programs separate from mutable per-use state when they are different concepts.
 - Generic and shared abstractions require a concrete shared semantic need; similar implementation vocabulary alone is insufficient.
 - Backend-independent abstractions must express backend-independent semantics. Backend mechanics and mismatches belong in backend-private translation or lowering.
@@ -105,26 +105,21 @@ foo_t::foo_t():
 - Apply this rule to constructors, destructors, conversion functions, operators, member functions, and free functions.
 - Do not regroup definitions by implementation category.
 
-## Include boundaries
+## Includes
 
-- Include only headers exposed by repository modules.
-- Do not include C library headers directly.
-- Do not include C++ standard-library headers directly.
-- Do not include operating-system or platform headers directly.
-- Obtain C, C++, system, platform, and third-party declarations through the repository module that exposes them.
-- Treat such a wrapper module as an ordinary direct module dependency.
-- Include only direct dependencies used by the file.
-- Do not rely on declarations exposed accidentally through unrelated transitive includes.
-- Do not bypass a missing module dependency by adding a raw external header include.
-
-Only these include forms are permitted:
+- Include every dependency directly rather than relying on unrelated transitive includes.
+- Include only the headers required by the file.
+- Standard-library headers may be included directly.
+- System, platform, and third-party headers may be included directly unless an existing repository module intentionally owns the required abstraction.
+- Use a repository module's public interface when that module owns the required abstraction.
+- Use complete module-qualified paths for repository-module headers.
+- Keep include paths independent of filesystem traversal.
+- Preserve the project's `# include` formatting convention.
 
 ```cpp
 # include "same_directory_header.h"
-# include <complete_module_name/header.h>
-```
 
-- Use quotes only for headers in the same source directory.
-- Use angle brackets only with a complete module-qualified path.
-- Do not use relative paths that traverse directories.
-- Place one space between `#` and `include`.
+# include <complete_module_name/header.h>
+
+# include <vector>
+```

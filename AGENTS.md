@@ -2,6 +2,15 @@
 
 Use this file to acquire the smallest context that fully determines a task. Builder owns the repository-wide agent documentation; other repositories may provide module-local `AGENTS.md` contracts only.
 
+## Documentation ownership
+
+- This file owns instruction precedence, context routing, semantic authority, scope discipline, and completion reporting.
+- `docs/agent-workflow.md` owns the reasoning and decision process for semantic work.
+- `docs/module-agents-template.md` owns the filter and structure for module-specific direction.
+- Path-specific language instructions own concrete API, coding, and style rules.
+- Public headers own the public contract.
+- Tests provide executable evidence and case coverage.
+
 ## Instruction precedence
 
 Resolve conflicts in this order:
@@ -12,7 +21,7 @@ Resolve conflicts in this order:
 4. Repository-wide documents dispatched by this file.
 5. Surrounding code conventions for matters not otherwise specified.
 
-Repository code is authoritative for current behavior. Explicit architecture and invariant documentation is authoritative for intended behavior. Report mismatches and distinguish current implementation facts, settled decisions, open decisions, and possible future directions.
+Repository code is authoritative for current behavior, and public headers are authoritative for the public contract. Explicit architecture and invariant documentation is authoritative for intended behavior. Report mismatches and distinguish current implementation facts, settled decisions, open decisions, and possible future directions.
 
 ## Context dispatch
 
@@ -55,17 +64,10 @@ For a new module or material public-contract change, follow `docs/agent-workflow
 
 A module may have at most one agent-specific file: `<module>/AGENTS.md`. Keep plans, memory, style, and architecture guidance in the existing repository-owned documents rather than adding module-local layers.
 
-## Change discipline
+## Scope discipline
 
-- Correctness and coherent semantics take priority over implementation speed.
-- Public semantics precede private mechanics. Begin API design with the smallest representative user-authored use.
-- Public APIs must be concise, technically precise, and easy to understand. Each public concept and abstraction must own a concrete current responsibility.
-- The design and patch must be the smallest coherent ones that satisfy the current contract.
 - Keep unrelated cleanup, renaming, reformatting, refactoring, and future possibilities outside the requested semantic boundary.
 - Preserve established terminology; obtain direction before replacing a semantic term.
-- Record only durable, non-obvious module semantics in a module `AGENTS.md`.
-- Tests must demonstrate observable contracts, invariants, and relevant negative cases.
-- Report only compilation, tests, and runtime evidence actually obtained.
 
 ## Completion
 

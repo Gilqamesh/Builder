@@ -6,18 +6,24 @@ applyTo: "**/*.cpp"
 
 ## Includes
 
-- Include the source file's corresponding header first.
-- After the corresponding header, include any additional headers from the same source directory.
-- Place headers exposed by other repository modules in a second group.
-- Separate the two non-empty groups with exactly one blank line.
-- Do not insert blank lines within a group.
-- Do not repeat declarations from the corresponding header to avoid including it.
+Organize includes into these groups:
+
+1. Same-directory headers, using quotes and placing the source file's corresponding header first.
+2. Repository-module headers, using complete module-qualified angle-bracket paths.
+3. Standard-library, system/platform, and third-party headers.
+
+Separate adjacent non-empty groups with exactly one blank line.
+Do not insert blank lines within a group.
+Do not repeat declarations from the corresponding header to avoid including it.
 
 ```cpp
 # include "builder_cli.h"
 # include "internal_helpers.h"
 
 # include <m03gagbhsp2drqq3gkop8pzfrm_workspace_graph/workspace_graph.h>
+
+# include <cstddef>
+# include <string>
 ```
 
 ## Namespace and definitions

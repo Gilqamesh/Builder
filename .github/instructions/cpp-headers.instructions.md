@@ -67,12 +67,12 @@ A header must not include itself.
 
 Organize includes into these groups:
 
-1. Headers from the same source directory.
-2. Headers exposed by other repository modules.
+1. Same-directory headers, using quotes.
+2. Repository-module headers, using complete module-qualified angle-bracket paths.
+3. Standard-library, system/platform, and third-party headers.
 
 Separate adjacent non-empty groups with exactly one blank line.
 Do not insert blank lines within a group.
-Do not create separate groups for modules that wrap C, C++, system, platform, or third-party headers.
 
 ```cpp
 # include "mesh.h"
@@ -80,6 +80,10 @@ Do not create separate groups for modules that wrap C, C++, system, platform, or
 
 # include <m03gagbhsp2drqq3gkop8pzfrm_workspace_graph/workspace_graph.h>
 # include <m03ginwy24ng8o487c4beoms6l_vector/api.h>
+
+# include <cstddef>
+# include <string>
+# include <vector>
 ```
 
 ## Project declarations
@@ -145,6 +149,10 @@ Formatter rules:
 - Declare formatter specializations after all project declarations.
 - Define formatter specializations after all project template definitions.
 - Keep formatter declarations and definitions in the same relative order as their corresponding project types.
+- In each `format()` function, obtain `auto out = ctx.out()`, progressively update it with `out = std::format_to(out, ...)`, and finish with exactly one normal `return out;`.
+- Make each non-error branch update `out` and continue to the final return; throwing branches may exit independently.
+- Build compound output through progressive `out` assignments rather than one aggregate formatting call.
+- Treat parsing and the text emitted for each type as separate semantic decisions.
 - Do not add anything else to `namespace std` except permitted standard-library specializations.
 
 ## Canonical template header layout
@@ -156,6 +164,8 @@ Formatter rules:
 # include "local_dependency.h"
 
 # include <complete_dependency_module/header.h>
+
+# include <format>
 
 namespace complete_module_name {
 
@@ -198,7 +208,19 @@ namespace std {
 
 template <typename T>
 struct formatter<complete_module_name::value_t<T>> {
-    // Formatter definition
+    constexpr auto parse(std::format_parse_context& ctx) {
+        return ctx.begin();
+    }
+
+    auto format(const complete_module_name::value_t<T>& value, auto& ctx) const {
+        auto out = ctx.out();
+
+        out = std::format_to(out, "{{ ");
+        out = std::format_to(out, "value: {}", value.value());
+        out = std::format_to(out, " }}");
+
+        return out;
+    }
 };
 
 } // namespace std
