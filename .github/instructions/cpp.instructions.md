@@ -88,7 +88,8 @@ foo_t::foo_t():
 - Do not comment merely to paraphrase a name, type, parameter list, return type, or standard C++ behavior.
 - State shared semantics once at the narrowest common scope: type invariants on the type, operation-specific behavior on the operation, and enumerator meaning beside the enumerator.
 - When a public declaration needs documentation, use concise Doxygen comments and keep each `@brief` to one sentence.
-- Add `@param`, `@return`, `@throws`, precondition, postcondition, ownership, or lifetime documentation only when it adds information.
+- Add `@param`, `@return`, precondition, postcondition, ownership, or lifetime documentation only when it adds information.
+- Document non-obvious failure conditions when they are part of the public contract, but omit exception-class names and `@throws` tags.
 - Keep implementation rationale and private maintenance constraints beside the code they govern; public documentation describes observable behavior.
 - Preserve documented semantics. Consolidate or remove prose when it is redundant, incorrect, or obsolete.
 

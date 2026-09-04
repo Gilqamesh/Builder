@@ -10,21 +10,13 @@ The current convention is:
 
 - `ws0`: Builder bootstrap and foundation modules;
 - `ws1`: reusable libraries, representations, adapters, and development tools;
-- `ws2`: applications, external integrations, and higher-level experiments.
+- `ws2`: applications, external integrations, and other higher-level modules.
 
 Numeric workspace ordering determines dependency eligibility. The descriptive roles are architectural guidance.
 
 ## Agent documentation ownership
 
-Builder owns the repository-wide agent documentation:
-
-- `AGENTS.md` routes tasks and states shared engineering criteria;
-- `docs/agent-workflow.md` governs scoped reasoning, design, dispatch, and validation;
-- this document governs repository and module-boundary semantics;
-- `docs/module-agents-template.md` defines module-contract content;
-- `.github/instructions/` contains shared language and file-layout rules.
-
-Either repository may contain `<workspace>/<module>/AGENTS.md` for durable module-local semantics. There is no workspace-level `AGENTS.md` layer, and `Builder-Modules` does not duplicate the repository-wide documents.
+The root `AGENTS.md` and its routed documents apply to the combined development workspace, including modules supplied by another repository. Either repository may contain `<workspace>/<module>/AGENTS.md` for durable module-local semantics. There is no workspace-level `AGENTS.md` layer, and `Builder-Modules` does not duplicate the repository-wide documents.
 
 ## Module identity
 
@@ -68,7 +60,7 @@ Normal module dependencies may target the same workspace or an earlier workspace
 
 Library dependency cycles are built as strongly connected components. Builder stages and validates every library in the component before marking the group complete. Dependency closure and link inputs derive from the source graph rather than incidental source order.
 
-Every module-qualified include names the module that owns the interface. C, C++, system, platform, and third-party declarations enter through the repository module that owns their wrapper interface.
+Every module-qualified include names the repository module that owns that interface. When a repository module owns an abstraction over a system, platform, or third-party interface, consumers use that module boundary; otherwise external headers are not repository-module dependencies and follow the applicable language instructions.
 
 ## Versions and artifacts
 
@@ -125,15 +117,6 @@ A phase uses started and complete markers. Directory existence alone does not es
 The running CLI compares its modification time with the newest source version in the bootstrap set. When stale, it rebuilds and transfers execution through the active seed; otherwise it builds the requested module's selected binary target and executes it. The default target is `cli`.
 
 `m03gf09la5rvbh6kk4vvt1qawv_module_shell` resolves friendly names for interactive navigation, but complete module names remain the unambiguous execution identity.
-
-## Sources of truth
-
-- Repository code, including public headers, implementation, and executable validation, is authoritative for current behavior.
-- The target module's `AGENTS.md` is authoritative for its documented intended semantics and invariants.
-- This document is authoritative for intended cross-module architecture.
-- The current task may explicitly change current or intended behavior.
-
-When these sources disagree, report the mismatch. Distinguish current implementation facts, settled architectural decisions, open decisions, and possible future directions. Current requirements determine the architecture; historical and possible future approaches remain non-binding.
 
 ## Current direction
 

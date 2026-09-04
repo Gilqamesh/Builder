@@ -15,15 +15,7 @@ Keep a local implementation within its established semantic boundary.
 
 ## Acquire context
 
-1. Resolve the exact target module from its path or complete module name.
-2. Follow the dispatch rules in the root `AGENTS.md`.
-3. Read the applicable language instructions.
-4. Read the target module's `AGENTS.md` when present, then its public headers.
-5. Read only the implementation and validation paths relevant to the task.
-6. Read direct dependency interfaces only when the target code uses them.
-7. Stop acquiring context once the requested behavior and constraints are understood.
-
-Let module boundaries focus repository searches and keep context proportional to the change.
+Follow the context dispatch and discipline in the root `AGENTS.md`. Let exact module boundaries focus repository searches, and stop once the requested behavior and governing constraints are understood.
 
 ## Review a public abstraction
 
