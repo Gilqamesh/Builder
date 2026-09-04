@@ -20,6 +20,7 @@ applyTo: "**/*.h,**/*.cpp"
 - Collaborating types must communicate through ordinary interfaces aligned with ownership boundaries. Structure APIs so `friend`, passkeys, and privileged access shims are unnecessary.
 - Treat a private implementation constraint that would affect the public model as an unresolved semantic constraint unless an authoritative contract or explicit user decision settles it.
 - Future implementation possibilities remain private or undecided until they impose a real semantic requirement.
+- Make exception messages identify the failed operation and condition. Include useful actual and expected values when available; construct such messages with `std::format`, passing project-defined values directly so their existing `std::formatter` specializations supply the representation instead of reproducing it at the call site. Use a string literal when the message has no substitutions.
 
 ## Naming
 
@@ -59,6 +60,10 @@ input_state_t current_state;
 - Do not use tabs for indentation.
 - Place opening braces on the same line as namespace declarations, type declarations, function declarations, and control statements.
 - For a constructor with a multiline member-initializer list, place the opening brace on its own line after the final initializer.
+- Keep a statement or expression on one line when it remains readable; do not split a simple expression merely to satisfy a fixed line-width target. When an expression is too dense for one line, introduce named intermediate values instead of vertically stacking a simple operator chain.
+- When a call or initializer is multiline, place each argument or element on its own line and align the closing delimiter with the start of the construct.
+- Prefer `<` and `<=` to `>` and `>=` when reversing the operands preserves the meaning. Express bounded ranges in increasing order, such as `lower <= value && value < upper`.
+- Give each non-empty `case` and `default` a braced body. When a case exits with `break`, place the `break` after the closing brace. Stack adjacent labels only when they intentionally share one body.
 - Preserve surrounding formatting for constructs not specified here.
 
 ```cpp
@@ -71,6 +76,12 @@ void function() {
 foo_t::foo_t():
     m_value(0)
 {
+}
+
+switch (value) {
+    case option: {
+        use(value);
+    } break;
 }
 ```
 
