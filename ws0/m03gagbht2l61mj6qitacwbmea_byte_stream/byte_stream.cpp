@@ -1,9 +1,9 @@
 #include "byte_stream.h"
 
 #include <algorithm>
-#include <stdexcept>
-#include <format>
 #include <fstream>
+#include <format>
+#include <stdexcept>
 
 namespace m03gagbht2l61mj6qitacwbmea_byte_stream {
 
@@ -57,11 +57,12 @@ void byte_stream_t::push_back(std::byte value) {
 }
 
 void byte_stream_t::append(std::span<const std::byte> bytes) {
-    m_bytes.insert(m_bytes.end(), bytes.begin(), bytes.end());
+    const std::vector<std::byte> appended(bytes.begin(), bytes.end());
+    m_bytes.insert(m_bytes.end(), appended.begin(), appended.end());
 }
 
 void byte_stream_t::append(byte_stream_t&& other) {
-    m_bytes.insert(m_bytes.end(), std::make_move_iterator(other.m_bytes.begin()), std::make_move_iterator(other.m_bytes.end()));
+    append(other.bytes());
 }
 
 void byte_stream_t::clear() noexcept {

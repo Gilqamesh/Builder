@@ -1,10 +1,12 @@
 #include <m03gn97n4iusbtl7uthb01wu9m_test_framework/test_framework.h>
 #include <m03gagbht2l61mj6qitacwbmea_byte_stream/byte_stream.h>
 
-#include <functional>
 #include <array>
+#include <chrono>
 #include <cstddef>
+#include <filesystem>
 #include <format>
+#include <functional>
 #include <span>
 #include <stdexcept>
 #include <string>
@@ -70,6 +72,14 @@ int main() {
         test::expect(std::identity(), appended.bytes()[3] == std::byte { 0x40 });
         test::expect(std::identity(), appended.bytes()[4] == std::byte { 0x50 });
 
+        byte_stream_t self_appended(std::vector<std::byte> { std::byte { 0x01 }, std::byte { 0x02 } });
+        self_appended.append(self_appended.bytes());
+        test::expect(std::equal_to<>(), self_appended.size(), std::size_t(4));
+        test::expect(std::identity(), self_appended.bytes()[0] == std::byte { 0x01 });
+        test::expect(std::identity(), self_appended.bytes()[1] == std::byte { 0x02 });
+        test::expect(std::identity(), self_appended.bytes()[2] == std::byte { 0x01 });
+        test::expect(std::identity(), self_appended.bytes()[3] == std::byte { 0x02 });
+
         const byte_stream_t const_appended = appended;
         const std::span<const std::byte> readable = const_appended.bytes();
         test::expect(std::equal_to<>(), readable.size(), std::size_t(5));
@@ -116,6 +126,22 @@ int main() {
         });
         test::expect_throws<std::invalid_argument>([&] {
             [[maybe_unused]] const auto value = from_span.to_radix(100);
+        });
+
+        const auto file_path = std::filesystem::temp_directory_path() / std::format(
+            "byte-stream-public-api-{}",
+            std::chrono::steady_clock::now().time_since_epoch().count()
+        );
+        from_span.to_file(file_path);
+        const auto from_file = byte_stream_t::from_file(file_path);
+        test::expect(std::equal_to<>(), from_file.size(), from_span.size());
+        test::expect(std::identity(), std::equal(from_file.bytes().begin(), from_file.bytes().end(), from_span.bytes().begin()));
+        test::expect(std::identity(), std::filesystem::remove(file_path));
+        test::expect_throws<std::ios_base::failure>([&] {
+            [[maybe_unused]] const auto missing = byte_stream_t::from_file(file_path);
+        });
+        test::expect_throws<std::ios_base::failure>([&] {
+            from_span.to_file(std::filesystem::temp_directory_path());
         });
     });
 }

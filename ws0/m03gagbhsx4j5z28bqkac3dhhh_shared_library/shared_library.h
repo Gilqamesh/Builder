@@ -4,6 +4,7 @@
 # include <m03gagbhsnusi43zogoacgj2ez_filesystem/filesystem.h>
 
 # include <optional>
+# include <type_traits>
 
 namespace m03gagbhsx4j5z28bqkac3dhhh_shared_library {
 
@@ -64,6 +65,9 @@ public:
      * Example:
      * using fn_t = void (*)();
      * fn_t fn = loader.resolve("entry");
+     *
+     * @throws std::invalid_argument if symbol is null.
+     * @throws std::logic_error if this loader has been moved from.
      */
     symbol_t resolve(const char* symbol) const;
     std::optional<symbol_t> resolve_optional(const char* symbol) const;

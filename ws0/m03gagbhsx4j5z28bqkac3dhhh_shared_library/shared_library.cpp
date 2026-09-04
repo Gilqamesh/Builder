@@ -4,6 +4,9 @@
 
 #include <dlfcn.h>
 
+#include <format>
+#include <stdexcept>
+
 namespace m03gagbhsx4j5z28bqkac3dhhh_shared_library {
 
 symbol_t::symbol_t(void* symbol):
@@ -83,6 +86,13 @@ loader_t& loader_t::operator=(loader_t&& other) noexcept {
 }
 
 symbol_t loader_t::resolve(const char* symbol) const {
+    if (symbol == nullptr) {
+        throw std::invalid_argument("m03gagbhsx4j5z28bqkac3dhhh_shared_library::loader_t::resolve: symbol must not be null");
+    }
+    if (m_handle == nullptr) {
+        throw std::logic_error("m03gagbhsx4j5z28bqkac3dhhh_shared_library::loader_t::resolve: loader has been moved from");
+    }
+
     dlerror();
     void* result = dlsym(m_handle, symbol);
     if (result == nullptr) {
@@ -93,6 +103,13 @@ symbol_t loader_t::resolve(const char* symbol) const {
 }
 
 std::optional<symbol_t> loader_t::resolve_optional(const char* symbol) const {
+    if (symbol == nullptr) {
+        throw std::invalid_argument("m03gagbhsx4j5z28bqkac3dhhh_shared_library::loader_t::resolve_optional: symbol must not be null");
+    }
+    if (m_handle == nullptr) {
+        throw std::logic_error("m03gagbhsx4j5z28bqkac3dhhh_shared_library::loader_t::resolve_optional: loader has been moved from");
+    }
+
     dlerror();
     void* result = dlsym(m_handle, symbol);
     if (result == nullptr) {
@@ -116,6 +133,7 @@ void loader_t::close_handle() {
     // TODO: close on Windows only if lifetime is DTOR
 
     dlclose(m_handle);
+    m_handle = nullptr;
 }
 
 } // namespace m03gagbhsx4j5z28bqkac3dhhh_shared_library

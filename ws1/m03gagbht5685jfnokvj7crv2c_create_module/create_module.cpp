@@ -66,9 +66,9 @@ static std::string api_header_source(std::string_view module_name) {
 
 static std::string cli_source(std::string_view module_name) {
     return std::format(
-        "#include \"api.h\"\n"
+        "# include \"api.h\"\n"
         "\n"
-        "#include <iostream>\n"
+        "# include <iostream>\n"
         "\n"
         "int main() {{\n"
         "    std::cout << \"Hello from {0}!\" << std::endl;\n"
@@ -84,11 +84,11 @@ static std::string builder_source() {
 
 m03gagbhsnusi43zogoacgj2ez_filesystem::path_t create(std::string_view workspace, std::string_view friendly_name) {
     const auto module_name = m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::module_name_t::from_friendly_name(friendly_name);
+    const auto workspace_name = m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::workspace_name_t(workspace);
 
     const auto invocation_context = m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::invocation_context();
-    const auto workspace_relative_path = m03gagbhsnusi43zogoacgj2ez_filesystem::relative_path_t(std::string(workspace));
 
-    const auto workspace_dir = invocation_context.workspace_root / workspace_relative_path;
+    const auto workspace_dir = invocation_context.workspace_root / workspace_name.relative_path();
     if (!m03gagbhsnusi43zogoacgj2ez_filesystem::exists(workspace_dir)) {
         throw std::runtime_error(std::format("create_module: workspace directory '{}' does not exist", workspace_dir));
     }

@@ -18,6 +18,7 @@
 #include <iostream>
 #include <optional>
 #include <cassert>
+#include <type_traits>
 
 namespace m03gagbhsp2drqq3gkop8pzfrm_workspace_graph {
 
@@ -33,7 +34,7 @@ module_name_t::module_name_t(std::string_view unique_name):
     m_unique_name(unique_name)
 {
     if (unique_name.size() <= first_friendly_name_char_pos) {
-        throw std::invalid_argument(std::format("m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::module_name_t: module name must be at least {} characters long", first_friendly_name_char_pos));
+        throw std::invalid_argument(std::format("m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::module_name_t: module name must be at least {} characters long", first_friendly_name_char_pos + 1));
     }
 
     if (unique_name[m_pos] != 'm') {
@@ -299,6 +300,9 @@ module_t::module_t(const workspace_t* workspace, module_name_t name, version_t v
     m_version(version),
     m_name(std::move(name))
 {
+    if (m_workspace == nullptr) {
+        throw std::invalid_argument("m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::module_t::module_t: workspace must not be null");
+    }
 }
 
 const workspace_t& module_t::workspace() const {
@@ -329,7 +333,15 @@ version_t::version_t(uint64_t value):
 }
 
 version_t::version_t(const std::filesystem::file_time_type& file_time_type):
-    version_t(static_cast<uint64_t>(file_time_type.time_since_epoch().count() - std::numeric_limits<std::filesystem::file_time_type::duration::rep>::min()))
+    version_t([&] {
+        using rep_t = std::filesystem::file_time_type::duration::rep;
+        using unsigned_rep_t = std::make_unsigned_t<rep_t>;
+        static_assert(std::numeric_limits<unsigned_rep_t>::digits <= std::numeric_limits<uint64_t>::digits);
+
+        const auto count = static_cast<unsigned_rep_t>(file_time_type.time_since_epoch().count());
+        const auto minimum = static_cast<unsigned_rep_t>(std::numeric_limits<rep_t>::min());
+        return static_cast<uint64_t>(count - minimum);
+    }())
 {
 }
 
@@ -364,6 +376,16 @@ module_t* workspace_t::find_module(const module_name_t& module_name) const {
 }
 
 module_t* workspace_t::add_module(std::unique_ptr<module_t> module) {
+    if (module == nullptr) {
+        throw std::invalid_argument("m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::workspace_t::add_module: module must not be null");
+    }
+    if (&module->workspace() != this) {
+        throw std::invalid_argument("m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::workspace_t::add_module: module belongs to another workspace");
+    }
+    if (m_module_by_name.contains(module->name())) {
+        throw std::invalid_argument(std::format("m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::workspace_t::add_module: module '{}' already exists", module->name()));
+    }
+
     auto* result = module.get();
     m_module_by_name.emplace(module->name(), std::move(module));
     return result;

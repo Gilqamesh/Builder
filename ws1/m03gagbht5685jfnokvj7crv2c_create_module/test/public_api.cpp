@@ -129,7 +129,8 @@ int main() {
         );
 
         const auto cli_contents = read_file(cli_source.to_native_path());
-        test::expect(std::identity(), cli_contents.find("#include \"api.h\"") != std::string::npos);
+        test::expect(std::identity(), cli_contents.find("# include \"api.h\"") != std::string::npos);
+        test::expect(std::identity(), cli_contents.find("# include <iostream>") != std::string::npos);
         test::expect(std::identity(), cli_contents.find("Hello from " + module_name + "!")
                 != std::string::npos
         );
@@ -159,6 +160,14 @@ int main() {
         });
         test::expect_throws<std::runtime_error>([] {
             [[maybe_unused]] const auto path = api::create("/absolute", "Valid");
+        });
+        std::filesystem::create_directories(workspace_root / "not-a-workspace");
+        test::expect_throws<std::runtime_error>([] {
+            [[maybe_unused]] const auto path = api::create("not-a-workspace", "Valid");
+        });
+        std::filesystem::create_directories(workspace / "nested");
+        test::expect_throws<std::runtime_error>([] {
+            [[maybe_unused]] const auto path = api::create("ws5/nested", "Valid");
         });
 
         setenv("BUILDER_WORKSPACE_ROOT", "", 1);

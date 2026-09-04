@@ -10,6 +10,7 @@ static bool is_whitespace(std::istream& ifs);
 static bool eat_if(std::istream& ifs, std::istream::char_type expected);
 static std::istream::char_type eat(std::istream& ifs);
 static std::istream::char_type peek(std::istream& ifs);
+static void skip_horizontal_whitespace(std::istream& ifs);
 static void skip_whitespace(std::istream& ifs);
 static void skip_comment(std::istream& ifs);
 static void skip_string(std::istream& ifs);
@@ -41,6 +42,12 @@ static std::istream::char_type eat(std::istream& ifs) {
 static std::istream::char_type peek(std::istream& ifs) {
     const auto c = ifs.peek();
     return c == std::istream::traits_type::eof() ? '\0' : std::istream::traits_type::to_char_type(c);
+}
+
+static void skip_horizontal_whitespace(std::istream& ifs) {
+    while (!is_at_end(ifs) && (peek(ifs) == ' ' || peek(ifs) == '\t')) {
+        eat(ifs);
+    }
 }
 
 static void skip_whitespace(std::istream& ifs) {
@@ -139,13 +146,13 @@ std::vector<std::filesystem::path> include_paths(std::istream& ifs) {
             continue;
         }
 
-        skip_whitespace(ifs);
+        skip_horizontal_whitespace(ifs);
 
         if (read_identifier(ifs) != "include") {
             continue;
         }
 
-        skip_whitespace(ifs);
+        skip_horizontal_whitespace(ifs);
 
         if (eat_if(ifs, '<')) {
             const auto path = read_path(ifs, '>');

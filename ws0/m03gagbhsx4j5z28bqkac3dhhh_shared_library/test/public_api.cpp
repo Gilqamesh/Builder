@@ -222,6 +222,12 @@ int main() {
                 api::symbol_visibility_t::LOCAL
             );
             api::loader_t moved(std::move(original));
+            test::expect_throws<std::logic_error>([&] {
+                [[maybe_unused]] const auto invalid = original.resolve("add_values");
+            });
+            test::expect_throws<std::logic_error>([&] {
+                [[maybe_unused]] const auto invalid = original.resolve_optional("add_values");
+            });
             binary_fn_t add = moved.resolve("add_values");
             test::expect(std::equal_to<>(), add(19, 23), 42);
 
@@ -232,11 +238,20 @@ int main() {
                 api::symbol_visibility_t::LOCAL
             );
             test::expect(std::identity(), &(destination = std::move(moved)) == &destination);
+            test::expect_throws<std::logic_error>([&] {
+                [[maybe_unused]] const auto invalid = moved.resolve("add_values");
+            });
             add = destination.resolve("add_values");
             test::expect(std::equal_to<>(), add(-3, 8), 5);
             test::expect(std::identity(), &(destination = std::move(destination)) == &destination);
             add = destination.resolve("add_values");
             test::expect(std::equal_to<>(), add(1, 2), 3);
+            test::expect_throws<std::invalid_argument>([&] {
+                [[maybe_unused]] const auto invalid = destination.resolve(nullptr);
+            });
+            test::expect_throws<std::invalid_argument>([&] {
+                [[maybe_unused]] const auto invalid = destination.resolve_optional(nullptr);
+            });
         }
 
         test::expect_throws<std::runtime_error>([&] {

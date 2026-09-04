@@ -1,5 +1,5 @@
-#ifndef M03GAGBHSP2DRQQ3GKOP8PZFRM_WORKSPACE_GRAPH_H
-# define M03GAGBHSP2DRQQ3GKOP8PZFRM_WORKSPACE_GRAPH_H
+#ifndef M03GAGBHSP2DRQQ3GKOP8PZFRM_WORKSPACE_GRAPH_WORKSPACE_GRAPH_H
+# define M03GAGBHSP2DRQQ3GKOP8PZFRM_WORKSPACE_GRAPH_WORKSPACE_GRAPH_H
 
 # include <m03gagbhsnusi43zogoacgj2ez_filesystem/filesystem.h>
 # include <m03gagbhtft23yhjwpp881tfmc_uuid/uuid.h>
@@ -208,6 +208,8 @@ public:
 
     /**
      * Adds a discovered module to this workspace.
+     *
+     * The module must be non-null, belong to this workspace, and have a unique name.
      */
     module_t* add_module(std::unique_ptr<module_t> module);
 
@@ -361,4 +363,4 @@ struct formatter<m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::workspace_t> {
 
 } // namespace std
 
-#endif // M03GAGBHSP2DRQQ3GKOP8PZFRM_WORKSPACE_GRAPH_H
+#endif // M03GAGBHSP2DRQQ3GKOP8PZFRM_WORKSPACE_GRAPH_WORKSPACE_GRAPH_H

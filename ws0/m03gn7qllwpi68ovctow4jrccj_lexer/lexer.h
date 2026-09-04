@@ -8,7 +8,7 @@
 namespace m03gn7qllwpi68ovctow4jrccj_lexer {
 
 /**
- * @brief Returns the paths named by non-system include directives in ifs.
+ * @brief Returns the paths named by quoted and angle-bracket include directives in ifs.
  */
 std::vector<std::filesystem::path> include_paths(std::istream& ifs);
 

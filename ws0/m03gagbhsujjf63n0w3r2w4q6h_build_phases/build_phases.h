@@ -1,5 +1,5 @@
-#ifndef M03GAGBHSUJJF63N0W3R2W4Q6H_BUILD_PHASES_H
-# define M03GAGBHSUJJF63N0W3R2W4Q6H_BUILD_PHASES_H
+#ifndef M03GAGBHSUJJF63N0W3R2W4Q6H_BUILD_PHASES_BUILD_PHASES_H
+# define M03GAGBHSUJJF63N0W3R2W4Q6H_BUILD_PHASES_BUILD_PHASES_H
 
 # include <m03gagbhsmhr0naw0zpccv4gaq_cxx_toolchain/cxx_toolchain.h>
 # include <m03gagbhsnusi43zogoacgj2ez_filesystem/filesystem.h>
@@ -319,4 +319,4 @@ discovered_module_dependencies_t discover_module_dependencies(
 
 } // namespace m03gagbhsujjf63n0w3r2w4q6h_build_phases
 
-#endif // M03GAGBHSUJJF63N0W3R2W4Q6H_BUILD_PHASES_H
+#endif // M03GAGBHSUJJF63N0W3R2W4Q6H_BUILD_PHASES_BUILD_PHASES_H

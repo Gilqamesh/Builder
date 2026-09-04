@@ -1,9 +1,9 @@
 #include "filesystem.h"
 
-#include <format>
 #include <algorithm>
-#include <iostream>
 #include <fstream>
+#include <format>
+#include <iostream>
 
 namespace {
 
@@ -35,6 +35,11 @@ std::filesystem::path normalize_absolute_path(const std::filesystem::path& path)
     }
 
     return normalized;
+}
+
+bool starts_with_parent_component(const std::filesystem::path& path) {
+    const auto first = path.begin();
+    return first != path.end() && *first == "..";
 }
 
 } // namespace
@@ -106,7 +111,7 @@ path_t path_t::parent() const {
 
 bool path_t::is_child(const path_t& other) const {
     const auto rel = other.m_path.lexically_relative(m_path);
-    return !rel.empty() && rel != "." && !rel.native().starts_with("..");
+    return !rel.empty() && rel != "." && !starts_with_parent_component(rel);
 }
 
 relative_path_t path_t::relative(const path_t& other) const {
@@ -154,7 +159,7 @@ path_t path_t::operator/(const relative_path_t& relative_path) const {
     path_t result(m_path / relative_path.to_native_path());
 
     const auto rel = result.m_path.lexically_relative(m_path);
-    if (rel.empty() || rel == "." || rel.native().starts_with("..")) {
+    if (rel.empty() || rel == "." || starts_with_parent_component(rel)) {
         throw std::runtime_error(std::format("path_t::operator/: path '{}' must not escape the base path '{}'", result, *this));
     }
 
@@ -226,25 +231,28 @@ bool find_include_predicate_t::operator()(const path_t& path) const {
 }
 
 find_include_predicate_t find_include_predicate_t::operator&&(find_include_predicate_t b) const {
+    const auto a = *this;
     return find_include_predicate_t {
-        [=, this](const path_t& path) {
-            return operator()(path) && b(path);
+        [a, b = std::move(b)](const path_t& path) {
+            return a(path) && b(path);
         }
     };
 }
 
 find_include_predicate_t find_include_predicate_t::operator||(find_include_predicate_t b) const {
+    const auto a = *this;
     return find_include_predicate_t {
-        [=, this](const path_t& path) {
-            return operator()(path) || b(path);
+        [a, b = std::move(b)](const path_t& path) {
+            return a(path) || b(path);
         }
     };
 }
 
 find_include_predicate_t find_include_predicate_t::operator!() const {
+    const auto predicate = *this;
     return find_include_predicate_t {
-        [=, this](const path_t& path) {
-            return !operator()(path);
+        [predicate](const path_t& path) {
+            return !predicate(path);
         }
     };
 }
@@ -259,25 +267,28 @@ bool find_descend_predicate_t::operator()(const path_t& dir, size_t depth) const
 }
 
 find_descend_predicate_t find_descend_predicate_t::operator&&(find_descend_predicate_t b) const {
+    const auto a = *this;
     return find_descend_predicate_t {
-        [=, this](const path_t& dir, size_t depth) {
-            return operator()(dir, depth) && b(dir, depth);
+        [a, b = std::move(b)](const path_t& dir, size_t depth) {
+            return a(dir, depth) && b(dir, depth);
         }
     };
 }
 
 find_descend_predicate_t find_descend_predicate_t::operator||(find_descend_predicate_t b) const {
+    const auto a = *this;
     return find_descend_predicate_t {
-        [=, this](const path_t& dir, size_t depth) {
-            return operator()(dir, depth) || b(dir, depth);
+        [a, b = std::move(b)](const path_t& dir, size_t depth) {
+            return a(dir, depth) || b(dir, depth);
         }
     };
 }
 
 find_descend_predicate_t find_descend_predicate_t::operator!() const {
+    const auto predicate = *this;
     return find_descend_predicate_t {
-        [=, this](const path_t& dir, size_t depth) {
-            return !operator()(dir, depth);
+        [predicate](const path_t& dir, size_t depth) {
+            return !predicate(dir, depth);
         }
     };
 }

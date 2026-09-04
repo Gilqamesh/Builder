@@ -16,6 +16,7 @@
 #include <string_view>
 #include <utility>
 #include <vector>
+#include <type_traits>
 
 namespace api = m03gagbhsp2drqq3gkop8pzfrm_workspace_graph;
 namespace filesystem_api = m03gagbhsnusi43zogoacgj2ez_filesystem;
@@ -112,11 +113,17 @@ int main() {
         test::expect(std::equal_to<>(), direct_version.value, std::uint64_t(42));
 
         const auto file_time = std::filesystem::file_time_type::clock::now();
+        using file_time_rep_t = std::filesystem::file_time_type::duration::rep;
+        using unsigned_file_time_rep_t = std::make_unsigned_t<file_time_rep_t>;
         const auto expected_file_time_version = static_cast<std::uint64_t>(
-            file_time.time_since_epoch().count()
-            - std::numeric_limits<std::filesystem::file_time_type::duration::rep>::min()
+            static_cast<unsigned_file_time_rep_t>(file_time.time_since_epoch().count())
+            - static_cast<unsigned_file_time_rep_t>(std::numeric_limits<file_time_rep_t>::min())
         );
         test::expect(std::equal_to<>(), api::version_t(file_time).value, expected_file_time_version);
+        const auto minimum_file_time = std::filesystem::file_time_type(
+            std::filesystem::file_time_type::duration(std::numeric_limits<file_time_rep_t>::min())
+        );
+        test::expect(std::equal_to<>(), api::version_t(minimum_file_time).value, std::uint64_t(0));
 
         const std::string known_unique_name = "m03gagbht2l61mj6qitacwbmea_byte_stream";
         const api::module_name_t known_name(known_unique_name);
@@ -305,6 +312,26 @@ int main() {
             manual_name_a,
             api::version_t(1)
         ));
+        test::expect_throws<std::invalid_argument>([&] {
+            [[maybe_unused]] auto* invalid = manual_workspace.add_module(nullptr);
+        });
+        test::expect_throws<std::invalid_argument>([&] {
+            [[maybe_unused]] const api::module_t invalid(nullptr, manual_name_a, api::version_t(1));
+        });
+        test::expect_throws<std::invalid_argument>([&] {
+            [[maybe_unused]] auto* invalid = manual_workspace.add_module(std::make_unique<api::module_t>(
+                &later_workspace,
+                api::module_name_t::from_friendly_name("foreign"),
+                api::version_t(1)
+            ));
+        });
+        test::expect_throws<std::invalid_argument>([&] {
+            [[maybe_unused]] auto* invalid = manual_workspace.add_module(std::make_unique<api::module_t>(
+                &manual_workspace,
+                manual_name_a,
+                api::version_t(3)
+            ));
+        });
         test::expect(std::identity(), manual_workspace.find_module(manual_name_a) == manual_module_a);
         test::expect(std::identity(), manual_workspace.find_module(manual_name_b) == manual_module_b);
         test::expect(std::identity(), manual_workspace.find_module(known_name) == nullptr);

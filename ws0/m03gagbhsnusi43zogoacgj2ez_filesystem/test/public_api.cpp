@@ -142,6 +142,9 @@ int main() {
         test::expect(std::identity(), root.is_child(normalized));
         test::expect(std::identity(), !normalized.is_child(root));
         test::expect(std::identity(), !root.is_child(root));
+        const auto dot_prefixed_child = root / api::relative_path_t("..cache/file");
+        test::expect(std::identity(), root.is_child(dot_prefixed_child));
+        test::expect(std::equal_to<>(), root.relative(dot_prefixed_child), api::relative_path_t("..cache/file"));
         test::expect(std::equal_to<>(), root.relative(normalized), api::relative_path_t("a"));
         test::expect_throws<std::runtime_error>([&] {
             [[maybe_unused]] const auto invalid = normalized.relative(root);
@@ -250,6 +253,15 @@ int main() {
         test::expect(std::identity(), !source_predicate(c_file));
         test::expect(std::identity(), (!api::find_include_predicate_t::is_dir)(cpp_file));
 
+        const auto make_include_predicate = [] {
+            const auto regular = api::find_include_predicate_t::is_regular;
+            const auto named = api::find_include_predicate_t::filename("one.cpp");
+            return regular && named;
+        };
+        const auto owned_include_predicate = make_include_predicate();
+        test::expect(std::identity(), owned_include_predicate(cpp_file));
+        test::expect(std::identity(), !owned_include_predicate(c_file));
+
         const auto direct_entries = relative_strings(api::find(
             source_dir,
             api::find_include_predicate_t::include_all,
@@ -288,6 +300,16 @@ int main() {
         test::expect(std::identity(), (first_level_only || api::find_descend_predicate_t::descend_none)(nested_dir, 0));
         test::expect(std::identity(), !(first_level_only && api::find_descend_predicate_t::descend_none)(nested_dir, 0));
         test::expect(std::identity(), (!api::find_descend_predicate_t::descend_none)(nested_dir, 0));
+
+        const auto make_descend_predicate = [] {
+            const api::find_descend_predicate_t shallow(
+                [](const api::path_t&, std::size_t depth) { return depth < 2; }
+            );
+            return shallow && api::find_descend_predicate_t::descend_all;
+        };
+        const auto owned_descend_predicate = make_descend_predicate();
+        test::expect(std::identity(), owned_descend_predicate(nested_dir, 1));
+        test::expect(std::identity(), !owned_descend_predicate(deep_dir, 2));
 
         const auto shallow = relative_strings(api::find(
             source_dir,

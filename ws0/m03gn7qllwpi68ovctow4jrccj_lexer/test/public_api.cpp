@@ -58,10 +58,9 @@ int main() {
             "include \"not-a-directive.h\"\n"
         );
         const auto adjacent_paths = generic_strings(lexer::include_paths(adjacent));
-        test::expect(std::equal_to<>(), adjacent_paths.size(), std::size_t(3));
+        test::expect(std::equal_to<>(), adjacent_paths.size(), std::size_t(2));
         test::expect(std::equal_to<>(), adjacent_paths[0], std::string("first.h"));
         test::expect(std::equal_to<>(), adjacent_paths[1], std::string("second.hpp"));
-        test::expect(std::equal_to<>(), adjacent_paths[2], std::string("not-a-directive.h"));
 
         std::istringstream unterminated_comment(
             "#include \"before.h\"\n"
