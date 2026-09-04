@@ -8,33 +8,19 @@ For a new semantic module, apply this filter before drafting the public API and 
 
 Keep the final file short enough to read whenever the module is touched. Omit every heading that adds no useful information.
 
-```markdown
-# <complete_module_name>
+## Optional sections
 
-## Purpose
+After the module-name heading, include only sections selected by this catalogue:
 
-State the module's current responsibility and positively assign current adjacent responsibilities to their owning modules.
+| Section | Include only when it records |
+|---|---|
+| `Purpose` | A meaningful current responsibility or boundary, including adjacent responsibility owned elsewhere. |
+| `Public model` | Relationships among public concepts that future work must preserve and that are not already authoritative in public headers. |
+| `Invariants` | Durable module-specific observable or safety properties that are not already authoritative in the public contract. |
+| `Validation` | A non-obvious module-specific entry point, environment, or manual requirement needed to prove the contract. |
+| `Open decisions` | Unresolved semantic choices and the direction required to settle them. |
 
-## Public model
-
-Record only relationships among public concepts that future work must preserve and that are not already authoritative in the public contract.
-
-## Invariants
-
-- Record durable module-specific properties that must remain true across implementations and are not already authoritative in the public contract.
-- Prefer observable semantics and safety properties.
-- Keep private storage maintenance, formatting rules, and temporary implementation choices in their existing sources of truth.
-
-## Validation
-
-- Identify the narrow build, test, CLI, smoke test, or manual entry point that proves the contract.
-- Add environmental or manual requirements only when they are durable and materially relevant. Detailed case coverage belongs in tests.
-
-## Open decisions
-
-- Record unresolved semantic choices.
-- Identify the direction required to resolve them.
-```
+Do not record API summaries, dependency lists, shared coding or style rules, routine build or test commands, test-case inventories, private storage maintenance, temporary implementation choices, or task-local details.
 
 ## Optional questions for the first draft
 

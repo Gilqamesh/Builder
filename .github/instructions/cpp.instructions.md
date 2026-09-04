@@ -84,12 +84,13 @@ foo_t::foo_t():
 
 ## Documentation
 
-- Comments must explain non-obvious behavior or intent rather than restating code.
-- Document public declarations with concise Doxygen comments.
-- Keep each `@brief` description to one sentence.
-- Add `@param`, `@return`, `@throws`, precondition, postcondition, ownership, or lifetime documentation only when applicable.
-- Describe behavior and contracts rather than implementation details.
-- Preserve existing documentation unless it is incorrect or obsolete.
+- Public headers document observable contracts that are not evident from a declaration and its enclosing documentation.
+- Do not comment merely to paraphrase a name, type, parameter list, return type, or standard C++ behavior.
+- State shared semantics once at the narrowest common scope: type invariants on the type, operation-specific behavior on the operation, and enumerator meaning beside the enumerator.
+- When a public declaration needs documentation, use concise Doxygen comments and keep each `@brief` to one sentence.
+- Add `@param`, `@return`, `@throws`, precondition, postcondition, ownership, or lifetime documentation only when it adds information.
+- Keep implementation rationale and private maintenance constraints beside the code they govern; public documentation describes observable behavior.
+- Preserve documented semantics. Consolidate or remove prose when it is redundant, incorrect, or obsolete.
 
 ## Validation design
 
