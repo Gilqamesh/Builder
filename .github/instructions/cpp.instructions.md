@@ -7,20 +7,24 @@ applyTo: "**/*.h,**/*.cpp"
 ## Language and API design
 
 - Use C++23.
-- Keep public APIs minimal, concise, technically correct, and easy to understand. Every public type, method, and abstraction must have a concrete purpose.
-- Start public API design from representative user-authored code and observable semantics.
+- Public APIs must be concise, technically precise, and understandable from representative user-authored code.
+- Every public type, operation, abstraction, and extension point must own a concrete current semantic responsibility.
+- The public surface must be the smallest coherent one that completely expresses the current contract.
 - Preserve existing public interfaces unless the task explicitly requires changing them.
-- Prefer ordinary self-validating values and constructors. Successful construction should establish the object's public invariants where practical.
+- Prefer self-validating values. Successful construction must establish public invariants where practical.
 - Mark a single-parameter constructor `explicit` unless implicit conversion is intentionally part of the interface.
-- Keep immutable descriptions or programs separate from mutable per-use runtime state when they are distinct concepts.
-- Make backend-independent abstractions express backend-independent semantics. Handle backend-specific mismatches through backend-private translation or lowering where possible.
-- Do not invent a generic or shared abstraction merely because implementations contain similarly named concepts; require a concrete shared semantic need.
-- Do not add functionality for hypothetical future requirements.
+- Make ownership, borrowing, lifetime, mutability, and thread access explicit and intentional.
+- Keep immutable descriptions or programs separate from mutable per-use state when they are different concepts.
+- Generic and shared abstractions require a concrete shared semantic need; similar implementation vocabulary alone is insufficient.
+- Backend-independent abstractions must express backend-independent semantics. Backend mechanics and mismatches belong in backend-private translation or lowering.
+- Collaborating types must communicate through ordinary interfaces aligned with ownership boundaries. Structure APIs so `friend`, passkeys, and privileged access shims are unnecessary.
+- Private implementation strategy may shape the public model only when it creates an observable constraint.
+- Future implementation possibilities remain private or undecided until they impose a real semantic requirement.
 
 ## Naming
 
-- Prefer technically precise names that are as short as context allows.
-- Do not repeat semantic context already supplied by the module namespace or enclosing type; within a renderer module, for example, prefer `program_t` to `renderer_program_t`.
+- Names must be technically precise and as short as their context permits.
+- Let the module namespace and enclosing type carry context; within a renderer module, for example, prefer `program_t` to `renderer_program_t`.
 - Use `snake_case` for project-defined namespaces, functions, variables, data members, and enumerators.
 - Suffix project-defined class, struct, enum, and type-alias names with `_t`.
 - Prefix every non-static data member with `m_`.
@@ -46,8 +50,8 @@ input_state_t current_state;
 
 - Use `std::size_t` for object sizes, element counts, and container indices.
 - Use another integer type only when required by an external API, serialized representation, or exact-width constraint.
-- Use `std::shared_ptr` only when ownership is genuinely shared by multiple owners.
-- Otherwise, use value semantics, references, non-owning raw pointers, or `std::unique_ptr` according to the required ownership semantics.
+- Use `std::shared_ptr` for genuinely shared ownership.
+- Otherwise select value semantics, references, non-owning raw pointers, or `std::unique_ptr` to express the required ownership and lifetime.
 
 ## Formatting
 
@@ -80,12 +84,18 @@ foo_t::foo_t():
 
 ## Documentation
 
-- Do not add comments that merely restate the code.
+- Comments must explain non-obvious behavior or intent rather than restating code.
 - Document public declarations with concise Doxygen comments.
 - Keep each `@brief` description to one sentence.
 - Add `@param`, `@return`, `@throws`, precondition, postcondition, ownership, or lifetime documentation only when applicable.
 - Describe behavior and contracts rather than implementation details.
 - Preserve existing documentation unless it is incorrect or obsolete.
+
+## Validation design
+
+- Tests must demonstrate observable contracts, public invariants, and relevant negative cases.
+- Successful-construction tests must show that invalid states are rejected when construction owns that invariant.
+- Backend-neutral contract tests must remain independent of backend-private mechanics.
 
 ## Declaration and definition order
 

@@ -18,9 +18,9 @@ Represent process commands, replace or create child processes, report checked re
 - A stopped foreground child is not silently treated as completion; it is terminated and reaped according to the current checked-job contract.
 - File descriptors and child processes are not leaked on partial setup failure.
 
-## Non-goals
+## Boundary
 
-Do not turn this module into a shell parser, pipeline framework, terminal emulator, asynchronous process supervisor, or network execution layer without an explicit task.
+This module owns direct command execution, checked waits, process replacement, and synchronous foreground-terminal handoff. Shell parsing, pipelines, terminal emulation, asynchronous supervision, and network execution require separate semantic abstractions.
 
 ## Validation
 
@@ -33,8 +33,8 @@ Exercise:
 5. interactive execution in a pseudo-terminal, including terminal restoration after success and failure;
 6. termination during foreground setup and waiting.
 
-Manual terminal testing must not be reported as automated coverage.
+Report pseudo-terminal automation and manual terminal checks separately.
 
-## Explicit decisions
+## Direction required
 
 Obtain direction before changing result encoding, environment inheritance, signal forwarding, process-group ownership, stopped-child behavior, terminal restoration, or checked-operation semantics.

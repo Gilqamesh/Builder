@@ -2,35 +2,24 @@
 
 ## Purpose
 
-Discover workspaces and modules, derive normal and builder dependency edges from source, validate workspace ordering, compute dependency SCCs and closures, propagate effective versions, and provide canonical source/artifact paths.
+Discover workspaces and modules for one workspace root, validate their identities, expose ordered workspace/module objects, derive source versions, and provide canonical source and artifact paths.
 
 ## Invariants
 
 - Workspace directories are named `ws<N>` and ordered by numeric `N`.
 - Module names are globally unique and retain their complete UUIDv7-based identity.
-- Ordinary module dependencies come from module-qualified includes outside `builder.cpp`.
-- Builder dependencies come from module-qualified includes in `builder.cpp`.
-- Normal dependencies may target the same or an earlier workspace.
-- Builder dependencies target an earlier workspace except within the explicitly recognized active bootstrap group.
-- Normal dependency cycles are represented as SCCs; closure groups are dependency-to-dependent topological order.
-- Effective versions include source-tree modification time and propagated dependency and builder-dependency versions.
+- Discovery indexes every direct module child before materializing modules on demand.
+- A module's source version is the latest modification time in its source tree.
 - Source and artifact paths are derived from the graph roots and module identity; callers must not reconstruct them independently.
-- The graph is the dependency source of truth. Do not add a second handwritten dependency manifest.
 
-## Non-goals
+## Boundary
 
-This module does not compile code, execute phases, load producer plugins, or define runtime communication between arbitrary modules.
+This module owns workspace/module identity, discovery, source versions, and canonical roots. Source-include scanning, dependency eligibility, SCC construction, phase execution, and artifact publication belong to their dedicated foundation modules.
 
 ## Validation
 
-After a change:
+Build the module library to run `test/public_api.cpp`. Cover module-name parsing/generation, workspace-name ordering, duplicate module identity, lazy discovery, source-version calculation, invocation-root selection, and derived source/artifact paths as applicable to the change.
 
-1. Bootstrap Builder.
-2. Discover and build one `ws0`, one `ws1`, and one `ws2` target.
-3. Exercise a target with same-workspace dependencies.
-4. Exercise graph rendering or dependency-IR conversion when the public graph model changes.
-5. Add focused invalid-layout cases for changed name, workspace, duplicate, or ordering rules.
+## Direction required
 
-## Explicit decisions
-
-Obtain direction before changing module-name grammar, directory discovery, include parsing, workspace ordering, SCC grouping, version propagation, bootstrap recognition, or artifact path semantics.
+Obtain direction before changing module-name grammar, directory discovery, workspace-name ordering, source-version meaning, invocation-root defaults, or canonical source/artifact path semantics.

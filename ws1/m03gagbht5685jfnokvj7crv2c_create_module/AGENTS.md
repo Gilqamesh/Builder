@@ -10,19 +10,14 @@ Create neutral module boilerplate in an existing workspace using a newly generat
 - The target workspace must already exist and be a directory.
 - Existing module directories or files are never overwritten.
 - Generated namespaces and include guards use the complete module name.
-- Generated `builder.cpp` follows the current default phase protocol.
+- Generated `builder.cpp` is empty so the build system's default phase behavior applies.
+- Generated `api.h` provides only the complete module namespace, and `cli.cpp` provides the neutral default CLI.
 - Boilerplate remains semantically neutral: the generator must not invent the module's purpose, ownership model, invariants, dependencies, or future features.
 
-## Agent-aware module creation
+## Boundary
 
-The agent workflow, not boilerplate generation, owns semantic discovery. When an agent creates a real module, it should draft `<new-module>/AGENTS.md` from `docs/module-agents-template.md` before implementing the public API.
-
-If this generator later creates an `AGENTS.md`, it may create only a concise template with explicit open decisions. It must not generate plausible semantic content from the friendly name.
-
-## Non-goals
-
-Do not make this module a package manager, dependency solver, architecture generator, or project wizard without explicit direction.
+This module owns neutral filesystem scaffolding only. The agent workflow owns semantic discovery and module-contract authoring; package management, dependency solving, and architecture generation belong elsewhere.
 
 ## Validation
 
-Create a module in a temporary workspace, verify every generated path and identifier, build its default phase chain, invoke its CLI, and verify that a second creation attempt fails without altering existing files.
+Build the module library to run `test/public_api.cpp`. Verify workspace validation, generated identities and paths, exact boilerplate contents, repeated creation with a fresh identity, and invalid friendly/workspace names. For generator changes, also build a generated module through the default phase chain and invoke its CLI.

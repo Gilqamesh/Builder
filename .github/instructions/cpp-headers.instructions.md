@@ -88,8 +88,8 @@ Do not create separate groups for modules that wrap C, C++, system, platform, or
 - Place project declarations in that namespace.
 - Do not define ordinary non-template project functions in the header.
 - Do not define non-template member functions inside a class or struct declaration.
-- Do not use `friend` declarations.
-- Do not replace friendship with passkeys, privileged access shims, or equivalent hidden-access mechanisms solely to bypass ordinary interfaces. Reorganize collaborators around interfaces appropriate to their ownership boundary.
+- Structure collaborators around ordinary interfaces appropriate to their ownership boundary.
+- Keep `friend` declarations, passkeys, privileged access shims, and equivalent hidden-access mechanisms out of project types.
 - Close every named namespace with a comment containing its complete name.
 
 ```cpp
