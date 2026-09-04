@@ -1,20 +1,20 @@
-#include "process.h"
+# include "process.h"
 
-#include "foreground_job.h"
+# include "foreground_job.h"
 
-#include <m03gagbhsyhlx2pk5sdabbr1sx_signal_handler/signal_handler.h>
+# include <m03gagbhsyhlx2pk5sdabbr1sx_signal_handler/signal_handler.h>
 
-#include <cerrno>
-#include <cstdlib>
-#include <cstring>
-#include <exception>
-#include <format>
-#include <stdexcept>
-#include <utility>
-#include <iostream>
+# include <cerrno>
+# include <cstdlib>
+# include <cstring>
+# include <exception>
+# include <format>
+# include <iostream>
+# include <stdexcept>
+# include <utility>
 
-#include <sys/wait.h>
-#include <unistd.h>
+# include <sys/wait.h>
+# include <unistd.h>
 
 namespace m03gagbhsvr0m5w15urj0o291m_process {
 
@@ -28,6 +28,12 @@ environment_variable_t::environment_variable_t(std::string name, std::string val
 
     if (m_name.find('=') != std::string::npos) {
         throw std::invalid_argument(std::format("m03gagbhsvr0m5w15urj0o291m_process::environment_variable_t: name '{}' must not contain '='", m_name));
+    }
+    if (m_name.find('\0') != std::string::npos) {
+        throw std::invalid_argument("m03gagbhsvr0m5w15urj0o291m_process::environment_variable_t: name must not contain a null character");
+    }
+    if (m_value.find('\0') != std::string::npos) {
+        throw std::invalid_argument("m03gagbhsvr0m5w15urj0o291m_process::environment_variable_t: value must not contain a null character");
     }
 }
 
@@ -115,20 +121,29 @@ void create_and_wait_foreground_checked(const command_t& command) {
 }
 
 [[noreturn]] void exec(const command_t& command) {
+    const auto& args = command.args();
+    if (args.empty()) {
+        throw std::runtime_error("m03gagbhsvr0m5w15urj0o291m_process::exec: command args must not be empty");
+    }
+    for (const auto& arg : args) {
+        if (arg.find('\0') != std::string::npos) {
+            throw std::invalid_argument("m03gagbhsvr0m5w15urj0o291m_process::exec: command arguments must not contain null characters");
+        }
+    }
+
+    const auto& working_dir = command.working_dir();
+    if (working_dir && working_dir->string().find('\0') != std::string::npos) {
+        throw std::invalid_argument("m03gagbhsvr0m5w15urj0o291m_process::exec: working directory must not contain a null character");
+    }
+
     for (const auto& environment_variable : command.environment_variables()) {
         if (setenv(environment_variable.name().c_str(), environment_variable.value().c_str(), 1) == -1) {
             throw std::runtime_error(std::format("m03gagbhsvr0m5w15urj0o291m_process::exec: failed to set environment binding '{}': {}", environment_variable.name(), std::strerror(errno)));
         }
     }
 
-    const auto& working_dir = command.working_dir();
     if (working_dir && chdir(working_dir->c_str()) == -1) {
         throw std::runtime_error(std::format("m03gagbhsvr0m5w15urj0o291m_process::exec: chdir failed for '{}': {}", *working_dir, std::strerror(errno)));
-    }
-
-    const auto& args = command.args();
-    if (args.empty()) {
-        throw std::runtime_error("m03gagbhsvr0m5w15urj0o291m_process::exec: command args must not be empty");
     }
 
     std::vector<char*> cargs;

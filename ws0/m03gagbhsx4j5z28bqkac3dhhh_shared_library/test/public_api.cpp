@@ -1,18 +1,18 @@
-#include <m03gn97n4iusbtl7uthb01wu9m_test_framework/test_framework.h>
-#include <m03gagbhsx4j5z28bqkac3dhhh_shared_library/shared_library.h>
+# include <m03gn97n4iusbtl7uthb01wu9m_test_framework/test_framework.h>
+# include <m03gagbhsx4j5z28bqkac3dhhh_shared_library/shared_library.h>
 
-#include <functional>
-#include <chrono>
-#include <cstdint>
-#include <cstdlib>
-#include <dlfcn.h>
-#include <filesystem>
-#include <format>
-#include <fstream>
-#include <stdexcept>
-#include <string>
-#include <type_traits>
-#include <utility>
+# include <chrono>
+# include <cstdint>
+# include <cstdlib>
+# include <dlfcn.h>
+# include <filesystem>
+# include <format>
+# include <fstream>
+# include <functional>
+# include <stdexcept>
+# include <string>
+# include <type_traits>
+# include <utility>
 
 namespace api = m03gagbhsx4j5z28bqkac3dhhh_shared_library;
 namespace filesystem_api = m03gagbhsnusi43zogoacgj2ez_filesystem;
@@ -95,8 +95,8 @@ int main() {
         static_assert(api::symbol_resolution_t::NOW != api::symbol_resolution_t::LAZY);
         static_assert(api::symbol_visibility_t::LOCAL != api::symbol_visibility_t::GLOBAL);
 
-        test::expect_throws<std::runtime_error>([] {
-            [[maybe_unused]] const api::symbol_t invalid(nullptr);
+        test::expect_no_throw([] {
+            [[maybe_unused]] const api::symbol_t null_symbol(nullptr);
         });
 
         temporary_directory_t temporary_directory;

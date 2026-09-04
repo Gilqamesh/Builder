@@ -1,17 +1,17 @@
-#include <m03gn97n4iusbtl7uthb01wu9m_test_framework/test_framework.h>
-#include <m03gagbht5685jfnokvj7crv2c_create_module/create_module.h>
+# include <m03gn97n4iusbtl7uthb01wu9m_test_framework/test_framework.h>
+# include <m03gagbht5685jfnokvj7crv2c_create_module/create_module.h>
 
-#include <functional>
-#include <chrono>
-#include <cstdint>
-#include <cstdlib>
-#include <filesystem>
-#include <format>
-#include <fstream>
-#include <iterator>
-#include <optional>
-#include <stdexcept>
-#include <string>
+# include <chrono>
+# include <cstdint>
+# include <cstdlib>
+# include <filesystem>
+# include <format>
+# include <fstream>
+# include <functional>
+# include <iterator>
+# include <optional>
+# include <stdexcept>
+# include <string>
 
 namespace api = m03gagbht5685jfnokvj7crv2c_create_module;
 namespace filesystem_api = m03gagbhsnusi43zogoacgj2ez_filesystem;
@@ -166,7 +166,7 @@ int main() {
             [[maybe_unused]] const auto path = api::create("not-a-workspace", "Valid");
         });
         std::filesystem::create_directories(workspace / "nested");
-        test::expect_throws<std::runtime_error>([] {
+        test::expect_throws<std::invalid_argument>([] {
             [[maybe_unused]] const auto path = api::create("ws5/nested", "Valid");
         });
 

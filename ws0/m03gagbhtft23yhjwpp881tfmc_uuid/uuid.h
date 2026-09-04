@@ -21,7 +21,7 @@ public:
      *
      * @param bytes The 16 UUID bytes in network byte order.
      *
-     * @throws std::invalid_argument on invalid input.
+     * Fails on invalid input.
      */
     explicit uuid(std::span<const std::byte> bytes);
 
@@ -33,8 +33,7 @@ public:
      * @param version The UUID version to generate. Must be 7.
      * @return A generated uuid.
      *
-     * @throws std::invalid_argument on invalid input.
-     * @throws std::runtime_error on generation failure.
+     * Fails on invalid input or generation failure.
      */
     static uuid generate(unsigned version);
 
@@ -58,8 +57,8 @@ public:
      *
      * @return The UUID Unix millisecond timestamp.
      *
-     * @throws std::logic_error if the UUID version has no supported timestamp representation.
-     * @throws std::range_error if the timestamp is not representable.
+     * Fails if the UUID version has no supported timestamp representation.
+     * Fails if the timestamp is not representable.
      */
     std::chrono::system_clock::time_point timestamp() const;
 

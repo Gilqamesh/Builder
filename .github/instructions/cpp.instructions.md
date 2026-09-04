@@ -116,12 +116,14 @@ foo_t::foo_t():
 - Use a repository module's public interface when that module owns the required abstraction.
 - Use complete module-qualified paths for repository-module headers.
 - Keep include paths independent of filesystem traversal.
-- Preserve the project's `# include` formatting convention.
+- Follow the path-specific directive spelling: headers use `# include`; source files use `#include`.
+
+For example, a source-file include block uses:
 
 ```cpp
-# include "same_directory_header.h"
+#include "same_directory_header.h"
 
-# include <complete_module_name/header.h>
+#include <complete_module_name/header.h>
 
-# include <vector>
+#include <vector>
 ```

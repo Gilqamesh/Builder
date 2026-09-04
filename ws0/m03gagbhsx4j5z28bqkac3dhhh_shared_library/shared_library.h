@@ -66,8 +66,8 @@ public:
      * using fn_t = void (*)();
      * fn_t fn = loader.resolve("entry");
      *
-     * @throws std::invalid_argument if symbol is null.
-     * @throws std::logic_error if this loader has been moved from.
+     * Fails if the symbol name is null, this loader has been moved from, or the
+     * dynamic loader cannot resolve the symbol.
      */
     symbol_t resolve(const char* symbol) const;
     std::optional<symbol_t> resolve_optional(const char* symbol) const;

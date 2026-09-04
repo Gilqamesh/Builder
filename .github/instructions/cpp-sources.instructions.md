@@ -15,15 +15,16 @@ Organize includes into these groups:
 Separate adjacent non-empty groups with exactly one blank line.
 Do not insert blank lines within a group.
 Do not repeat declarations from the corresponding header to avoid including it.
+Use `#include` without a space between `#` and `include`.
 
 ```cpp
-# include "builder_cli.h"
-# include "internal_helpers.h"
+#include "builder_cli.h"
+#include "internal_helpers.h"
 
-# include <m03gagbhsp2drqq3gkop8pzfrm_workspace_graph/workspace_graph.h>
+#include <m03gagbhsp2drqq3gkop8pzfrm_workspace_graph/workspace_graph.h>
 
-# include <cstddef>
-# include <string>
+#include <cstddef>
+#include <string>
 ```
 
 ## Namespace and definitions

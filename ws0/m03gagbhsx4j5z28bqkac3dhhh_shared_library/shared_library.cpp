@@ -1,20 +1,17 @@
-#include "shared_library.h"
+# include "shared_library.h"
 
-#include <m03gagbhsnusi43zogoacgj2ez_filesystem/filesystem.h>
+# include <m03gagbhsnusi43zogoacgj2ez_filesystem/filesystem.h>
 
-#include <dlfcn.h>
+# include <dlfcn.h>
 
-#include <format>
-#include <stdexcept>
+# include <format>
+# include <stdexcept>
 
 namespace m03gagbhsx4j5z28bqkac3dhhh_shared_library {
 
 symbol_t::symbol_t(void* symbol):
     m_symbol(symbol)
 {
-    if (m_symbol == nullptr) {
-        throw std::runtime_error(std::format("m03gagbhsx4j5z28bqkac3dhhh_shared_library::symbol_t::symbol_t: null symbol pointer"));
-    }
 }
 
 loader_t::loader_t(
@@ -95,8 +92,9 @@ symbol_t loader_t::resolve(const char* symbol) const {
 
     dlerror();
     void* result = dlsym(m_handle, symbol);
-    if (result == nullptr) {
-        throw std::runtime_error(std::format("m03gagbhsx4j5z28bqkac3dhhh_shared_library::loader_t::resolve_impl: failed to resolve symbol '{}': {}", symbol, dlerror()));
+    const char* error = dlerror();
+    if (error != nullptr) {
+        throw std::runtime_error(std::format("m03gagbhsx4j5z28bqkac3dhhh_shared_library::loader_t::resolve: failed to resolve symbol '{}': {}", symbol, error));
     }
 
     return symbol_t(result);
@@ -112,7 +110,7 @@ std::optional<symbol_t> loader_t::resolve_optional(const char* symbol) const {
 
     dlerror();
     void* result = dlsym(m_handle, symbol);
-    if (result == nullptr) {
+    if (dlerror() != nullptr) {
         return std::nullopt;
     }
 

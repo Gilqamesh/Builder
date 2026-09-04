@@ -16,7 +16,7 @@ namespace m03gagbhst621faiop1rztfkqp_builder_cli {
  * @param argc The number of additional module arguments in argv.
  * @param argv The additional arguments for the module invocation.
  *
- * @throws std::runtime_error if building the CLI or replacing the process fails.
+ * Fails if building the CLI or replacing the process fails.
  */
 [[noreturn]] void exec(m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::module_name_t module, int argc, const char* const* argv);
 
@@ -28,7 +28,7 @@ namespace m03gagbhst621faiop1rztfkqp_builder_cli {
  * @param argc The number of additional module arguments in argv.
  * @param argv The additional arguments for the module invocation.
  *
- * @throws std::runtime_error if building the target or replacing the process fails.
+ * Fails if building the target or replacing the process fails.
  */
 [[noreturn]] void exec(m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::module_name_t module, std::string_view target, int argc, const char* const* argv);
 
@@ -38,7 +38,7 @@ namespace m03gagbhst621faiop1rztfkqp_builder_cli {
  * @param module The module whose default CLI should be invoked.
  * @param args The additional arguments for the module invocation.
  *
- * @throws std::runtime_error if building the CLI or replacing the process fails.
+ * Fails if building the CLI or replacing the process fails.
  */
 [[noreturn]] void exec(m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::module_name_t module, std::vector<std::string> args);
 
@@ -49,7 +49,7 @@ namespace m03gagbhst621faiop1rztfkqp_builder_cli {
  * @param target The binary target to invoke.
  * @param args The additional arguments for the module invocation.
  *
- * @throws std::runtime_error if building the target or replacing the process fails.
+ * Fails if building the target or replacing the process fails.
  */
 [[noreturn]] void exec(m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::module_name_t module, std::string_view target, std::vector<std::string> args);
 
@@ -60,7 +60,7 @@ namespace m03gagbhst621faiop1rztfkqp_builder_cli {
  * @param argc The number of additional module arguments in argv.
  * @param argv The additional arguments for the module invocation.
  *
- * @throws std::runtime_error if building the CLI, launching the process, waiting
+ * Fails if building the CLI, launching the process, waiting
  * for it, or a non-zero process result fails the checked wait.
  */
 void create_and_wait_checked(m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::module_name_t module, int argc, const char* const* argv);
@@ -73,7 +73,7 @@ void create_and_wait_checked(m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::module_
  * @param argc The number of additional module arguments in argv.
  * @param argv The additional arguments for the module invocation.
  *
- * @throws std::runtime_error if building the target, launching the process,
+ * Fails if building the target, launching the process,
  * waiting for it, or a non-zero process result fails the checked wait.
  */
 void create_and_wait_checked(m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::module_name_t module, std::string_view target, int argc, const char* const* argv);
@@ -84,7 +84,7 @@ void create_and_wait_checked(m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::module_
  * @param module The module whose default CLI should be invoked.
  * @param args The additional arguments for the module invocation.
  *
- * @throws std::runtime_error if building the CLI, launching the process, waiting
+ * Fails if building the CLI, launching the process, waiting
  * for it, or a non-zero process result fails the checked wait.
  */
 void create_and_wait_checked(m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::module_name_t module, std::vector<std::string> args);
@@ -96,7 +96,7 @@ void create_and_wait_checked(m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::module_
  * @param target The binary target to invoke.
  * @param args The additional arguments for the module invocation.
  *
- * @throws std::runtime_error if building the target, launching the process,
+ * Fails if building the target, launching the process,
  * waiting for it, or a non-zero process result fails the checked wait.
  */
 void create_and_wait_checked(m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::module_name_t module, std::string_view target, std::vector<std::string> args);

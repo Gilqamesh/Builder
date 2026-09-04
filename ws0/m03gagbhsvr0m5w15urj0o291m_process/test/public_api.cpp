@@ -1,19 +1,19 @@
-#include <m03gn97n4iusbtl7uthb01wu9m_test_framework/test_framework.h>
-#include <m03gagbhsvr0m5w15urj0o291m_process/process.h>
+# include <m03gn97n4iusbtl7uthb01wu9m_test_framework/test_framework.h>
+# include <m03gagbhsvr0m5w15urj0o291m_process/process.h>
 
-#include <functional>
-#include <chrono>
-#include <cstdint>
-#include <filesystem>
-#include <format>
-#include <fstream>
-#include <iterator>
-#include <stdexcept>
-#include <string>
-#include <vector>
+# include <chrono>
+# include <cstdint>
+# include <filesystem>
+# include <format>
+# include <fstream>
+# include <functional>
+# include <iterator>
+# include <stdexcept>
+# include <string>
+# include <vector>
 
-#include <sys/wait.h>
-#include <unistd.h>
+# include <sys/wait.h>
+# include <unistd.h>
 
 namespace api = m03gagbhsvr0m5w15urj0o291m_process;
 namespace filesystem_api = m03gagbhsnusi43zogoacgj2ez_filesystem;
@@ -78,6 +78,18 @@ int main() {
         });
         test::expect_throws<std::invalid_argument>([] {
             [[maybe_unused]] const api::environment_variable_t invalid("A=B", "value");
+        });
+        test::expect_throws<std::invalid_argument>([] {
+            [[maybe_unused]] const api::environment_variable_t invalid(
+                std::string("A\0B", 3),
+                "value"
+            );
+        });
+        test::expect_throws<std::invalid_argument>([] {
+            [[maybe_unused]] const api::environment_variable_t invalid(
+                "A",
+                std::string("value\0suffix", 12)
+            );
         });
 
         const api::command_t empty_command({});
@@ -189,6 +201,33 @@ int main() {
                     api::exec(api::command_t({}));
                 } catch (const std::runtime_error&) {
                     _exit(0);
+                }
+                _exit(1);
+            }
+            const int status = wait_for(child);
+            test::expect(std::identity(), WIFEXITED(status));
+            test::expect(std::equal_to<>(), WEXITSTATUS(status), 0);
+        }
+
+        {
+            const pid_t child = fork();
+            test::expect(std::identity(), child != -1);
+            if (child == 0) {
+                const auto original_path = std::filesystem::current_path();
+                unsetenv("PROCESS_EMPTY_COMMAND_SIDE_EFFECT");
+                try {
+                    api::exec(api::command_t(
+                        {},
+                        working_dir,
+                        {api::environment_variable_t("PROCESS_EMPTY_COMMAND_SIDE_EFFECT", "set")}
+                    ));
+                } catch (const std::runtime_error&) {
+                    if (
+                        std::getenv("PROCESS_EMPTY_COMMAND_SIDE_EFFECT") == nullptr &&
+                        std::filesystem::current_path() == original_path
+                    ) {
+                        _exit(0);
+                    }
                 }
                 _exit(1);
             }

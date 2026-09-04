@@ -61,7 +61,7 @@ public:
      * @param radix The radix to use. Must be between 2 and 36.
      * @return A byte_stream_t containing the parsed value as big-endian bytes.
      *
-     * @throws std::invalid_argument on invalid input.
+     * Fails on invalid input.
      */
     static byte_stream_t from_radix(std::string_view text, uint32_t radix);
 
@@ -75,7 +75,7 @@ public:
      * @param radix The radix to use. Must be between 2 and 36.
      * @return The radix string. Only characters 0-9 and a-z are used.
      *
-     * @throws std::invalid_argument on invalid input.
+     * Fails on invalid input.
      */
     std::string to_radix(uint32_t radix) const;
 
@@ -85,7 +85,7 @@ public:
      * @param path The path to the file to read.
      * @return A byte_stream_t containing the file contents.
      *
-     * @throws std::ios_base::failure if the file cannot be opened or read.
+     * Fails if the file cannot be opened or read.
      */
     static byte_stream_t from_file(const std::filesystem::path& path);
 
@@ -94,7 +94,7 @@ public:
      *
      * @param path The path to the file to write.
      *
-     * @throws std::ios_base::failure if the file cannot be opened or written.
+     * Fails if the file cannot be opened or written.
      */
     void to_file(const std::filesystem::path& path) const;
 
