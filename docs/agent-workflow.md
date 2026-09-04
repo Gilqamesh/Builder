@@ -57,7 +57,9 @@ Consider only dimensions raised by the task, an authoritative existing contract,
 - established compatibility requirements;
 - what evidence proves the implementation correct.
 
-Treat choices established by authoritative public contracts, module contracts, repository instructions, or explicit task direction as fixed. An unresolved material contract choice requires direction. The agent may make a material contract choice only when explicitly delegated; needing the choice to proceed does not constitute delegation.
+Treat choices established by authoritative public contracts, module contracts, repository instructions, or explicit task direction as fixed. A broad request to audit, harden, correct, reconcile, or improve safety authorizes implementation of settled semantics; it does not delegate choices among materially different observable contracts. An unresolved material contract choice requires direction. The agent may make a material contract choice only when explicitly delegated; needing the choice to proceed does not constitute delegation.
+
+Do not let an implementation constraint select public semantics. If a correctness or safety fix would change accepted types or values, identity or equivalence, ownership or lifetime, mutability or access, copyability, or failure behavior, keep the decision open and report it. Tests demonstrate a settled contract; they do not establish one.
 
 Make mechanically reversible implementation choices as needed without presenting them as durable semantics. Do not make production changes that resolve or depend on a materially unresolved contract choice; independent work may continue.
 
