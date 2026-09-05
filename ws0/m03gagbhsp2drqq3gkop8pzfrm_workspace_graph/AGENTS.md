@@ -4,7 +4,7 @@
 
 Discover workspaces and modules for one workspace root, validate their identities, expose ordered workspace/module objects, derive source versions, and provide canonical source and artifact paths.
 
-This module owns workspace/module identity, discovery, source versions, and canonical roots. Source-include scanning, dependency eligibility, SCC construction, phase execution, and artifact publication belong to their dedicated foundation modules.
+For source-include scanning, dependency eligibility, SCC construction, phase execution, and artifact publication, use the [foundation ownership table](../../docs/repository-model.md#foundation-ownership).
 
 ## Invariants
 
@@ -14,4 +14,4 @@ This module owns workspace/module identity, discovery, source versions, and cano
 
 ## Validation
 
-`test/public_api.cpp` is the executable contract. Extend its temporary workspace fixtures for discovery, identity, lifetime, version, or path behavior changed by the task.
+Extend the temporary workspace fixtures in `test/public_api.cpp` to provide evidence for discovery, identity, lifetime, version, or path behavior changed by the task.

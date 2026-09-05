@@ -16,9 +16,7 @@ A header must contain sections in this order:
 6. Reopened `std` namespace containing `std::formatter` definitions, when required.
 7. Include guard closing.
 
-Omit a section when it would be empty.
-Do not interleave declaration and definition sections.
-Do not leave placeholder comments for omitted sections.
+Omit empty sections and their placeholder comments; keep declaration and definition sections separate.
 
 ## Include guards
 
@@ -90,9 +88,6 @@ Do not insert blank lines within a group.
 
 - Open the namespace whose name exactly matches the complete module name after the include section.
 - Place project declarations in that namespace.
-- Do not define ordinary non-template project functions in the header.
-- Do not define non-template member functions inside a class or struct declaration.
-- Structure collaborators around ordinary interfaces appropriate to their ownership boundary.
 - Keep `friend` declarations, passkeys, privileged access shims, and equivalent hidden-access mechanisms out of project types.
 - Close every named namespace with a comment containing its complete name.
 
@@ -106,31 +101,17 @@ namespace m03gl8a1hl8xe3ynm8s2wwfy4u_software_renderer {
 
 ## Definitions permitted in headers
 
-Only the following project definitions are permitted in a header:
+Place ordinary non-template project function definitions in the corresponding source file. Header definitions are permitted only for:
 
 - Template definitions that must be visible at the point of instantiation.
 - `std::formatter` specialization definitions.
 - Definitions explicitly required in the header by the current task or by a language constraint.
 
-Do not mark a function `inline` merely to move its implementation into a header.
-Place ordinary non-template definitions in the corresponding source file.
+Keep member-function definitions outside project class or struct declarations in the module namespace unless the current task or language specifically requires an in-class definition. `inline` alone does not permit moving an implementation into a header.
 
 ## Template organization
 
-For every project-defined template:
-
-1. Declare the complete template type and all members in the initial module-namespace section.
-2. Do not define member functions inside the type declaration.
-3. Close the module namespace after all project declarations.
-4. Declare the corresponding `std::formatter` specialization in `namespace std`.
-5. Reopen the module namespace.
-6. Define template members in exactly the same order as their declarations.
-7. Close the module namespace.
-8. Reopen `namespace std`.
-9. Define the formatter specialization.
-
-Do not interleave template member declarations with definitions.
-Preserve the relative order of multiple template types and their formatter specializations.
+Declare complete project template types and all members in the initial module-namespace section. Place template definitions in the reopened module namespace shown in [Required file order](#required-file-order), following the shared [declaration and definition order](cpp.instructions.md#declaration-and-definition-order). Preserve the relative order of multiple template types.
 
 ## `std::formatter` specializations
 
@@ -144,10 +125,8 @@ Do not create a separate formatter specialization for:
 
 Formatter rules:
 
-- Place formatter declarations and definitions in `namespace std`.
+- Use the `std` sections in [Required file order](#required-file-order) for formatter declarations and definitions.
 - Refer to the project type by its fully qualified module name.
-- Declare formatter specializations after all project declarations.
-- Define formatter specializations after all project template definitions.
 - Keep formatter declarations and definitions in the same relative order as their corresponding project types.
 - In each `format()` function, obtain `auto out = ctx.out()`, progressively update it with `out = std::format_to(out, ...)`, and finish with exactly one normal `return out;`.
 - Make each non-error branch update `out` and continue to the final return; throwing branches may exit independently.

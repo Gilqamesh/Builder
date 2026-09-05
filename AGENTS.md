@@ -6,12 +6,15 @@ Use this file to acquire the smallest context that fully determines a task. Buil
 
 - This file owns instruction precedence, context routing, semantic authority, scope discipline, and completion reporting.
 - `docs/agent-workflow.md` owns the reasoning and decision process for semantic work.
+- `docs/repository-model.md` owns intended cross-module and build-system semantics.
 - `docs/module-agents-template.md` owns the filter and structure for module-specific direction.
 - Path-specific language instructions own concrete API, coding, and style rules.
 - Public headers own the public contract.
 - Tests provide executable evidence and case coverage.
 
 Record each durable fact at the narrowest scope shared by everything it governs. The contract of the component named as owner is authoritative for an ownership assertion; shared architecture documentation is authoritative for relationships spanning components. Elsewhere, route readers to the authoritative source, repeating information only when correct local use requires it.
+
+Write instructions around the intended action. State the applicable condition, destination, and exceptions when needed for correct use. Prefer affirmative wording when it clarifies the action; retain necessary prohibitions.
 
 ## Instruction precedence
 
@@ -33,15 +36,16 @@ For C++ work, also read:
 - `.github/instructions/cpp-headers.instructions.md` when editing a `.h` file
 - `.github/instructions/cpp-sources.instructions.md` when editing a `.cpp` file
 
-Then load only the documents selected below:
+Apply all matching task rows, loading only the selected documents or sections. For vendored third-party changes, use only the vendored-code row.
 
 | Task | Additional context |
 |---|---|
-| Ordinary work inside one module | The module's `AGENTS.md`, when present |
+| Ordinary work inside one module | The module's `AGENTS.md`, when present; the validation section of `docs/agent-workflow.md` for implementation tasks |
 | Define or materially change a public API within an established module boundary | `docs/agent-workflow.md` and the module's `AGENTS.md`, when present |
 | Create a module or materially change module boundaries | `docs/agent-workflow.md`, `docs/repository-model.md`, and `docs/module-agents-template.md` when a module contract is warranted |
 | Change workspace ordering, dependencies, artifacts, phases, bootstrap, or module execution | `docs/repository-model.md` and each affected foundation module's `AGENTS.md`, when present |
-| Implement across multiple modules | The multi-module dispatch section of `docs/agent-workflow.md` and each affected module's `AGENTS.md`, when present |
+| Implement across multiple modules | `docs/agent-workflow.md` and each affected module's `AGENTS.md`, when present |
+| Encounter an unresolved durable semantic choice | `docs/agent-workflow.md` and each affected module's `AGENTS.md`, when present |
 | Review a change | Instructions for the changed paths, public interfaces of direct dependencies, and relevant validation code |
 | Modify vendored third-party code | Only the task, enclosing workspace/module instructions, and the exact vendored files required |
 
@@ -64,12 +68,13 @@ The user owns terminology, semantics, invariants, ownership, and architectural d
 
 For a new module or material public-contract change, follow `docs/agent-workflow.md`: identify missing durable decisions, ask only questions that alter those decisions, and draft the module contract before its public interface when a contract is warranted.
 
-A module may have at most one agent-specific file: `<module>/AGENTS.md`. Keep plans, memory, style, and architecture guidance in the existing repository-owned documents rather than adding module-local layers.
+A module may have at most one agent-specific file: `<module>/AGENTS.md`; there is no workspace-level instruction layer. Place durable guidance with its existing documentation owner, applying `docs/module-agents-template.md` to module-specific direction. Keep temporary task plans, working notes, and transcripts outside permanent instruction files.
 
 ## Scope discipline
 
 - Keep unrelated cleanup, renaming, reformatting, refactoring, and future possibilities outside the requested semantic boundary.
 - Preserve established terminology; obtain direction before replacing a semantic term.
+- Evaluate module reuse or extraction only in a separately requested architecture audit.
 
 ## Completion
 

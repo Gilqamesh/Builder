@@ -4,7 +4,7 @@
 
 Create neutral module boilerplate in an existing workspace using a newly generated valid module identity.
 
-This module owns neutral filesystem scaffolding only. The agent workflow owns semantic discovery and module-contract authoring; package management, dependency solving, and architecture generation belong elsewhere.
+This module owns neutral filesystem scaffolding. Use the [agent workflow](../../docs/agent-workflow.md#create-a-new-module) for semantic discovery and module-contract authoring. Package management, dependency solving, and architecture generation require separately requested semantic or architectural work.
 
 ## Invariants
 
@@ -18,4 +18,4 @@ This module owns neutral filesystem scaffolding only. The agent workflow owns se
 
 ## Validation
 
-`test/public_api.cpp` verifies generated identities and exact neutral contents, invalid friendly names, invalid or missing workspace paths, and refusal to overwrite. For template changes, also build a generated module through the default phase chain and invoke its CLI.
+Extend `test/public_api.cpp` for changed generator behavior. For template changes, also build a generated module through the default phase chain and invoke its CLI.

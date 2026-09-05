@@ -4,7 +4,7 @@
 
 Materialize a module through source, interface, library, and binary phases; derive source dependencies; build library SCCs; dispatch module-owned producer code; validate outputs; and publish cache-keyed versioned artifacts.
 
-This module owns dependency-driven build materialization and publication. Workspace/module identity belongs to `workspace_graph`; low-level include scanning and artifact-path operations belong to their dedicated foundation modules. Application semantics and agent execution remain outside the build-phase model.
+For workspace/module identity, source-include scanning and eligibility, and artifact-path operations, use the [foundation ownership table](../../docs/repository-model.md#foundation-ownership). Application semantics and agent execution remain outside the build-phase model.
 
 ## Public model
 

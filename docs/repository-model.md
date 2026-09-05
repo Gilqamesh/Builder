@@ -32,20 +32,27 @@ Use the complete directory name for module identity, namespaces, includes, and u
 
 ## Module boundaries
 
-A module does not need multiple consumers. A separate module is warranted when an abstraction:
+Apply these criteria when module creation or a boundary change is requested. Use an existing module when it already owns the required abstraction.
+
+A separate module is warranted when its abstraction:
 
 - has one coherent responsibility;
 - owns meaningful semantics rather than merely grouping files;
-- can be understood and tested independently of its consumer;
+- can be understood, implemented, and tested independently of its consumer;
 - has enough complexity that separation clarifies dependencies and ownership.
 
-Reuse is useful evidence rather than a requirement. Keep tightly coupled concepts together when they do not own independently understandable and testable semantics.
+Multiple consumers are not required; reuse is useful evidence. Keep tightly coupled concepts with their consumer when they lack independently understandable and testable semantics.
 
-Use an existing module when it already owns the required abstraction. Module boundaries must clarify cohesive semantic ownership and dependencies.
+## Foundation ownership
 
-> Can this abstraction be understood, implemented, and tested independently of its consumer?
+Use these owners for the neighboring responsibilities below. Their module contracts or public interfaces describe the owned capability.
 
-If yes and it owns meaningful complexity, a module boundary may be warranted. Otherwise the concept belongs with its consumer.
+| Owner | Responsibility |
+|---|---|
+| [`m03gagbhsp2drqq3gkop8pzfrm_workspace_graph`](../ws0/m03gagbhsp2drqq3gkop8pzfrm_workspace_graph/AGENTS.md) | Workspace/module identity and discovery, source versions, and canonical roots. |
+| [`m03gn8rf3pe86v64vphnaam6rl_source_dependencies`](../ws0/m03gn8rf3pe86v64vphnaam6rl_source_dependencies/source_dependencies.h) | Source-include scanning, dependency eligibility, and dependency closure. |
+| [`m03gagbhsujjf63n0w3r2w4q6h_build_phases`](../ws0/m03gagbhsujjf63n0w3r2w4q6h_build_phases/AGENTS.md) | Dependency-driven phase execution, library SCC construction and validation, and publication timing. |
+| [`m03gn8rf3pe8dkpk1uwsemhhmd_artifact_store`](../ws0/m03gn8rf3pe8dkpk1uwsemhhmd_artifact_store/artifact_store.h) | Versioned artifact and marker paths, completed-artifact lookup, and atomic `latest` updates. |
 
 ## Dependency discovery
 

@@ -10,7 +10,7 @@ applyTo: "**/*.h,**/*.cpp"
 - Public APIs must be concise, technically precise, and understandable from representative user-authored code.
 - Every public type, operation, abstraction, and extension point must own a concrete current semantic responsibility.
 - The public surface must be the smallest coherent one that completely expresses the current contract.
-- Preserve existing public interfaces and observable semantics unless an authoritative contract or explicit user decision requires a change. A broad request to audit, harden, correct, or reconcile does not itself settle a new public contract.
+- Preserve existing public interfaces and observable semantics unless an authoritative contract or explicit user decision requires a change. For an unresolved durable choice, including one exposed by a private implementation constraint, follow [semantic decision handling](../../docs/agent-workflow.md#settle-semantic-decisions).
 - Prefer self-validating values. Successful construction must establish public invariants where practical.
 - Mark a single-parameter constructor `explicit` unless implicit conversion is intentionally part of the interface.
 - Make ownership, borrowing, lifetime, and mutability explicit when they affect public use.
@@ -18,7 +18,6 @@ applyTo: "**/*.h,**/*.cpp"
 - Generic and shared abstractions require a concrete shared semantic need; similar implementation vocabulary alone is insufficient.
 - Backend-independent abstractions must express backend-independent semantics. Backend mechanics and mismatches belong in backend-private translation or lowering.
 - Collaborating types must communicate through ordinary interfaces aligned with ownership boundaries. Structure APIs so `friend`, passkeys, and privileged access shims are unnecessary.
-- Treat a private implementation constraint that would affect the public model as an unresolved semantic constraint unless an authoritative contract or explicit user decision settles it.
 - Future implementation possibilities remain private or undecided until they impose a real semantic requirement.
 - Make exception messages identify the failed operation and condition. Include useful actual and expected values when available; construct such messages with `std::format`, passing project-defined values directly so their existing `std::formatter` specializations supply the representation instead of reproducing it at the call site. Use a string literal when the message has no substitutions.
 

@@ -53,6 +53,4 @@ int foo_t::value() const {
 
 ## Header-owned definitions
 
-- Keep template definitions in the header that declares the template.
-- Keep `std::formatter` declarations and definitions in the header that introduces the formatted type.
-- Do not move template or formatter definitions into a source file unless the current task explicitly requires a different instantiation strategy.
+Keep template definitions in the declaring header, and `std::formatter` declarations and definitions in the header introducing the formatted type. Move template or formatter definitions into a source file only when the current task explicitly requires a different instantiation strategy.
