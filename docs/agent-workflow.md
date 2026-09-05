@@ -23,7 +23,7 @@ For a new or materially changing public abstraction:
 
 1. Identify its responsibility and semantic boundary.
 2. Inspect the current implementation and existing dependency interfaces.
-3. Write or inspect the smallest representative user-facing use.
+3. Write or inspect the smallest representative caller example. When requesting a design decision, show the example and relevant interface or implementation excerpts so the user can see where the choice matters.
 4. Settle terminology, ownership, mutability, invariants, and observable behavior.
 5. Express the boundary through the abstraction's capabilities, inputs, outputs, and invariants.
 6. Decide whether an existing module owns part of the problem.
@@ -56,6 +56,8 @@ Consider only dimensions raised by the task, an authoritative existing contract,
 - ordering, units, coordinate systems, representations, or serialization;
 - established compatibility requirements;
 - what evidence proves the implementation correct.
+
+Before asking the user to settle a material design choice, explain the concrete problem and show its context through concise code excerpts. Include the caller, public interface, and adjacent implementation or pipeline stages only as needed to explain the consequences. For viable alternatives, show the smallest meaningful code differences, explain the tradeoffs, and recommend an option before asking the specific unresolved question. Distinguish current code from proposed sketches. Expose ownership, lifetime, ordering, and data flow where relevant; omit unrelated details and complete implementations.
 
 Treat choices established by authoritative public contracts, module contracts, repository instructions, or explicit task direction as fixed. A broad request to audit, harden, correct, reconcile, or improve safety authorizes implementation of settled semantics; it does not delegate choices among materially different observable contracts. An unresolved material contract choice requires direction. The agent may make a material contract choice only when explicitly delegated; needing the choice to proceed does not constitute delegation.
 
