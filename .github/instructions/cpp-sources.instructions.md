@@ -19,7 +19,7 @@ Use `#include` without a space between `#` and `include`.
 
 ```cpp
 #include "builder_cli.h"
-#include "internal_helpers.h"
+#include "helpers.h"
 
 #include <m03gagbhsp2drqq3gkop8pzfrm_workspace_graph/workspace_graph.h>
 
@@ -31,9 +31,7 @@ Use `#include` without a space between `#` and `include`.
 
 - Define project functions in the namespace whose name exactly matches the complete module name.
 - Close every named namespace with a comment containing its complete name.
-- Define functions in exactly the same order as their declarations in the corresponding header.
-- Preserve the relative order of overloads.
-- Do not regroup constructors, operators, accessors, helpers, or other functions by implementation category.
+- Follow the [declaration and definition order](cpp.instructions.md#declaration-and-definition-order) rules.
 - Do not introduce a duplicate declaration before an out-of-class definition.
 
 ```cpp

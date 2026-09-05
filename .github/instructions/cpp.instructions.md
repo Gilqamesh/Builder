@@ -22,6 +22,14 @@ applyTo: "**/*.h,**/*.cpp"
 - Future implementation possibilities remain private or undecided until they impose a real semantic requirement.
 - Make exception messages identify the failed operation and condition. Include useful actual and expected values when available; construct such messages with `std::format`, passing project-defined values directly so their existing `std::formatter` specializations supply the representation instead of reproducing it at the call site. Use a string literal when the message has no substitutions.
 
+## Module-local helpers
+
+- Use one `helpers.h` / `helpers.cpp` pair directly in the module directory when the module needs supporting code.
+- Consolidate supporting functions, types, adapters, and temporary bridges in that pair.
+- Keep primary implementation files focused on the module's main responsibilities.
+- Place project helper declarations and definitions directly in the namespace whose name exactly matches the complete module name.
+- Apply the [header rules](cpp-headers.instructions.md) and [source rules](cpp-sources.instructions.md) to the pair, including template and formatter placement. Follow the [declaration and definition order](#declaration-and-definition-order) rules.
+
 ## Naming
 
 - Names must be technically precise and as short as their context permits.
@@ -128,13 +136,3 @@ switch (value) {
 - Use complete module-qualified paths for repository-module headers.
 - Keep include paths independent of filesystem traversal.
 - Follow the path-specific directive spelling: headers use `# include`; source files use `#include`.
-
-For example, a source-file include block uses:
-
-```cpp
-#include "same_directory_header.h"
-
-#include <complete_module_name/header.h>
-
-#include <vector>
-```
