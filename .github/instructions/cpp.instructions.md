@@ -23,9 +23,9 @@ applyTo: "**/*.h,**/*.cpp"
 
 ## Module-local helpers
 
-- Use one `helpers.h` / `helpers.cpp` pair directly in the module directory when the module needs supporting code.
-- Place operations on the type whose responsibility or invariants they implement; consolidate remaining supporting functions, types, adapters, and temporary bridges in that pair.
-- Keep primary implementation files focused on the module's main responsibilities.
+- Establish each capability's owner before choosing helper placement. Extend the responsible abstraction when the requested capability belongs to it.
+- Place operations on the type whose responsibility or invariants they implement.
+- Consolidate remaining module-level supporting code in one `helpers.h` / `helpers.cpp` pair directly in the module directory.
 - Place project helper declarations and definitions directly in the namespace whose name exactly matches the complete module name.
 - Apply the [header rules](cpp-headers.instructions.md) and [source rules](cpp-sources.instructions.md) to the pair, including template and formatter placement. Follow the [declaration and definition order](#declaration-and-definition-order) rules.
 
@@ -56,7 +56,7 @@ input_state_t current_state;
 
 ## Types and ownership
 
-- Store implementation state directly in its owning type; define supporting storage types in module-local helpers.
+- Store implementation state directly in its owning type.
 - Use `std::size_t` for object sizes, element counts, and container indices.
 - Use another integer type only when required by an external API, serialized representation, or exact-width constraint.
 - Use `std::shared_ptr` for genuinely shared ownership.
