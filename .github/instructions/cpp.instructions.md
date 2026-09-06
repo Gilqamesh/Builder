@@ -105,13 +105,13 @@ switch (value) {
 
 ## Documentation
 
-- Public headers document observable contracts that are not evident from a declaration and its enclosing documentation.
+- Public headers document the non-obvious requirements and guarantees callers need to use the API correctly.
 - Do not comment merely to paraphrase a name, type, parameter list, return type, or standard C++ behavior.
 - State shared semantics once at the narrowest common scope: type invariants on the type, operation-specific behavior on the operation, and enumerator meaning beside the enumerator.
 - When a public declaration needs documentation, use concise Doxygen comments and keep each `@brief` to one sentence.
 - Add `@param`, `@return`, precondition, postcondition, ownership, or lifetime documentation only when it adds information.
 - Document non-obvious failure conditions when they are part of the public contract, but omit exception-class names and `@throws` tags.
-- Keep implementation rationale and private maintenance constraints beside the code they govern; public documentation describes observable behavior.
+- Place algorithm details, implementation rationale, and maintenance constraints beside their implementation; retain algorithm details in public documentation when callers need them as guarantees.
 - Preserve documented semantics. Consolidate or remove prose when it is redundant, incorrect, or obsolete.
 
 ## Validation design

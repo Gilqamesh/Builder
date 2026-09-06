@@ -40,11 +40,11 @@ namespace complete_module_name {
 foo_t::foo_t() {
 }
 
-void foo_t::value(int value) {
-    m_value = value;
+int& foo_t::value() {
+    return m_value;
 }
 
-int foo_t::value() const {
+const int& foo_t::value() const {
     return m_value;
 }
 
