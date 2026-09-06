@@ -12,9 +12,10 @@ applyTo: "**/*.h,**/*.cpp"
 - The public surface must be the smallest coherent one that completely expresses the current contract.
 - Preserve existing public interfaces and observable semantics unless an authoritative contract or explicit user decision requires a change. For an unresolved durable choice, including one exposed by a private implementation constraint, follow [semantic decision handling](../../docs/agent-workflow.md#settle-semantic-decisions).
 - Prefer self-validating values. Successful construction must establish public invariants where practical.
+- Group related construction inputs in a typed description when named fields clarify their roles.
 - Mark a single-parameter constructor `explicit` unless implicit conversion is intentionally part of the interface.
 - Make ownership, borrowing, lifetime, and mutability explicit when they affect public use.
-- Keep immutable descriptions or programs separate from mutable per-use state when they are different concepts.
+- Prefer immutable construction configuration. Keep immutable descriptions or programs separate from mutable per-use state when they are different concepts.
 - Generic and shared abstractions require a concrete shared semantic need; similar implementation vocabulary alone is insufficient.
 - Backend-independent abstractions must express backend-independent semantics. Backend mechanics and mismatches belong in backend-private translation or lowering.
 - Collaborating types must communicate through ordinary interfaces aligned with ownership boundaries. Structure APIs so `friend`, passkeys, and privileged access shims are unnecessary.
