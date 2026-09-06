@@ -70,7 +70,7 @@ input_state_t current_state;
 - Keep a statement or expression on one line when it remains readable; do not split a simple expression merely to satisfy a fixed line-width target. When an expression is too dense for one line, introduce named intermediate values instead of vertically stacking a simple operator chain.
 - When a call or initializer is multiline, place each argument or element on its own line and align the closing delimiter with the start of the construct.
 - Prefer `<` and `<=` to `>` and `>=` when reversing the operands preserves the meaning. Express bounded ranges in increasing order, such as `lower <= value && value < upper`.
-- Give each non-empty `case` and `default` a braced body. When a case exits with `break`, place the `break` after the closing brace. Stack adjacent labels only when they intentionally share one body.
+- Give each non-empty `case` and `default` a braced body, except when its entire body is a single `return` statement; that form may remain unbraced on one line. When a case exits with `break`, place the `break` after the closing brace. Stack adjacent labels only when they intentionally share one body.
 - Preserve surrounding formatting for constructs not specified here.
 
 ```cpp
