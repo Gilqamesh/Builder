@@ -24,7 +24,7 @@ applyTo: "**/*.h,**/*.cpp"
 ## Module-local helpers
 
 - Use one `helpers.h` / `helpers.cpp` pair directly in the module directory when the module needs supporting code.
-- Consolidate supporting functions, types, adapters, and temporary bridges in that pair.
+- Place operations on the type whose responsibility or invariants they implement; consolidate remaining supporting functions, types, adapters, and temporary bridges in that pair.
 - Keep primary implementation files focused on the module's main responsibilities.
 - Place project helper declarations and definitions directly in the namespace whose name exactly matches the complete module name.
 - Apply the [header rules](cpp-headers.instructions.md) and [source rules](cpp-sources.instructions.md) to the pair, including template and formatter placement. Follow the [declaration and definition order](#declaration-and-definition-order) rules.
@@ -56,6 +56,7 @@ input_state_t current_state;
 
 ## Types and ownership
 
+- Store implementation state directly in its owning type; define supporting storage types in module-local helpers.
 - Use `std::size_t` for object sizes, element counts, and container indices.
 - Use another integer type only when required by an external API, serialized representation, or exact-width constraint.
 - Use `std::shared_ptr` for genuinely shared ownership.
@@ -94,6 +95,8 @@ switch (value) {
 
 ## Function interfaces
 
+- Keep single-use private logic in the calling operation.
+- For freely mutable properties, provide `T& name()` and `const T& name() const` overloads. Use parameter-taking setters when mutation requires validation or coordinated state changes.
 - Declare a member function `const` when it does not modify the object's logical state.
 - Pass a non-owning object by `const` reference when the function must not modify it and copying is unnecessary.
 - Add reference qualifiers only when lvalue and rvalue invocation require different semantics.
