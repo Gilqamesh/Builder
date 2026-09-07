@@ -42,17 +42,20 @@ applyTo: "**/*.h,**/*.cpp"
 
 ### Variables named after their types
 
-For a variable of type `foo_t`:
-
-- Prefer `foo` when there is one such variable and its role is unambiguous.
-- Use a descriptive role-based name when multiple variables have that type or when the variable has a more specific role.
+- Name variables after their types, omitting `_t`. Apply this rule to declarations using `auto`, references, or pointers, and preserve the required `m_` prefix for non-static data members.
+- When multiple instances of a type or template family need differentiation in the same scope, use names that identify their semantic roles. Include the type name or meaningful template arguments when they clarify those roles.
+- Use semantic names for scalar and generic storage types whose type names do not identify a useful domain concept.
 - Do not distinguish variables with numeric suffixes or generic names such as `value`, `object`, or `instance`.
 
 ```cpp
 window_t window;
+auto input_state = window.input_state(); // Returns input_state_t.
 
-input_state_t previous_state;
-input_state_t current_state;
+input_state_t previous_input_state;
+input_state_t current_input_state;
+
+// Non-static data member:
+window_t m_window;
 ```
 
 ## Types and ownership
