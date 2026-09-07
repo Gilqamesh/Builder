@@ -1,5 +1,5 @@
-CXX = /usr/bin/clang++
-CC = /usr/bin/clang
+CXX = /usr/local/bin/g++
+CC = /usr/local/bin/gcc
 LN = /usr/bin/ln
 MKDIR = /usr/bin/mkdir
 MV = /usr/bin/mv
@@ -34,7 +34,7 @@ $(foreach required_tool,$(REQUIRED_TOOLS),\
 	$(if $(shell [ -x "$($(required_tool))" ] && echo yes),,\
 		$(error required tool $($(required_tool)) is missing or not executable)))
 
-CXXFLAGS ?= -g -std=c++23
+CXXFLAGS ?= -g -std=c++26 -freflection
 LDFLAGS  ?= -ldl
 
 DEFINES := \

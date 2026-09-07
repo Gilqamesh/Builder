@@ -125,6 +125,8 @@ Do not create a separate formatter specialization for:
 
 Formatter rules:
 
+- For supported public structural values in `ws1` and later workspaces, inherit `m03gtrxnmqqa2t7zxpijo222n6_formatting::reflected_formatter_t` from an explicit specialization. Keep custom implementations for semantic presentation. The shared module owns default representation and parsing.
+
 - Use the `std` sections in [Required file order](#required-file-order) for formatter declarations and definitions.
 - Refer to the project type by its fully qualified module name.
 - Keep formatter declarations and definitions in the same relative order as their corresponding project types.

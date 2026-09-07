@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+set -euo pipefail
+readonly script_dir="$(cd -- "$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")" && pwd)"
+readonly projects="$(cd -- "$script_dir/../../.." && pwd)"
+readonly workspace="$projects/Builder-Layout-reflection-formatting"
+readonly artifacts="$projects/Builder-Artifacts-reflection-formatting"
+readonly image="$(cat "$artifacts/toolchain-image")"
+exec podman run --rm --init -i --userns=keep-id --security-opt label=disable \
+    --cpus=2 --memory=8g --pids-limit=4096 \
+    --volume "$projects/Builder-reflection-formatting:$projects/Builder-reflection-formatting" \
+    --volume "$projects/Builder-Modules-reflection-formatting:$projects/Builder-Modules-reflection-formatting" \
+    --volume "$workspace:$workspace" --volume "$artifacts:$artifacts" \
+    --workdir "$workspace" \
+    --env BUILDER_WORKSPACE_ROOT="$workspace" --env BUILDER_ARTIFACT_ROOT="$artifacts" \
+    --env CC=/usr/local/bin/gcc --env CXX=/usr/local/bin/g++ \
+    --env CMAKE_BUILD_PARALLEL_LEVEL=2 --env MAKEFLAGS=-j2 \
+    "$image" "$@"

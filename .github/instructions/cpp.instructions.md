@@ -6,7 +6,7 @@ applyTo: "**/*.h,**/*.cpp"
 
 ## Language and API design
 
-- Use C++23.
+- This experimental branch uses C++26 with GCC 16 and `-freflection`.
 - Public APIs must be concise, technically precise, and understandable from representative user-authored code.
 - Every public type, operation, abstraction, and extension point must own a concrete current semantic responsibility.
 - The public surface must be the smallest coherent one that completely expresses the current contract.
