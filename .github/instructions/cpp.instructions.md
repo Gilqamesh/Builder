@@ -36,13 +36,14 @@ applyTo: "**/*.h,**/*.cpp"
 - Let the module namespace and enclosing type carry context; within a renderer module, for example, prefer `program_t` to `renderer_program_t`.
 - Use `snake_case` for project-defined namespaces, functions, variables, data members, and enumerators.
 - Suffix project-defined class, struct, enum, and type-alias names with `_t`.
-- Prefix every non-static data member with `m_`.
+- Use unprefixed `snake_case` for public data members, including fields of module-local helper types.
+- Prefix private and protected non-static data members with `m_`. Determine access from the member declaration, including the default access of its enclosing class or struct.
 - Use uppercase `SNAKE_CASE` for preprocessor macros and include guards.
 - Template parameters may use concise uppercase names such as `T` and `N`.
 
 ### Variables named after their types
 
-- Name variables after their types, omitting `_t`. Apply this rule to declarations using `auto`, references, or pointers, and preserve the required `m_` prefix for non-static data members.
+- Name variables and data members after their types, omitting `_t`. Apply this rule equally to explicit types, `auto`, references, and pointers.
 - When multiple instances of a type or template family need differentiation in the same scope, use names that identify their semantic roles. Include the type name or meaningful template arguments when they clarify those roles.
 - Use semantic names for scalar and generic storage types whose type names do not identify a useful domain concept.
 - Do not distinguish variables with numeric suffixes or generic names such as `value`, `object`, or `instance`.
@@ -54,8 +55,15 @@ auto input_state = window.input_state(); // Returns input_state_t.
 input_state_t previous_input_state;
 input_state_t current_input_state;
 
-// Non-static data member:
-window_t m_window;
+struct window_description_t {
+    std::size_t width;
+    std::size_t height;
+};
+
+class application_t {
+private:
+    window_t m_window;
+};
 ```
 
 ## Types and ownership
