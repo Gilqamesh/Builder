@@ -434,7 +434,6 @@ static std::string source_set_cache_key(
 ) {
     hash_t hash;
     hash.add("source-set-cache-v4");
-    hash.add(m03gagbhsmhr0naw0zpccv4gaq_cxx_toolchain::configuration_key());
     hash.add(kind);
     hash.add(module.name().unique_name());
     hash.add(name);
@@ -463,7 +462,6 @@ static std::string library_phase_cache_key(const workspace_graph::module_t& modu
 
     hash_t hash;
     hash.add("library-phase-scc-validation-v5");
-    hash.add(m03gagbhsmhr0naw0zpccv4gaq_cxx_toolchain::configuration_key());
     hash.add(module.name().unique_name());
     hash.add(source_phase_cache_key(module));
     hash_file_versions(hash, cache_source_files);

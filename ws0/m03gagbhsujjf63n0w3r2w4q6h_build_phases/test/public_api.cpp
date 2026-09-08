@@ -543,36 +543,6 @@ int main() {
                 phase->install<api::source_phase_t>().root());
         }
 
-        // Fresh phase objects must select configuration-specific artifacts and reuse them on return.
-        const auto child = fork();
-        test::expect(std::identity(), child != -1);
-        if (child == 0) {
-            const auto status = test::run([&] {
-                std::vector<std::filesystem::path> binaries;
-                std::vector<std::filesystem::path> libraries;
-                std::vector<std::filesystem::file_time_type> modification_times;
-                for (const auto* mode : {"debug", "optimized", "debug"}) {
-                    setenv("BUILDER_BUILD_MODE", mode, 1);
-                    auto phase = api::phase_base_t::make(*subject);
-                    const auto installed = phase->install<api::binary_phase_t>();
-                    const auto binary = installed.target("cli");
-                    test::expect(std::equal_to<>(), run_binary(binary), 0);
-                    binaries.push_back(std::filesystem::canonical(binary.to_native_path()));
-                    libraries.push_back(std::filesystem::canonical(artifact_root_native / subject_name.unique_name() / "latest/library"));
-                    modification_times.push_back(std::filesystem::last_write_time(binaries.back()));
-                }
-                test::expect(std::identity(), binaries[0] != binaries[1]);
-                test::expect(std::identity(), libraries[0] != libraries[1]);
-                test::expect(std::identity(), binaries[0] == binaries[2]);
-                test::expect(std::identity(), libraries[0] == libraries[2]);
-                test::expect(std::identity(), modification_times[0] == modification_times[2]);
-            });
-            _exit(status);
-        }
-        int status = 0;
-        test::expect(std::equal_to<>(), waitpid(child, &status, 0), child);
-        test::expect(std::identity(), WIFEXITED(status) && WEXITSTATUS(status) == 0);
-
         const auto dependencies = api::discover_module_dependencies(*discovery_owner);
         test::expect(std::equal_to<>(), dependencies.module_dependencies.size(), std::size_t(1));
         test::expect(std::equal_to<>(), dependencies.builder_dependencies.size(), std::size_t(1));

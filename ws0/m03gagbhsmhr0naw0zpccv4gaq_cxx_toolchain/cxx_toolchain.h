@@ -33,15 +33,6 @@ private:
 };
 
 /**
- * @brief Identifies the effective compiler paths, language standard and compile options for artifact caching.
- *
- * BUILDER_BUILD_MODE selects "debug" (also the unset/empty default: -g) or
- * "optimized" (-O2 -g). Other values fail. Keep the environment fixed during a
- * build; all C/C++ sources, including dependency libraries and validation, use it.
- */
-std::string configuration_key();
-
-/**
  * Compiles source_files into a shared library at output_path.
  *
  * The returned path is output_path.
