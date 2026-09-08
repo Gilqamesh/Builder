@@ -7,6 +7,7 @@
 # include <cstddef>
 # include <cstdint>
 # include <string>
+# include <vector>
 
 namespace m03gtrxnmqqa2t7zxpijo222n6_formatting {
 
@@ -34,6 +35,9 @@ struct noncopyable_record_t { noncopyable_t noncopyable; };
 
 template <typename T>
 struct box_t { T item; };
+
+struct summary_t { std::string label; double fraction; std::vector<record_t> records; bool enabled; };
+struct custom_range_t : std::vector<int> {};
 
 } // namespace m03gtrxnmqqa2t7zxpijo222n6_formatting
 
@@ -92,6 +96,12 @@ struct formatter<m03gtrxnmqqa2t7zxpijo222n6_formatting::noncopyable_record_t>;
 
 template <typename T>
 struct formatter<m03gtrxnmqqa2t7zxpijo222n6_formatting::box_t<T>>;
+
+template <>
+struct formatter<m03gtrxnmqqa2t7zxpijo222n6_formatting::summary_t>;
+
+template <>
+struct formatter<m03gtrxnmqqa2t7zxpijo222n6_formatting::custom_range_t>;
 
 } // namespace std
 
@@ -173,6 +183,20 @@ struct formatter<m03gtrxnmqqa2t7zxpijo222n6_formatting::noncopyable_record_t>
 template <typename T>
 struct formatter<m03gtrxnmqqa2t7zxpijo222n6_formatting::box_t<T>>
     : m03gtrxnmqqa2t7zxpijo222n6_formatting::reflected_formatter_t {};
+
+template <>
+struct formatter<m03gtrxnmqqa2t7zxpijo222n6_formatting::summary_t>
+    : m03gtrxnmqqa2t7zxpijo222n6_formatting::reflected_formatter_t {};
+
+template <>
+struct formatter<m03gtrxnmqqa2t7zxpijo222n6_formatting::custom_range_t>
+    : m03gtrxnmqqa2t7zxpijo222n6_formatting::reflected_formatter_t {
+    auto format(const m03gtrxnmqqa2t7zxpijo222n6_formatting::custom_range_t& custom_range, auto& ctx) const {
+        auto out = ctx.out();
+        out = std::format_to(out, "custom-range:{}", custom_range.size());
+        return out;
+    }
+};
 
 } // namespace std
 

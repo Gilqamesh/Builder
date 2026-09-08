@@ -15,6 +15,6 @@ ownership graphs.
 
 ## Boundaries
 
-Formatting owns member discovery and default diagnostic presentation. Type owners
+Formatting owns member discovery, recursive layout, and value shortening. Type owners
 own invariants, units, semantic names, resource summaries, and derived metrics.
 Structural diagnostics are not a serialization or persistence format.

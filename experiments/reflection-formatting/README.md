@@ -72,15 +72,39 @@ struct std::formatter<extent_t>
     : m03gtrxnmqqa2t7zxpijo222n6_formatting::reflected_formatter_t {};
 
 // std::format("{}", extent_t{128, 256})
-// extent_t{width=128, height=256}
+// extent_t {
+//   width: 128,
+//   height: 256
+// }
 ```
 
-Records use public direct bases and members in declaration order. The complete
-record format string is generated at compile time and passed to one `format_to`
-call; no member list is maintained by the type owner. Base subobjects use C++26
-splicing. Nested values use their own formatters. Enums print a declared name or
-`invalid(n)`; aliases choose the first matching declaration. Only empty format
-specifications and `char` output are supported.
+Records use public direct bases and members in declaration order, discovered at
+compile time. Base subobjects use C++26 splicing. The recursive writer handles
+layout and nested values without a member list maintained by the type owner.
+Enums print a declared name or `invalid(n)`; aliases choose the first matching
+declaration. Output uses `char`.
+
+| Specification | Presentation |
+|---|---|
+| `{}`, `{:}`, `{:0}` | Expanded records; short scalar collections stay inline |
+| `{:1}` | Also keep records containing only scalar/custom values inline |
+| `{:2}` | Complete, single-line output |
+| `{:3}` | Recursive single-line summary with shortened values |
+
+The [public header](../../ws1/m03gtrxnmqqa2t7zxpijo222n6_formatting/api.h) owns the
+exact indentation, collection limits, precision, and string-length contract.
+Levels 0–2 preserve complete values. Level 3 retains every displayed record field,
+including fields following shortened values. Shortened arrays report omitted
+items; shortened strings report their full length. For example:
+
+```cpp
+// std::format("{:2}", extent_t{128, 256})
+// extent_t { width: 128, height: 256 }
+```
+
+Strings and characters are quoted and escaped at every level. Custom formatter
+bodies retain their own presentation; sharing the parser does not automatically
+make an overriding body recursive.
 
 Private or protected subobjects, unions, and unformattable subobjects produce a
 compile-time diagnostic when structural formatting is used. Provide a custom
@@ -102,9 +126,9 @@ resource summaries, input aliases, and real window/context creation.
 | Module | Structural migrations | Custom presentation retained |
 |---|---|---|
 | `m03gl8a1hl8xe3ynm8s2wwfy4u_software_renderer` | `index_range_t`, `rgba8_t`, `stencil_state_t`, `blend_equation_t`, and eight enums | Resource summaries, mathematical values, flags, special enum behavior and all profiler metrics |
-| `m03gkcdy62bnz808pmk4uzkjra_glfw` | `video_mode_t` | Remaining 26 formatter bodies retain their output and share the empty-specification parser |
+| `m03gkcdy62bnz808pmk4uzkjra_glfw` | `video_mode_t` | Remaining 26 formatter bodies retain their output and share the layout-level parser |
 
-Five record representations now include the type name, use `name=value`, and use
+Five record representations now include the type name, use `name: value`, and use
 source identifiers such as `red_bits`. The eight migrated renderer enums preserve
 their existing names and numeric fallback. Custom GLFW exception behavior is
 preserved; malformed format specifications now receive the shared diagnostic.
@@ -155,6 +179,9 @@ formatting workload. Real desktop presentation, physical input devices, and othe
 compilers require separate validation.
 
 ## Observed result (2026-09-07)
+
+These measurements describe the initial compact formatter, before recursive
+layout levels were added; they are not measurements of the current writer.
 
 The completed pilot replaces 13 formatter bodies and shares parsing in 26 custom
 formatters, with 359 fewer lines across the pilot changes including new tests.

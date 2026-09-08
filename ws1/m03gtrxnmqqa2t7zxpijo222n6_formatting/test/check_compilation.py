@@ -32,7 +32,7 @@ with tempfile.TemporaryDirectory(prefix="builder-formatting-compilation-") as te
     literal = root / "literal.cpp"
     literal.write_text(header + "int main() { (void)std::format(\"{:x}\", " + base + "{}); }\n")
     result = subprocess.run(flags + ["-fsyntax-only", str(literal)], capture_output=True, text=True)
-    if result.returncode == 0 or "empty format specification" not in result.stderr:
+    if result.returncode == 0 or "a level from 0 to 3" not in result.stderr:
         raise SystemExit("invalid literal specification was not rejected:\n" + result.stderr)
     print("PASS invalid_literal")
 
