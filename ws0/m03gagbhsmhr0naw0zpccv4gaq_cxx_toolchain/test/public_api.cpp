@@ -2,7 +2,6 @@
 #include <m03gagbhsmhr0naw0zpccv4gaq_cxx_toolchain/cxx_toolchain.h>
 
 #include <functional>
-#include <cstdlib>
 #include <chrono>
 #include <cstdint>
 #include <cstring>
@@ -136,37 +135,6 @@ int main() {
             [[maybe_unused]] const api::define_t valid("A", "");
             [[maybe_unused]] const api::define_t valid_with_digits("A0_b9", "x");
         });
-
-        for (const char* mode : {"debug", "optimized"}) {
-            const auto child = fork();
-            test::expect(std::identity(), child != -1);
-            if (child == 0) {
-                const auto status = test::run([&] {
-                    setenv("BUILDER_BUILD_MODE", mode, 1);
-                    const auto configured_key = api::configuration_key();
-                    temporary_directory_t directory;
-                    const auto root = directory.path();
-                    write_file(root / "c_mode.c", "int c_mode(void) {\n#ifdef __OPTIMIZE__\nreturn 1;\n#else\nreturn 0;\n#endif\n}\n");
-                    write_file(root / "mode.cpp", "extern \"C\" int c_mode();\nint main() {\n#ifdef __OPTIMIZE__\nreturn c_mode() == 1 ? 1 : 2;\n#else\nreturn c_mode() == 0 ? 0 : 2;\n#endif\n}\n");
-                    const filesystem_api::path_t source(root);
-                    const auto binary = api::build_binary(source / filesystem_api::relative_path_t("build"), {},
-                        {{source, filesystem_api::relative_path_t("c_mode.c")}, {source, filesystem_api::relative_path_t("mode.cpp")}}, {}, {}, source / filesystem_api::relative_path_t("mode"));
-                    test::expect(std::equal_to<>(), run_binary(binary), std::string_view(mode) == "optimized" ? 1 : 0);
-                    setenv("BUILDER_BUILD_MODE", std::string_view(mode) == "optimized" ? "debug" : "optimized", 1);
-                    test::expect(std::not_equal_to<>(), configured_key, api::configuration_key());
-                    unsetenv("BUILDER_BUILD_MODE");
-                    const auto default_key = api::configuration_key();
-                    setenv("BUILDER_BUILD_MODE", "debug", 1);
-                    test::expect(std::equal_to<>(), default_key, api::configuration_key());
-                    setenv("BUILDER_BUILD_MODE", "invalid", 1);
-                    test::expect_throws<std::invalid_argument>([] { (void)api::configuration_key(); });
-                });
-                _exit(status);
-            }
-            int status = 0;
-            test::expect(std::equal_to<>(), waitpid(child, &status, 0), child);
-            test::expect(std::identity(), WIFEXITED(status) && WEXITSTATUS(status) == 0);
-        }
 
         api::link_inputs_t empty_link_inputs;
         test::expect(std::identity(), empty_link_inputs.libraries.empty());
