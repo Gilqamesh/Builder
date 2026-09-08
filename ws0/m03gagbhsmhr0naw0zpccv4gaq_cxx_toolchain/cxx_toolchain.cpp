@@ -3,6 +3,7 @@
 #include <m03gagbhsnusi43zogoacgj2ez_filesystem/filesystem.h>
 #include <m03gagbhsvr0m5w15urj0o291m_process/process.h>
 
+#include <cstdlib>
 #include <format>
 #include <stdexcept>
 #include <string>
@@ -36,6 +37,14 @@ static std::string cc_compiler_string() {
     return host_tool_string(M03GAGBHSMHR0NAW0ZPCCV4GAQ_CXX_TOOLCHAIN_CC_COMPILER_PATH, "m03gagbhsmhr0naw0zpccv4gaq_cxx_toolchain::cc_compiler_string");
 }
 
+static std::vector<std::string> compile_options() {
+    const char* configured = std::getenv("BUILDER_BUILD_MODE");
+    const std::string_view mode = configured ? configured : "";
+    if (mode.empty() || mode == "debug") { return {"-g"}; }
+    if (mode == "optimized") { return {"-O2", "-g"}; }
+    throw std::invalid_argument(std::format("C++ toolchain rejects BUILDER_BUILD_MODE '{}'; expected debug or optimized", mode));
+}
+
 static std::string cxx_string_literal_replacement(const std::string& value) {
     std::string result("\"");
 
@@ -64,8 +73,7 @@ static std::vector<m03gagbhsnusi43zogoacgj2ez_filesystem::path_t> build_object_f
         m03gagbhsnusi43zogoacgj2ez_filesystem::create_directories(build_dir);
     }
 
-    std::vector<std::string> process_prefix_args;
-    process_prefix_args.push_back("-g");
+    auto process_prefix_args = compile_options();
 
     for (const auto& define : defines) {
         process_prefix_args.push_back(std::format("-D{}={}", define.key(), cxx_string_literal_replacement(define.value())));
@@ -249,6 +257,12 @@ const std::string& define_t::key() const {
 
 const std::string& define_t::value() const {
     return m_value;
+}
+
+std::string configuration_key() {
+    std::string key = std::format("toolchain-v1;cxx={};cc={};std=c++23", cxx_compiler_string(), cc_compiler_string());
+    for (const auto& option : compile_options()) { key += ";" + option; }
+    return key;
 }
 
 m03gagbhsnusi43zogoacgj2ez_filesystem::path_t build_library(

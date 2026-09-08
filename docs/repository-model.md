@@ -71,6 +71,15 @@ Every module-qualified include names the repository module that owns that interf
 
 ## Versions and artifacts
 
+`BUILDER_BUILD_MODE` selects the C++ toolchain's build configuration: unset, empty,
+or `debug` retains `-g`; `optimized` uses `-O2 -g`. C++ remains C++23. The setting
+applies to C and C++ sources throughout dependency, producer, library, validation,
+and binary builds. Keep it fixed during a build. Compiled phase keys include the
+effective toolchain configuration; source/interface artifacts remain configuration
+independent. Unsupported names fail. The
+[`C++ toolchain`](../ws0/m03gagbhsmhr0naw0zpccv4gaq_cxx_toolchain/cxx_toolchain.h)
+owns the options and configuration identity.
+
 A module's source version is the latest modification time in its source tree. Phase-specific cache keys combine the relevant source versions, local inputs, settings, and dependency source keys. Completed artifacts with the same cache key are reusable.
 
 The default roots come from:
