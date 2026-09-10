@@ -95,7 +95,8 @@ static std::vector<m03gagbhsnusi43zogoacgj2ez_filesystem::path_t> build_object_f
             process_args.push_back(cc_compiler_string());
         } else {
             process_args.push_back(cxx_compiler_string());
-            process_args.push_back("-std=c++23");
+            process_args.push_back("-std=c++26");
+            process_args.push_back("-freflection");
         }
         process_args.insert(process_args.end(), process_prefix_args.begin(), process_prefix_args.end());
         if (is_position_independent) {
@@ -197,7 +198,8 @@ static m03gagbhsnusi43zogoacgj2ez_filesystem::path_t build_binary_impl(
     std::vector<std::string> process_args;
     process_args.push_back(cxx_compiler_string());
     process_args.push_back("-g");
-    process_args.push_back("-std=c++23");
+    process_args.push_back("-std=c++26");
+    process_args.push_back("-freflection");
     process_args.push_back("-o");
     process_args.push_back(binary.string());
     for (const auto& object_file : object_files) {

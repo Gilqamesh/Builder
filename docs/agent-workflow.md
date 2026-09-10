@@ -31,6 +31,8 @@ Apply the relevant language instructions for concrete API and coding rules. Keep
 
 ## Settle semantic decisions
 
+When reviewing a policy, identify the requirement it serves. Describe its current implementation separately, and state when the rationale is undocumented.
+
 When a prompt leaves durable behavior ambiguous, use only the applicable fields from this compact contract and omit the rest:
 
 ```text
@@ -52,7 +54,7 @@ Consider only dimensions raised by the task, an authoritative existing contract,
 - established compatibility requirements;
 - what evidence proves the implementation correct.
 
-Before asking the user to settle a material design choice, explain the concrete problem and show its context through concise code excerpts. Include the caller, public interface, and adjacent implementation or pipeline stages only as needed to explain the consequences. For viable alternatives, show the smallest meaningful code differences, explain the tradeoffs, and recommend an option before asking the specific unresolved question. Distinguish current code from proposed sketches. Expose ownership, lifetime, ordering, and data flow where relevant; omit unrelated details and complete implementations.
+Before asking for a semantic decision, show the smallest caller or code excerpt needed to make the choice concrete. Explain the behavioral tradeoffs, recommend an option, and ask for the missing decision. Distinguish current behavior from the proposal.
 
 Treat choices established by authoritative public contracts, module contracts, repository instructions, or explicit task direction as fixed. Implement settled semantics; a broad request to audit, harden, correct, reconcile, or improve safety does not delegate a materially different observable contract.
 
