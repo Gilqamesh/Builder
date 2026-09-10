@@ -12,9 +12,11 @@ The usual workflow is:
 
 ## Prerequisites
 
-Builder currently targets a Linux or Linux-compatible POSIX environment. The
-default bootstrap makefile expects `clang++` (C++23), `clang`, `ar`, `ln`, `mkdir`, `mv`,
-and `rm` under `/usr/bin`, and `libdl`.
+Builder currently targets a Linux or Linux-compatible POSIX environment. C++
+builds use GCC 16 with C++26 reflection (`-std=c++26 -freflection`). The default
+bootstrap makefile expects `g++` and `gcc` under `/usr/lib64/ccache`, `ln`,
+`mkdir`, `mv`, and `rm` under `/usr/bin`, and `libdl`. Override `CXX` and `CC`
+on the `make` command line when your compiler paths differ.
 
 ## Quick Start
 

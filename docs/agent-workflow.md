@@ -7,6 +7,10 @@ Use this workflow when a task creates a module, changes public semantics, crosse
 Classify the task before acquiring context:
 
 - **Investigate or review:** inspect and report within the requested scope.
+  When investigating a possible change, explain the relevant observations and
+  sources, important unknowns, and plausible approaches with their tradeoffs.
+  Recommend the smallest next step and justify how it would advance the goal
+  or resolve uncertainty.
 - **Local implementation:** preserve the existing module contract and implement the requested behavior.
 - **Semantic or public API change:** settle the contract decisions being changed before implementation.
 - **New module:** establish a module contract before defining its public interface when durable, non-obvious semantics warrant one.
@@ -103,7 +107,11 @@ Match validation to the semantic reach of the change:
 - graph, phase, process, or bootstrap change: run the foundation validation named by the relevant `AGENTS.md`;
 - interactive, terminal, graphics, or hardware behavior: distinguish automated checks from manual checks.
 
-Use tests as executable evidence for observable contracts, invariants, and relevant negative cases.
+Match evidence to the claimed outcome: use tests for observable contracts,
+invariants, and relevant negative cases; before-and-after measurements for
+performance claims; and representative callers or observations of use for API
+usability and clarity. Relate the results to the intended improvement and state
+the limits of what they establish.
 
 Report the exact commands run, their results, and untested cases. Only obtained evidence counts as validation.
 
