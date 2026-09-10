@@ -1,5 +1,5 @@
-CXX = /usr/local/bin/g++
-CC = /usr/local/bin/gcc
+CXX = /usr/lib64/ccache/g++
+CC = /usr/lib64/ccache/gcc
 LN = /usr/bin/ln
 MKDIR = /usr/bin/mkdir
 MV = /usr/bin/mv

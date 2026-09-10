@@ -125,7 +125,7 @@ Do not create a separate formatter specialization for:
 
 Formatter rules:
 
-- For supported public structural values in `ws1` and later workspaces, inherit `m03gtrxnmqqa2t7zxpijo222n6_formatting::reflected_formatter_t` from an explicit specialization. Keep custom implementations for semantic presentation. The shared module owns default representation and parsing.
+- For supported structural values, inherit `m03gtrxnmqqa2t7zxpijo222n6_formatting::reflected_formatter_t` from an explicit specialization. Keep custom implementations for semantic presentation. The shared module owns default representation and parsing.
 
 - Use the `std` sections in [Required file order](#required-file-order) for formatter declarations and definitions.
 - Refer to the project type by its fully qualified module name.
@@ -145,6 +145,7 @@ Formatter rules:
 # include "local_dependency.h"
 
 # include <complete_dependency_module/header.h>
+# include <m03gtrxnmqqa2t7zxpijo222n6_formatting/api.h>
 
 # include <format>
 
@@ -188,21 +189,7 @@ const T& value_t<T>::value() const {
 namespace std {
 
 template <typename T>
-struct formatter<complete_module_name::value_t<T>> {
-    constexpr auto parse(std::format_parse_context& ctx) {
-        return ctx.begin();
-    }
-
-    auto format(const complete_module_name::value_t<T>& value, auto& ctx) const {
-        auto out = ctx.out();
-
-        out = std::format_to(out, "{{ ");
-        out = std::format_to(out, "value: {}", value.value());
-        out = std::format_to(out, " }}");
-
-        return out;
-    }
-};
+struct formatter<complete_module_name::value_t<T>> : public m03gtrxnmqqa2t7zxpijo222n6_formatting::reflected_formatter_t {};
 
 } // namespace std
 

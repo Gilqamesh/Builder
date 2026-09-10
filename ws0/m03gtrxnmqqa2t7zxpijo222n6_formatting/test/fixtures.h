@@ -39,6 +39,25 @@ struct box_t { T item; };
 struct summary_t { std::string label; double fraction; std::vector<record_t> records; bool enabled; };
 struct custom_range_t : std::vector<int> {};
 
+class encapsulated_t {
+private:
+    int m_count = 7;
+
+protected:
+    bool m_enabled = true;
+
+public:
+    int generation = 2;
+};
+
+class encapsulated_record_t : private encapsulated_t, protected base_t {
+public:
+    encapsulated_record_t();
+
+private:
+    encapsulated_t m_encapsulated;
+};
+
 } // namespace m03gtrxnmqqa2t7zxpijo222n6_formatting
 
 namespace std {
@@ -102,6 +121,12 @@ struct formatter<m03gtrxnmqqa2t7zxpijo222n6_formatting::summary_t>;
 
 template <>
 struct formatter<m03gtrxnmqqa2t7zxpijo222n6_formatting::custom_range_t>;
+
+template <>
+struct formatter<m03gtrxnmqqa2t7zxpijo222n6_formatting::encapsulated_t>;
+
+template <>
+struct formatter<m03gtrxnmqqa2t7zxpijo222n6_formatting::encapsulated_record_t>;
 
 } // namespace std
 
@@ -197,6 +222,14 @@ struct formatter<m03gtrxnmqqa2t7zxpijo222n6_formatting::custom_range_t>
         return out;
     }
 };
+
+template <>
+struct formatter<m03gtrxnmqqa2t7zxpijo222n6_formatting::encapsulated_t>
+    : m03gtrxnmqqa2t7zxpijo222n6_formatting::reflected_formatter_t {};
+
+template <>
+struct formatter<m03gtrxnmqqa2t7zxpijo222n6_formatting::encapsulated_record_t>
+    : m03gtrxnmqqa2t7zxpijo222n6_formatting::reflected_formatter_t {};
 
 } // namespace std
 

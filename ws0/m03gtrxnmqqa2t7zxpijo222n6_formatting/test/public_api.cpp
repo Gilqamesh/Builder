@@ -19,6 +19,11 @@ namespace m03gtrxnmqqa2t7zxpijo222n6_formatting {
 
 noncopyable_t::noncopyable_t(int count) : count(count) {}
 
+encapsulated_record_t::encapsulated_record_t():
+    base_t{5}
+{
+}
+
 } // namespace m03gtrxnmqqa2t7zxpijo222n6_formatting
 
 namespace test = m03gn97n4iusbtl7uthb01wu9m_test_framework;
@@ -81,6 +86,28 @@ int main() {
         check(std::format("{:1}", formatting::custom_record_t{{9}}), "custom_record_t { custom: custom:9 }");
         check(std::format("{:3}", formatting::custom_record_t{{9}}), "custom_record_t { custom: custom:9 }");
 
+        const formatting::encapsulated_record_t encapsulated_record;
+        check(
+            std::format("{:0}", encapsulated_record),
+            "encapsulated_record_t {\n"
+            "  encapsulated_t {\n    m_count: 7,\n    m_enabled: true,\n    generation: 2\n  },\n"
+            "  base_t {\n    count: 5\n  },\n"
+            "  m_encapsulated: encapsulated_t {\n    m_count: 7,\n    m_enabled: true,\n    generation: 2\n  }\n}"
+        );
+        check(
+            std::format("{:1}", encapsulated_record),
+            "encapsulated_record_t {\n"
+            "  encapsulated_t { m_count: 7, m_enabled: true, generation: 2 },\n"
+            "  base_t { count: 5 },\n"
+            "  m_encapsulated: encapsulated_t { m_count: 7, m_enabled: true, generation: 2 }\n}"
+        );
+        check(
+            std::format("{:2}", encapsulated_record),
+            "encapsulated_record_t { encapsulated_t { m_count: 7, m_enabled: true, generation: 2 }, "
+            "base_t { count: 5 }, m_encapsulated: encapsulated_t { m_count: 7, m_enabled: true, generation: 2 } }"
+        );
+        check(std::format("{:3}", encapsulated_record), std::format("{:2}", encapsulated_record));
+
         const formatting::box_t<std::array<int, 9>> counts{{0, 1, 2, 3, 4, 5, 6, 7, 8}};
         check(std::format("{}", counts),
             "box_t {\n  item: [\n    0,\n    1,\n    2,\n    3,\n    4,\n    5,\n    6,\n    7,\n    8\n  ]\n}");
@@ -126,9 +153,12 @@ int main() {
             "box_t { item: \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa…\" (length: 33) }");
         const std::string unicode = std::string(31, 'a') + "ő😀";
         check(std::format("{:3}", formatting::box_t<std::string_view>{unicode}),
-            "box_t { item: \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaő…\" (length: 33) }");
+            "box_t { item: " + std::format("{:?}", std::string(31, 'a') + "\xc5" + "…") + " (length: 37) }");
         check(std::format("{:2}", formatting::box_t<std::string>{unicode}),
             "box_t { item: \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaő😀\" }");
+        check(std::format("{:3}", formatting::box_t<std::string>{"ő😀"}), "box_t { item: \"ő😀\" }");
+        check(std::format("{:3}", formatting::box_t<std::string>{std::string(30, 'a') + "ő😀"}),
+            "box_t { item: \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaő…\" (length: 36) }");
         const std::string invalid_utf8 = std::string(31, 'a') + "\xf0\x9f";
         check(std::format("{:3}", formatting::box_t<std::string>{invalid_utf8}),
             "box_t { item: " + std::format("{:?}", std::string(31, 'a') + "\xf0" + "…") + " (length: 33) }");

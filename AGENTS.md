@@ -14,7 +14,7 @@ Use this file to acquire the smallest context that fully determines a task. Buil
 
 Record each durable fact at the narrowest scope shared by everything it governs. The contract of the component named as owner is authoritative for an ownership assertion; shared architecture documentation is authoritative for relationships spanning components. Elsewhere, route readers to the authoritative source, repeating information only when correct local use requires it.
 
-Write instructions around the intended action. State the applicable condition, destination, and exceptions when needed for correct use. Prefer affirmative wording when it clarifies the action; retain necessary prohibitions.
+State the intended result and the criteria for achieving it. Express instructions as concrete actions.
 
 ## Instruction precedence
 

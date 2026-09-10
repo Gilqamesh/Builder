@@ -8,10 +8,10 @@ and retain custom formatters for semantic presentation.
 
 ## Invariants
 
-Reflection describes public value structure. It must not silently omit inaccessible
-subobjects or inspect private resource storage. Unsupported structure requires a
-custom formatter. Formatting borrows const values and does not traverse pointer
-ownership graphs.
+Selecting structural formatting exposes the type's public, protected, and private
+subobjects. Access control must not filter the structural representation. Unsupported
+structure requires a custom formatter. Formatting borrows const values and does not
+traverse pointer ownership graphs.
 
 ## Boundaries
 

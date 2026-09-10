@@ -20,6 +20,7 @@ applyTo: "**/*.h,**/*.cpp"
 - Backend-independent abstractions must express backend-independent semantics. Backend mechanics and mismatches belong in backend-private translation or lowering.
 - Collaborating types must communicate through ordinary interfaces aligned with ownership boundaries. Structure APIs so `friend`, passkeys, and privileged access shims are unnecessary.
 - Future implementation possibilities remain private or undecided until they impose a real semantic requirement.
+- Use the simplest existing operations that satisfy the contract; add specialized handling only for an established requirement.
 - Make exception messages identify the failed operation and condition. Include useful actual and expected values when available; construct such messages with `std::format`, passing project-defined values directly so their existing `std::formatter` specializations supply the representation instead of reproducing it at the call site. Use a string literal when the message has no substitutions.
 
 ## Module-local helpers
@@ -117,14 +118,12 @@ switch (value) {
 
 ## Documentation
 
-- Public headers document the non-obvious requirements and guarantees callers need to use the API correctly.
-- Do not comment merely to paraphrase a name, type, parameter list, return type, or standard C++ behavior.
-- State shared semantics once at the narrowest common scope: type invariants on the type, operation-specific behavior on the operation, and enumerator meaning beside the enumerator.
-- When a public declaration needs documentation, use concise Doxygen comments and keep each `@brief` to one sentence.
-- Add `@param`, `@return`, precondition, postcondition, ownership, or lifetime documentation only when it adds information.
-- Document non-obvious failure conditions when they are part of the public contract, but omit exception-class names and `@throws` tags.
-- Place algorithm details, implementation rationale, and maintenance constraints beside their implementation; retain algorithm details in public documentation when callers need them as guarantees.
-- Preserve documented semantics. Consolidate or remove prose when it is redundant, incorrect, or obsolete.
+Make the API's purpose and use clear at a glance.
+
+- Express its defining behavior in one concise Doxygen `@brief` sentence.
+- Use a small example to demonstrate setup or meaningful variations in use.
+- Add details that affect correct use.
+- Use brief implementation comments to explain reasoning needed for maintenance.
 
 ## Validation design
 

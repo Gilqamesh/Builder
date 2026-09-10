@@ -34,16 +34,7 @@ Use these destinations for material excluded by the filter:
 
 ## Optional questions for the first draft
 
-Use a question only when the task, module, or a current dependency raises it and the answer is not already authoritative elsewhere:
-
-1. What capability does the module provide, and which inputs, outputs, or invariants delimit it?
-2. Which terminology or relationships among concepts require durable direction?
-3. Does ownership, lifetime, or mutability affect public use?
-4. Which valid, invalid, disconnected, empty, or incomplete states require a durable decision?
-5. Which observable ordering, units, coordinate system, representation, or identity is not clear from the public contract?
-6. Which current failures require defined reporting or recovery?
-7. Which variations are concrete current requirements?
-8. What executable evidence proves correctness?
+Use the [semantic decision questions](agent-workflow.md#settle-semantic-decisions) for unresolved direction that passes the module-contract filter above.
 
 ## Maintenance rules
 

@@ -18,33 +18,17 @@
 namespace m03gtrxnmqqa2t7zxpijo222n6_formatting {
 
 /**
- * @brief Supplies recursive diagnostic formatting to explicit std::formatter specializations.
+ * @brief Formats records by preorder DFS over all bases and members, and enums by name.
  *
- * Empty specifications and :0 expand records with two-space indentation. :1
- * keeps records containing only scalar/custom values inline. :2 prints everything
- * on one line. These levels preserve every value. At levels 0 and 1, collections
- * of at most eight scalar/custom values stay inline; other collections expand.
+ * @code
+ * template <>
+ * struct std::formatter<app::point_t> : public m03gtrxnmqqa2t7zxpijo222n6_formatting::reflected_formatter_t {};
  *
- * :3 is a single-line recursive summary: floating point uses three decimal places,
- * ranges show their first three elements and the omitted count, and strings show
- * their first 32 characters plus their full length when shortened. String lengths
- * count UTF-8 code points (invalid bytes individually); prefixes preserve valid
- * code-point boundaries. All levels quote and escape strings and characters.
- * Every displayed record retains all fields, including fields after shortened
- * values. No overall output or nesting cutoff is applied.
- *
- * Records print Type { member: value }, with direct public bases before direct
- * members, each in declaration order. Empty records print Type{}. Names retain
- * source spelling without template arguments. Enums print the first matching
- * declared name or invalid(n). Flags and semantic aliases can use custom formatters.
- *
- * Nested reflected values and standard ranges/tuples share the selected level.
- * Custom formatters keep their own presentation; inheriting this parser alone
- * does not make their format() bodies recursive. Records with inaccessible
- * subobjects, unions, and subobjects lacking a const-compatible formatter require
- * a custom specialization. Values are borrowed through const references; pointer
- * ownership graphs are not traversed. Ranges retain their iteration order and
- * must be finite. Unsized ranges are traversed to count omitted elements.
+ * std::format("{}", point);   // Expanded
+ * std::format("{:1}", point); // Inline leaf records
+ * std::format("{:2}", point); // Single line: point_t { x: 1, y: 2 }
+ * std::format("{:3}", point); // Shortened single line
+ * @endcode
  */
 struct reflected_formatter_t {
     std::size_t level = 0;
@@ -115,11 +99,9 @@ auto reflected_formatter_t::format(const T& formatted, auto& ctx) const -> declt
 
 template <typename T>
 consteval bool reflected_formatter_t::reflected() {
-    // An inherited marker would also match custom formatters that replace format().
-    // Comparing the selected member's declaring type preserves those overrides.
+    // Distinguish inherited format() from custom replacements.
     if constexpr (requires { &std::formatter<T>::template format<T, std::format_context>; }) {
-        return std::is_same_v<decltype(&std::formatter<T>::template format<T, std::format_context>),
-            decltype(&reflected_formatter_t::template format<T, std::format_context>)>;
+        return std::is_same_v<decltype(&std::formatter<T>::template format<T, std::format_context>), decltype(&reflected_formatter_t::template format<T, std::format_context>)>;
     } else {
         return false;
     }
@@ -128,11 +110,9 @@ consteval bool reflected_formatter_t::reflected() {
 template <typename T>
 consteval bool reflected_formatter_t::text() {
     if constexpr (std::is_class_v<T> && std::meta::has_template_arguments(^^T)) {
-        return std::meta::template_of(^^T) == ^^std::basic_string
-            || std::meta::template_of(^^T) == ^^std::basic_string_view;
+        return std::meta::template_of(^^T) == ^^std::basic_string || std::meta::template_of(^^T) == ^^std::basic_string_view;
     } else {
-        return std::is_same_v<T, const char*> || std::is_same_v<T, char*>
-            || (std::is_array_v<T> && std::is_same_v<std::remove_extent_t<T>, char>);
+        return std::is_same_v<T, const char*> || std::is_same_v<T, char*> || (std::is_array_v<T> && std::is_same_v<std::remove_extent_t<T>, char>);
     }
 }
 
@@ -140,10 +120,7 @@ template <typename T>
 consteval bool reflected_formatter_t::range() {
     if constexpr (!text<T>() && std::ranges::input_range<const T>
         && !std::is_base_of_v<reflected_formatter_t, std::formatter<T>>) {
-        // Sequence formatters expose separator customization. Associative ranges
-        // select their representation through the standard format_kind contract.
-        return requires (std::formatter<T> formatter) { formatter.set_separator(std::string_view{}); }
-            || std::format_kind<T> == std::range_format::map || std::format_kind<T> == std::range_format::set;
+        return requires (std::formatter<T> formatter) { formatter.set_separator(std::string_view{}); } || std::format_kind<T> == std::range_format::map || std::format_kind<T> == std::range_format::set;
     } else {
         return false;
     }
@@ -211,9 +188,7 @@ Out reflected_formatter_t::write_record(Out out, const T& formatted, std::size_t
             out = std::format_to(out, "invalid({})", +std::to_underlying(formatted));
         }
     } else if constexpr (std::is_class_v<T>) {
-        static constexpr auto access = std::meta::access_context::unprivileged();
-        static_assert(!std::meta::has_inaccessible_subobjects(^^T, access),
-            "reflected_formatter_t requires public subobjects; provide a custom formatter for private state");
+        static constexpr auto access = std::meta::access_context::unchecked();
         static constexpr auto type_name = [] {
             if constexpr (std::meta::has_identifier(^^T)) {
                 return std::meta::identifier_of(^^T);
@@ -273,8 +248,7 @@ Out reflected_formatter_t::write_record(Out out, const T& formatted, std::size_t
         }
         out = std::format_to(out, "}}");
     } else {
-        static_assert(std::is_class_v<T> || std::is_enum_v<T>,
-            "reflected_formatter_t supports records and enums; unions require a custom formatter");
+        static_assert(std::is_class_v<T> || std::is_enum_v<T>, "reflected_formatter_t supports records and enums; unions require a custom formatter");
     }
     return out;
 }
@@ -332,35 +306,11 @@ Out reflected_formatter_t::write_range(Out out, const T& formatted, std::size_t 
 
 template <typename Out>
 Out reflected_formatter_t::write_text(Out out, std::string_view characters) const {
-    std::size_t length = 0;
-    std::size_t prefix = 0;
-    if (level == 3) {
-        for (std::size_t index = 0; index < characters.size();) {
-            const auto lead = static_cast<unsigned char>(characters[index]);
-            std::size_t width = 1;
-            if (0xc2 <= lead && lead <= 0xdf) { width = 2; }
-            if (0xe0 <= lead && lead <= 0xef) { width = 3; }
-            if (0xf0 <= lead && lead <= 0xf4) { width = 4; }
-            bool valid = width <= characters.size() - index;
-            for (std::size_t offset = 1; valid && offset < width; ++offset) {
-                const auto next = static_cast<unsigned char>(characters[index + offset]);
-                valid = 0x80 <= next && next <= 0xbf;
-                if (offset == 1) {
-                    valid = valid && !(lead == 0xe0 && next < 0xa0) && !(lead == 0xed && 0xa0 <= next)
-                        && !(lead == 0xf0 && next < 0x90) && !(lead == 0xf4 && 0x90 <= next);
-                }
-            }
-            index += valid ? width : 1;
-            ++length;
-            if (length <= 32) {
-                prefix = index;
-            }
-        }
-    }
-    if (level == 3 && 32 < length) {
-        std::string shortened(characters.substr(0, prefix));
+    constexpr std::size_t prefix_size = 32;
+    if (level == 3 && prefix_size < characters.size()) {
+        std::string shortened(characters.substr(0, prefix_size));
         shortened += "…";
-        out = std::format_to(out, "{:?} (length: {})", shortened, length);
+        out = std::format_to(out, "{:?} (length: {})", shortened, characters.size());
     } else {
         out = std::format_to(out, "{:?}", characters);
     }
