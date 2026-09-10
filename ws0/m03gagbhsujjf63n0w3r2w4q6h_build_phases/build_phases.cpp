@@ -560,6 +560,15 @@ std::unique_ptr<phase_base_t> phase_base_t::make(
     return phase;
 }
 
+m03gagbhsnusi43zogoacgj2ez_filesystem::path_t phase_base_t::library() const {
+    const auto installed = install<library_phase_t>();
+    const auto path = installed.root() / module_library_relative_output_path(module().name());
+    if (!m03gagbhsnusi43zogoacgj2ez_filesystem::is_regular_file(path)) {
+        throw std::runtime_error(std::format("Module '{}' did not publish a shared library", module().name()));
+    }
+    return path;
+}
+
 std::string_view phase_base_t::name() const {
     return m_name;
 }

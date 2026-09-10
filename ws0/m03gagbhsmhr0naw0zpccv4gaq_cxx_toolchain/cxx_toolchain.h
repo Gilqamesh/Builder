@@ -32,6 +32,12 @@ private:
     std::string m_value;
 };
 
+/** @brief Returns the configured C++ compiler after checking that it exists. */
+m03gagbhsnusi43zogoacgj2ez_filesystem::path_t cxx_compiler();
+
+/** @brief Returns the configured C compiler after checking that it exists. */
+m03gagbhsnusi43zogoacgj2ez_filesystem::path_t cc_compiler();
+
 /**
  * Compiles source_files into a shared library at output_path.
  *

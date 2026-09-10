@@ -1,0 +1,13 @@
+#ifndef M03GUBNEVC9Z8DWZXIGMJ54Y25_LISP_MODULE_COMMAND_HELPERS_H
+# define M03GUBNEVC9Z8DWZXIGMJ54Y25_LISP_MODULE_COMMAND_HELPERS_H
+
+# include <m03gagbhsp2drqq3gkop8pzfrm_workspace_graph/workspace_graph.h>
+# include <m03gagbhsx4j5z28bqkac3dhhh_shared_library/shared_library.h>
+
+namespace m03gubnevc9z8dwzxigmj54y25_lisp_module_command {
+
+m03gagbhsx4j5z28bqkac3dhhh_shared_library::loader_t load_module(m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::module_t& module);
+
+} // namespace m03gubnevc9z8dwzxigmj54y25_lisp_module_command
+
+#endif // M03GUBNEVC9Z8DWZXIGMJ54Y25_LISP_MODULE_COMMAND_HELPERS_H

@@ -51,6 +51,9 @@ public:
         std::string_view target
     );
 
+    /** @brief Builds this module's library and returns its published shared-library path. */
+    m03gagbhsnusi43zogoacgj2ez_filesystem::path_t library() const;
+
     /**
      * Phase name, such as source, interface, library, or binary.
      */

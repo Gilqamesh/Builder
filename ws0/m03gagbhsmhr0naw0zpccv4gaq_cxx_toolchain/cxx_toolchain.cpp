@@ -253,6 +253,14 @@ const std::string& define_t::value() const {
     return m_value;
 }
 
+m03gagbhsnusi43zogoacgj2ez_filesystem::path_t cxx_compiler() {
+    return m03gagbhsnusi43zogoacgj2ez_filesystem::path_t(cxx_compiler_string());
+}
+
+m03gagbhsnusi43zogoacgj2ez_filesystem::path_t cc_compiler() {
+    return m03gagbhsnusi43zogoacgj2ez_filesystem::path_t(cc_compiler_string());
+}
+
 m03gagbhsnusi43zogoacgj2ez_filesystem::path_t build_library(
     const m03gagbhsnusi43zogoacgj2ez_filesystem::path_t& build_dir,
     const std::vector<m03gagbhsnusi43zogoacgj2ez_filesystem::path_t>& include_dirs,
