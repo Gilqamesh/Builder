@@ -16,17 +16,30 @@ namespace m03gagbhsujjf63n0w3r2w4q6h_build_phases {
 struct library_phase_t;
 
 /**
- * Common API available to every phase object.
+ * @brief Stages and installs a module's inputs and outputs through its phase chain.
+ *
+ * A producer exports `extern "C" void phase__<name>(const <name>_phase_t*)` from
+ * builder.cpp. The pointer is borrowed only for that call: synchronously stage,
+ * install, or register all outputs before returning, and do not retain the phase
+ * pointer or use it from detached work. Const operations can mutate phase state
+ * and artifacts; the interface does not synchronize concurrent use.
+ *
+ * Phase chains borrow their module and its graph, which must outlive the chain.
+ * Producer failures propagate to installation; normal phase execution handles
+ * incomplete-artifact cleanup. Filesystem path values do not own artifact files.
  */
 class phase_base_t {
 public:
     /**
-     * Compile/link input with its installed root preserved.
+     * @brief Retains an input's root and relative path for compile/link helpers.
+     *
+     * Owns path values for an earlier install root or a staged build root, not
+     * the files. The selected files must remain available while consumed.
      */
     class built_t {
     public:
         /**
-         * Input path and the install root it came from.
+         * @brief Borrows the retained rooted path for this built value's lifetime.
          */
         const m03gagbhsnusi43zogoacgj2ez_filesystem::rooted_path_t& rooted_path() const;
 
@@ -41,7 +54,10 @@ public:
     virtual ~phase_base_t() = default;
 
     /**
-     * Creates the phase chain for module.
+     * @brief Creates an owning source/interface/library/binary chain borrowing module.
+     *
+     * Does not execute phases. The overload without a target permits all binary
+     * targets; the target overload selects one name, or all names when empty.
      */
     static std::unique_ptr<phase_base_t> make(
         m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::module_t& module
@@ -52,44 +68,66 @@ public:
     );
 
     /**
-     * Phase name, such as source, interface, library, or binary.
+     * @brief Phase name, such as source, interface, library, or binary.
      */
     std::string_view name() const;
 
     /**
-     * Private scratch directory for the current phase.
+     * @brief Returns the current phase's scratch directory after artifact resolution.
+     *
+     * Throws std::runtime_error if the phase's artifact directory has not been
+     * resolved. Source, interface, and library producers receive resolved roots;
+     * binary producers use install_binary()'s per-target directories instead.
      */
     m03gagbhsnusi43zogoacgj2ez_filesystem::path_t build_dir() const;
 
     /**
-     * Selects a path from an earlier phase install_dir() for compile/link helpers.
+     * @brief Selects a path from an earlier phase install_dir() for compile/link helpers.
+     *
+     * Does not copy the input. A path must be a strict descendant of a resolved
+     * earlier install root; a rooted path must retain that exact root. Inputs
+     * outside those roots throw std::runtime_error.
      */
     built_t build(const m03gagbhsnusi43zogoacgj2ez_filesystem::path_t& path) const;
     built_t build(const m03gagbhsnusi43zogoacgj2ez_filesystem::rooted_path_t& rooted_path) const;
 
     /**
-     * Selects a path from the installed source phase for compile/link helpers.
+     * @brief Selects a path from the installed source phase for compile/link helpers.
+     *
+     * Ensures source installation first, then selects an existing strict
+     * descendant. Use from a later phase; the source phase cannot select itself
+     * as an earlier input. Absolute, escaping, root-only, and missing paths throw.
      */
     built_t source(std::string_view relative_path) const;
 
     /**
-     * Publishes a path into the current phase build_dir() under a different relative path.
-     * Used for external tooling.
+     * @brief Stages an existing external input as a symlink under build_dir().
+     *
+     * The destination must be a new strict descendant with an existing parent
+     * directory. Keep external available until consumers finish; it is not copied.
+     * Missing inputs, existing destinations, and link-creation failures throw.
      */
     built_t build(const m03gagbhsnusi43zogoacgj2ez_filesystem::path_t& external, const m03gagbhsnusi43zogoacgj2ez_filesystem::relative_path_t& as) const;
 
     /**
-     * Publishes a path into the current phase install_dir() under the same relative path.
+     * @brief Publishes a path into the current phase install_dir() under the same relative path.
+     *
+     * Copies from the current build root or a resolved earlier install root.
+     * Rooted inputs must retain one of those exact roots. Existing destinations
+     * are rejected and missing parent directories are created. Staging a file
+     * here alone does not mark the phase complete or update latest.
      */
     void install(const m03gagbhsnusi43zogoacgj2ez_filesystem::path_t& path) const;
     void install(const m03gagbhsnusi43zogoacgj2ez_filesystem::rooted_path_t& rooted_path) const;
     void install(const built_t& built) const;
 
     /**
-     * Installs phase_t for this module and returns its installed result.
+     * @brief Executes or reuses a phase in this chain and returns its installed paths.
      *
-     * Example:
-     * const auto sources = phase->install<source_phase_t>();
+     * phase_t must be source_phase_t, interface_phase_t, library_phase_t, or
+     * binary_phase_t. Throws if that phase is not in the chain; producer, build,
+     * and validation failures propagate. Returned installed_t values own their
+     * root paths and may outlive the chain, but do not keep files on disk alive.
      */
     template <class phase_t>
     typename phase_t::installed_t install() const;
@@ -129,15 +167,21 @@ private:
 };
 
 /**
- * Phase object for publishing source files.
+ * @brief Publishes the selected source tree for later phases.
  */
 struct source_phase_t : phase_base_t {
+    /**
+     * @brief Retains a source install-root path by value.
+     *
+     * Direct construction copies a path without verifying phase completion.
+     * root() borrows this value's storage.
+     */
     class installed_t {
     public:
         explicit installed_t(const m03gagbhsnusi43zogoacgj2ez_filesystem::path_t& root);
 
         /**
-         * Source phase install root.
+         * @brief Source phase install root.
          */
         const m03gagbhsnusi43zogoacgj2ez_filesystem::path_t& root() const;
 
@@ -151,31 +195,37 @@ struct source_phase_t : phase_base_t {
     );
 
     /**
-     * Filesystem root of the current module source tree.
+     * @brief Filesystem root of the current module source tree.
      */
     m03gagbhsnusi43zogoacgj2ez_filesystem::path_t source_dir() const;
 
     /**
-     * Publishes every file under source_dir().
+     * @brief Publishes every file under source_dir().
      */
     void install_source_tree() const;
 
     /**
-     * Publishes a generated or downloaded source path from build_dir().
+     * @brief Publishes a generated or downloaded source path from build_dir().
      */
     void install_source(const m03gagbhsnusi43zogoacgj2ez_filesystem::path_t& source) const;
 };
 
 /**
- * Phase object for publishing public include files.
+ * @brief Publishes public include files beneath the complete module-name prefix.
  */
 struct interface_phase_t : phase_base_t {
+    /**
+     * @brief Retains an interface install-root path by value.
+     *
+     * Direct construction copies a path without verifying phase completion.
+     * root() borrows this value's storage.
+     */
     class installed_t {
     public:
         explicit installed_t(const m03gagbhsnusi43zogoacgj2ez_filesystem::path_t& root);
 
         /**
-         * Interface phase install root.
+         * @brief Interface phase install root.
          */
         const m03gagbhsnusi43zogoacgj2ez_filesystem::path_t& root() const;
 
@@ -189,26 +239,48 @@ struct interface_phase_t : phase_base_t {
     );
 
     /**
-     * Copies an installed source path into build_dir() at relative_path and returns the copied path.
+     * @brief Copies an installed source path into build_dir() at relative_path and returns the copied path.
      */
     m03gagbhsnusi43zogoacgj2ez_filesystem::path_t build_interface_as(const m03gagbhsnusi43zogoacgj2ez_filesystem::path_t& source, const m03gagbhsnusi43zogoacgj2ez_filesystem::relative_path_t& relative_path) const;
 
     /**
-     * Publishes all .h and .hpp files from the source phase.
+     * @brief Publishes all .h and .hpp files from the source phase.
      */
     void install_headers_from_source() const;
 
     /**
-     * Publishes an include path under <module_name>/<relative path>.
+     * @brief Publishes an include path under `<module_name>/<relative_path>`.
      */
     void install_interface(const m03gagbhsnusi43zogoacgj2ez_filesystem::path_t& interface) const;
     void install_interface(const m03gagbhsnusi43zogoacgj2ez_filesystem::rooted_path_t& interface) const;
 };
 
 /**
- * Phase object for building and publishing the module library.
+ * @brief Builds and stages a module library with validation required before completion.
+ *
+ * Builder constructs and validates every member of a library SCC before marking
+ * any member complete or publishing latest. Register validation during the
+ * producer call; execution occurs after the SCC's libraries have been staged.
+ *
+ * A minimal builder.cpp for a module containing `api.cpp` and `test/public_api.cpp`:
+ * @code{.cpp}
+ * #include <m03gagbhsujjf63n0w3r2w4q6h_build_phases/build_phases.h>
+ *
+ * namespace phases = m03gagbhsujjf63n0w3r2w4q6h_build_phases;
+ *
+ * extern "C" void phase__library(const phases::library_phase_t* phase) {
+ *     const auto source_file = phase->source("api.cpp");
+ *     const auto library = phase->build_library({ source_file }, {});
+ *     phase->install_library(library);
+ *     phase->validate_library("public_api", { phase->source("test/public_api.cpp") });
+ * } // phase is no longer available to the producer after this call.
+ * @endcode
+ * The test source supplies main() and includes the module's public header to
+ * establish its library dependency. Builder automatically registers
+ * `test/public_api.cpp` when present unless `public_api` was explicitly registered.
  */
 struct library_phase_t : phase_base_t {
+    /** @brief Stores a validation executable's name, rooted sources, defines, and arguments by value. */
     struct validation_t {
         std::string name;
         std::vector<phase_base_t::built_t> source_files;
@@ -216,12 +288,18 @@ struct library_phase_t : phase_base_t {
         std::vector<std::string> arguments;
     };
 
+    /**
+     * @brief Retains a library install-root path by value.
+     *
+     * Direct construction copies a path without verifying phase completion.
+     * root() borrows this value's storage.
+     */
     class installed_t {
     public:
         explicit installed_t(const m03gagbhsnusi43zogoacgj2ez_filesystem::path_t& root);
 
         /**
-         * Library phase install root.
+         * @brief Library phase install root.
          */
         const m03gagbhsnusi43zogoacgj2ez_filesystem::path_t& root() const;
 
@@ -235,7 +313,12 @@ struct library_phase_t : phase_base_t {
     );
 
     /**
-     * Builds the module library and returns its output path.
+     * @brief Builds the module library and returns its output path.
+     *
+     * Resolves include dependencies from the source set and installs the required
+     * interfaces. The result is under build_dir(); call install_library() to
+     * stage it for publication. Compile/link failures propagate from the C++
+     * toolchain. This operation does not run registered validation.
      */
     m03gagbhsnusi43zogoacgj2ez_filesystem::path_t build_library(
         const std::vector<phase_base_t::built_t>& source_files,
@@ -243,13 +326,21 @@ struct library_phase_t : phase_base_t {
     ) const;
 
     /**
-     * Publishes a library path from build_dir().
+     * @brief Publishes a library path from build_dir().
      */
     void install_library(const m03gagbhsnusi43zogoacgj2ez_filesystem::path_t& library) const;
     void install_library(const phase_base_t::built_t& library) const;
 
     /**
-     * Registers a test executable that must pass before this library is marked complete.
+     * @brief Registers a test executable that must pass before this library is marked complete.
+     *
+     * Copies all arguments; does not compile or run the test during this call.
+     * name must be non-empty and contain no path separators, and source_files
+     * must be non-empty; violations throw std::runtime_error. Choose a distinct
+     * filename other than `.` or `..` for each validation output.
+     * arguments excludes the executable name. The runner executes in its own
+     * validation build directory and must exit with status 0; build failures,
+     * nonzero exits, and signal termination prevent SCC completion.
      */
     void validate_library(
         std::string_view name,
@@ -258,6 +349,12 @@ struct library_phase_t : phase_base_t {
         const std::vector<std::string>& arguments = {}
     ) const;
 
+    /**
+     * @brief Borrows the registered validations in registration order.
+     *
+     * The vector belongs to this phase; later registration can invalidate its
+     * element references and iterators.
+     */
     const std::vector<validation_t>& validations() const;
 
 private:
@@ -265,20 +362,29 @@ private:
 };
 
 /**
- * Phase object for building and publishing executable output.
+ * @brief Builds selected executable targets and publishes their runtime artifacts.
  */
 struct binary_phase_t : phase_base_t {
+    /**
+     * @brief Retains a binary install-root path and locates published targets beneath it.
+     *
+     * Direct construction copies a path without verifying phase completion.
+     * root() borrows this value's storage.
+     */
     class installed_t {
     public:
         explicit installed_t(const m03gagbhsnusi43zogoacgj2ez_filesystem::path_t& root);
 
         /**
-         * Binary phase install root.
+         * @brief Binary phase install root.
          */
         const m03gagbhsnusi43zogoacgj2ez_filesystem::path_t& root() const;
 
         /**
-         * Published binary target path.
+         * @brief Locates an existing regular executable file for a published target.
+         *
+         * Resolves the target's installed executable and requires a regular file.
+         * Throws std::runtime_error for an invalid or unpublished target.
          */
         m03gagbhsnusi43zogoacgj2ez_filesystem::path_t target(std::string_view target) const;
 
@@ -292,11 +398,20 @@ struct binary_phase_t : phase_base_t {
         std::unique_ptr<phase_base_t> previous_phase
     );
 
+    /**
+     * @brief Returns whether target matches the selection, or all targets were requested.
+     *
+     * Performs no target-name validation.
+     */
     bool should_install_target(std::string_view target) const;
 
     /**
-     * Builds source_files and publishes the executable plus runtime artifacts.
+     * @brief Builds source_files and publishes the executable plus runtime artifacts.
      * Each runtime artifact is installed under its source basename.
+     * Unselected targets are ignored. For a selected target, use a non-empty
+     * filename other than `.` or `..`, with no path separators. Source inputs
+     * establish dependencies; runtime artifacts must be existing files or
+     * directories. Build, installation, and output-check failures propagate.
      */
     void install_binary(
         std::string_view target,
@@ -308,11 +423,19 @@ private:
     std::string m_target;
 };
 
+/** @brief Carries the direct module and builder dependency names found by source scanning. */
 struct discovered_module_dependencies_t {
     std::vector<m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::module_name_t> module_dependencies;
     std::vector<m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::module_name_t> builder_dependencies;
 };
 
+/**
+ * @brief Scans a module's library source set and builder.cpp for direct dependencies.
+ *
+ * Requires builder.cpp to exist. Uses the dependency eligibility and scanning
+ * rules owned by m03gn8rf3pe86v64vphnaam6rl_source_dependencies; discovery and
+ * scan failures propagate. Referenced modules may be materialized in the graph.
+ */
 discovered_module_dependencies_t discover_module_dependencies(
     const m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::module_t& module
 );

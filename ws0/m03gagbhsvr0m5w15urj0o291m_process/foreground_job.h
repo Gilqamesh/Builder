@@ -19,6 +19,13 @@ class foreground_job_t {
 public:
     /**
      * @brief Runs command as the terminal foreground job and returns its process result.
+     *
+     * Returns the exit code or negated terminating signal, as create_and_wait()
+     * in this namespace does. Uses the terminal handoff, non-terminal fallback,
+     * restoration, and stopped-child policy documented by
+     * create_and_wait_foreground_checked(), but returns nonzero exit results
+     * instead of checking them. Setup, wait, restoration, and stopped-child
+     * failures still throw; the signal-handler policy also applies.
      */
     static int create_and_wait(const command_t& command);
 

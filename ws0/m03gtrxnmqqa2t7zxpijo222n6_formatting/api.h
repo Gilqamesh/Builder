@@ -18,23 +18,58 @@
 namespace m03gtrxnmqqa2t7zxpijo222n6_formatting {
 
 /**
- * @brief Formats records by preorder DFS over all bases and members, and enums by name.
+ * @brief Produces structural diagnostics for records and named values for enums.
  *
- * @code
+ * Inherit this implementation in an explicit std::formatter specialization for
+ * each selected type. Records expose all bases and nonstatic data members,
+ * including private and protected subobjects, with bases before members in
+ * declaration order. Each base and member must be formattable as a const value;
+ * nested project types need their own formatter specializations. Unsupported
+ * structures, including unions, require a custom formatter. Type owners also
+ * supply custom formatting for semantic summaries or to omit internal state.
+ *
+ * Formatting borrows const values for the call and does not follow pointer
+ * ownership graphs. Referenced data must remain valid while formatting; character
+ * pointers and character arrays used as text must contain a valid null-terminated
+ * string. Custom subobject formatters retain their own presentation.
+ *
+ * An empty specification or 0 expands records; 1 inlines leaf records; 2 uses a
+ * single line; 3 additionally shortens text and ranges and rounds floating-point
+ * values. Other specifications are rejected with std::format_error at runtime
+ * (or diagnosed for checked format strings). Enum aliases use the first matching
+ * enumerator; unnamed values print invalid(underlying-value).
+ * Output is diagnostic, not a serialization or persistence format.
+ *
+ * @code{.cpp}
+ * #include <m03gtrxnmqqa2t7zxpijo222n6_formatting/api.h>
+ *
+ * #include <format>
+ * #include <iostream>
+ *
+ * namespace app {
+ * struct point_t { int x; int y; };
+ * } // namespace app
+ *
  * template <>
  * struct std::formatter<app::point_t> : public m03gtrxnmqqa2t7zxpijo222n6_formatting::reflected_formatter_t {};
  *
- * std::format("{}", point);   // Expanded
- * std::format("{:1}", point); // Inline leaf records
- * std::format("{:2}", point); // Single line: point_t { x: 1, y: 2 }
- * std::format("{:3}", point); // Shortened single line
+ * int main() {
+ *     const app::point_t point{1, 2};
+ *     std::cout << std::format("{}\n", point);   // Expanded
+ *     std::cout << std::format("{:1}\n", point); // Inline leaf records
+ *     std::cout << std::format("{:2}\n", point); // point_t { x: 1, y: 2 }
+ *     std::cout << std::format("{:3}\n", point); // Shortened single line
+ * }
  * @endcode
  */
 struct reflected_formatter_t {
+    /** @brief Selects the layout and shortening level from 0 through 3. */
     std::size_t level = 0;
 
+    /** @brief Parses an empty specification or one level digit, resetting the default to 0. */
     constexpr auto parse(std::format_parse_context& ctx);
 
+    /** @brief Writes the borrowed record or enum and returns the advanced output iterator. */
     template <typename T>
     auto format(const T& formatted, auto& ctx) const -> decltype(ctx.out());
 

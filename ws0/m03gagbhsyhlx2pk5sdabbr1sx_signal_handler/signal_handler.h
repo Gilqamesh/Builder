@@ -10,19 +10,20 @@
 
 namespace m03gagbhsyhlx2pk5sdabbr1sx_signal_handler {
 
+/** @brief Selects the child process or its process group as the termination-signal destination. */
 enum class child_signal_target_t {
-    process,
-    process_group
+    process, ///< Sends to the registered positive child pid.
+    process_group ///< Sends to the group whose id equals the registered child pid; the caller establishes that group.
 };
 
 /**
- * Exception raised for SIGINT, SIGTERM, or SIGHUP.
+ * @brief Carries the POSIX signal number that requested shutdown at a guard boundary.
  */
 class termination_request_t : public std::runtime_error {
 public:
     explicit termination_request_t(int signal_number);
 
-    /** Returns the POSIX signal that requested shutdown. */
+    /** @brief Returns the stored POSIX signal number without translating it to an exit status. */
     int signal_number() const;
 
 private:
@@ -30,9 +31,40 @@ private:
 };
 
 /**
- * Records SIGINT, SIGTERM, and SIGHUP for this scope.
+ * @brief Defers the first SIGINT, SIGTERM, or SIGHUP to a termination exception at scope exit.
  *
- * The destructor restores the previous handlers and throws termination_request_t if a signal was received.
+ * The signal handler records the request; execution continues until the scope
+ * exits. The destructor restores the previous handlers and throws
+ * termination_request_t only if a request is recorded and no exception is
+ * already unwinding. Catch outside the guarded scope. A second handled
+ * termination signal exits immediately with status 128 + signal number.
+ *
+ * Recorded requests persist: constructing another guard after a request throws
+ * termination_request_t immediately. Handler installation failures throw
+ * std::runtime_error; failure to restore a handler exits the process.
+ * Handlers and request state are process-wide. Do not manage guards or change
+ * these signal handlers concurrently; this API does not coordinate signal
+ * delivery among multiple threads.
+ *
+ * @code{.cpp}
+ * #include <m03gagbhsyhlx2pk5sdabbr1sx_signal_handler/signal_handler.h>
+ * #include <csignal>
+ * #include <stdexcept>
+ *
+ * int main() {
+ *     namespace signals = m03gagbhsyhlx2pk5sdabbr1sx_signal_handler;
+ *     try {
+ *         signals::scoped_termination_guard_t scoped_termination_guard;
+ *         if (std::raise(SIGTERM) != 0) {
+ *             throw std::runtime_error("failed to request termination");
+ *         }
+ *         // Work reaches here; normal scope exit then raises the request.
+ *     } catch (const signals::termination_request_t& termination_request) {
+ *         return termination_request.signal_number() == SIGTERM ? 0 : 1;
+ *     }
+ *     return 1;
+ * }
+ * @endcode
  */
 class scoped_termination_guard_t {
 public:
@@ -48,14 +80,71 @@ private:
 };
 
 /**
- * Forks child_fn and forwards SIGINT, SIGTERM, and SIGHUP to the child.
+ * @brief Temporarily forwards SIGINT, SIGTERM, and SIGHUP to one registered child or child process group.
  *
- * In the parent, pid() returns the child pid. If child_fn returns, the child exits with 0; if child_fn throws, the child exits with 127.
+ * The callable constructor forks; the target-selection constructor only prepares
+ * signal handling for a caller-managed fork. Only one child guard may be active
+ * in a process; nested guards throw std::runtime_error. Signal handlers and
+ * forwarding state are process-wide, and mask changes affect the calling thread.
+ * Do not manage guards or handlers concurrently; multithreaded signal routing
+ * is not provided.
+ *
+ * The first handled signal is recorded and forwarded; a second exits the parent
+ * immediately with status 128 + signal number. Destruction restores the previous
+ * handlers and mask, then throws termination_request_t for a recorded signal only
+ * when no exception is already unwinding. Restoration failures exit the process.
+ * Destruction neither waits for nor terminates the child. The caller owns waiting,
+ * reaping, and any forced termination, including recovery after setup failures.
+ * Keep the guard active through the wait and handle EINTR.
+ *
+ * @code{.cpp}
+ * #include <m03gagbhsyhlx2pk5sdabbr1sx_signal_handler/signal_handler.h>
+ * #include <cerrno>
+ * #include <stdexcept>
+ * #include <sys/wait.h>
+ *
+ * int main() {
+ *     namespace signals = m03gagbhsyhlx2pk5sdabbr1sx_signal_handler;
+ *     try {
+ *         signals::scoped_child_termination_guard_t scoped_child_termination_guard([] {
+ *             // Child work; returning exits this child with status zero.
+ *         });
+ *         int status = 0;
+ *         while (waitpid(scoped_child_termination_guard.pid(), &status, 0) == -1) {
+ *             if (errno != EINTR) {
+ *                 throw std::runtime_error("failed to wait for child");
+ *             }
+ *         }
+ *         return WIFEXITED(status) ? WEXITSTATUS(status) : 1;
+ *     } catch (const signals::termination_request_t& termination_request) {
+ *         return 128 + termination_request.signal_number();
+ *     }
+ * }
+ * @endcode
  */
 class scoped_child_termination_guard_t {
 public:
+    /**
+     * @brief Blocks termination signals and prepares forwarding without forking a child.
+     *
+     * Installs handlers while the calling thread's termination signals are blocked;
+     * pid() remains -1. After fork(), call enter_child() in the child and
+     * enter_parent() with the positive child pid in the parent. For process_group,
+     * establish a group with id equal to the child pid before enter_parent().
+     * Destruction restores state if no fork occurs. Setup failures, including a
+     * nested guard, throw std::runtime_error.
+     */
     explicit scoped_child_termination_guard_t(child_signal_target_t child_signal_target);
 
+    /**
+     * @brief Forks and invokes child_fn in the child while the parent forwards signals to its pid.
+     *
+     * The child restores inherited handlers and mask before invoking the callable;
+     * it uses _exit(0) if the callable returns and _exit(127) if it throws.
+     * Parent automatic objects are not unwound in the child by _exit(). The
+     * callable and captures execute in the forked address space, not a new thread.
+     * Setup or fork failures throw std::runtime_error in the parent.
+     */
     template <class child_fn_t>
     explicit scoped_child_termination_guard_t(child_fn_t&& child_fn);
 
@@ -64,10 +153,20 @@ public:
     scoped_child_termination_guard_t(const scoped_child_termination_guard_t&) = delete;
     scoped_child_termination_guard_t& operator=(const scoped_child_termination_guard_t&) = delete;
 
-    /** Returns the forked child pid in the parent process. */
+    /** @brief Returns the registered child pid in the parent, or -1 before registration. */
     pid_t pid() const;
 
+    /** @brief Restores inherited handlers and signal mask in the child after a caller-managed fork. */
     void enter_child();
+
+    /**
+     * @brief Registers the child pid and restores the parent's pre-setup signal mask to enable forwarding.
+     *
+     * Call once in the parent after a successful fork; pid must be positive.
+     * For process_group, its process group must already exist with that id.
+     * A mask restoration failure throws std::runtime_error after signal cleanup;
+     * the caller still owns the child and must arrange its termination/reaping.
+     */
     void enter_parent(pid_t pid);
 
 private:
