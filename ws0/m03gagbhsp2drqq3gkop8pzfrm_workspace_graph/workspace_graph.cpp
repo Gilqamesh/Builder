@@ -16,8 +16,6 @@
 #include <vector>
 #include <set>
 #include <iostream>
-#include <optional>
-#include <cassert>
 #include <type_traits>
 
 namespace m03gagbhsp2drqq3gkop8pzfrm_workspace_graph {
@@ -222,25 +220,25 @@ workspace_graph_t::workspace_graph_t(m03gagbhsnusi43zogoacgj2ez_filesystem::path
     m_root(std::move(workspace_root)),
     m_artifact_root(std::move(artifact_dir))
 {
-    for (const auto& workspace_dir : m03gagbhsnusi43zogoacgj2ez_filesystem::find(root(), m03gagbhsnusi43zogoacgj2ez_filesystem::find_include_predicate_t::is_dir, m03gagbhsnusi43zogoacgj2ez_filesystem::find_descend_predicate_t::descend_none)) {
-        std::optional<workspace_name_t> maybe_workspace_name;
-        try {
-            maybe_workspace_name = workspace_name_t(workspace_dir.relative_path().string());
-        } catch (const std::invalid_argument& e) {
-            std::cerr << std::format("m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::workspace_graph_t: skipping directory '{}' because it is not a valid workspace name: {}", workspace_dir, e.what()) << std::endl;
-            continue ;
-        } catch (...) {
-            continue ;
-        }
+    const m03gagbhsnusi43zogoacgj2ez_filesystem::find_include_predicate_t is_workspace {
+        [](const m03gagbhsnusi43zogoacgj2ez_filesystem::path_t& path) {
+            try {
+                [[maybe_unused]] const workspace_name_t workspace_name(path.filename());
+            } catch (const std::invalid_argument& e) {
+                std::cerr << std::format("m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::workspace_graph_t: skipping entry '{}' because it is not a valid workspace name: {}", path, e.what()) << std::endl;
+                return false;
+            } catch (...) {
+                return false;
+            }
 
-        assert(maybe_workspace_name.has_value());
-        if (!maybe_workspace_name) {
-            throw std::logic_error(std::format("m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::workspace_graph_t: workspace name is empty after validation for directory '{}'", workspace_dir));
+            return m03gagbhsnusi43zogoacgj2ez_filesystem::is_directory(path);
         }
-
-        auto workspace = std::make_unique<workspace_t>(*this, *maybe_workspace_name);
-        if (m_workspace_by_workspace_name.emplace(*maybe_workspace_name, std::move(workspace)).second == false) {
-            throw std::runtime_error(std::format("m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::workspace_graph_t: duplicate workspace name '{}'", *maybe_workspace_name));
+    };
+    for (const auto& workspace_dir : m03gagbhsnusi43zogoacgj2ez_filesystem::find(root(), is_workspace, m03gagbhsnusi43zogoacgj2ez_filesystem::find_descend_predicate_t::descend_none)) {
+        const workspace_name_t workspace_name(workspace_dir.relative_path().string());
+        auto workspace = std::make_unique<workspace_t>(*this, workspace_name);
+        if (m_workspace_by_workspace_name.emplace(workspace_name, std::move(workspace)).second == false) {
+            throw std::runtime_error(std::format("m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::workspace_graph_t: duplicate workspace name '{}'", workspace_name));
         }
     }
 

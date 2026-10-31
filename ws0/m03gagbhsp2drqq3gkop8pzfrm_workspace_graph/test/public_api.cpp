@@ -215,8 +215,13 @@ int main() {
         std::filesystem::create_directories(root_native / "ws0" / later_name.unique_name());
 
         const api::module_name_t third_name("m03gn7qllwpi68ovctow4jrccj_lexer");
-        std::filesystem::create_directories(root_native / "ws2" / third_name.unique_name());
+        const auto linked_workspace_native = temporary_directory.path() / "linked-workspace";
+        std::filesystem::create_directories(linked_workspace_native / third_name.unique_name());
+        std::filesystem::create_directory_symlink(linked_workspace_native, root_native / "ws2");
         std::filesystem::create_directories(root_native / "not-a-workspace");
+        std::filesystem::create_directory_symlink(root_native / "missing", root_native / "api-conciseness-prompts");
+        std::filesystem::create_directory_symlink(root_native / "missing", root_native / "wsx");
+        create_file(root_native / "ws3");
 
         create_file(root_native / "ws0" / known_name.unique_name() / "api.cpp", "one");
         create_file(root_native / "ws0" / later_name.unique_name() / "api.h", "two");
@@ -262,6 +267,13 @@ int main() {
         test::expect(std::identity(), indexed_names.contains(known_name));
         test::expect(std::identity(), indexed_names.contains(later_name));
         test::expect(std::identity(), indexed_names.contains(third_name));
+
+        std::filesystem::remove(root_native / "ws3");
+        std::filesystem::create_directory_symlink(root_native / "missing", root_native / "ws3");
+        test::expect_throws<std::runtime_error>([&] {
+            [[maybe_unused]] const api::workspace_graph_t broken_graph(root, artifacts);
+        });
+        std::filesystem::remove(root_native / "ws3");
 
         auto* first_module = graph.discover_module(known_name);
         test::expect(std::identity(), first_module == graph.discover_module(known_name));
