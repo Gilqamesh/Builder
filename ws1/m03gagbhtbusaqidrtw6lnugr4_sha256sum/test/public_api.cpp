@@ -7,6 +7,7 @@
 #include <filesystem>
 #include <format>
 #include <fstream>
+#include <initializer_list>
 #include <stdexcept>
 #include <string>
 #include <string_view>
@@ -100,6 +101,19 @@ int main() {
         });
         test::expect(std::identity(), filesystem_api::is_regular_file(checksum_path));
         filesystem_api::remove(checksum_path);
+
+        for (const std::string filename : {"value.bin\nignored", "back\\slash.bin", "carriage\rreturn.bin", "mixed\\n\n\r.bin"}) {
+            const filesystem_api::path_t unusual_file(temporary_directory.path() / filename);
+            write_file(unusual_file.to_native_path(), "wrong bytes");
+            test::expect_throws<std::runtime_error>([&] {
+                api::verify(unusual_file, expected);
+            });
+            test::expect(std::identity(), filesystem_api::is_regular_file(unusual_file));
+            test::expect(std::identity(), !filesystem_api::exists(unusual_file + ".sha256"));
+            write_file(unusual_file.to_native_path(), "abc");
+            test::expect_no_throw([&] { api::verify(unusual_file, expected); });
+            test::expect(std::identity(), !filesystem_api::exists(unusual_file + ".sha256"));
+        }
 
         const std::string wrong =
             "00000000000000000000000000000000"

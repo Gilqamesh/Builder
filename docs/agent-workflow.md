@@ -100,6 +100,8 @@ The coordinating agent handles cross-module choices through [semantic decision h
 
 ## Validate
 
+Use Builder's native C++ validation targets for framework tests. Avoid introducing Python scripts or a Python dependency for framework builds and validation.
+
 Match validation to the semantic reach of the change:
 
 - private implementation change: build and exercise the target module;

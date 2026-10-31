@@ -1,4 +1,4 @@
-#include <m03gagbhtbusaqidrtw6lnugr4_sha256sum/sha256sum.h>
+#include "sha256sum.h"
 
 #include <m03gagbhsnusi43zogoacgj2ez_filesystem/filesystem.h>
 #include <m03gagbhsvr0m5w15urj0o291m_process/process.h>
@@ -51,7 +51,29 @@ static void write_checksum_file(
         throw std::runtime_error(std::format("sha256sum::verify: failed to write checksum file '{}'", checksum_path));
     }
 
-    ofs << expected_sha256 << "  " << path.string() << "\n";
+    const auto filename = path.string();
+    const bool escape_filename = filename.find_first_of("\\\n\r") != std::string::npos;
+    if (escape_filename) {
+        ofs << '\\';
+    }
+    ofs << expected_sha256 << "  ";
+    for (const char character : filename) {
+        switch (character) {
+            case '\\': {
+                ofs << "\\\\";
+            } break;
+            case '\n': {
+                ofs << "\\n";
+            } break;
+            case '\r': {
+                ofs << "\\r";
+            } break;
+            default: {
+                ofs << character;
+            } break;
+        }
+    }
+    ofs << '\n';
     if (!ofs) {
         throw std::runtime_error(std::format("sha256sum::verify: failed to write checksum file '{}'", checksum_path));
     }
@@ -75,6 +97,7 @@ void verify(const m03gagbhsnusi43zogoacgj2ez_filesystem::path_t& path, const std
             sha256sum_string(),
             "--status",
             "--check",
+            "--strict",
             checksum_path.string()
         }));
         m03gagbhsnusi43zogoacgj2ez_filesystem::remove(checksum_path);
