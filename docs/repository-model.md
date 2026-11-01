@@ -18,6 +18,21 @@ Numeric workspace ordering determines dependency eligibility. The descriptive ro
 
 Builder owns the root `AGENTS.md`, shared workflow, and coding instructions for the combined development workspace, including modules supplied by another repository. Across Builder and Builder-Modules, each module owns a `README.md` with one meaningful Goal and the relevant semantic contracts, following the [module README convention](module-readme.md). The same convention applies to additional repositories composed into the layout. Module direction belongs in those READMEs; shared instructions remain centralized in Builder.
 
+## Module documentation
+
+Describe a module through its own purpose, capabilities, contracts, and relevant dependencies. Module documentation must not identify, characterize, assign responsibilities to, or imply downstream modules. This includes named modules, unnamed roles, hypothetical consumers, and examples that reveal particular downstream responsibilities. Express requirements directly through inputs, outputs, state, and lifetimes.
+
+Review module READMEs, additional module documentation, C++ comments, examples,
+and links against this invariant. Their descriptions must remain understandable
+and accurate if all dependents are replaced while the module's own contract stays
+unchanged. Preserve concrete ownership, lifetime, validation, compatibility, and
+failure guarantees when rewriting a requirement.
+
+Domain terminology that does not identify downstream modules remains valid,
+including producer/consumer concurrency roles. Repository-wide architecture and
+workflow documentation may coordinate responsibilities, changes, and validation
+across the dependency graph.
+
 ## Module identity
 
 A module directory name has this form:

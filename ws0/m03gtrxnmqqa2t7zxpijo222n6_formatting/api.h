@@ -20,15 +20,9 @@ namespace m03gtrxnmqqa2t7zxpijo222n6_formatting {
 /**
  * @brief Formats records by preorder DFS over all bases and members, and enums by name.
  *
- * @code
- * template <>
- * struct std::formatter<app::point_t> : public m03gtrxnmqqa2t7zxpijo222n6_formatting::reflected_formatter_t {};
- *
- * std::format("{}", point);   // Expanded
- * std::format("{:1}", point); // Inline leaf records
- * std::format("{:2}", point); // Single line: point_t { x: 1, y: 2 }
- * std::format("{:3}", point); // Shortened single line
- * @endcode
+ * Inherit from an explicit std::formatter<T> specialization for a structural view.
+ * Format levels select expanded (0), inline leaf records (1), single-line (2),
+ * or shortened single-line (3) layout; an empty specification selects level 0.
  */
 struct reflected_formatter_t {
     std::size_t level = 0;

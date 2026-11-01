@@ -2,6 +2,6 @@
 
 ## Goal
 
-Provide checked paths and filesystem operations for tools that need to locate, traverse, stage, and publish files. The module owns absolute, relative, and rooted path handling and file operations; module identity, artifact policy, and application storage formats belong to consumers.
+Provide checked absolute, relative, and rooted paths and filesystem operations for locating, traversing, staging, and publishing files. Path validation and file operations preserve explicit root and destination constraints.
 
 See [filesystem.h](filesystem.h) for the public interface.

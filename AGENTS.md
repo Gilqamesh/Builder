@@ -41,6 +41,7 @@ Apply all matching task rows, loading only the selected documents or sections. F
 |---|---|
 | Ordinary work inside one module | The module README Goal and relevant contracts; the validation section of `docs/agent-workflow.md` for implementation tasks |
 | Work on public semantics, including documentation | The module README Goal, relevant model and requirements, and public headers |
+| Write or review module documentation, C++ comments, or examples | `docs/module-readme.md`, the [module documentation invariant](docs/repository-model.md#module-documentation), and applicable C++ instructions for comments and C++ examples |
 | Define or materially change a public API within an established module boundary | `docs/agent-workflow.md` and the module README Goal and relevant contracts |
 | Create a module or materially change module boundaries | `docs/agent-workflow.md`, `docs/repository-model.md`, and `docs/module-readme.md` |
 | Change workspace ordering, dependencies, artifacts, phases, bootstrap, or module execution | `docs/repository-model.md` and each affected foundation module README Goal and relevant contracts |
@@ -49,7 +50,7 @@ Apply all matching task rows, loading only the selected documents or sections. F
 | Review a change | Instructions for the changed paths, affected module README Goals and contracts, public interfaces and relevant README contracts of direct dependencies, and relevant validation code |
 | Modify vendored third-party code | Only the task, enclosing workspace/module instructions, and the exact vendored files required |
 
-Load `docs/repository-model.md` only when module boundaries or repository/build semantics are in scope.
+Load only the module documentation section of `docs/repository-model.md` for documentation work; load other sections only when module boundaries or repository/build semantics are in scope.
 
 ## Context discipline
 

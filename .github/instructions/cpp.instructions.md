@@ -126,6 +126,7 @@ Write for experienced C++ developers and make the API's purpose and use clear at
 - Omit comments that merely repeat the declaration.
 - Use examples when they clarify meaningful usage; keep substantial examples in the module README.
 - Use brief implementation comments to explain reasoning needed for maintenance.
+- Apply the [module documentation invariant](../../docs/repository-model.md#module-documentation) to public and private comments and examples. State preconditions, ownership, and lifetime requirements directly on values and operations; keep examples within the documented API and its necessary inputs.
 
 Public headers explain abstraction purpose and local, operation-specific semantics. Every module README has one meaningful Goal describing the capability, why someone needs it, and its responsibility boundary, following the [module README convention](../../docs/module-readme.md). READMEs also explain useful shared public models, detailed requirements, and substantial examples. They describe current intent; update the Goal when the module's purpose changes. Keep workflow and coding instructions in Builder's shared documents. Keep each detailed rule with its owner and use brief local summaries where they help correct use. Keep documentation navigation in Markdown.
 

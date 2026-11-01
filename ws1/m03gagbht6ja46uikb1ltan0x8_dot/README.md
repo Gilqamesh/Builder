@@ -2,6 +2,6 @@
 
 ## Goal
 
-Render a supplied DOT graph into an SVG image so tools can turn graph descriptions into viewable diagrams. This module owns the rendering invocation and output path checks; callers own graph content, dependency semantics, and diagram interpretation.
+Render a supplied DOT graph into an SVG image through a checked rendering invocation and output-path validation. Graph content is provided as input without interpreting its domain semantics.
 
 See [dot.h](dot.h) for the public interface.

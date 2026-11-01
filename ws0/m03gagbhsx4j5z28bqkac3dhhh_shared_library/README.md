@@ -2,6 +2,6 @@
 
 ## Goal
 
-Load a shared library and resolve named function symbols so hosts can invoke separately built plugins. The module owns the loaded library lifetime and symbol lookup; callers own the expected function signature, plugin ABI, and use of resolved symbols while the library remains loaded.
+Load a shared library, own its loaded lifetime, and resolve named function symbols. The requested function signature must match the resolved symbol and its ABI; resolved symbols may be invoked only while the library remains loaded.
 
 See [shared_library.h](shared_library.h) for the public interface.

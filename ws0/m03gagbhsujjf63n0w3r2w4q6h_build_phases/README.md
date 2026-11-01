@@ -2,13 +2,11 @@
 
 ## Goal
 
-Materialize a module through source, interface, library, and binary phases; derive source dependencies; build library SCCs; dispatch module-owned producer code; validate outputs; and publish cache-keyed versioned artifacts. This lets module producers participate in a shared build lifecycle without managing dependency execution or publication themselves.
-
-For workspace/module identity, source-include scanning and eligibility, and artifact-path operations, use the [foundation ownership table](../../docs/repository-model.md#foundation-ownership). Application semantics and agent execution remain outside the build-phase model.
+Materialize a module through source, interface, library, and binary phases; derive source dependencies; build library SCCs; dispatch exported producer entry points; validate outputs; and publish cache-keyed versioned artifacts. Keep dependency execution and publication within this phase lifecycle.
 
 ## Public model
 
-A `builder.cpp` may implement module-specific behavior through exported `phase__<name>` entry points. The phase object passed to an entry point is borrowed for that call; a producer must synchronously stage, install, or register its outputs through that object.
+A `builder.cpp` may implement module-specific behavior through exported `phase__<name>` entry points. The phase object passed to an entry point is borrowed for that call. Staging, installation, and output registration through it must complete synchronously before the entry point returns.
 
 ## Invariants
 
@@ -18,4 +16,4 @@ A `builder.cpp` may implement module-specific behavior through exported `phase__
 
 ## Validation
 
-`test/public_api.cpp` covers the phase-object contract. For phase-semantic changes, bootstrap Builder and exercise only the affected end-to-end cases, including cache reuse, failure recovery, dependency cycles, or representative later-workspace modules when those semantics change.
+`test/public_api.cpp` covers the phase-object contract. For phase-semantic changes, bootstrap Builder and exercise only the affected end-to-end cases, including cache reuse, failure recovery, dependency cycles, or phase execution over later-workspace fixtures when those semantics change.

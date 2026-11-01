@@ -2,10 +2,7 @@
 
 ## Goal
 
-Provide one canonical UUIDv7/base36 identity contract so independent systems can
-generate, exchange, and persist identifiers consistently. This module owns generic
-identity representation and validation; domain-specific prefixes, suffixes, naming
-rules, and lifecycle policies belong to consumers.
+Provide canonical UUIDv7 identities with a fixed-width base36 representation, generation, validation, comparison, and formatting. Keep identity representation independent of domain-specific prefixes, suffixes, naming rules, and lifecycle policies.
 
 ## Model and requirements
 
@@ -20,14 +17,13 @@ Equality compares UUID values. Construction copies its inputs; the UUID accessor
 returns a value, and no mutable view of the stored identity is exposed.
 
 Generation delegates to the existing UUIDv7 generator, including its ordering and
-failure semantics. Identity timestamps do not define application version order.
+failure semantics. Identity timestamps do not establish a version-history order.
 The UUID module retains its standard hexadecimal formatting and CLI behavior;
 formatting a `unique_id_t` always produces the canonical base36 representation
 and accepts only an empty format specification.
 
-Identity handling remains below workspace discovery and application modules so it
-can be used during Builder bootstrap. The UUID module owns UUID generation and
-validation; the byte-stream module owns general radix conversion.
+The dependencies are UUID generation and validation from the UUID module and
+general radix conversion from the byte-stream module.
 
 ## Example
 
