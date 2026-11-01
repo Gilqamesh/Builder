@@ -1,13 +1,13 @@
 # Builder agent entry point
 
-Use this file to acquire the smallest context that fully determines a task. Builder owns the repository-wide agent documentation; other repositories may provide module-local `AGENTS.md` contracts only.
+Use this file to acquire the smallest context that fully determines a task. Builder owns the shared workflow and coding instructions. Module READMEs supply the goals and semantic contracts needed to apply them across the combined workspace.
 
 ## Documentation ownership
 
 - This file owns instruction precedence, context routing, semantic authority, scope discipline, and completion reporting.
 - `docs/agent-workflow.md` owns the reasoning and decision process for semantic work.
 - `docs/repository-model.md` owns intended cross-module and build-system semantics.
-- `docs/module-agents-template.md` owns the filter and structure for module-specific direction.
+- [`docs/module-readme.md`](docs/module-readme.md) owns the module README convention, including the required Goal and placement of module-specific direction.
 - Path-specific language instructions own concrete API, coding, and style rules.
 - Public headers and module READMEs own the public contract, following the split in the [C++ documentation rules](.github/instructions/cpp.instructions.md#documentation).
 - Tests provide executable evidence and case coverage.
@@ -21,10 +21,9 @@ State the intended result and the criteria for achieving it. Express instruction
 Resolve conflicts in this order:
 
 1. Explicit requirements in the current task.
-2. The nearest applicable module `AGENTS.md`.
-3. Matching path-specific files under `.github/instructions/`.
-4. Repository-wide documents dispatched by this file.
-5. Surrounding code conventions for matters not otherwise specified.
+2. Matching path-specific files under `.github/instructions/`.
+3. Repository-wide documents dispatched by this file.
+4. Surrounding code conventions for matters not otherwise specified.
 
 Repository code is authoritative for current behavior. Public headers and module READMEs are authoritative for their respective parts of the public contract. Explicit architecture and invariant documentation is authoritative for intended behavior. Report mismatches and distinguish current implementation facts, settled decisions, open decisions, and possible future directions.
 
@@ -40,14 +39,14 @@ Apply all matching task rows, loading only the selected documents or sections. F
 
 | Task | Additional context |
 |---|---|
-| Ordinary work inside one module | The module's `AGENTS.md`, when present; the validation section of `docs/agent-workflow.md` for implementation tasks |
-| Work on public semantics, including documentation | The relevant public headers and module README model and requirements, when present |
-| Define or materially change a public API within an established module boundary | `docs/agent-workflow.md` and the module's `AGENTS.md`, when present |
-| Create a module or materially change module boundaries | `docs/agent-workflow.md`, `docs/repository-model.md`, and `docs/module-agents-template.md` when a module contract is warranted |
-| Change workspace ordering, dependencies, artifacts, phases, bootstrap, or module execution | `docs/repository-model.md` and each affected foundation module's `AGENTS.md`, when present |
-| Implement across multiple modules | `docs/agent-workflow.md` and each affected module's `AGENTS.md`, when present |
-| Encounter an unresolved durable semantic choice | `docs/agent-workflow.md` and each affected module's `AGENTS.md`, when present |
-| Review a change | Instructions for the changed paths, public interfaces and relevant README model and requirements of direct dependencies, and relevant validation code |
+| Ordinary work inside one module | The module README Goal and relevant contracts; the validation section of `docs/agent-workflow.md` for implementation tasks |
+| Work on public semantics, including documentation | The module README Goal, relevant model and requirements, and public headers |
+| Define or materially change a public API within an established module boundary | `docs/agent-workflow.md` and the module README Goal and relevant contracts |
+| Create a module or materially change module boundaries | `docs/agent-workflow.md`, `docs/repository-model.md`, and `docs/module-readme.md` |
+| Change workspace ordering, dependencies, artifacts, phases, bootstrap, or module execution | `docs/repository-model.md` and each affected foundation module README Goal and relevant contracts |
+| Implement across multiple modules | `docs/agent-workflow.md` and each affected module README Goal and relevant contracts |
+| Encounter an unresolved durable semantic choice | `docs/agent-workflow.md` and each affected module README Goal and relevant contracts |
+| Review a change | Instructions for the changed paths, affected module README Goals and contracts, public interfaces and relevant README contracts of direct dependencies, and relevant validation code |
 | Modify vendored third-party code | Only the task, enclosing workspace/module instructions, and the exact vendored files required |
 
 Load `docs/repository-model.md` only when module boundaries or repository/build semantics are in scope.
@@ -56,9 +55,9 @@ Load `docs/repository-model.md` only when module boundaries or repository/build 
 
 1. Resolve the exact workspace and complete module directory name.
 2. Read the applicable language instructions.
-3. Read the target module's `AGENTS.md` when present, then its public headers and the relevant README model and requirements when working on public semantics.
+3. Read the target module README Goal and relevant contracts, then its public headers when working on public semantics.
 4. Read only implementation and validation files relevant to the requested behavior.
-5. Read direct dependency interfaces and relevant README model and requirements when needed; inspect their implementations only when their internals are part of the task.
+5. Read direct dependency interfaces and relevant README Goals, model, and requirements when needed; inspect their implementations only when their internals are part of the task.
 6. Inspect dependents when a public contract changes or validation exposes an incompatibility.
 7. Use the complete module name found in the workspace. Let the target module and, when necessary, one direct analogue supply local conventions.
 8. Stop acquiring context when the requested behavior and governing constraints are understood.
@@ -67,9 +66,9 @@ Load `docs/repository-model.md` only when module boundaries or repository/build 
 
 The user owns terminology, semantics, invariants, ownership, and architectural direction. The agent owns bounded implementation and validation.
 
-For a new module or material public-contract change, follow `docs/agent-workflow.md`: identify missing durable decisions, ask only questions that alter those decisions, and draft the module contract before its public interface when a contract is warranted.
+For a new module or material public-contract change, follow `docs/agent-workflow.md`: identify missing durable decisions, ask only questions that alter those decisions, and establish the module README Goal before designing its public API. Record additional model and requirements when they help define the contract.
 
-A module may have at most one agent-specific file: `<module>/AGENTS.md`; there is no workspace-level instruction layer. Place durable guidance with its existing documentation owner, applying `docs/module-agents-template.md` to module-specific direction. Keep temporary task plans, working notes, and transcripts outside permanent instruction files.
+Keep workflow and coding instructions centralized in Builder; module READMEs describe module intent and semantics rather than a separate instruction layer. Place durable guidance with its existing documentation owner, applying `docs/module-readme.md` to module-specific direction. Keep temporary task plans, working notes, and transcripts outside permanent instruction files.
 
 ## Scope discipline
 
@@ -79,9 +78,4 @@ A module may have at most one agent-specific file: `<module>/AGENTS.md`; there i
 
 ## Completion
 
-Report:
-
-1. The resulting behavior.
-2. The files changed.
-3. The exact validation performed and its result.
-4. Any unresolved semantic decision or unverified behavior.
+Use the [Goal / Changes / Validation record](docs/agent-workflow.md#logical-change-record) for planning and completion. Report the intended outcome under Goal, resulting behavior and files changed under Changes, and exact checks, actual results, unresolved semantic decisions, and unverified behavior under Validation. Store the completed record in the logical change's commit message.
