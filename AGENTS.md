@@ -79,4 +79,6 @@ Keep workflow and coding instructions centralized in Builder; module READMEs des
 
 ## Completion
 
-Use the [Goal / Changes / Validation record](docs/agent-workflow.md#logical-change-record) for planning and completion. Report the intended outcome under Goal, resulting behavior and files changed under Changes, and exact checks, actual results, unresolved semantic decisions, and unverified behavior under Validation. Store the completed record in the logical change's commit message.
+Use the [Goal / Changes / Validation record](docs/agent-workflow.md#logical-change-record) for planning and completion. Report the intended outcome under Goal, resulting behavior and files changed under Changes, and exact checks, actual results, unresolved semantic decisions, and unverified behavior under Validation. Include the completed record in the final response.
+
+Create a commit only when the user explicitly requests one. Completing or validating a task does not authorize a commit. When a commit is requested, include the completed record in its message.

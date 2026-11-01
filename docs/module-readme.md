@@ -44,7 +44,7 @@ places.
 | Dependency declarations | The source graph, as defined by [dependency discovery](repository-model.md#dependency-discovery). |
 | Private implementation rationale and storage maintenance | Beside the code they govern. |
 | Executable evidence and test-case inventories | Tests. |
-| Task plans, obtained results, caller or data migration steps, and historical alternatives | The [logical change record](agent-workflow.md#logical-change-record), completed in the commit message. |
+| Task plans, obtained results, caller or data migration steps, and historical alternatives | The [logical change record](agent-workflow.md#logical-change-record) and its completion reporting rules. |
 
 Keep workflow and coding instructions centralized in Builder. Module READMEs supply
 the semantics needed to apply them, including for modules in Builder-Modules and

@@ -41,8 +41,9 @@ actual evidence. Include changed files, exact validation commands and results,
 unresolved semantic decisions, and unverified behavior. A proposed check is not a
 completed check.
 
-Store the completed record in the logical change's commit message, including the
-squash commit when applicable. A PR description can carry the working record;
+Present the completed record according to the root [completion rules](../AGENTS.md#completion).
+When committing, also include it in the logical change's commit message, including
+the squash commit when applicable. A PR description can carry the working record;
 update it as the change develops. For a change spanning Builder and Builder-Modules,
 identify the corresponding change in the other repository in each record. Do the
 same for any additional participating repository. Use stable branch, commit, or PR
@@ -149,4 +150,4 @@ Report the exact commands run, their results, and untested cases. Only obtained 
 
 ## Record durable knowledge
 
-Follow the root [documentation ownership](../AGENTS.md#documentation-ownership) and [placement rules](../AGENTS.md#semantic-control), and apply the [module README convention](module-readme.md) before recording module-specific direction. Keep task plans and completed change records outside permanent instruction files; store the completed record in the logical change's commit message.
+Follow the root [documentation ownership](../AGENTS.md#documentation-ownership) and [placement rules](../AGENTS.md#semantic-control), and apply the [module README convention](module-readme.md) before recording module-specific direction. Keep task plans and completed change records outside permanent instruction files; report completed records according to the [logical change record](#logical-change-record).

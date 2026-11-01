@@ -75,7 +75,7 @@ does not create another workspace or dependency boundary.
 
 Build and run from the combined layout so its root is the workspace root and
 its `artifacts` directory contains all generated output. Source files may be
-edited through the links, but changes must be committed in the repository that
+edited through the links. When committing changes, use the repository that
 owns each module. Create new modules in their intended owning repository, then
 add the corresponding link to the combined layout.
 
