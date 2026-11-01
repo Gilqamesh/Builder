@@ -3,6 +3,7 @@
 
 # include <m03gagbhsnusi43zogoacgj2ez_filesystem/filesystem.h>
 # include <m03gagbhtft23yhjwpp881tfmc_uuid/uuid.h>
+# include <m03h5n4ecgpxtl2skl0hn35s0n_unique_id/unique_id.h>
 
 # include <cstdint>
 # include <functional>
@@ -73,21 +74,13 @@ public:
     bool operator<=(const module_name_t& other) const;
 
 private:
-    struct validated_name_t {
-        std::string name;
-    };
+    module_name_t(m03h5n4ecgpxtl2skl0hn35s0n_unique_id::unique_id_t unique_id, std::string_view friendly_name);
+    static void validate_friendly_name(std::string_view friendly_name);
 
 private:
-    explicit module_name_t(validated_name_t validated_name) noexcept;
-
-private:
-    static constexpr std::size_t m_pos = 0;
-    static constexpr std::size_t base36_decoded_uuidv7_start = m_pos + 1;
-    static constexpr std::size_t base36_converted_uuidv7_size = 25;
-    static constexpr std::size_t underscore_pos = base36_converted_uuidv7_size + 1;
-    static constexpr std::size_t first_friendly_name_char_pos = underscore_pos + 1;
-
+    // Assign the string before its nonthrowing identity to keep both consistent.
     std::string m_unique_name;
+    m03h5n4ecgpxtl2skl0hn35s0n_unique_id::unique_id_t m_unique_id;
 };
 
 /**
@@ -256,9 +249,6 @@ public:
     std::vector<const module_t*> modules() const;
 
     std::set<module_name_t> module_names() const;
-
-private:
-    module_t* discover_module_impl(module_name_t module_name);
 
 private:
     std::map<workspace_name_t, std::unique_ptr<workspace_t>> m_workspace_by_workspace_name;

@@ -16,6 +16,7 @@
 #include <string>
 #include <string_view>
 #include <utility>
+#include <unordered_set>
 #include <vector>
 #include <type_traits>
 
@@ -141,6 +142,41 @@ int main() {
             api::module_name_hash_t()(api::module_name_t(known_unique_name))
         );
 
+        for (const std::string friendly_name : {"a", "0", "_", "__", "Friendly__7_"}) {
+            const auto unique_name = std::format("m000000006g2dvmnfh66jop340_{}", friendly_name);
+            const api::module_name_t parsed_name(unique_name);
+            test::expect(std::equal_to<>(), parsed_name.unique_name(), unique_name);
+            test::expect(std::equal_to<>(), parsed_name.friendly_name(), friendly_name);
+            test::expect(std::equal_to<>(), std::format("{}", parsed_name.uuid()), std::format("{}", reference_name.uuid()));
+            const auto generated_name = api::module_name_t::from_friendly_name(friendly_name);
+            test::expect(std::equal_to<>(), generated_name.friendly_name(), friendly_name);
+            test::expect(std::equal_to<>(), api::module_name_t(generated_name.unique_name()), generated_name);
+        }
+
+        const api::module_name_t renamed_reference("m000000006g2dvmnfh66jop340_other");
+        test::expect(std::equal_to<>(), std::format("{}", renamed_reference.uuid()), std::format("{}", reference_name.uuid()));
+        test::expect(std::identity(), renamed_reference != reference_name);
+        test::expect(std::less<>(), renamed_reference, reference_name);
+        const std::unordered_set<api::module_name_t, api::module_name_hash_t> reference_names{reference_name, renamed_reference};
+        test::expect(std::equal_to<>(), reference_names.size(), std::size_t(2));
+        test::expect(std::identity(), reference_names.contains(api::module_name_t(reference_name.unique_name())));
+        test::expect(std::identity(), reference_names.contains(api::module_name_t(renamed_reference.unique_name())));
+
+        auto copied_name = reference_name;
+        test::expect(std::equal_to<>(), copied_name, reference_name);
+        const auto moved_name = std::move(copied_name);
+        test::expect(std::equal_to<>(), moved_name, reference_name);
+        test::expect(std::equal_to<>(), std::format("{}", moved_name.uuid()), std::format("{}", reference_name.uuid()));
+        auto assigned_name = known_name;
+        assigned_name = reference_name;
+        test::expect(std::equal_to<>(), assigned_name, reference_name);
+        test::expect(std::equal_to<>(), std::format("{}", assigned_name.uuid()), std::format("{}", reference_name.uuid()));
+        auto move_assigned_name = known_name;
+        move_assigned_name = std::move(assigned_name);
+        test::expect(std::equal_to<>(), move_assigned_name, reference_name);
+        test::expect(std::equal_to<>(), move_assigned_name.friendly_name(), std::string("reference"));
+        test::expect(std::equal_to<>(), std::format("{}", move_assigned_name.uuid()), std::format("{}", reference_name.uuid()));
+
         const auto generated_name = api::module_name_t::from_friendly_name("Friendly_7");
         test::expect(std::equal_to<>(), generated_name.friendly_name(), std::string("Friendly_7"));
         test::expect(std::equal_to<>(), generated_name.unique_name().size(), std::size_t(37));
@@ -165,6 +201,24 @@ int main() {
 
         test::expect_throws<std::invalid_argument>([] {
             [[maybe_unused]] const api::module_name_t invalid("");
+        });
+        for (const auto unique_name : {
+            "m", "m_", "000000006g2dvmnfh66jop340_a",
+            "m000000006g2dvmnfh66jop340", "m000000006g2dvmnfh66jop340_",
+            "m00000006g2dvmnfh66jop340_a", "m0000000006g2dvmnfh66jop340_a",
+            "m000000006g2dvmnfh66jop340_name-with-dash", "m000000006g2dvmnfh66jop340_name/path"
+        }) {
+            test::expect_throws<std::invalid_argument>([&] {
+                [[maybe_unused]] const api::module_name_t invalid(unique_name);
+            });
+        }
+        auto embedded_nul = reference_name.unique_name();
+        embedded_nul.push_back('\0');
+        test::expect_throws<std::invalid_argument>([&] {
+            [[maybe_unused]] const api::module_name_t invalid(embedded_nul);
+        });
+        test::expect_throws<std::invalid_argument>([&] {
+            [[maybe_unused]] const auto invalid = api::module_name_t::from_friendly_name(std::string_view(embedded_nul).substr(embedded_nul.find('_') + 1));
         });
         test::expect_throws<std::invalid_argument>([&] {
             auto value = known_unique_name;
@@ -229,6 +283,8 @@ int main() {
         std::filesystem::create_directories(root_native / "ws0" / later_name.unique_name());
 
         const api::module_name_t third_name("m03gn7qllwpi68ovctow4jrccj_lexer");
+        const api::module_name_t fourth_name("m03gagbhsmhr0naw0zpccv4gaq_cxx_toolchain");
+        std::filesystem::create_directories(root_native / "ws10" / fourth_name.unique_name());
         const auto linked_workspace_native = temporary_directory.path() / "linked-workspace";
         std::filesystem::create_directories(linked_workspace_native / third_name.unique_name());
         std::filesystem::create_directory_symlink(linked_workspace_native, root_native / "ws2");
@@ -270,17 +326,19 @@ int main() {
         test::expect(std::identity(), graph.modules().empty());
 
         const auto workspaces = graph.workspaces();
-        test::expect(std::equal_to<>(), workspaces.size(), std::size_t(2));
+        test::expect(std::equal_to<>(), workspaces.size(), std::size_t(3));
         test::expect(std::equal_to<>(), workspaces[0]->name(), ws0);
         test::expect(std::equal_to<>(), workspaces[1]->name(), ws2);
+        test::expect(std::equal_to<>(), workspaces[2]->name(), ws10);
         test::expect(std::identity(), &workspaces[0]->graph() == &graph);
         test::expect(std::equal_to<>(), std::format("{}", *workspaces[0]), std::string("ws0"));
 
         const auto indexed_names = graph.module_names();
-        test::expect(std::equal_to<>(), indexed_names.size(), std::size_t(3));
+        test::expect(std::equal_to<>(), indexed_names.size(), std::size_t(4));
         test::expect(std::identity(), indexed_names.contains(known_name));
         test::expect(std::identity(), indexed_names.contains(later_name));
         test::expect(std::identity(), indexed_names.contains(third_name));
+        test::expect(std::identity(), indexed_names.contains(fourth_name));
 
         std::filesystem::remove(root_native / "ws3");
         std::filesystem::create_directory_symlink(root_native / "missing", root_native / "ws3");
@@ -289,6 +347,8 @@ int main() {
         });
         std::filesystem::remove(root_native / "ws3");
 
+        auto* fourth_module = graph.discover_module(fourth_name);
+        test::expect(std::identity(), &fourth_module->workspace() == workspaces[2]);
         auto* first_module = graph.discover_module(known_name);
         test::expect(std::identity(), first_module == graph.discover_module(known_name));
         test::expect(std::identity(), &first_module->workspace() == workspaces[0]);
@@ -308,9 +368,21 @@ int main() {
         auto* third_module = graph.discover_module(third_name);
         test::expect(std::identity(), &third_module->workspace() == workspaces[1]);
         const auto discovered_modules = graph.modules();
-        test::expect(std::equal_to<>(), discovered_modules.size(), std::size_t(2));
+        test::expect(std::equal_to<>(), discovered_modules.size(), std::size_t(3));
         test::expect(std::identity(), discovered_modules[0] == first_module);
         test::expect(std::identity(), discovered_modules[1] == third_module);
+        test::expect(std::identity(), discovered_modules[2] == fourth_module);
+
+        auto* later_module = graph.discover_module(later_name);
+        const auto all_modules = graph.modules();
+        test::expect(std::equal_to<>(), all_modules.size(), std::size_t(4));
+        test::expect(std::identity(), all_modules[0] == first_module);
+        test::expect(std::identity(), all_modules[1] == later_module);
+        test::expect(std::identity(), all_modules[2] == third_module);
+        test::expect(std::identity(), all_modules[3] == fourth_module);
+        test::expect(std::identity(), graph.discover_module(fourth_name) == fourth_module);
+        test::expect(std::equal_to<>(), discovered_modules.size(), std::size_t(3));
+        test::expect(std::equal_to<>(), graph.module_names().size(), indexed_names.size());
 
         test::expect_throws<std::runtime_error>([&] {
             const auto missing = api::module_name_t::from_friendly_name("missing");
