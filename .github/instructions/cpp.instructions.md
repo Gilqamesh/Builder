@@ -118,18 +118,24 @@ switch (value) {
 
 ## Documentation
 
-Make the API's purpose and use clear at a glance.
+Write for experienced C++ developers and make the API's purpose and use clear at a glance.
 
-- Express its defining behavior in one concise Doxygen `@brief` sentence.
-- Use a small example to demonstrate setup or meaningful variations in use.
-- Add details that affect correct use.
+- Explain what problem an abstraction solves and when someone needs it.
+- Describe concrete behavior in familiar, precise language. Use as much context as necessary to make the purpose clear, usually one or two sentences.
+- Add ownership, lifetime, side effects, and constraints where they affect correct use.
+- Omit comments that merely repeat the declaration.
+- Use examples when they clarify meaningful usage; keep substantial examples in the module README.
 - Use brief implementation comments to explain reasoning needed for maintenance.
+
+Public headers explain abstraction purpose and local, operation-specific semantics. Module READMEs explain substantial shared public models, detailed requirements, and substantial examples. Keep each detailed rule with its owner and use brief local summaries where they help correct use. Keep documentation navigation in Markdown.
 
 ## Validation design
 
-- Tests must demonstrate observable contracts, public invariants, and relevant negative cases.
+- Test observable public contracts, public invariants, and relevant negative cases through public APIs.
+- Keep tests independent of replaceable implementation details, including backend choice and internal dependency structure.
 - Successful-construction tests must show that invalid states are rejected when construction owns that invariant.
-- Backend-neutral contract tests must remain independent of backend-private mechanics.
+- Compile representative caller code that uses public interfaces and extension points.
+- Compile and run runnable documentation examples, checking that their results match the documented behavior.
 
 ## Declaration and definition order
 

@@ -9,7 +9,7 @@ Use this file to acquire the smallest context that fully determines a task. Buil
 - `docs/repository-model.md` owns intended cross-module and build-system semantics.
 - `docs/module-agents-template.md` owns the filter and structure for module-specific direction.
 - Path-specific language instructions own concrete API, coding, and style rules.
-- Public headers own the public contract.
+- Public headers and module READMEs own the public contract, following the split in the [C++ documentation rules](.github/instructions/cpp.instructions.md#documentation).
 - Tests provide executable evidence and case coverage.
 
 Record each durable fact at the narrowest scope shared by everything it governs. The contract of the component named as owner is authoritative for an ownership assertion; shared architecture documentation is authoritative for relationships spanning components. Elsewhere, route readers to the authoritative source, repeating information only when correct local use requires it.
@@ -26,7 +26,7 @@ Resolve conflicts in this order:
 4. Repository-wide documents dispatched by this file.
 5. Surrounding code conventions for matters not otherwise specified.
 
-Repository code is authoritative for current behavior, and public headers are authoritative for the public contract. Explicit architecture and invariant documentation is authoritative for intended behavior. Report mismatches and distinguish current implementation facts, settled decisions, open decisions, and possible future directions.
+Repository code is authoritative for current behavior. Public headers and module READMEs are authoritative for their respective parts of the public contract. Explicit architecture and invariant documentation is authoritative for intended behavior. Report mismatches and distinguish current implementation facts, settled decisions, open decisions, and possible future directions.
 
 ## Context dispatch
 
@@ -41,12 +41,13 @@ Apply all matching task rows, loading only the selected documents or sections. F
 | Task | Additional context |
 |---|---|
 | Ordinary work inside one module | The module's `AGENTS.md`, when present; the validation section of `docs/agent-workflow.md` for implementation tasks |
+| Work on public semantics, including documentation | The relevant public headers and module README model and requirements, when present |
 | Define or materially change a public API within an established module boundary | `docs/agent-workflow.md` and the module's `AGENTS.md`, when present |
 | Create a module or materially change module boundaries | `docs/agent-workflow.md`, `docs/repository-model.md`, and `docs/module-agents-template.md` when a module contract is warranted |
 | Change workspace ordering, dependencies, artifacts, phases, bootstrap, or module execution | `docs/repository-model.md` and each affected foundation module's `AGENTS.md`, when present |
 | Implement across multiple modules | `docs/agent-workflow.md` and each affected module's `AGENTS.md`, when present |
 | Encounter an unresolved durable semantic choice | `docs/agent-workflow.md` and each affected module's `AGENTS.md`, when present |
-| Review a change | Instructions for the changed paths, public interfaces of direct dependencies, and relevant validation code |
+| Review a change | Instructions for the changed paths, public interfaces and relevant README model and requirements of direct dependencies, and relevant validation code |
 | Modify vendored third-party code | Only the task, enclosing workspace/module instructions, and the exact vendored files required |
 
 Load `docs/repository-model.md` only when module boundaries or repository/build semantics are in scope.
@@ -55,9 +56,9 @@ Load `docs/repository-model.md` only when module boundaries or repository/build 
 
 1. Resolve the exact workspace and complete module directory name.
 2. Read the applicable language instructions.
-3. Read the target module's `AGENTS.md` when present, then its public headers.
+3. Read the target module's `AGENTS.md` when present, then its public headers and the relevant README model and requirements when working on public semantics.
 4. Read only implementation and validation files relevant to the requested behavior.
-5. Read direct dependency interfaces when needed; inspect their implementations only when their internals are part of the task.
+5. Read direct dependency interfaces and relevant README model and requirements when needed; inspect their implementations only when their internals are part of the task.
 6. Inspect dependents when a public contract changes or validation exposes an incompatibility.
 7. Use the complete module name found in the workspace. Let the target module and, when necessary, one direct analogue supply local conventions.
 8. Stop acquiring context when the requested behavior and governing constraints are understood.

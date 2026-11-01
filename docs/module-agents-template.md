@@ -15,8 +15,8 @@ After the module-name heading, include only sections selected by this catalogue:
 | Section | Include only when it records |
 |---|---|
 | `Purpose` | The capability the module provides and the observable contract that delimits it. |
-| `Public model` | Relationships among public concepts that future work must preserve and that are not already authoritative in public headers. |
-| `Invariants` | Durable module-specific observable or safety properties that are not already authoritative in the public contract. |
+| `Public model` | Relationships among public concepts that future work must preserve and that are not already authoritative in public headers or the module README. |
+| `Invariants` | Durable module-specific observable or safety properties that are not already authoritative in public headers or the module README. |
 | `Validation` | A non-obvious module-specific entry point, environment, or manual requirement needed to prove the contract. |
 | `Open decisions` | Unresolved semantic choices and the direction required to settle them. |
 
@@ -24,8 +24,11 @@ Use these destinations for material excluded by the filter:
 
 | Material | Destination |
 |---|---|
-| Public contracts and API summaries | Public headers. |
+| Public abstraction purpose and operation-specific semantics | Public headers. |
+| Shared public model, detailed requirements, and substantial examples | Module README. |
+| Shared C++ documentation and validation conventions | [C++ instructions](../.github/instructions/cpp.instructions.md). |
 | Shared coding and style rules | Matching files under `.github/instructions/`. |
+| Durable module-specific direction and boundaries | Module `AGENTS.md`, subject to the filter above. |
 | Dependency information | The source graph, as defined by [Dependency discovery](repository-model.md#dependency-discovery). |
 | Implementation rationale and private storage maintenance | Beside the code they govern. |
 | Executable evidence and test-case inventories | Tests. |
