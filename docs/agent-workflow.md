@@ -136,7 +136,7 @@ Match validation to the semantic reach of the change:
 - private implementation change: build and exercise the target module;
 - public API or behavior change: also build or exercise affected direct dependents;
 - graph, phase, process, or bootstrap change: run the foundation validation named by the relevant module README;
-- documentation change: check semantic accuracy against the authoritative contract and current implementation, verify links, and check consistency between examples and the documented behavior; run existing example validation when an executable example changes;
+- documentation change: apply the [module README convention](module-readme.md) and [module documentation invariant](repository-model.md#module-documentation), check semantic accuracy against the authoritative contract and current implementation, verify links, and check consistency between examples and the documented behavior; run existing example validation when an executable example changes;
 - interactive, terminal, graphics, or hardware behavior: distinguish automated checks from manual checks.
 
 Match evidence to the claimed outcome: use tests for observable contracts,

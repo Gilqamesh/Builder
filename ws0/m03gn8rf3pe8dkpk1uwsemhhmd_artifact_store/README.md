@@ -2,6 +2,6 @@
 
 ## Goal
 
-Locate versioned build artifacts, recognize completed outputs, and atomically update latest references so build phases can reuse and publish results consistently. This module owns artifact paths, marker paths, completed-output lookup, and latest-link operations; phase execution and the decision that an output is ready to publish belong to build phases.
+Locate versioned build artifacts, recognize completed outputs, and atomically update latest references. Provide artifact and marker paths, completed-output lookup, and explicit latest-link publication operations.
 
 See [artifact_store.h](artifact_store.h) for the public interface.

@@ -2,9 +2,7 @@
 
 ## Goal
 
-Create neutral module boilerplate in an existing workspace using a newly generated valid module identity. Authors use it to start a module without manually constructing its identity or namespace.
-
-This module owns neutral filesystem scaffolding. Use the [agent workflow](../../docs/agent-workflow.md#create-a-new-module) for semantic discovery and module-contract authoring. Package management, dependency solving, and architecture generation require separately requested semantic or architectural work.
+Create neutral module boilerplate in an existing workspace using a newly generated valid module identity, with consistent namespaces and include guards. Scaffolding does not establish module semantics or perform package management, dependency solving, or architecture generation. Module-contract authoring follows the [agent workflow](../../docs/agent-workflow.md#create-a-new-module).
 
 ## Invariants
 

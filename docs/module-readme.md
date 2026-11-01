@@ -4,7 +4,10 @@ Every module has a `README.md` with exactly one meaningful `## Goal` section.
 Describe the capability provided, why someone needs it, and the responsibility
 boundary. A short paragraph is sufficient; a directory-name paraphrase or a
 placeholder is not a Goal. Describe the capability without fixing replaceable
-dependencies or internal algorithms.
+dependencies or internal algorithms. Apply the [module documentation
+invariant](repository-model.md#module-documentation) to every section, example,
+and link. State requirements on supplied values, operations, and storage directly;
+keep examples within the documented API and its necessary inputs.
 
 The README describes current intent. Establish its Goal from the task's settled
 intent before designing a new module's public API, write the README as part of
@@ -18,7 +21,7 @@ After the module heading and Goal, add sections only when they help someone use
 or change the module correctly. Useful subjects include:
 
 - Model: shared concepts, ownership, relationships, invariants, and detailed requirements.
-- Usage: meaningful caller examples and substantial workflows.
+- Usage: self-contained API examples and substantial workflows.
 - Limitations: unsupported behavior, responsibility boundaries, and explicitly unresolved decisions.
 - Validation: useful module-specific entry points, environments, or manual checks.
 

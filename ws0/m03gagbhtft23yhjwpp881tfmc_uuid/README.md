@@ -2,6 +2,6 @@
 
 ## Goal
 
-Represent UUID values and generate time-ordered UUIDv7 identities for consumers that need independent identifiers. This module owns UUID bytes, supported generation, and timestamp interpretation; module names, application version histories, and other domain identity rules belong to consumers.
+Represent UUID values, generate time-ordered UUIDv7 identities, and interpret their timestamps. Provide UUID byte storage and standard representations without imposing domain-specific naming or version-history rules.
 
 See [uuid.h](uuid.h) for the public interface.

@@ -2,6 +2,6 @@
 
 ## Goal
 
-Render an SVG file into a PNG image so tools can consume vector diagrams as raster output. This module owns the conversion invocation and output checks; SVG authoring and the meaning of the resulting image remain with callers.
+Render an SVG file into a PNG image through a checked conversion invocation and output validation. Accept the SVG as input and produce raster output without interpreting image content.
 
 See [svg.h](svg.h) for the public interface.

@@ -2,7 +2,7 @@
 
 ## Goal
 
-Represent process commands and own direct execution, checked waits, process replacement, and synchronous foreground-terminal handoff. Shell parsing, pipelines, terminal emulation, asynchronous supervision, and network execution require separate semantic abstractions under the [agent workflow](../../docs/agent-workflow.md#settle-semantic-decisions). Build tools and interactive launchers use this boundary to run commands and handle their completion consistently.
+Represent process commands and own direct execution, checked waits, process replacement, and synchronous foreground-terminal handoff. Shell parsing, pipelines, terminal emulation, asynchronous supervision, and network execution are unsupported.
 
 ## Invariants
 
