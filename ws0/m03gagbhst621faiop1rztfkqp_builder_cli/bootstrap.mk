@@ -54,6 +54,7 @@ BOOTSTRAP_MODULES := \
 	m03gagbhsx4j5z28bqkac3dhhh_shared_library \
 	m03gagbht2l61mj6qitacwbmea_byte_stream \
 	m03gagbhtft23yhjwpp881tfmc_uuid \
+	m03h5n4ecgpxtl2skl0hn35s0n_unique_id \
 	m03gn7qllwpi68ovctow4jrccj_lexer \
 	m03gn8rf3pe8dkpk1uwsemhhmd_artifact_store \
 	m03gn8rf3peew0re4l1s2vvaw6_bootstrap_seed \
@@ -72,6 +73,7 @@ SRC := \
 	$(FOUNDATION_DIR)/m03gagbhsujjf63n0w3r2w4q6h_build_phases/build_phases.cpp \
 	$(FOUNDATION_DIR)/m03gagbht2l61mj6qitacwbmea_byte_stream/byte_stream.cpp \
 	$(FOUNDATION_DIR)/m03gagbhtft23yhjwpp881tfmc_uuid/uuid.cpp \
+	$(FOUNDATION_DIR)/m03h5n4ecgpxtl2skl0hn35s0n_unique_id/unique_id.cpp \
 	$(FOUNDATION_DIR)/m03gn7qllwpi68ovctow4jrccj_lexer/lexer.cpp \
 	$(FOUNDATION_DIR)/m03gn8rf3pe8dkpk1uwsemhhmd_artifact_store/artifact_store.cpp \
 	$(FOUNDATION_DIR)/m03gn8rf3peew0re4l1s2vvaw6_bootstrap_seed/bootstrap_seed.cpp \
@@ -90,6 +92,7 @@ BOOTSTRAP_SEED_BUILDER_SRC := \
 	$(FOUNDATION_DIR)/m03gagbhsujjf63n0w3r2w4q6h_build_phases/build_phases.cpp \
 	$(FOUNDATION_DIR)/m03gagbht2l61mj6qitacwbmea_byte_stream/byte_stream.cpp \
 	$(FOUNDATION_DIR)/m03gagbhtft23yhjwpp881tfmc_uuid/uuid.cpp \
+	$(FOUNDATION_DIR)/m03h5n4ecgpxtl2skl0hn35s0n_unique_id/unique_id.cpp \
 	$(FOUNDATION_DIR)/m03gn7qllwpi68ovctow4jrccj_lexer/lexer.cpp \
 	$(FOUNDATION_DIR)/m03gn8rf3pe8dkpk1uwsemhhmd_artifact_store/artifact_store.cpp \
 	$(FOUNDATION_DIR)/m03gn8rf3peew0re4l1s2vvaw6_bootstrap_seed/bootstrap_seed.cpp \

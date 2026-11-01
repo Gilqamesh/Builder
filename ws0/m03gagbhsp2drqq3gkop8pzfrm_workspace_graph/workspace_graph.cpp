@@ -1,7 +1,7 @@
 #include "workspace_graph.h"
 
 #include <m03gagbhsnusi43zogoacgj2ez_filesystem/filesystem.h>
-#include <m03gagbht2l61mj6qitacwbmea_byte_stream/byte_stream.h>
+#include <m03h5n4ecgpxtl2skl0hn35s0n_unique_id/unique_id.h>
 
 #include <algorithm>
 #include <cerrno>
@@ -43,13 +43,7 @@ module_name_t::module_name_t(std::string_view unique_name):
         throw std::invalid_argument(std::format("m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::module_name_t: module name '{}' must contain '_' at position {}", unique_name, underscore_pos));
     }
 
-    const auto base36_decoded_uuidv7 = base36_uuidv7_bytes(std::string_view(unique_name).substr(base36_decoded_uuidv7_start, base36_converted_uuidv7_size));
-    const auto uuidv7 = m03gagbhtft23yhjwpp881tfmc_uuid::uuid(std::span<const std::byte>(base36_decoded_uuidv7));
-    const auto got_version = uuidv7.version();
-    const auto expected_version = 7;
-    if (got_version != expected_version) {
-        throw std::invalid_argument(std::format("m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::module_name_t: module name '{}' contains UUIDv7 with version {}, expected {}", unique_name, got_version, expected_version));
-    }
+    const m03h5n4ecgpxtl2skl0hn35s0n_unique_id::unique_id_t unique_id(unique_name.substr(base36_decoded_uuidv7_start, base36_converted_uuidv7_size));
 
     for (const char c : std::string_view(unique_name).substr(first_friendly_name_char_pos)) {
         if (c != '_' && !std::isalnum(static_cast<unsigned char>(c))) {
@@ -69,16 +63,8 @@ module_name_t module_name_t::from_friendly_name(std::string_view friendly_name) 
         }
     }
 
-    const auto uuidv7 = m03gagbhtft23yhjwpp881tfmc_uuid::uuid::generate(7);
-    auto base36_encoded_uuidv7 = m03gagbht2l61mj6qitacwbmea_byte_stream::byte_stream_t(uuidv7.bytes()).to_radix(36);
-    if (base36_encoded_uuidv7.size() < base36_converted_uuidv7_size) {
-        base36_encoded_uuidv7 = std::string(base36_converted_uuidv7_size - base36_encoded_uuidv7.size(), '0') + base36_encoded_uuidv7;
-    }
-    if (base36_encoded_uuidv7.size() != base36_converted_uuidv7_size) {
-        throw std::logic_error(std::format("m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::module_name_t::from_friendly_name: base36-encoded UUIDv7 '{}' is not {} characters long", base36_encoded_uuidv7, base36_converted_uuidv7_size));
-    }
-
-    const auto validated_name = module_name_t::validated_name_t{std::format("m{}_{}", base36_encoded_uuidv7, friendly_name)};
+    const auto unique_id = m03h5n4ecgpxtl2skl0hn35s0n_unique_id::unique_id_t::generate();
+    const auto validated_name = module_name_t::validated_name_t{std::format("m{}_{}", unique_id, friendly_name)};
     return module_name_t(validated_name);
 }
 
@@ -91,8 +77,8 @@ std::string module_name_t::friendly_name() const {
 }
 
 m03gagbhtft23yhjwpp881tfmc_uuid::uuid module_name_t::uuid() const {
-    const auto base36_decoded_uuidv7 = base36_uuidv7_bytes(std::string_view(m_unique_name).substr(base36_decoded_uuidv7_start, base36_converted_uuidv7_size));
-    return m03gagbhtft23yhjwpp881tfmc_uuid::uuid(std::span<const std::byte>(base36_decoded_uuidv7));
+    const m03h5n4ecgpxtl2skl0hn35s0n_unique_id::unique_id_t unique_id(std::string_view(m_unique_name).substr(base36_decoded_uuidv7_start, base36_converted_uuidv7_size));
+    return unique_id.uuid();
 }
 
 bool module_name_t::operator==(const module_name_t& other) const {
@@ -110,26 +96,6 @@ bool module_name_t::operator<=(const module_name_t& other) const {
 module_name_t::module_name_t(module_name_t::validated_name_t validated_name) noexcept:
     m_unique_name(std::move(validated_name.name))
 {
-}
-
-std::array<std::byte, 16> module_name_t::base36_uuidv7_bytes(std::string_view view) const {
-    const auto base36_decoded_uuidv7 = m03gagbht2l61mj6qitacwbmea_byte_stream::byte_stream_t::from_radix(view, 36);
-
-    std::array<std::byte, 16> result{};
-
-    const auto& base36_decoded_uuidv7_bytes = base36_decoded_uuidv7.bytes();
-
-    if (result.size() < base36_decoded_uuidv7_bytes.size()) {
-        throw std::invalid_argument(std::format("m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::module_name_t::base36_uuidv7_bytes: base36-decoded UUIDv7 '{}' is wider than {} bytes", base36_decoded_uuidv7, result.size()));
-    }
-
-    std::copy(
-        base36_decoded_uuidv7_bytes.begin(),
-        base36_decoded_uuidv7_bytes.end(),
-        result.begin() + static_cast<std::ptrdiff_t>(result.size() - base36_decoded_uuidv7_bytes.size())
-    );
-
-    return result;
 }
 
 workspace_name_t::workspace_name_t(std::string_view name):

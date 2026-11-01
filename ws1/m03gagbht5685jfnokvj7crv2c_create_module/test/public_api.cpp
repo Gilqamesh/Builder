@@ -1,5 +1,6 @@
 # include <m03gn97n4iusbtl7uthb01wu9m_test_framework/test_framework.h>
 # include <m03gagbht5685jfnokvj7crv2c_create_module/create_module.h>
+#include <m03gagbhsp2drqq3gkop8pzfrm_workspace_graph/workspace_graph.h>
 
 # include <chrono>
 # include <cstdint>
@@ -108,6 +109,9 @@ int main() {
 
         const auto module_name = created.filename();
         test::expect(std::identity(), module_name.ends_with("_Example_Module9"));
+        const m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::module_name_t validated_name(module_name);
+        test::expect(std::equal_to<>(), validated_name.friendly_name(), std::string("Example_Module9"));
+        test::expect(std::equal_to<>(), validated_name.uuid().version(), 7U);
         test::expect(std::equal_to<>(), created.filename(), module_name);
 
         const auto api_header = created / filesystem_api::relative_path_t("api.h");

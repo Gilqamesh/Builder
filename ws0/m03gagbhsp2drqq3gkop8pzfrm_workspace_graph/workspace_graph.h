@@ -79,7 +79,6 @@ private:
 
 private:
     explicit module_name_t(validated_name_t validated_name) noexcept;
-    std::array<std::byte, 16> base36_uuidv7_bytes(std::string_view view) const;
 
 private:
     static constexpr std::size_t m_pos = 0;

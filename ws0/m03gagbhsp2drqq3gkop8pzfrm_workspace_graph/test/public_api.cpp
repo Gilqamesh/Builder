@@ -1,5 +1,6 @@
 #include <m03gn97n4iusbtl7uthb01wu9m_test_framework/test_framework.h>
 #include <m03gagbhsp2drqq3gkop8pzfrm_workspace_graph/workspace_graph.h>
+#include <m03h5n4ecgpxtl2skl0hn35s0n_unique_id/unique_id.h>
 
 #include <functional>
 #include <algorithm>
@@ -131,6 +132,10 @@ int main() {
         test::expect(std::equal_to<>(), known_name.friendly_name(), std::string("byte_stream"));
         test::expect(std::equal_to<>(), known_name.uuid().version(), 7U);
         test::expect(std::equal_to<>(), known_name.uuid().bytes().size(), std::size_t(16));
+        test::expect(std::equal_to<>(), m03h5n4ecgpxtl2skl0hn35s0n_unique_id::unique_id_t(known_name.uuid()).string(), std::string("03gagbht2l61mj6qitacwbmea"));
+        const api::module_name_t reference_name("m000000006g2dvmnfh66jop340_reference");
+        test::expect(std::equal_to<>(), reference_name.unique_name(), std::string("m000000006g2dvmnfh66jop340_reference"));
+        test::expect(std::equal_to<>(), std::format("{}", reference_name.uuid()), std::string("00000000-002a-7000-8000-000000000000"));
         test::expect(std::equal_to<>(), std::format("{}", known_name), known_unique_name);
         test::expect(std::equal_to<>(), api::module_name_hash_t()(known_name),
             api::module_name_hash_t()(api::module_name_t(known_unique_name))
@@ -143,6 +148,15 @@ int main() {
         test::expect(std::equal_to<>(), generated_name.unique_name()[26], '_');
         test::expect(std::equal_to<>(), generated_name.uuid().version(), 7U);
         test::expect(std::equal_to<>(), api::module_name_t(generated_name.unique_name()), generated_name);
+        test::expect(std::equal_to<>(), generated_name.unique_name().substr(1, 25), m03h5n4ecgpxtl2skl0hn35s0n_unique_id::unique_id_t(generated_name.uuid()).string());
+        for (const auto identity : {
+            "000000006g2Dvmnfh66jop340", "f5lxx1zz5pnorynqglhzmsp34",
+            "000000006f1h1uz039d4g622o", "000000006g2dtokqgnngmaups"
+        }) {
+            test::expect_throws<std::invalid_argument>([&] {
+                [[maybe_unused]] const api::module_name_t invalid(std::format("m{}_reference", identity));
+            });
+        }
 
         const api::module_name_t later_name("m03gagbhtft23yhjwpp881tfmc_uuid");
         test::expect(std::identity(), known_name == api::module_name_t(known_unique_name));

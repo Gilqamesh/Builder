@@ -26,6 +26,10 @@ A module directory name has this form:
 m<25-character-base36-encoded-UUIDv7>_<friendly_name>
 ```
 
+The [unique identity module](../ws0/m03h5n4ecgpxtl2skl0hn35s0n_unique_id/README.md)
+owns the UUIDv7/base36 representation; workspace discovery owns module-name framing
+and friendly-name validation.
+
 The complete directory name is the module's stable identity. It is also the project namespace and the first component of every external include path. Friendly names are navigation aids and are not globally unique identities.
 
 Use the complete directory name for module identity, namespaces, includes, and unambiguous execution. A module identity change requires explicit direction.

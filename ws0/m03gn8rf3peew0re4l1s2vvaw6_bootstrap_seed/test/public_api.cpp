@@ -30,6 +30,7 @@ const std::vector<std::string> bootstrap_module_names {
     "m03gagbhsx4j5z28bqkac3dhhh_shared_library",
     "m03gagbht2l61mj6qitacwbmea_byte_stream",
     "m03gagbhtft23yhjwpp881tfmc_uuid",
+    "m03h5n4ecgpxtl2skl0hn35s0n_unique_id",
     "m03gn7qllwpi68ovctow4jrccj_lexer",
     "m03gn8rf3pe8dkpk1uwsemhhmd_artifact_store",
     "m03gn8rf3peew0re4l1s2vvaw6_bootstrap_seed",
