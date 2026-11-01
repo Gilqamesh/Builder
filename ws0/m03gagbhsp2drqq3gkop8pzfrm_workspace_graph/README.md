@@ -1,8 +1,8 @@
 # `m03gagbhsp2drqq3gkop8pzfrm_workspace_graph`
 
-## Purpose
+## Goal
 
-Discover workspaces and modules for one workspace root, validate their identities, expose ordered workspace/module objects, derive source versions, and provide canonical source and artifact paths.
+Discover workspaces and modules for one workspace root, validate their identities, expose ordered workspace/module objects, derive source versions, and provide canonical source and artifact paths. This gives build and development tools one consistent view of the modules and their locations.
 
 For source-include scanning, dependency eligibility, SCC construction, phase execution, and artifact publication, use the [foundation ownership table](../../docs/repository-model.md#foundation-ownership).
 

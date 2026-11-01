@@ -13,7 +13,40 @@ Classify the task before acquiring context:
   or resolve uncertainty.
 - **Local implementation:** preserve the existing module contract and implement the requested behavior.
 - **Semantic or public API change:** settle the contract decisions being changed before implementation.
-- **New module:** establish a module contract before defining its public interface when durable, non-obvious semantics warrant one.
+- **New module:** establish the module README Goal before designing its public API, then record the model and requirements needed to define the contract.
+
+## Logical change record
+
+Organize planning and completion around this record:
+
+```makefile
+Goal:
+The problem and intended observable outcome.
+
+Changes:
+The resulting changes, relevant before/after behavior, and significant rationale.
+
+Validation:
+Checks performed, actual results, and remaining uncertainty.
+```
+
+During planning, state the intended changes and checks in the same structure.
+Derive the task Goal from the requested outcome and affected module README Goals;
+update a module's Goal only when its purpose changes. Under Changes, include caller
+or data migration steps when required. Identify missing semantic decisions and
+continue independent work while those decisions remain open.
+
+At completion, replace planned changes and checks with the resulting changes and
+actual evidence. Include changed files, exact validation commands and results,
+unresolved semantic decisions, and unverified behavior. A proposed check is not a
+completed check.
+
+Store the completed record in the logical change's commit message, including the
+squash commit when applicable. A PR description can carry the working record;
+update it as the change develops. For a change spanning Builder and Builder-Modules,
+identify the corresponding change in the other repository in each record. Do the
+same for any additional participating repository. Use stable branch, commit, or PR
+references so the coordinated change can be found.
 
 ## Acquire context
 
@@ -29,7 +62,7 @@ For a new or materially changing public abstraction:
 4. Settle terminology, ownership, mutability, invariants, and observable behavior through [semantic decision handling](#settle-semantic-decisions).
 5. Express the boundary through capabilities, inputs, outputs, and invariants; make the public model coherent before choosing private mechanics.
 6. When implementation is requested and the necessary contract decisions are settled, implement the smallest coherent milestone.
-7. Validate the contract and stop at that milestone.
+7. Validate the contract and stop at that milestone unless the task authorizes further milestones.
 
 Apply the relevant language instructions for concrete API and coding rules. Keep private implementation mechanics out of the public model unless they impose observable behavior.
 
@@ -68,21 +101,15 @@ Make mechanically reversible implementation choices within the settled contract.
 
 ## Create a new module
 
-Apply the [module-boundary criteria](repository-model.md#module-boundaries) to requested module creation. When a new module has durable, non-obvious semantics that warrant a module contract, draft `<module>/AGENTS.md` before designing its public API. Apply `docs/module-agents-template.md` as a filter, record only direction established by the task or authoritative architecture, and put unresolved semantic choices under `Open decisions`.
+Apply the [module-boundary criteria](repository-model.md#module-boundaries) to requested module creation. Establish the module's Goal from the task's settled intent before designing its public API. Draft the Goal for `<module>/README.md` using the [module README convention](module-readme.md), describing the capability, why someone needs it, and its responsibility boundary. Ask for direction on missing durable semantics; do not infer purpose from the generated directory name.
 
-For a simple wrapper, adapter, generated module, or otherwise self-explanatory module, proceed directly to public-model design. In either case, establish the public model before implementing the API, then implement the smallest end-to-end behavior that validates the model.
+Add model and requirements only when useful, record only direction established by the task or authoritative contracts, and keep unresolved semantic choices explicitly open. Establish the public model before implementing the API, then implement the smallest end-to-end behavior that validates the model. Write and review the README as part of completing module creation, including relevant usage, limitations, or validation.
 
-The module generator creates neutral boilerplate; it does not establish module semantics.
+`create_module` creates neutral filesystem scaffolding; it does not establish module semantics or invent a Goal. The authoring workflow supplies the Goal and README from the task's established intent.
 
 ## Work in an existing module
 
-A missing `AGENTS.md` is normal. Add one only when the task establishes important, durable, non-obvious semantics for future work.
-
-When a module contract already exists:
-
-- Preserve it unless the task explicitly changes it.
-- Treat `Open decisions` as questions requiring direction.
-- Update it only when the durable contract changes.
+Read the README Goal and relevant contracts before planning changes. Preserve the current purpose unless the task explicitly changes it; update the Goal when the module's purpose changes. Preserve settled model and requirements, treat explicitly open decisions as questions requiring direction, and update the relevant contract when its semantics change. Local refactors that preserve behavior need no Goal change.
 
 ## Dispatch work across modules
 
@@ -92,7 +119,7 @@ Give each module worker only:
 
 - the shared task and settled contract;
 - applicable global instructions;
-- its module contract;
+- its module README Goal and relevant contracts;
 - its public and relevant implementation files;
 - public interfaces of direct dependencies.
 
@@ -108,7 +135,7 @@ Match validation to the semantic reach of the change:
 
 - private implementation change: build and exercise the target module;
 - public API or behavior change: also build or exercise affected direct dependents;
-- graph, phase, process, or bootstrap change: run the foundation validation named by the relevant `AGENTS.md`;
+- graph, phase, process, or bootstrap change: run the foundation validation named by the relevant module README;
 - documentation change: check semantic accuracy against the authoritative contract and current implementation, verify links, and check consistency between examples and the documented behavior; run existing example validation when an executable example changes;
 - interactive, terminal, graphics, or hardware behavior: distinguish automated checks from manual checks.
 
@@ -118,8 +145,8 @@ performance claims; and representative callers or observations of use for API
 usability and clarity. Relate the results to the intended improvement and state
 the limits of what they establish.
 
-Report the exact commands run, their results, and untested cases. Only obtained evidence counts as validation.
+Report the exact commands run, their results, and untested cases. Only obtained evidence counts as validation. Keep acceptance criteria intact and distinguish passing implementation checks from outcomes that still require external evidence. Continue authorized work that does not depend on missing evidence. For work authorized across multiple milestones, proceed when the current milestone's acceptance criteria pass and report any obstacle preventing further work.
 
 ## Record durable knowledge
 
-Follow the root [documentation ownership](../AGENTS.md#documentation-ownership) and [placement rules](../AGENTS.md#semantic-control), and apply the [module-contract filter](module-agents-template.md) before recording module-specific direction.
+Follow the root [documentation ownership](../AGENTS.md#documentation-ownership) and [placement rules](../AGENTS.md#semantic-control), and apply the [module README convention](module-readme.md) before recording module-specific direction. Keep task plans and completed change records outside permanent instruction files; store the completed record in the logical change's commit message.

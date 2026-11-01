@@ -1,10 +1,12 @@
 # `m03gtrxnmqqa2t7zxpijo222n6_formatting`
 
-## Purpose
+## Goal
 
 Own the shared structural implementation inherited by explicit `std::formatter`
 specializations. Type owners select structural formatting in their own headers
-and retain custom formatters for semantic presentation.
+and retain custom formatters for semantic presentation. This provides consistent diagnostic views of structured values without requiring each type owner to reproduce structural traversal.
+
+See [api.h](api.h) for formatter selection and layout options.
 
 ## Invariants
 

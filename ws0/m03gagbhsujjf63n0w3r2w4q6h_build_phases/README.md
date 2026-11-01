@@ -1,8 +1,8 @@
 # `m03gagbhsujjf63n0w3r2w4q6h_build_phases`
 
-## Purpose
+## Goal
 
-Materialize a module through source, interface, library, and binary phases; derive source dependencies; build library SCCs; dispatch module-owned producer code; validate outputs; and publish cache-keyed versioned artifacts.
+Materialize a module through source, interface, library, and binary phases; derive source dependencies; build library SCCs; dispatch module-owned producer code; validate outputs; and publish cache-keyed versioned artifacts. This lets module producers participate in a shared build lifecycle without managing dependency execution or publication themselves.
 
 For workspace/module identity, source-include scanning and eligibility, and artifact-path operations, use the [foundation ownership table](../../docs/repository-model.md#foundation-ownership). Application semantics and agent execution remain outside the build-phase model.
 

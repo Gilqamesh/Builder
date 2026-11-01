@@ -14,9 +14,9 @@ The current convention is:
 
 Numeric workspace ordering determines dependency eligibility. The descriptive roles are architectural guidance.
 
-## Agent documentation ownership
+## Documentation ownership
 
-The root `AGENTS.md` and its routed documents apply to the combined development workspace, including modules supplied by another repository. Either repository may contain `<workspace>/<module>/AGENTS.md` for durable module-local semantics. There is no workspace-level `AGENTS.md` layer, and `Builder-Modules` does not duplicate the repository-wide documents.
+Builder owns the root `AGENTS.md`, shared workflow, and coding instructions for the combined development workspace, including modules supplied by another repository. Across Builder and Builder-Modules, each module owns a `README.md` with one meaningful Goal and the relevant semantic contracts, following the [module README convention](module-readme.md). The same convention applies to additional repositories composed into the layout. Module direction belongs in those READMEs; shared instructions remain centralized in Builder.
 
 ## Module identity
 
@@ -45,13 +45,13 @@ Multiple consumers are not required; reuse is useful evidence. Keep tightly coup
 
 ## Foundation ownership
 
-Use these owners for the neighboring responsibilities below. Their module contracts or public interfaces describe the owned capability.
+Use these owners for the neighboring responsibilities below. Their README Goals and public interfaces describe the owned capability.
 
 | Owner | Responsibility |
 |---|---|
-| [`m03gagbhsp2drqq3gkop8pzfrm_workspace_graph`](../ws0/m03gagbhsp2drqq3gkop8pzfrm_workspace_graph/AGENTS.md) | Workspace/module identity and discovery, source versions, and canonical roots. |
+| [`m03gagbhsp2drqq3gkop8pzfrm_workspace_graph`](../ws0/m03gagbhsp2drqq3gkop8pzfrm_workspace_graph/README.md) | Workspace/module identity and discovery, source versions, and canonical roots. |
 | [`m03gn8rf3pe86v64vphnaam6rl_source_dependencies`](../ws0/m03gn8rf3pe86v64vphnaam6rl_source_dependencies/source_dependencies.h) | Source-include scanning, dependency eligibility, and dependency closure. |
-| [`m03gagbhsujjf63n0w3r2w4q6h_build_phases`](../ws0/m03gagbhsujjf63n0w3r2w4q6h_build_phases/AGENTS.md) | Dependency-driven phase execution, library SCC construction and validation, and publication timing. |
+| [`m03gagbhsujjf63n0w3r2w4q6h_build_phases`](../ws0/m03gagbhsujjf63n0w3r2w4q6h_build_phases/README.md) | Dependency-driven phase execution, library SCC construction and validation, and publication timing. |
 | [`m03gn8rf3pe8dkpk1uwsemhhmd_artifact_store`](../ws0/m03gn8rf3pe8dkpk1uwsemhhmd_artifact_store/artifact_store.h) | Versioned artifact and marker paths, completed-artifact lookup, and atomic `latest` updates. |
 
 ## Dependency discovery
@@ -127,7 +127,7 @@ The running CLI compares its modification time with the newest source version in
 
 ## Current direction
 
-The agent workflow is documentation-dispatched: the root router selects global rules and, when present, one semantic contract for each affected module. Explicit module boundaries, source-derived dependencies, independently built artifacts, and small public interfaces provide the scaling mechanism for both implementation and multi-module dispatch.
+The agent workflow is documentation-dispatched: the root router selects global rules and each affected module's README Goal and relevant contracts. Explicit module boundaries, source-derived dependencies, independently built artifacts, and small public interfaces provide the scaling mechanism for both implementation and multi-module dispatch.
 
 Agent scheduling, IPC, network protocols, and generalized task-graph infrastructure are outside the current repository model.
 

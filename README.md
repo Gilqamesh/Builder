@@ -6,7 +6,7 @@ workspace or provide the base layer of a combined workspace.
 
 The usual workflow is:
 
-1. Write a C++ module.
+1. Establish the module's README Goal, then design and implement its public API.
 2. Write the module's `builder.cpp`.
 3. Run the module with `./cli <module> [args...]`.
 
@@ -41,6 +41,12 @@ Module that generates a new module with minimal boilerplate:
 ```sh
 ./cli m03gagbht5685jfnokvj7crv2c_create_module <workspace> hello_module
 ```
+
+Before designing the module's API, establish its Goal from the intended capability,
+need, and responsibility boundary. Complete the module's `README.md` as part of
+authoring it, following the [module README convention](docs/module-readme.md) and
+[module creation workflow](docs/agent-workflow.md#create-a-new-module). The generator
+creates neutral scaffolding; the author supplies the Goal.
 
 ## Combining Module Repositories
 
@@ -340,9 +346,10 @@ hard-coding artifact paths or inspecting phase install roots directly.
 
 ## Some Modules from Workspace `ws0`
 
-- `m03gagbhsp2drqq3gkop8pzfrm_workspace_graph`: discovers modules, derives
-  dependency edges from includes, validates workspace order, forms module
-  dependency strongly connected component groups, and propagates versions.
+- `m03gagbhsp2drqq3gkop8pzfrm_workspace_graph`: discovers workspaces and modules,
+  validates identities, derives source versions, and supplies canonical roots.
+  See the [foundation ownership table](docs/repository-model.md#foundation-ownership)
+  for source scanning, dependency eligibility, and library SCC execution.
 - `m03gagbhsujjf63n0w3r2w4q6h_build_phases`: defines phase APIs, lazy
   installation, phase roots, interface publication, library builds, and binary
   builds.
