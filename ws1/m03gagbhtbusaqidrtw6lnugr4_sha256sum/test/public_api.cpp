@@ -1,5 +1,6 @@
 #include <m03gn97n4iusbtl7uthb01wu9m_test_framework/test_framework.h>
 #include <m03gagbhtbusaqidrtw6lnugr4_sha256sum/sha256sum.h>
+#include <m03gagbhsvr0m5w15urj0o291m_process/process.h>
 
 #include <functional>
 #include <chrono>
@@ -8,9 +9,11 @@
 #include <format>
 #include <fstream>
 #include <initializer_list>
+#include <iterator>
 #include <stdexcept>
 #include <string>
 #include <string_view>
+#include <utility>
 
 namespace api = m03gagbhtbusaqidrtw6lnugr4_sha256sum;
 namespace filesystem_api = m03gagbhsnusi43zogoacgj2ez_filesystem;
@@ -123,5 +126,51 @@ int main() {
         });
         test::expect(std::identity(), filesystem_api::is_regular_file(file));
         test::expect(std::identity(), !filesystem_api::exists(checksum_path));
+
+        test::expect(std::identity(), api::generate(file) == checksum_path);
+        std::ifstream generated_stream(checksum_path.string(), std::ios::binary);
+        const std::string generated_record((std::istreambuf_iterator<char>(generated_stream)), std::istreambuf_iterator<char>());
+        test::expect(std::identity(), generated_record == expected + "  value.bin\n");
+        test::expect_throws<std::runtime_error>([&] { api::generate(file); });
+        std::ifstream preserved_stream(checksum_path.string(), std::ios::binary);
+        const std::string preserved_record((std::istreambuf_iterator<char>(preserved_stream)), std::istreambuf_iterator<char>());
+        test::expect(std::identity(), preserved_record == generated_record);
+
+        test::expect_throws<std::runtime_error>([&] {
+            api::generate(filesystem_api::path_t(temporary_directory.path() / "missing"));
+        });
+        test::expect_throws<std::runtime_error>([&] {
+            api::generate(filesystem_api::path_t(temporary_directory.path()));
+        });
+
+        const std::initializer_list<std::pair<std::string, std::string>> generation_cases {
+            { "empty.bin", "" },
+            { "binary.bin", std::string("a\0b", 3) },
+            { "space name.bin", "abc" },
+            { "line\nbreak.bin", "abc" },
+            { "back\\slash.bin", "abc" },
+            { "carriage\rreturn.bin", "abc" },
+            { "-leading.bin", "abc" },
+            { "-", "abc" }
+        };
+        for (const auto& [filename, contents] : generation_cases) {
+            const auto input = filesystem_api::path_t(temporary_directory.path() / filename);
+            write_file(input.to_native_path(), contents);
+            const auto generated = api::generate(input);
+            test::expect(std::identity(), generated == input + ".sha256");
+            std::ifstream input_stream(input.string(), std::ios::binary);
+            const std::string preserved_contents((std::istreambuf_iterator<char>(input_stream)), std::istreambuf_iterator<char>());
+            test::expect(std::identity(), preserved_contents == contents);
+            if (filename == "empty.bin") {
+                std::ifstream empty_stream(generated.string(), std::ios::binary);
+                const std::string empty_record((std::istreambuf_iterator<char>(empty_stream)), std::istreambuf_iterator<char>());
+                test::expect(std::identity(), empty_record == "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  empty.bin\n");
+            }
+            m03gagbhsvr0m5w15urj0o291m_process::create_and_wait_checked(
+                m03gagbhsvr0m5w15urj0o291m_process::command_t({
+                    "/usr/bin/sha256sum", "--check", "--strict", generated.string()
+                }, input.parent())
+            );
+        }
     });
 }
