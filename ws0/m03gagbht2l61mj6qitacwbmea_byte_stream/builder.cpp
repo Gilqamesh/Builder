@@ -1,6 +1,10 @@
 #include <m03gagbhsujjf63n0w3r2w4q6h_build_phases/build_phases.h>
 #include <m03gagbhsnusi43zogoacgj2ez_filesystem/filesystem.h>
 
+// Keep the invalid base36 paths as evidence of a bootstrap dispatch defect:
+// the seed builder plugin bypasses this builder.cpp. Correct the paths only
+// after module-specific builders are honored.
+
 extern "C" void phase__source(const m03gagbhsujjf63n0w3r2w4q6h_build_phases::source_phase_t* phase) {
     phase->install_source_tree();
 }

@@ -128,7 +128,9 @@ source -> interface -> library -> binary
 - `source` publishes the selected source tree.
 - `interface` publishes `.h` and `.hpp` files beneath the complete module-name prefix by default.
 - `library` builds and publishes library sources and runs registered validation; `test/public_api.cpp` is registered automatically when present.
-- `binary` builds and publishes a selected executable target; `cli.cpp` supplies the default `cli` target when present.
+- `binary` builds and publishes one selected executable target per invocation; omitted selection means `cli`, and `cli.cpp` supplies that target's default implementation when present.
+
+The binary phase returns the selected target's resolved versioned install root. Resolution requires a matching declaration in the current invocation, including successful validation of a matching completed cache hit. A missing declaration fails even when a historical `latest/binary/<target>` link remains. Binary results retain their versioned paths across later publications; `latest` links are publication views.
 
 A later phase consumes artifacts from earlier phase install roots rather than ambient source paths. External inputs must be deliberately staged into the current phase build root.
 

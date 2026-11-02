@@ -159,6 +159,7 @@ int main() {
         write_file(subject_dir / "manual.inc", "manual\n");
         write_file(subject_dir / "data.txt", "data\n");
         write_file(subject_dir / "built.txt", "built\n");
+        write_file(subject_dir / "cli/broken.cpp", "this is not valid C++\n");
 
         write_file(
             discovery_owner_dir / "api.cpp",
@@ -459,22 +460,27 @@ int main() {
             const auto fake_binary_root = filesystem_api::path_t(
                 temporary_directory.path() / "fake-binary-root"
             );
-            const auto fake_binary = fake_binary_root
-                / filesystem_api::relative_path_t("tool")
-                / filesystem_api::relative_path_t("install")
-                / filesystem_api::relative_path_t("tool");
+            const auto fake_binary = fake_binary_root / filesystem_api::relative_path_t("tool");
             write_file(fake_binary.to_native_path(), "binary\n");
-            const api::binary_phase_t::installed_t installed(fake_binary_root);
+            const api::binary_phase_t::installed_t installed(fake_binary_root, "tool");
             test::expect(std::equal_to<>(), installed.root(), fake_binary_root);
-            test::expect(std::equal_to<>(), installed.target("tool"), fake_binary);
+            test::expect(std::equal_to<>(), installed.target(), fake_binary);
             test::expect_throws<std::runtime_error>([&] {
-                [[maybe_unused]] const auto target = installed.target("");
+                [[maybe_unused]] const api::binary_phase_t::installed_t invalid(fake_binary_root, "");
             });
             test::expect_throws<std::runtime_error>([&] {
-                [[maybe_unused]] const auto target = installed.target("bad/name");
+                [[maybe_unused]] const api::binary_phase_t::installed_t invalid(fake_binary_root, "bad/name");
             });
             test::expect_throws<std::runtime_error>([&] {
-                [[maybe_unused]] const auto target = installed.target("missing");
+                [[maybe_unused]] const api::binary_phase_t::installed_t missing(fake_binary_root, "missing");
+            });
+            std::filesystem::remove(fake_binary.to_native_path());
+            std::filesystem::create_directory(fake_binary.to_native_path());
+            test::expect_throws<std::runtime_error>([&] {
+                [[maybe_unused]] const api::binary_phase_t::installed_t directory(fake_binary_root, "tool");
+            });
+            test::expect_throws<std::runtime_error>([&] {
+                [[maybe_unused]] const auto target = installed.target();
             });
         }
 
@@ -483,34 +489,55 @@ int main() {
             phase = std::make_unique<api::source_phase_t>(*subject, std::move(phase));
             phase = std::make_unique<api::interface_phase_t>(*subject, std::move(phase));
             phase = std::make_unique<api::library_phase_t>(*subject, std::move(phase));
-            api::binary_phase_t binary_phase(*subject, "", std::move(phase));
+            api::binary_phase_t binary_phase(*subject, "cli", std::move(phase));
             test::expect(std::equal_to<>(), binary_phase.name(), std::string_view("binary"));
+            test::expect(std::equal_to<>(), binary_phase.target(), std::string_view("cli"));
             test::expect(std::identity(), binary_phase.should_install_target("cli"));
-            test::expect(std::identity(), binary_phase.should_install_target("anything"));
+            test::expect(std::identity(), !binary_phase.should_install_target("anything"));
 
             const auto installed = binary_phase.install<api::binary_phase_t>();
-            const auto cli = installed.target("cli");
+            const auto cli = installed.target();
+            const auto latest_install = subject->artifact_latest_dir()
+                / filesystem_api::relative_path_t("binary/cli/install");
+            test::expect(std::equal_to<>(), installed.root(), filesystem_api::canonical(latest_install));
+            test::expect(std::equal_to<>(), cli, installed.root() / filesystem_api::relative_path_t("cli"));
             test::expect(std::equal_to<>(), run_binary(cli), 0);
+            const auto binary_write_time = filesystem_api::last_write_time(cli);
+            const auto cached = binary_phase.install<api::binary_phase_t>();
+            test::expect(std::equal_to<>(), cached.root(), installed.root());
+            test::expect(std::identity(), filesystem_api::last_write_time(cached.target()) == binary_write_time);
 
             const auto cli_source = binary_phase.source("cli.cpp");
-            binary_phase.install_binary("extra", { cli_source });
-            const auto extra = installed.target("extra");
-            test::expect(std::equal_to<>(), run_binary(extra), 0);
             const auto data_artifact = binary_phase.source("data.txt");
-            binary_phase.install_binary("extra", { cli_source }, {}, { data_artifact });
-            binary_phase.install_binary("extra", { cli_source }, {}, { data_artifact });
+            binary_phase.install_binary("cli", { cli_source }, {}, { data_artifact });
+            const api::binary_phase_t::installed_t with_artifact(filesystem_api::canonical(latest_install), "cli");
             test::expect(std::identity(), filesystem_api::is_regular_file(
-                installed.root()
-                    / filesystem_api::relative_path_t("extra/install/data.txt")
+                with_artifact.root() / filesystem_api::relative_path_t("data.txt")
             ));
-            binary_phase.install_binary("extra", { cli_source });
-            test::expect(std::equal_to<>(), run_binary(installed.target("extra")), 0);
+            test::expect(std::identity(), with_artifact.root() != installed.root());
+            test::expect(std::equal_to<>(), installed.target(), cli);
+            test::expect(std::equal_to<>(), run_binary(installed.target()), 0);
+            binary_phase.install_binary("cli", { cli_source }, {}, { data_artifact });
+            test::expect(std::equal_to<>(), filesystem_api::canonical(latest_install), with_artifact.root());
 
             test::expect_throws<std::runtime_error>([&] {
-                binary_phase.install_binary("", { cli_source });
+                binary_phase.install_binary("cli", { binary_phase.source("cli/broken.cpp") });
             });
+            test::expect(std::equal_to<>(), filesystem_api::canonical(latest_install), with_artifact.root());
+            test::expect(std::equal_to<>(), run_binary(with_artifact.target()), 0);
+
+            filesystem_api::remove(with_artifact.root() / filesystem_api::relative_path_t("data.txt"));
             test::expect_throws<std::runtime_error>([&] {
-                binary_phase.install_binary("bad/name", { cli_source });
+                binary_phase.install_binary("cli", { cli_source }, {}, { data_artifact });
+            });
+            test::expect(std::equal_to<>(), filesystem_api::canonical(latest_install), with_artifact.root());
+
+            binary_phase.install_binary("cli", { cli_source });
+            test::expect(std::equal_to<>(), filesystem_api::canonical(latest_install), installed.root());
+            filesystem_api::remove(cli);
+            std::filesystem::create_directory(cli.to_native_path());
+            test::expect_throws<std::runtime_error>([&] {
+                [[maybe_unused]] const auto corrupt = binary_phase.install<api::binary_phase_t>();
             });
         }
 
@@ -525,6 +552,25 @@ int main() {
             test::expect_no_throw([&] {
                 selected.install_binary("other/path", {});
             });
+            const auto cli_source = selected.source("cli.cpp");
+            selected.install_binary("selected", { cli_source });
+            const auto historical_install = filesystem_api::canonical(subject->artifact_latest_dir()
+                / filesystem_api::relative_path_t("binary/selected/install"));
+            test::expect(std::identity(), filesystem_api::is_regular_file(
+                historical_install / filesystem_api::relative_path_t("selected")
+            ));
+            test::expect_throws<std::runtime_error>([&] {
+                [[maybe_unused]] const auto unresolved = selected.install<api::binary_phase_t>();
+            });
+            test::expect(std::equal_to<>(), filesystem_api::canonical(subject->artifact_latest_dir()
+                / filesystem_api::relative_path_t("binary/selected/install")), historical_install);
+            test::expect(std::identity(), std::filesystem::is_regular_file(
+                historical_install.to_native_path().parent_path() / ".complete"
+            ));
+            auto fresh_phase = api::phase_base_t::make(*subject, "selected");
+            test::expect_throws<std::runtime_error>([&] {
+                [[maybe_unused]] const auto unresolved = fresh_phase->install<api::binary_phase_t>();
+            });
         }
 
         {
@@ -532,15 +578,23 @@ int main() {
             test::expect(std::equal_to<>(), phase->name(), std::string_view("binary"));
             auto* binary = dynamic_cast<api::binary_phase_t*>(phase.get());
             test::expect(std::identity(), binary != nullptr);
-            test::expect(std::identity(), binary->should_install_target("any"));
+            test::expect(std::equal_to<>(), binary->target(), std::string_view("cli"));
+            test::expect(std::identity(), binary->should_install_target("cli"));
+            test::expect(std::identity(), !binary->should_install_target("any"));
 
             auto selected_phase = api::phase_base_t::make(*subject, "chosen");
             auto* selected = dynamic_cast<api::binary_phase_t*>(selected_phase.get());
             test::expect(std::identity(), selected != nullptr);
+            test::expect(std::equal_to<>(), selected->target(), std::string_view("chosen"));
             test::expect(std::identity(), selected->should_install_target("chosen"));
             test::expect(std::identity(), !selected->should_install_target("other"));
             test::expect(std::equal_to<>(), selected_phase->install<api::source_phase_t>().root(),
                 phase->install<api::source_phase_t>().root());
+            for (const auto invalid_target : { "", "bad/name", "bad\\name" }) {
+                test::expect_throws<std::runtime_error>([&] {
+                    [[maybe_unused]] const auto invalid = api::phase_base_t::make(*subject, invalid_target);
+                });
+            }
         }
 
         const auto dependencies = api::discover_module_dependencies(*discovery_owner);

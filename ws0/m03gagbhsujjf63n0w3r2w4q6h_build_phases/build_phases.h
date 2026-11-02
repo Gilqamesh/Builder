@@ -41,7 +41,8 @@ public:
     virtual ~phase_base_t() = default;
 
     /**
-     * Creates the phase chain for module.
+     * Creates the phase chain for module, selecting cli when no target is supplied.
+     * An explicit target must be non-empty and contain no path separators.
      */
     static std::unique_ptr<phase_base_t> make(
         m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::module_t& module
@@ -109,7 +110,11 @@ protected:
 
 private:
     m03gagbhsnusi43zogoacgj2ez_filesystem::path_t artifact_dir() const;
+
+protected:
     void artifact_dir(m03gagbhsnusi43zogoacgj2ez_filesystem::path_t artifact_dir) const;
+
+private:
     bool has_artifact_dir() const;
     m03gagbhsnusi43zogoacgj2ez_filesystem::path_t builder_plugin() const;
     const phase_base_t* previous_phase() const;
@@ -265,25 +270,29 @@ private:
 };
 
 /**
- * Phase object for building and publishing executable output.
+ * Phase object for building and publishing one selected executable target.
  */
 struct binary_phase_t : phase_base_t {
     class installed_t {
     public:
-        explicit installed_t(const m03gagbhsnusi43zogoacgj2ez_filesystem::path_t& root);
+        /**
+         * Selects a target in its versioned install root; rejects an invalid name or missing regular file.
+         */
+        installed_t(const m03gagbhsnusi43zogoacgj2ez_filesystem::path_t& root, std::string_view target);
 
         /**
-         * Binary phase install root.
+         * Selected target's versioned install root, including its runtime artifacts.
          */
         const m03gagbhsnusi43zogoacgj2ez_filesystem::path_t& root() const;
 
         /**
-         * Published binary target path.
+         * Selected executable path. Fails if the output is no longer a regular file.
          */
-        m03gagbhsnusi43zogoacgj2ez_filesystem::path_t target(std::string_view target) const;
+        m03gagbhsnusi43zogoacgj2ez_filesystem::path_t target() const;
 
     private:
         m03gagbhsnusi43zogoacgj2ez_filesystem::path_t m_root;
+        std::string m_target;
     };
 
     binary_phase_t(
@@ -292,10 +301,12 @@ struct binary_phase_t : phase_base_t {
         std::unique_ptr<phase_base_t> previous_phase
     );
 
+    std::string_view target() const;
     bool should_install_target(std::string_view target) const;
 
     /**
-     * Builds source_files and publishes the executable plus runtime artifacts.
+     * Builds source_files and publishes the executable plus runtime artifacts when target is selected.
+     * Reuses a matching completed artifact after validating its outputs.
      * Each runtime artifact is installed under its source basename.
      */
     void install_binary(

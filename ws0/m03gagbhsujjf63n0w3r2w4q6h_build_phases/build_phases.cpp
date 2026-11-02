@@ -545,7 +545,7 @@ phase_base_t::phase_base_t(
 std::unique_ptr<phase_base_t> phase_base_t::make(
     m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::module_t& module
 ) {
-    return make(module, "");
+    return make(module, "cli");
 }
 
 std::unique_ptr<phase_base_t> phase_base_t::make(
@@ -982,6 +982,26 @@ const std::vector<library_phase_t::validation_t>& library_phase_t::validations()
     return m_validations;
 }
 
+binary_phase_t::installed_t::installed_t(const m03gagbhsnusi43zogoacgj2ez_filesystem::path_t& root, std::string_view target):
+    m_root(root),
+    m_target(target)
+{
+    this->target();
+}
+
+const m03gagbhsnusi43zogoacgj2ez_filesystem::path_t& binary_phase_t::installed_t::root() const {
+    return m_root;
+}
+
+m03gagbhsnusi43zogoacgj2ez_filesystem::path_t binary_phase_t::installed_t::target() const {
+    const auto binary = m_root / binary_target_relative_output_path(m_target);
+    if (!m03gagbhsnusi43zogoacgj2ez_filesystem::exists(binary) || !m03gagbhsnusi43zogoacgj2ez_filesystem::is_regular_file(binary)) {
+        throw std::runtime_error(std::format("m03gagbhsujjf63n0w3r2w4q6h_build_phases::binary_phase_t::installed_t::target: binary phase did not publish '{}' target at {}", m_target, binary));
+    }
+
+    return binary;
+}
+
 binary_phase_t::binary_phase_t(
     m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::module_t& module,
     std::string_view target,
@@ -990,29 +1010,15 @@ binary_phase_t::binary_phase_t(
     phase_base_t("binary", module, std::move(previous_phase)),
     m_target(target)
 {
+    binary_target_relative_output_path(m_target);
 }
 
-binary_phase_t::installed_t::installed_t(const m03gagbhsnusi43zogoacgj2ez_filesystem::path_t& root):
-    m_root(root)
-{
-}
-
-const m03gagbhsnusi43zogoacgj2ez_filesystem::path_t& binary_phase_t::installed_t::root() const {
-    return m_root;
+std::string_view binary_phase_t::target() const {
+    return m_target;
 }
 
 bool binary_phase_t::should_install_target(std::string_view target) const {
-    return m_target.empty() || m_target == target;
-}
-
-m03gagbhsnusi43zogoacgj2ez_filesystem::path_t binary_phase_t::installed_t::target(std::string_view target) const {
-    const auto relative_output_path = binary_target_relative_output_path(target);
-    const auto binary = m_root / relative_output_path / m03gagbhsnusi43zogoacgj2ez_filesystem::relative_path_t("install") / relative_output_path;
-    if (!m03gagbhsnusi43zogoacgj2ez_filesystem::exists(binary) || !m03gagbhsnusi43zogoacgj2ez_filesystem::is_regular_file(binary)) {
-        throw std::runtime_error(std::format("m03gagbhsujjf63n0w3r2w4q6h_build_phases::binary_phase_t::installed_t::target: binary phase did not publish '{}' target at {}", target, binary));
-    }
-
-    return binary;
+    return m_target == target;
 }
 
 void binary_phase_t::install_binary(
@@ -1074,8 +1080,8 @@ void binary_phase_t::install_binary(
     const auto complete = artifact_store::completed_marker(artifact_dir);
 
     if (m03gagbhsnusi43zogoacgj2ez_filesystem::exists(complete)) {
-        if (!m03gagbhsnusi43zogoacgj2ez_filesystem::exists(binary)) {
-            throw std::runtime_error(std::format("m03gagbhsujjf63n0w3r2w4q6h_build_phases::binary_phase_t::install_binary: completed target binary '{}' does not exist", binary));
+        if (!m03gagbhsnusi43zogoacgj2ez_filesystem::is_regular_file(binary)) {
+            throw std::runtime_error(std::format("m03gagbhsujjf63n0w3r2w4q6h_build_phases::binary_phase_t::install_binary: completed target binary '{}' is not a regular file", binary));
         }
         for (const auto& artifact : runtime_artifacts) {
             const auto installed_artifact = target_install_dir
@@ -1088,6 +1094,7 @@ void binary_phase_t::install_binary(
         }
 
         update_latest_binary_target(module(), target, artifact_dir);
+        this->artifact_dir(artifact_dir);
         return ;
     }
 
@@ -1122,6 +1129,7 @@ void binary_phase_t::install_binary(
         m03gagbhsnusi43zogoacgj2ez_filesystem::touch(complete);
         m03gagbhsnusi43zogoacgj2ez_filesystem::remove(started);
         update_latest_binary_target(module(), target, artifact_dir);
+        this->artifact_dir(artifact_dir);
     } catch (...) {
         m03gagbhsnusi43zogoacgj2ez_filesystem::remove_all(artifact_dir);
         throw ;
@@ -1447,9 +1455,18 @@ typename phase_t::installed_t phase_base_t::install(const phase_t& requested_pha
     if constexpr (std::is_same_v<phase_t, binary_phase_t>) {
         m03gagbhsyhlx2pk5sdabbr1sx_signal_handler::scoped_termination_guard_t termination_guard;
 
+        requested_phase.m_artifact_dir.reset();
         run_phase(requested_phase);
 
-        return typename phase_t::installed_t(m_module.artifact_latest_dir() / filesystem::relative_path_t("binary"));
+        if (!requested_phase.has_artifact_dir()) {
+            throw std::runtime_error(std::format(
+                "m03gagbhsujjf63n0w3r2w4q6h_build_phases::phase_base_t::install: binary phase for module '{}' did not resolve requested target '{}'",
+                requested_phase.module().name(),
+                requested_phase.target()
+            ));
+        }
+
+        return typename phase_t::installed_t(requested_phase.install_dir(), requested_phase.target());
     } else if constexpr (std::is_same_v<phase_t, library_phase_t>) {
         return typename phase_t::installed_t(install_library_scc(requested_phase));
     } else {

@@ -61,7 +61,7 @@ static m03gagbhsvr0m5w15urj0o291m_process::command_t build_cli_command(
         const auto bootstrap_seed_binary = install_binary_phase(bootstrap_seed::module(workspace_graph), DEFAULT_TARGET);
 
         std::vector<std::string> process_args;
-        process_args.push_back(bootstrap_seed_binary.target(DEFAULT_TARGET).string());
+        process_args.push_back(bootstrap_seed_binary.target().string());
         process_args.push_back(module_target_argument(module, target));
         process_args.insert(process_args.end(), additional_module_args.begin(), additional_module_args.end());
 
@@ -70,7 +70,7 @@ static m03gagbhsvr0m5w15urj0o291m_process::command_t build_cli_command(
 
     m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::module_t* target_module = workspace_graph.discover_module(module);
     const auto target_binary = install_binary_phase(*target_module, target);
-    const auto target_path = target_binary.target(target);
+    const auto target_path = target_binary.target();
 
     std::vector<std::string> process_args;
     process_args.push_back(target_path.string());

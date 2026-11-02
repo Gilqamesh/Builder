@@ -320,6 +320,29 @@ int main() {
         });
         expect_cli_output(failure_output, { failure_output.string(), "fail" });
 
+        const auto module_artifacts = artifact_root / target_module.unique_name();
+        const auto retired_artifact = module_artifacts / "binary" / "removed" / "retired-fixture";
+        const auto latest_binary = module_artifacts / "latest" / "binary";
+        std::filesystem::create_directories(retired_artifact.parent_path());
+        std::filesystem::copy(
+            std::filesystem::canonical(latest_binary / "cli"),
+            retired_artifact,
+            std::filesystem::copy_options::recursive
+        );
+        std::filesystem::rename(retired_artifact / "install" / "cli", retired_artifact / "install" / "removed");
+        std::filesystem::create_directory_symlink(retired_artifact, latest_binary / "removed");
+        const auto retired_output = temporary_directory.path() / "removed-target.txt";
+        test::expect_throws<std::runtime_error>([&] {
+            api::create_and_wait_checked(target_module, "removed", std::vector<std::string> { retired_output.string() });
+        });
+        test::expect(std::identity(), !std::filesystem::exists(retired_output));
+        test::expect(std::equal_to<>(), run_in_subprocess([&] {
+            api::exec(target_module, "removed", std::vector<std::string> { retired_output.string() });
+        }), 251);
+        test::expect(std::identity(), !std::filesystem::exists(retired_output));
+        test::expect(std::identity(), std::filesystem::is_regular_file(retired_artifact / ".complete"));
+        test::expect(std::identity(), std::filesystem::is_regular_file(latest_binary / "removed" / "install" / "removed"));
+
         test::expect_throws<std::runtime_error>([&] {
             api::create_and_wait_checked(
                 target_module,
