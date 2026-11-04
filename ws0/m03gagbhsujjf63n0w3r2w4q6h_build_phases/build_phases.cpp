@@ -584,18 +584,25 @@ bool phase_base_t::has_artifact_dir() const {
     return m_artifact_dir.has_value();
 }
 
+std::optional<m03gagbhsnusi43zogoacgj2ez_filesystem::path_t> phase_base_t::input_install_dir() const {
+    if (m_installed_root) {
+        return m_installed_root;
+    }
+    if (has_artifact_dir()) {
+        return install_dir();
+    }
+    return std::nullopt;
+}
+
 m03gagbhsnusi43zogoacgj2ez_filesystem::path_t phase_base_t::build_dir() const {
     return artifact_dir() / m03gagbhsnusi43zogoacgj2ez_filesystem::relative_path_t("build");
 }
 
 phase_base_t::built_t phase_base_t::build(const m03gagbhsnusi43zogoacgj2ez_filesystem::path_t& path) const {
     for (const auto* phase = previous_phase(); phase != nullptr; phase = phase->previous_phase()) {
-        if (!phase->has_artifact_dir()) {
-            continue;
-        }
-        const auto previous_install_dir = phase->install_dir();
-        if (previous_install_dir.is_child(path)) {
-            return build(m03gagbhsnusi43zogoacgj2ez_filesystem::rooted_path_t(previous_install_dir, previous_install_dir.relative(path)));
+        const auto previous_install_dir = phase->input_install_dir();
+        if (previous_install_dir && previous_install_dir->is_child(path)) {
+            return build(m03gagbhsnusi43zogoacgj2ez_filesystem::rooted_path_t(*previous_install_dir, previous_install_dir->relative(path)));
         }
     }
 
@@ -623,10 +630,8 @@ phase_base_t::built_t phase_base_t::build(const m03gagbhsnusi43zogoacgj2ez_files
 
 phase_base_t::built_t phase_base_t::build(const m03gagbhsnusi43zogoacgj2ez_filesystem::rooted_path_t& rooted_path) const {
     for (const auto* phase = previous_phase(); phase != nullptr; phase = phase->previous_phase()) {
-        if (!phase->has_artifact_dir()) {
-            continue;
-        }
-        if (rooted_path.root() == phase->install_dir()) {
+        const auto previous_install_dir = phase->input_install_dir();
+        if (previous_install_dir && rooted_path.root() == *previous_install_dir) {
             return built_t(rooted_path);
         }
     }
@@ -666,12 +671,9 @@ m03gagbhsnusi43zogoacgj2ez_filesystem::relative_path_t phase_base_t::installed_r
     }
 
     for (const auto* phase = previous_phase(); phase != nullptr; phase = phase->previous_phase()) {
-        if (!phase->has_artifact_dir()) {
-            continue;
-        }
-        const auto previous_install_dir = phase->install_dir();
-        if (previous_install_dir.is_child(path)) {
-            return previous_install_dir.relative(path);
+        const auto previous_install_dir = phase->input_install_dir();
+        if (previous_install_dir && previous_install_dir->is_child(path)) {
+            return previous_install_dir->relative(path);
         }
     }
 
@@ -693,10 +695,8 @@ void phase_base_t::install(const m03gagbhsnusi43zogoacgj2ez_filesystem::rooted_p
     }
 
     for (const auto* phase = previous_phase(); phase != nullptr; phase = phase->previous_phase()) {
-        if (!phase->has_artifact_dir()) {
-            continue;
-        }
-        if (rooted_path.root() == phase->install_dir()) {
+        const auto previous_install_dir = phase->input_install_dir();
+        if (previous_install_dir && rooted_path.root() == *previous_install_dir) {
             install_as(rooted_path.path(), rooted_path.relative_path());
             return ;
         }
@@ -1468,7 +1468,9 @@ typename phase_t::installed_t phase_base_t::install(const phase_t& requested_pha
 
         return typename phase_t::installed_t(requested_phase.install_dir(), requested_phase.target());
     } else if constexpr (std::is_same_v<phase_t, library_phase_t>) {
-        return typename phase_t::installed_t(install_library_scc(requested_phase));
+        const auto root = install_library_scc(requested_phase);
+        requested_phase.m_installed_root = root;
+        return typename phase_t::installed_t(root);
     } else {
         if constexpr (std::is_same_v<phase_t, source_phase_t>) {
             requested_phase.artifact_dir(phase_artifact_dir(requested_phase.module(), requested_phase.name(), source_phase_cache_key(requested_phase.module())));

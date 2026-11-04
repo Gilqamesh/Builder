@@ -116,6 +116,7 @@ protected:
 
 private:
     bool has_artifact_dir() const;
+    std::optional<m03gagbhsnusi43zogoacgj2ez_filesystem::path_t> input_install_dir() const;
     m03gagbhsnusi43zogoacgj2ez_filesystem::path_t builder_plugin() const;
     const phase_base_t* previous_phase() const;
 
@@ -131,6 +132,7 @@ private:
     m03gagbhsp2drqq3gkop8pzfrm_workspace_graph::module_t& m_module;
     std::unique_ptr<phase_base_t> m_previous_phase;
     mutable std::optional<m03gagbhsnusi43zogoacgj2ez_filesystem::path_t> m_artifact_dir;
+    mutable std::optional<m03gagbhsnusi43zogoacgj2ez_filesystem::path_t> m_installed_root;
 };
 
 /**
